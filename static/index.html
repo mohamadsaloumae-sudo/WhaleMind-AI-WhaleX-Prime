@@ -1,522 +1,1252 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>WhaleX Prime</title>
-<!-- CSS — الترتيب مهم -->
-<link rel="stylesheet" href="css/tokens.css">
-<link rel="stylesheet" href="css/layout.css">
-<link rel="stylesheet" href="css/components.css">
-<link rel="stylesheet" href="css/screens.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhaleX Protocol — The Sovereign Trading Fortress</title>
+<meta name="description" content="WhaleX is a Layer-1 protocol on Solana designed to eliminate the gap between retail traders and Whales. Join the presale now.">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Tajawal:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════
+   CONFIG — EDIT PRICES HERE
+   ══════════════════════════════
+   To change Stage price, search: <!-- PRICE -->
+   Current price placeholder: TBA
+══════════════════════════════ */
+
+:root {
+  --bg0:   #010810;
+  --bg1:   #020d18;
+  --bg2:   #041525;
+  --sol:   #9945FF;
+  --sol2:  #14F195;
+  --gold:  #F0BE3C;
+  --ice:   #A8EDFF;
+  --fire:  #FF6B35;
+  --glass: rgba(20,241,149,.06);
+  --bdr:   rgba(20,241,149,.14);
+  --bdr2:  rgba(153,69,255,.18);
+  --txt:   #C5E4FF;
+  --muted: #506A85;
+  --white: #EEF7FF;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{font-family:'Rajdhani',sans-serif;background:var(--bg0);color:var(--txt);overflow-x:hidden;cursor:none;}
+
+/* ── CURSOR ── */
+#CUR{position:fixed;width:12px;height:12px;background:var(--sol2);border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);mix-blend-mode:screen;}
+#CUR2{position:fixed;width:42px;height:42px;border:1px solid rgba(20,241,149,.35);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:left .13s ease-out,top .13s ease-out;}
+
+/* ── BACKGROUNDS ── */
+.bg-grid{position:fixed;inset:0;z-index:0;background-image:linear-gradient(rgba(20,241,149,.03)1px,transparent 1px),linear-gradient(90deg,rgba(20,241,149,.03)1px,transparent 1px);background-size:52px 52px;animation:gScroll 22s linear infinite;}
+@keyframes gScroll{to{background-position:52px 52px;}}
+.bg-orbs{position:fixed;inset:0;z-index:0;background:radial-gradient(ellipse 700px 500px at 8% 25%,rgba(153,69,255,.09)0%,transparent 65%),radial-gradient(ellipse 500px 400px at 92% 65%,rgba(20,241,149,.07)0%,transparent 65%),radial-gradient(ellipse 350px 250px at 50% 95%,rgba(240,190,60,.05)0%,transparent 60%);animation:oPulse 9s ease-in-out infinite alternate;}
+@keyframes oPulse{from{opacity:.6}to{opacity:1}}
+.bg-noise{position:fixed;inset:0;z-index:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");opacity:.4;}
+#PTS{position:fixed;inset:0;z-index:0;overflow:hidden;}
+.pt{position:absolute;border-radius:50%;animation:ptUp linear infinite;opacity:0;}
+@keyframes ptUp{0%{transform:translateY(100vh);opacity:0;}10%{opacity:.7;}90%{opacity:.2;}100%{transform:translateY(-8vh) translateX(50px);opacity:0;}}
+
+/* ══ LANG BAR ══ */
+#LBAR{position:fixed;top:0;left:0;right:0;z-index:300;background:rgba(1,8,16,.96);border-bottom:1px solid rgba(20,241,149,.08);padding:.3rem 3rem;display:flex;align-items:center;justify-content:flex-end;gap:.35rem;backdrop-filter:blur(12px);}
+.lb{padding:.22rem .58rem;background:transparent;border:1px solid rgba(255,255,255,.07);border-radius:4px;color:var(--muted);cursor:none;font-family:'JetBrains Mono',monospace;font-size:.68rem;transition:all .2s;}
+.lb:hover,.lb.on{background:rgba(20,241,149,.09);border-color:var(--sol2);color:var(--sol2);}
+
+/* ══ NEWS TICKER ══ */
+.news-ticker{position:fixed;top:30px;left:0;right:0;z-index:200;background:rgba(153,69,255,.1);border-bottom:1px solid rgba(153,69,255,.2);padding:.4rem 0;overflow:hidden;}
+.news-inner{display:flex;gap:5rem;animation:ntScroll 40s linear infinite;white-space:nowrap;}
+.ni{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--sol);display:flex;align-items:center;gap:.5rem;}
+.ni::before{content:'◆';color:var(--sol2);font-size:.5rem;}
+@keyframes ntScroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+
+/* ══ NAV ══ */
+nav{position:fixed;top:60px;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:1rem 3.5rem;background:rgba(1,8,16,.85);backdrop-filter:blur(24px);border-bottom:1px solid var(--bdr);}
+.logo{display:flex;align-items:center;gap:.75rem;text-decoration:none;}
+.lmark{width:46px;height:46px;background:linear-gradient(135deg,var(--sol),var(--sol2));border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;box-shadow:0 0 24px rgba(153,69,255,.5);animation:lPulse 3s ease-in-out infinite;}
+@keyframes lPulse{0%,100%{box-shadow:0 0 24px rgba(153,69,255,.5);}50%{box-shadow:0 0 40px rgba(20,241,149,.6);}}
+.ltxt{font-family:'Bebas Neue',cursive;font-size:1.9rem;letter-spacing:2px;color:var(--white);}
+.ltxt span{color:var(--sol2);}
+.nav-links{display:flex;align-items:center;gap:2rem;list-style:none;}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:.88rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;transition:color .2s;position:relative;}
+.nav-links a::after{content:'';position:absolute;bottom:-4px;left:0;right:0;height:1px;background:var(--sol2);transform:scaleX(0);transition:transform .3s;transform-origin:right;}
+.nav-links a:hover{color:var(--sol2);}
+.nav-links a:hover::after{transform:scaleX(1);transform-origin:left;}
+.nav-cta{padding:.65rem 1.6rem;background:linear-gradient(135deg,var(--sol),var(--sol2));color:#000!important;font-weight:700!important;border-radius:8px;letter-spacing:1px;box-shadow:0 0 20px rgba(20,241,149,.3);transition:box-shadow .3s,transform .2s!important;}
+.nav-cta:hover{box-shadow:0 0 40px rgba(20,241,149,.7)!important;transform:translateY(-2px)!important;}
+.nav-cta::after{display:none!important;}
+
+/* ══ HERO ══ */
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:10rem 2rem 4rem;position:relative;z-index:1;}
+.hero-badge{display:inline-flex;align-items:center;gap:.6rem;padding:.4rem 1.4rem;background:rgba(153,69,255,.12);border:1px solid rgba(153,69,255,.3);border-radius:50px;font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--sol);margin-bottom:2rem;animation:fUp .8s ease both;}
+.live-dot{width:8px;height:8px;background:#FF3333;border-radius:50%;animation:ldBlink 1s infinite;}
+@keyframes ldBlink{0%,100%{opacity:1;box-shadow:0 0 6px #FF3333;}50%{opacity:.1;box-shadow:none;}}
+.hero h1{font-family:'Bebas Neue',cursive;font-size:clamp(4rem,12vw,9.5rem);line-height:.93;letter-spacing:3px;margin-bottom:1.2rem;animation:fUp .8s .15s ease both;}
+.h1a{display:block;color:var(--white);}
+.h1b{display:block;background:linear-gradient(90deg,var(--sol2),var(--sol),var(--sol2));background-size:200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:fUp .8s .15s ease both,shimmer 4s linear infinite;}
+@keyframes shimmer{to{background-position:200% center;}}
+.hero-sub{font-size:1.15rem;color:var(--muted);max-width:660px;line-height:1.85;margin-bottom:2rem;animation:fUp .8s .3s ease both;font-weight:500;}
+.hero-sub strong{color:var(--sol2);}
+.net-pill{display:inline-flex;align-items:center;gap:.5rem;padding:.38rem 1rem;background:rgba(20,241,149,.07);border:1px solid var(--bdr);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--sol2);margin-bottom:2.5rem;animation:fUp .8s .4s ease both;}
+.hero-btns{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;animation:fUp .8s .5s ease both;}
+.btn-main{padding:1rem 2.8rem;background:linear-gradient(135deg,var(--sol),var(--sol2));color:#000;font-weight:700;font-size:1rem;border:none;border-radius:10px;cursor:none;font-family:'Rajdhani',sans-serif;box-shadow:0 0 30px rgba(153,69,255,.4);transition:box-shadow .3s,transform .2s;text-decoration:none;letter-spacing:1px;}
+.btn-main:hover{box-shadow:0 0 55px rgba(20,241,149,.7);transform:translateY(-3px);}
+.btn-outline{padding:1rem 2.8rem;background:transparent;color:var(--sol2);font-weight:600;font-size:1rem;border:1px solid var(--bdr);border-radius:10px;cursor:none;font-family:'Rajdhani',sans-serif;transition:background .3s,transform .2s;text-decoration:none;letter-spacing:1px;}
+.btn-outline:hover{background:var(--glass);transform:translateY(-3px);}
+
+/* whale orbit */
+.orbit-wrap{margin-top:4rem;animation:fUp .8s .7s ease both;}
+.orbit-sys{width:300px;height:300px;position:relative;margin:0 auto;}
+.orb{position:absolute;inset:0;border-radius:50%;animation:spin linear infinite;}
+.o1{border:1px solid rgba(20,241,149,.2);animation-duration:14s;}
+.o2{inset:28px;border:1px solid rgba(153,69,255,.2);animation-duration:24s;animation-direction:reverse;}
+.o3{inset:56px;border:1px dashed rgba(240,190,60,.15);animation-duration:20s;}
+.od{position:absolute;width:10px;height:10px;border-radius:50%;top:-5px;left:calc(50% - 5px);}
+.od1{background:var(--sol2);box-shadow:0 0 10px var(--sol2);}
+.od2{background:var(--sol);box-shadow:0 0 10px var(--sol);}
+.od3{background:var(--gold);box-shadow:0 0 10px var(--gold);}
+@keyframes spin{to{transform:rotate(360deg);}}
+.wc{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:5rem;z-index:2;filter:drop-shadow(0 0 20px rgba(20,241,149,.4));animation:wFloat 4s ease-in-out infinite;}
+@keyframes wFloat{0%,100%{transform:translate(-50%,-50%) translateY(0);}50%{transform:translate(-50%,-50%) translateY(-16px);}}
+
+/* ══ PRESALE WIDGET (Pepetocoin style) ══ */
+.presale-wrap{position:relative;z-index:1;padding:2rem 2rem 4rem;display:flex;justify-content:center;}
+.presale-card{background:linear-gradient(145deg,rgba(4,21,37,.97),rgba(2,13,24,.99));border:1px solid var(--bdr);border-radius:24px;padding:2.5rem 2.5rem 2rem;max-width:440px;width:100%;position:relative;overflow:hidden;box-shadow:0 0 80px rgba(20,241,149,.06),inset 0 1px 0 rgba(255,255,255,.04);}
+.presale-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--sol2),var(--sol),transparent);}
+.pc-title{font-family:'Bebas Neue',cursive;font-size:1.5rem;color:var(--white);letter-spacing:2px;text-align:center;margin-bottom:.3rem;}
+.pc-sub{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);text-align:center;margin-bottom:1.5rem;}
+
+/* USDT raised bar */
+.raised-bar-wrap{margin-bottom:1.2rem;}
+.raised-lbl{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);margin-bottom:.4rem;}
+.raised-lbl span:first-child{color:var(--sol2);}
+.rbar{background:rgba(255,255,255,.04);border:1px solid var(--bdr);border-radius:50px;height:10px;overflow:hidden;}
+.rfill{height:100%;background:linear-gradient(90deg,var(--sol2),var(--sol));border-radius:50px;width:0;animation:rfillAnim 2s 1s ease forwards;box-shadow:0 0 12px rgba(20,241,149,.5);}
+@keyframes rfillAnim{to{width:67%;}}
+
+/* countdown */
+.countdown{display:flex;justify-content:center;gap:1rem;margin:1.2rem 0;flex-wrap:wrap;}
+.cdb{text-align:center;background:rgba(0,0,0,.45);border:1px solid var(--bdr);border-radius:10px;padding:.9rem 1rem;min-width:72px;position:relative;overflow:hidden;}
+.cdb::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--sol2),transparent);}
+.cdn{font-family:'Bebas Neue',cursive;font-size:2.4rem;color:var(--sol2);line-height:1;display:block;letter-spacing:2px;}
+.cdl{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+
+/* price display — EDITABLE */
+.price-row{display:flex;align-items:center;justify-content:center;gap:.5rem;margin:.8rem 0;padding:.7rem;background:rgba(20,241,149,.05);border:1px solid var(--bdr);border-radius:8px;}
+.price-row .plabel{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--muted);}
+/* ↓↓↓ PRICE — Change the value inside data-price attribute to update ↓↓↓ */
+.price-val{font-family:'Bebas Neue',cursive;font-size:1.4rem;color:var(--gold);letter-spacing:2px;}
+
+/* wallet icons row — PEPETOCOIN STYLE */
+.pay-methods{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;margin:1rem 0;}
+.pm{display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.6rem .7rem;background:rgba(0,0,0,.3);border:1px solid var(--bdr2);border-radius:10px;cursor:none;transition:all .2s;min-width:58px;}
+.pm:hover{border-color:var(--sol2);background:rgba(20,241,149,.07);transform:translateY(-3px);}
+.pm-icon{font-size:1.4rem;}
+.pm-name{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);}
+.pm:hover .pm-name{color:var(--sol2);}
+.pm.active{border-color:var(--sol2);background:rgba(20,241,149,.1);}
+.pm.active .pm-name{color:var(--sol2);}
+
+/* amount input */
+.amt-row{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:.8rem 0;}
+.amt-box{position:relative;}
+.amt-label{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);margin-bottom:.3rem;display:block;}
+.amt-inp{width:100%;padding:.75rem .9rem;background:rgba(0,0,0,.45);border:1px solid var(--bdr2);border-radius:8px;color:var(--white);font-family:'JetBrains Mono',monospace;font-size:.9rem;outline:none;transition:border-color .2s;}
+.amt-inp:focus{border-color:var(--sol2);box-shadow:0 0 0 3px rgba(20,241,149,.08);}
+.inp-currency{position:absolute;right:.7rem;top:50%;transform:translateY(50%);font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--sol2);}
+
+.balance-row{text-align:center;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);margin:.4rem 0;}
+.balance-row span{color:var(--sol2);}
+
+.btn-connect{width:100%;padding:1rem;background:linear-gradient(135deg,var(--sol),var(--sol2));color:#000;font-weight:800;font-size:1.05rem;border:none;border-radius:12px;cursor:none;font-family:'Rajdhani',sans-serif;letter-spacing:2px;box-shadow:0 0 28px rgba(20,241,149,.35);transition:box-shadow .3s,transform .2s;margin-top:.8rem;}
+.btn-connect:hover{box-shadow:0 0 50px rgba(20,241,149,.7);transform:translateY(-2px);}
+
+.btn-bnb{width:100%;padding:.8rem;background:rgba(240,185,11,.1);color:#F0B90B;font-weight:700;font-size:.9rem;border:1px solid rgba(240,185,11,.3);border-radius:10px;cursor:none;font-family:'Rajdhani',sans-serif;letter-spacing:1px;transition:all .2s;margin-top:.5rem;display:flex;align-items:center;justify-content:center;gap:.5rem;}
+.btn-bnb:hover{background:rgba(240,185,11,.15);border-color:#F0B90B;}
+
+.wallet-note{text-align:center;margin-top:.6rem;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);}
+.wallet-note a{color:var(--sol2);text-decoration:none;}
+
+.powered-by{text-align:center;margin-top:1rem;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:.4rem;}
+.powered-by span{color:var(--sol2);}
+
+/* user balance */
+.user-bal{padding:.8rem;background:rgba(0,0,0,.3);border:1px solid var(--bdr);border-radius:8px;margin:.6rem 0;font-family:'JetBrains Mono',monospace;font-size:.75rem;}
+.ub-row{display:flex;justify-content:space-between;padding:.25rem 0;}
+.ub-label{color:var(--muted);}
+.ub-val{color:var(--sol2);}
+
+/* ══ FEATURED IN ══ */
+.featured{position:relative;z-index:1;padding:2rem 0;border-top:1px solid var(--bdr);border-bottom:1px solid var(--bdr);overflow:hidden;background:rgba(0,0,0,.2);}
+.feat-label{text-align:center;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:1.5rem;}
+.feat-scroll{display:flex;gap:3rem;animation:fScroll 25s linear infinite;white-space:nowrap;align-items:center;}
+.feat-item{font-family:'Bebas Neue',cursive;font-size:1.3rem;letter-spacing:2px;color:var(--muted);opacity:.5;transition:opacity .3s;}
+.feat-item:hover{opacity:1;color:var(--sol2);}
+@keyframes fScroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+
+/* ══ SECTIONS ══ */
+.sec{position:relative;z-index:1;padding:5rem 2rem;max-width:1200px;margin:0 auto;}
+.stag{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--sol2);letter-spacing:4px;text-transform:uppercase;margin-bottom:.8rem;}
+.stitle{font-family:'Bebas Neue',cursive;font-size:clamp(2.5rem,5vw,4rem);color:var(--white);letter-spacing:2px;margin-bottom:.9rem;line-height:1.05;}
+.stitle .g{color:var(--sol2);}
+.stitle .p{color:var(--sol);}
+.ssub{color:var(--muted);font-size:1rem;line-height:1.9;max-width:620px;font-weight:500;}
+.divider{position:relative;z-index:1;width:100%;height:1px;background:linear-gradient(90deg,transparent,rgba(20,241,149,.25),rgba(153,69,255,.25),transparent);}
+
+@keyframes fUp{from{opacity:0;transform:translateY(28px);}to{opacity:1;transform:translateY(0);}}
+
+/* ══ UTILITY CARDS (pepetocoin style numbered) ══ */
+.util-grid{display:flex;flex-direction:column;gap:2rem;margin-top:3rem;}
+.util-card{display:grid;grid-template-columns:60px 1fr;gap:1.5rem;padding:2rem;background:var(--glass);border:1px solid var(--bdr);border-radius:18px;transition:border-color .3s,transform .3s;position:relative;overflow:hidden;}
+.util-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:2px;background:linear-gradient(to bottom,transparent,var(--sol2),transparent);transform:scaleY(0);transition:transform .4s;}
+.util-card:hover::before{transform:scaleY(1);}
+.util-card:hover{border-color:rgba(20,241,149,.35);transform:translateX(6px);}
+.util-num{font-family:'Bebas Neue',cursive;font-size:3rem;color:rgba(20,241,149,.15);letter-spacing:2px;line-height:1;padding-top:.3rem;}
+.util-content h3{font-family:'Bebas Neue',cursive;font-size:1.3rem;color:var(--white);letter-spacing:2px;margin-bottom:.3rem;}
+.util-content .usub{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--sol);letter-spacing:2px;margin-bottom:.8rem;}
+.problem,.solution{margin-bottom:.6rem;}
+.prob-title,.sol-title{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:2px;margin-bottom:.3rem;}
+.prob-title{color:var(--fire);}
+.sol-title{color:var(--sol2);}
+.util-content p,.util-content li{color:var(--muted);font-size:.9rem;line-height:1.75;}
+.util-content ul{padding-right:1rem;list-style:none;}
+.util-content ul li::before{content:'→ ';color:var(--sol2);}
+
+/* ══ TOKENOMICS ══ */
+.tok-wrap{display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:center;margin-top:3rem;}
+.donut-area{position:relative;display:flex;justify-content:center;align-items:center;}
+.donut-svg{filter:drop-shadow(0 0 30px rgba(20,241,149,.15));}
+.donut-center{position:absolute;text-align:center;}
+.donut-center strong{font-family:'Bebas Neue',cursive;font-size:2rem;color:var(--white);display:block;letter-spacing:2px;}
+.donut-center span{font-size:.75rem;color:var(--muted);}
+.tok-list{display:flex;flex-direction:column;gap:.9rem;}
+.tok-item{display:flex;align-items:center;gap:1rem;padding:.9rem 1.2rem;background:var(--glass);border:1px solid var(--bdr);border-radius:10px;transition:border-color .3s,transform .3s;}
+.tok-item:hover{border-color:var(--sol2);transform:translateX(-5px);}
+.tk-dot{width:14px;height:14px;border-radius:3px;flex-shrink:0;}
+.tk-n{flex:1;color:var(--white);font-weight:600;font-size:.95rem;}
+.tk-a{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--muted);}
+.tk-p{font-family:'Bebas Neue',cursive;font-size:1.35rem;color:var(--gold);min-width:45px;text-align:right;}
+
+/* ══ HOW TO BUY ══ */
+.htb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1.5rem;margin-top:3rem;}
+.htb-card{padding:2rem;background:var(--glass);border:1px solid var(--bdr);border-radius:16px;position:relative;overflow:hidden;transition:all .3s;}
+.htb-card:hover{border-color:rgba(20,241,149,.4);transform:translateY(-6px);}
+.htb-num{font-family:'Bebas Neue',cursive;font-size:4rem;color:rgba(20,241,149,.1);position:absolute;top:.5rem;right:1rem;letter-spacing:2px;}
+.htb-icon{font-size:2rem;margin-bottom:1rem;display:block;filter:drop-shadow(0 0 8px rgba(20,241,149,.3));}
+.htb-card h3{font-family:'Bebas Neue',cursive;font-size:1.2rem;color:var(--white);letter-spacing:1px;margin-bottom:.5rem;}
+.htb-card p{color:var(--muted);font-size:.88rem;line-height:1.75;}
+
+/* ══ ROADMAP (pepetocoin timeline style) ══ */
+.rm-track{position:relative;margin-top:3rem;}
+.rm-track::before{content:'';position:absolute;top:0;bottom:0;left:50%;width:1px;background:linear-gradient(to bottom,transparent,var(--sol2) 20%,var(--sol) 80%,transparent);}
+.rm-list{display:flex;flex-direction:column;gap:0;}
+.rm-row{display:grid;grid-template-columns:1fr 80px 1fr;gap:1rem;align-items:center;margin-bottom:2.2rem;opacity:0;animation:fUp .5s ease forwards;}
+.rm-row:nth-child(1){animation-delay:.1s}.rm-row:nth-child(2){animation-delay:.2s}.rm-row:nth-child(3){animation-delay:.3s}.rm-row:nth-child(4){animation-delay:.4s}.rm-row:nth-child(5){animation-delay:.5s}.rm-row:nth-child(6){animation-delay:.6s}.rm-row:nth-child(7){animation-delay:.7s}
+.rm-card{padding:1.4rem;background:var(--glass);border:1px solid var(--bdr);border-radius:14px;transition:border-color .3s,transform .3s;}
+.rm-card:hover{border-color:rgba(20,241,149,.35);transform:scale(1.02);}
+.rm-card.right{text-align:right;}
+.rm-card.empty{background:transparent;border:none;}
+.rm-q{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--sol2);margin-bottom:.4rem;letter-spacing:2px;}
+.rm-card h3{font-family:'Bebas Neue',cursive;font-size:1.15rem;color:var(--white);letter-spacing:1px;margin-bottom:.35rem;}
+.rm-card p{color:var(--muted);font-size:.85rem;line-height:1.7;}
+.rm-pill{display:inline-block;margin-top:.5rem;padding:.2rem .65rem;border-radius:50px;font-family:'JetBrains Mono',monospace;font-size:.68rem;}
+.pill-done{background:rgba(20,241,149,.1);color:var(--sol2);border:1px solid rgba(20,241,149,.25);}
+.pill-live{background:rgba(255,107,53,.12);color:var(--fire);border:1px solid rgba(255,107,53,.28);animation:livePulse 2s infinite;}
+@keyframes livePulse{0%,100%{box-shadow:0 0 6px rgba(255,107,53,.3);}50%{box-shadow:0 0 14px rgba(255,107,53,.6);}}
+.pill-soon{background:rgba(255,255,255,.04);color:var(--muted);border:1px solid rgba(255,255,255,.07);}
+.rm-node{display:flex;justify-content:center;align-items:center;}
+.rm-dot{width:18px;height:18px;border-radius:50%;z-index:2;border:3px solid var(--bg0);}
+.nd-done{background:var(--sol2);box-shadow:0 0 12px rgba(20,241,149,.6);}
+.nd-live{background:var(--fire);box-shadow:0 0 18px rgba(255,107,53,.8);animation:dotPulse 1.5s infinite;}
+.nd-soon{background:var(--muted);}
+@keyframes dotPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.5);}}
+
+/* ══ WALLETS SECTION (pepetocoin grid style) ══ */
+.w-section{position:relative;z-index:1;padding:5rem 2rem;border-top:1px solid var(--bdr);border-bottom:1px solid var(--bdr);background:linear-gradient(180deg,transparent,rgba(153,69,255,.02),transparent);}
+.w-inner{max-width:1200px;margin:0 auto;}
+.w-tabs{display:flex;gap:.7rem;flex-wrap:wrap;margin:1.5rem 0;}
+.wtab{padding:.5rem 1.3rem;border:1px solid var(--bdr2);border-radius:7px;background:transparent;color:var(--muted);cursor:none;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:.88rem;letter-spacing:1px;transition:all .3s;}
+.wtab:hover,.wtab.on{background:rgba(153,69,255,.1);border-color:var(--sol);color:var(--sol);}
+/* Wallet grid — EXACTLY like pepetocoin */
+.wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:.8rem;}
+.wcard{padding:.9rem .6rem;background:var(--glass);border:1px solid var(--bdr);border-radius:10px;text-align:center;cursor:none;transition:all .25s;display:flex;flex-direction:column;align-items:center;gap:.4rem;}
+.wcard:hover{border-color:var(--sol2);transform:translateY(-5px);box-shadow:0 8px 24px rgba(20,241,149,.1);}
+.wi{font-size:1.7rem;}
+.wn{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);}
+.wcard:hover .wn{color:var(--sol2);}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:.8rem;}
+.ccard{padding:.8rem .9rem;background:var(--glass);border:1px solid var(--bdr);border-radius:9px;display:flex;align-items:center;gap:.7rem;cursor:none;transition:all .25s;}
+.ccard:hover{border-color:var(--sol2);transform:translateY(-3px);}
+.ci{font-size:1.3rem;}
+.cn{color:var(--white);font-size:.88rem;font-weight:600;}
+.cs{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted);}
+
+/* ══ FAQ ══ */
+.faq-list{margin-top:3rem;}
+.fq{border:1px solid var(--bdr);border-radius:12px;margin-bottom:.9rem;overflow:hidden;transition:border-color .3s;}
+.fq:hover{border-color:rgba(20,241,149,.35);}
+.fq-q{padding:1.2rem 1.4rem;cursor:none;display:flex;justify-content:space-between;align-items:center;color:var(--white);font-weight:600;font-size:.95rem;user-select:none;}
+.fq-tog{width:26px;height:26px;border:1px solid var(--bdr);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--sol2);font-size:1.1rem;flex-shrink:0;transition:all .3s;}
+.fq-a{padding:0 1.4rem;max-height:0;overflow:hidden;color:var(--muted);font-size:.9rem;line-height:1.8;transition:max-height .4s ease,padding .3s;}
+.fq.open .fq-a{max-height:250px;padding:0 1.4rem 1.2rem;}
+.fq.open .fq-tog{background:rgba(20,241,149,.1);border-color:var(--sol2);transform:rotate(45deg);}
+
+/* ══ INVESTOR DASHBOARD ══ */
+.dash-wrap{margin-top:3rem;background:linear-gradient(135deg,rgba(4,21,37,.97),rgba(2,13,24,.99));border:1px solid var(--bdr);border-radius:20px;overflow:hidden;}
+.dash-bar{background:rgba(0,0,0,.45);padding:.9rem 1.4rem;display:flex;align-items:center;gap:.5rem;border-bottom:1px solid var(--bdr);}
+.dr{width:11px;height:11px;border-radius:50%;}
+.dred{background:#FF5F57;}.dyel{background:#FEBC2E;}.dgrn{background:#28C840;}
+.durl{flex:1;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);}
+.dash-body{padding:2rem;}
+.dash-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.8rem;flex-wrap:wrap;gap:1rem;}
+.rank-badge{display:flex;align-items:center;gap:.6rem;padding:.55rem 1.3rem;background:rgba(240,190,60,.1);border:1px solid rgba(240,190,60,.35);border-radius:50px;font-family:'Bebas Neue',cursive;font-size:1.05rem;color:var(--gold);letter-spacing:2px;}
+.dcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;}
+.dc{padding:1.2rem;background:rgba(0,0,0,.3);border:1px solid var(--bdr);border-radius:11px;}
+.dc-lbl{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:1px;}
+.dc-val{font-family:'Bebas Neue',cursive;font-size:1.7rem;letter-spacing:1px;}
+.v-green{color:var(--sol2);}.v-purple{color:var(--sol);}.v-gold{color:var(--gold);}
+.btn-claim{margin-top:1.4rem;width:100%;padding:.9rem;background:linear-gradient(135deg,var(--sol),var(--sol2));color:#000;font-weight:800;font-size:.95rem;border:none;border-radius:10px;cursor:none;font-family:'Rajdhani',sans-serif;letter-spacing:1px;box-shadow:0 0 20px rgba(20,241,149,.3);transition:box-shadow .3s;}
+.btn-claim:hover{box-shadow:0 0 40px rgba(20,241,149,.6);}
+.tge-note{text-align:center;margin-top:.6rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted);}
+
+/* ══ FOOTER ══ */
+footer{position:relative;z-index:1;padding:4rem 2rem 7rem;border-top:1px solid var(--bdr);background:rgba(0,0,0,.4);}
+.foot-in{max-width:1200px;margin:0 auto;}
+.foot-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:3rem;margin-bottom:3rem;}
+.fc h4{font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:2px;color:var(--white);margin-bottom:1rem;}
+.fc p{color:var(--muted);font-size:.85rem;line-height:1.9;}
+.fc ul{list-style:none;}
+.fc ul li{margin-bottom:.5rem;}
+.fc ul a{color:var(--muted);text-decoration:none;font-size:.85rem;transition:color .2s;}
+.fc ul a:hover{color:var(--sol2);}
+.foot-bot{padding-top:1.8rem;border-top:1px solid rgba(255,255,255,.05);display:flex;justify-content:space-between;align-items:center;font-size:.76rem;color:var(--muted);flex-wrap:wrap;gap:1rem;}
+.socials{display:flex;gap:.7rem;}
+.soc{width:34px;height:34px;border:1px solid var(--bdr);border-radius:8px;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:.88rem;color:var(--muted);transition:all .3s;}
+.soc:hover{border-color:var(--sol2);color:var(--sol2);background:var(--glass);}
+
+/* ══ BOTTOM TICKER ══ */
+.bticker{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(1,8,16,.97);border-top:1px solid var(--bdr);padding:.5rem 0;overflow:hidden;}
+.bt-inner{display:flex;gap:3rem;animation:tick 32s linear infinite;white-space:nowrap;}
+.ti{display:flex;align-items:center;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;}
+.tn{color:var(--muted);}.tp{color:var(--white);}
+.up{color:#2ECC71;}.dn{color:#E74C3C;}
+@keyframes tick{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+
+/* ══ RTL ══ */
+html[dir="rtl"] body{font-family:'Tajawal',sans-serif;}
+html[dir="rtl"] .util-card:hover{transform:translateX(-6px);}
+html[dir="rtl"] .tok-item:hover{transform:translateX(5px);}
+
+/* ══ RESPONSIVE ══ */
+@media(max-width:900px){
+  nav{padding:.8rem 1rem;}
+  .nav-links{display:none;}
+  .tok-wrap{grid-template-columns:1fr;}
+  .foot-grid{grid-template-columns:1fr 1fr;}
+  .rm-track::before{left:28px;}
+  .rm-row{grid-template-columns:40px 1fr;}
+  .rm-card.empty{display:none;}
+  .rm-card.right{text-align:left;}
+}
+</style>
 </head>
 <body>
 
-<div id="toast"></div>
+<div id="CUR"></div>
+<div id="CUR2"></div>
+<div class="bg-grid"></div>
+<div class="bg-orbs"></div>
+<div class="bg-noise"></div>
+<div id="PTS"></div>
 
-<!-- ════════════════════════════════════════
-     ONBOARDING
-     يظهر مرة واحدة فقط عند التسجيل
-════════════════════════════════════════ -->
-<div id="ob">
-  <div class="ob-hdr">
-    <span style="font-size:11px;color:var(--text3);font-weight:700" id="ob-lbl">1 / 4</span>
-    <div class="ob-prog" id="ob-prog"></div>
-    <span style="font-size:12px;color:var(--neon);cursor:pointer;font-weight:700"
-      onclick="ONBOARDING.skip()">تخطي</span>
+<!-- ══ LANG BAR ══ -->
+<div id="LBAR">
+  <button class="lb on" onclick="L('en')">EN</button>
+  <button class="lb" onclick="L('ar')">AR</button>
+  <button class="lb" onclick="L('zh')">中文</button>
+  <button class="lb" onclick="L('es')">ES</button>
+  <button class="lb" onclick="L('fr')">FR</button>
+  <button class="lb" onclick="L('ru')">RU</button>
+  <button class="lb" onclick="L('de')">DE</button>
+  <button class="lb" onclick="L('ja')">JP</button>
+  <button class="lb" onclick="L('tr')">TR</button>
+  <button class="lb" onclick="L('pt')">PT</button>
+  <button class="lb" onclick="L('ko')">KO</button>
+  <button class="lb" onclick="L('id')">ID</button>
+</div>
+
+<!-- ══ NEWS TICKER ══ -->
+<div class="news-ticker">
+  <div class="news-inner" id="NTICKER"></div>
+</div>
+
+<!-- ══ NAV ══ -->
+<nav>
+  <a href="#" class="logo">
+    <div class="lmark">🐋</div>
+    <span class="ltxt">Whale<span>X</span></span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#about" data-i="n_about">About</a></li>
+    <li><a href="#tokenomics" data-i="n_tok">Tokenomics</a></li>
+    <li><a href="#howtobuy" data-i="n_how">How To Buy</a></li>
+    <li><a href="#roadmap" data-i="n_road">Roadmap</a></li>
+    <li><a href="#wallets" data-i="n_pay">Payment</a></li>
+    <li><a href="#presale" class="nav-cta" data-i="n_buy">Buy $WHX 🚀</a></li>
+  </ul>
+</nav>
+
+<!-- ══ HERO ══ -->
+<div class="hero" id="presale">
+  <div class="hero-badge">
+    <span class="live-dot"></span>
+    <span data-i="h_badge">PRESALE LIVE · SOLANA SPL TOKEN · JOIN NOW</span>
   </div>
-  <div class="ob-body" id="ob-body"></div>
-  <div class="ob-foot">
-    <button class="ob-btn" id="ob-btn" disabled onclick="ONBOARDING.next()">التالي</button>
-    <span class="ob-skip" onclick="ONBOARDING.skip()">تخطي والبدء مجاناً</span>
+  <h1>
+    <span class="h1a" data-i="h_l1">THE SOVEREIGN</span>
+    <span class="h1b">TRADING FORTRESS</span>
+  </h1>
+  <p class="hero-sub">
+    <span data-i="h_sub">WhaleX transforms <strong>retail traders into Whales</strong>. Institutional-grade tools, Solana lightning execution, and automated security — for everyone, regardless of capital size.</span>
+  </p>
+  <div class="net-pill">⚡ <span data-i="h_net">Solana · SPL Token · Layer-1 Protocol</span></div>
+  <div class="hero-btns">
+    <a href="#presale-widget" class="btn-main" data-i="h_btn1">🐋 Buy $WHX Now</a>
+    <a href="#about" class="btn-outline" data-i="h_btn2">📄 Whitepaper</a>
+  </div>
+  <div class="orbit-wrap">
+    <div class="orbit-sys">
+      <div class="orb o1"><div class="od od1"></div></div>
+      <div class="orb o2"><div class="od od2"></div></div>
+      <div class="orb o3"><div class="od od3"></div></div>
+      <div class="wc">🐋</div>
+    </div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     APP SHELL
-════════════════════════════════════════ -->
-<div id="shell">
+<!-- ══ PRESALE WIDGET ══ -->
+<div class="presale-wrap" id="presale-widget">
+  <div class="presale-card">
+    <div class="pc-title" data-i="pw_title">BUY $WHX TOKENS NOW</div>
+    <div class="pc-sub" data-i="pw_sub">Stage 1 Presale · Top VIP · Get in early</div>
 
-  <!-- TOPBAR -->
-  <div class="topbar">
-    <!-- زر العودة — يظهر في كل شاشة ما عدا الرئيسية -->
-    <div class="tb-btn hidden" id="btn-back" onclick="ROUTER.back()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neon)" stroke-width="2.5">
-        <path d="M19 12H5M12 5l-7 7 7 7"/>
+    <!-- raised bar -->
+    <div class="raised-bar-wrap">
+      <div class="raised-lbl">
+        <span data-i="pw_raised">USDT Raised: $0 / $0</span>
+        <span data-i="pw_until">UNTIL PRICE RISE</span>
+      </div>
+      <div class="rbar"><div class="rfill"></div></div>
+    </div>
+
+    <!-- countdown -->
+    <div class="countdown">
+      <div class="cdb"><span class="cdn" id="cd-d">00</span><span class="cdl" data-i="cd_d">Days</span></div>
+      <div class="cdb"><span class="cdn" id="cd-h">00</span><span class="cdl" data-i="cd_h">Hours</span></div>
+      <div class="cdb"><span class="cdn" id="cd-m">00</span><span class="cdl" data-i="cd_m">Minutes</span></div>
+      <div class="cdb"><span class="cdn" id="cd-s">00</span><span class="cdl" data-i="cd_s">Seconds</span></div>
+    </div>
+
+    <!-- price row — EDITABLE -->
+    <div class="price-row">
+      <span class="plabel" data-i="pw_price_lbl">1 $WHX =</span>
+      <!-- ↓ CHANGE PRICE HERE ↓ -->
+      <span class="price-val" id="TOKEN_PRICE" data-price="TBA">TBA</span>
+      <!-- ↑ CHANGE PRICE HERE ↑ -->
+    </div>
+
+    <!-- user balance -->
+    <div class="user-bal">
+      <div class="ub-row"><span class="ub-label" data-i="pw_purchased">Your purchased $WHX =</span><span class="ub-val" id="ub_purchased">0</span></div>
+      <div class="ub-row"><span class="ub-label" data-i="pw_stakeable">Your stakeable $WHX =</span><span class="ub-val" id="ub_stakeable">0</span></div>
+    </div>
+
+    <!-- payment methods — PEPETOCOIN STYLE ICONS -->
+    <div class="pay-methods" id="payMethods">
+      <div class="pm active" onclick="selPay(this,'SOL')"><div class="pm-icon">◎</div><div class="pm-name">SOL</div></div>
+      <div class="pm" onclick="selPay(this,'ETH')"><div class="pm-icon">Ξ</div><div class="pm-name">ETH</div></div>
+      <div class="pm" onclick="selPay(this,'USDT')"><div class="pm-icon">💎</div><div class="pm-name">USDT</div></div>
+      <div class="pm" onclick="selPay(this,'USDC')"><div class="pm-icon">🔵</div><div class="pm-name">USDC</div></div>
+      <div class="pm" onclick="selPay(this,'BTC')"><div class="pm-icon">₿</div><div class="pm-name">BTC</div></div>
+      <div class="pm" onclick="selPay(this,'CARD')"><div class="pm-icon">💳</div><div class="pm-name" data-i="card">Card</div></div>
+    </div>
+
+    <!-- amount row -->
+    <div class="amt-row">
+      <div class="amt-box">
+        <span class="amt-label" data-i="pw_pay">Pay with SOL</span>
+        <input class="amt-inp" type="number" placeholder="0.00" id="payAmt" oninput="calcWhx()">
+        <span class="inp-currency" id="payCurr">SOL</span>
+      </div>
+      <div class="amt-box">
+        <span class="amt-label">Receive $WHX</span>
+        <input class="amt-inp" type="text" placeholder="0" id="recvAmt" readonly>
+        <span class="inp-currency">WHX</span>
+      </div>
+    </div>
+
+    <div class="balance-row" data-i="pw_max">Max <span id="maxBal">—</span></div>
+
+    <button class="btn-connect" data-i="pw_connect">🔗 Connect Wallet</button>
+    <button class="btn-bnb">🔶 <span data-i="pw_bnb">Buy with BNB</span></button>
+    <div class="wallet-note"><a href="https://metamask.io" target="_blank" data-i="pw_nowallet">Don't have a wallet?</a></div>
+    <div class="powered-by" data-i="pw_powered">Powered by <span>Web3 Payments</span></div>
+  </div>
+</div>
+
+<!-- ══ FEATURED IN ══ -->
+<div class="featured">
+  <div class="feat-label" data-i="feat_lbl">Featured In</div>
+  <div class="feat-scroll" id="FEAT"></div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ══ ABOUT / UTILITY ══ -->
+<section class="sec" id="about">
+  <div class="stag" data-i="a_tag">// WhaleX Utility Ecosystem</div>
+  <h2 class="stitle" data-i="a_title">TECHNOLOGY & OPTIMIZATION<br><span class="g">THE TOOLS WHALES USE</span></h2>
+  <p class="ssub" data-i="a_sub">WhaleX Protocol eliminates the gap between retail traders and institutional Whales — providing the same infrastructure, security, and speed previously reserved for the elite.</p>
+
+  <div class="util-grid" style="margin-top:3rem;">
+    <div class="util-card">
+      <div class="util-num">01</div>
+      <div class="util-content">
+        <h3 data-i="u1_t">IDENTITY SHIFT</h3>
+        <div class="usub" data-i="u1_sub">FROM SMALL FISH TO WHALE</div>
+        <div class="problem"><div class="prob-title" data-i="prob">▼ THE PROBLEM</div><p data-i="u1_prob">Retail traders face massive disadvantages: no institutional tools, no order flow data, no protection against manipulation, no insurance on positions.</p></div>
+        <div class="solution"><div class="sol-title" data-i="sol">▲ WHALEX SOLUTION</div><p data-i="u1_sol">WhaleX provides institutional-grade order routing, real-time whale tracking, and a full suite of professional tools to every trader regardless of capital size.</p></div>
+      </div>
+    </div>
+    <div class="util-card">
+      <div class="util-num">02</div>
+      <div class="util-content">
+        <h3 data-i="u2_t">SECURITY FIRST</h3>
+        <div class="usub" data-i="u2_sub">FORTRESS-GRADE PROTECTION</div>
+        <div class="problem"><div class="prob-title" data-i="prob">▼ THE PROBLEM</div><p data-i="u2_prob">Rug pulls, exploits, and malicious contracts drain billions from traders who cannot verify smart contract safety before investing.</p></div>
+        <div class="solution"><div class="sol-title" data-i="sol">▲ WHALEX SOLUTION</div><p data-i="u2_sol">Automated security filtering, Insurance Fund protection, multi-layer smart contract auditing, and an AI engine that scans every interaction before it executes.</p></div>
+      </div>
+    </div>
+    <div class="util-card">
+      <div class="util-num">03</div>
+      <div class="util-content">
+        <h3 data-i="u3_t">LIGHTNING SPEED</h3>
+        <div class="usub" data-i="u3_sub">SOLANA LAYER-1 EXECUTION</div>
+        <div class="problem"><div class="prob-title" data-i="prob">▼ THE PROBLEM</div><p data-i="u3_prob">Slow execution on congested networks means traders miss entries and exits. High gas fees destroy profitability on small positions.</p></div>
+        <div class="solution"><div class="sol-title" data-i="sol">▲ WHALEX SOLUTION</div><p data-i="u3_sol">Built natively on Solana — sub-second execution, near-zero fees, and 65,000+ TPS capacity. The fastest professional trading environment on-chain.</p></div>
+      </div>
+    </div>
+    <div class="util-card">
+      <div class="util-num">04</div>
+      <div class="util-content">
+        <h3 data-i="u4_t">BUYBACK & BURN ENGINE</h3>
+        <div class="usub" data-i="u4_sub">70% OF FEES — PERMANENT BURN</div>
+        <div class="problem"><div class="prob-title" data-i="prob">▼ THE RESULT</div>
+        <ul data-i="u4_res"><li>Every fee collected permanently reduces total supply</li><li>Continuous deflationary pressure creates long-term value appreciation</li><li>30% funds ongoing development, security, and infrastructure</li><li>Token holders benefit directly from protocol usage growth</li></ul></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══ TOKENOMICS ══ -->
+<section class="sec" id="tokenomics">
+  <div class="stag" data-i="t_tag">// Tokenomics</div>
+  <h2 class="stitle" data-i="t_title">$WHX TOKEN <span class="g">DISTRIBUTION</span></h2>
+  <p class="ssub" data-i="t_sub">1 Billion total supply on Solana — strategically allocated for maximum long-term ecosystem value, with a 24-month linear vesting schedule on all locked portions.</p>
+
+  <!-- ── DONUT + FULL BREAKDOWN ── -->
+  <div class="tok-wrap">
+
+    <!-- DONUT — 6 segments updated -->
+    <div class="donut-area">
+      <!--
+        Total circumference at r=100: 2π×100 = 628.3
+        Segments (% × 628.3):
+          Presale     45% → 282.7  offset   0
+          Team        15% → 94.2   offset -282.7
+          Marketing   15% → 94.2   offset -376.9
+          Development 15% → 94.2   offset -471.1
+          Ins. Fund    5% → 31.4   offset -565.3
+          Liquidity    5% → 31.4   offset -596.7
+      -->
+      <svg class="donut-svg" width="300" height="300" viewBox="0 0 300 300">
+        <defs>
+          <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <!-- bg ring -->
+        <circle cx="150" cy="150" r="100" fill="none" stroke="#021018" stroke-width="52"/>
+        <!-- 1 Presale 45% #14F195 -->
+        <circle cx="150" cy="150" r="100" fill="none" stroke="#14F195" stroke-width="52"
+          stroke-dasharray="282.7 628.3" stroke-dashoffset="0"
+          transform="rotate(-90 150 150)" filter="url(#glow)"/>
+        <!-- 2 Team 15% #9945FF -->
+        <circle cx="150" cy="150" r="100" fill="none" stroke="#9945FF" stroke-width="52"
+          stroke-dasharray="94.2 628.3" stroke-dashoffset="-282.7"
+          transform="rotate(-90 150 150)"/>
+        <!-- 3 Marketing 15% #FF6B35 -->
+        <circle cx="150" cy="150" r="100" fill="none" stroke="#FF6B35" stroke-width="52"
+          stroke-dasharray="94.2 628.3" stroke-dashoffset="-376.9"
+          transform="rotate(-90 150 150)"/>
+        <!-- 4 Development 15% #00CFFF -->
+        <circle cx="150" cy="150" r="100" fill="none" stroke="#00CFFF" stroke-width="52"
+          stroke-dasharray="94.2 628.3" stroke-dashoffset="-471.1"
+          transform="rotate(-90 150 150)"/>
+        <!-- 5 Insurance Fund 5% #F0BE3C -->
+        <circle cx="150" cy="150" r="100" fill="none" stroke="#F0BE3C" stroke-width="52"
+          stroke-dasharray="31.4 628.3" stroke-dashoffset="-565.3"
+          transform="rotate(-90 150 150)"/>
+        <!-- 6 Liquidity 5% #2ECC71 -->
+        <circle cx="150" cy="150" r="100" fill="none" stroke="#2ECC71" stroke-width="52"
+          stroke-dasharray="31.4 628.3" stroke-dashoffset="-596.7"
+          transform="rotate(-90 150 150)"/>
+        <!-- inner circle -->
+        <circle cx="150" cy="150" r="74" fill="#010810"/>
+        <!-- center text -->
+        <text x="150" y="144" text-anchor="middle" font-family="'Bebas Neue',cursive" font-size="28" fill="#EEF7FF" letter-spacing="2">1B</text>
+        <text x="150" y="162" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="11" fill="#506A85">$WHX</text>
       </svg>
     </div>
-    <!-- الشعار -->
-    <div style="flex:1">
-      <div class="logo">WhaleX Prime</div>
-      <div class="logo-sub">AI POWERED</div>
-    </div>
-    <!-- Demo / Live -->
-    <div class="mode-wrap">
-      <div class="mode-btn on" id="mt-d" onclick="APP.setMode('demo')">Demo</div>
-      <div class="mode-btn" id="mt-l" onclick="APP.setMode('live')">🔴 Live</div>
-    </div>
-    <!-- زر الإعدادات -->
-    <div class="tb-btn" id="btn-settings" onclick="PROFILE.openSettings()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="2">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-      </svg>
+
+    <!-- LEGEND LIST — 6 items -->
+    <div class="tok-list">
+
+      <!-- 1 Presale -->
+      <div class="tok-item">
+        <div class="tk-dot" style="background:#14F195;box-shadow:0 0 8px rgba(20,241,149,.5);"></div>
+        <div class="tk-n">Presale Allocation</div>
+        <div class="tk-a">450,000,000</div>
+        <div class="tk-p" style="color:#14F195;">45%</div>
+      </div>
+
+      <!-- 2 Team -->
+      <div class="tok-item" style="border-left:3px solid #9945FF;">
+        <div class="tk-dot" style="background:#9945FF;box-shadow:0 0 8px rgba(153,69,255,.5);"></div>
+        <div style="flex:1;">
+          <div class="tk-n">Team</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:.15rem;">24-month linear vesting · cliff 6 months</div>
+        </div>
+        <div class="tk-a">150,000,000</div>
+        <div class="tk-p" style="color:#9945FF;">15%</div>
+      </div>
+
+      <!-- 3 Marketing -->
+      <div class="tok-item" style="border-left:3px solid #FF6B35;">
+        <div class="tk-dot" style="background:#FF6B35;box-shadow:0 0 8px rgba(255,107,53,.5);"></div>
+        <div style="flex:1;">
+          <div class="tk-n">Marketing</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:.15rem;">24-month linear vesting · unlock at TGE</div>
+        </div>
+        <div class="tk-a">150,000,000</div>
+        <div class="tk-p" style="color:#FF6B35;">15%</div>
+      </div>
+
+      <!-- 4 Development -->
+      <div class="tok-item" style="border-left:3px solid #00CFFF;">
+        <div class="tk-dot" style="background:#00CFFF;box-shadow:0 0 8px rgba(0,207,255,.5);"></div>
+        <div style="flex:1;">
+          <div class="tk-n">Development</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:.15rem;">24-month linear vesting · cliff 3 months</div>
+        </div>
+        <div class="tk-a">150,000,000</div>
+        <div class="tk-p" style="color:#00CFFF;">15%</div>
+      </div>
+
+      <!-- 5 Insurance Fund -->
+      <div class="tok-item" style="border-left:3px solid #F0BE3C;">
+        <div class="tk-dot" style="background:#F0BE3C;box-shadow:0 0 8px rgba(240,190,60,.5);"></div>
+        <div style="flex:1;">
+          <div class="tk-n">Insurance Fund</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:.15rem;">24-month linear vesting · locked in multisig</div>
+        </div>
+        <div class="tk-a">50,000,000</div>
+        <div class="tk-p" style="color:#F0BE3C;">5%</div>
+      </div>
+
+      <!-- 6 Initial Liquidity -->
+      <div class="tok-item" style="border-left:3px solid #2ECC71;">
+        <div class="tk-dot" style="background:#2ECC71;box-shadow:0 0 8px rgba(46,204,113,.5);"></div>
+        <div class="tk-n">Initial Liquidity</div>
+        <div class="tk-a">50,000,000</div>
+        <div class="tk-p" style="color:#2ECC71;">5%</div>
+      </div>
+
     </div>
   </div>
 
-  <!-- TICKER -->
-  <div class="ticker"><div id="tk"></div></div>
+  <!-- ── VESTING SCHEDULE TABLE ── -->
+  <div style="margin-top:3rem;">
+    <div class="stag">// 24-Month Linear Vesting Schedule</div>
+    <h3 style="font-family:'Bebas Neue',cursive;font-size:1.8rem;color:var(--white);letter-spacing:2px;margin-bottom:1.5rem;">LOCKED ALLOCATION <span style="color:var(--sol2);">VESTING BREAKDOWN</span></h3>
 
-  <!-- SCREENS -->
-  <div class="screens">
+    <div style="border:1px solid var(--bdr);border-radius:16px;overflow:hidden;">
+      <!-- Header -->
+      <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1.6fr;background:rgba(20,241,149,.05);padding:.9rem 1.5rem;border-bottom:1px solid var(--bdr);">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">Allocation</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">Amount</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">%</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">Cliff</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;">Vesting Schedule</div>
+      </div>
 
-    <!-- ── SC0: HOME ── -->
-    <div class="screen show" id="sc0">
-      <div class="scr-body">
-        <div class="live-bar">
-          <div class="ldot"></div>
-          <div style="flex:1;font-size:12px;color:var(--text2)" id="ai-lbl">Futures Radar يحلل السوق...</div>
-          <div id="sym-cnt" style="font-size:10px;color:var(--ai);font-weight:700">LIVE</div>
+      <!-- Row: Team -->
+      <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1.6fr;padding:1.1rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.04);align-items:center;transition:background .2s;" onmouseover="this.style.background='rgba(153,69,255,.04)'" onmouseout="this.style.background='transparent'">
+        <div style="display:flex;align-items:center;gap:.7rem;">
+          <div style="width:10px;height:10px;border-radius:2px;background:#9945FF;flex-shrink:0;"></div>
+          <span style="color:var(--white);font-weight:600;font-size:.92rem;">Team</span>
         </div>
-        <div class="hero">
-          <div style="font-size:11px;color:var(--text2);font-weight:700;letter-spacing:1px;margin-bottom:3px">إجمالي المحفظة</div>
-          <div class="hero-bal">$<span id="total-bal">--</span></div>
-          <div class="hero-sub">
-            <span class="tag" id="mode-tag"
-              style="background:rgba(0,245,255,.1);color:var(--neon);border:1px solid rgba(0,245,255,.2)">Demo</span>
-            <span class="tag tag-ai" id="tier-tag">Free Plan</span>
-          </div>
-          <div class="act-row">
-            <div class="act-btn" onclick="UI.openModal('mo-dep')">
-              <div class="act-ico ai1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg></div>
-              <div class="act-lbl">إيداع</div>
-            </div>
-            <div class="act-btn" onclick="UI.openModal('mo-wit')">
-              <div class="act-ico ai2"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c8e8ff" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
-              <div class="act-lbl">سحب</div>
-            </div>
-            <div class="act-btn" onclick="UI.openModal('mo-swap')">
-              <div class="act-ico ai3"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>
-              <div class="act-lbl">تداول</div>
-            </div>
-            <div class="act-btn" onclick="UI.openModal('mo-hist')">
-              <div class="act-ico ai4"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c8e8ff" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-              <div class="act-lbl">السجل</div>
-            </div>
-          </div>
-        </div>
-        <div class="sec">
-          <div class="sec-t">محفظتي</div>
-          <div class="sec-a" onclick="ROUTER.go(3)">إدارة</div>
-        </div>
-        <div class="port-row">
-          <div class="pc"><div class="pc-top"><span class="lbl lbtc">BTC</span><span id="btc-ch" class="up" style="font-size:10px">--</span></div><div class="pc-amt">0.012 BTC</div><div class="pc-usd" id="btc-u">≈ $--</div><div class="bar"><div class="bar-f" style="width:35%;background:#f7931a"></div></div></div>
-          <div class="pc"><div class="pc-top"><span class="lbl lsol">SOL</span><span id="sol-ch" class="up" style="font-size:10px">--</span></div><div class="pc-amt">12.4 SOL</div><div class="pc-usd" id="sol-u">≈ $--</div><div class="bar"><div class="bar-f" style="width:28%;background:#9945ff"></div></div></div>
-          <div class="pc"><div class="pc-top"><span class="lbl leth">ETH</span><span id="eth-ch" class="dn" style="font-size:10px">--</span></div><div class="pc-amt">0.48 ETH</div><div class="pc-usd" id="eth-u">≈ $--</div><div class="bar"><div class="bar-f" style="width:20%;background:#6288f5"></div></div></div>
-          <div class="pc"><div class="pc-top"><span class="lbl lusdt">USDT</span><span class="up" style="font-size:10px">$1.00</span></div><div class="pc-amt">1,240 USDT</div><div class="pc-usd">≈ $1,240</div><div class="bar"><div class="bar-f" style="width:15%;background:#26a17b"></div></div></div>
-        </div>
-        <div class="sec">
-          <div class="sec-t">آخر الإشارات</div>
-          <div class="sec-a" onclick="ROUTER.go(2)">الكل</div>
-        </div>
-        <div id="home-sigs">
-          <div class="empty"><div class="empty-ico">📡</div><div class="empty-t">الرادار يحلل السوق...</div><div class="empty-s">ستظهر الإشارات تلقائياً عبر WebSocket</div></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── SC1: TRADE ── -->
-    <div class="screen" id="sc1">
-      <!-- Symbol Input -->
-      <div style="padding:8px 14px;flex-shrink:0;display:flex;gap:8px;align-items:center">
-        <input id="sym-inp"
-          style="flex:1;background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;font-weight:700;outline:none;font-family:var(--mono);text-transform:uppercase"
-          placeholder="BTCUSDT" value="BTCUSDT"
-          onchange="TRADE.loadChart(this.value)">
-        <div id="auto-badge" style="display:none;background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.25);border-radius:8px;padding:6px 10px;font-size:11px;color:var(--green);font-weight:700;white-space:nowrap">🤖 Auto</div>
-      </div>
-      <!-- Chart Type -->
-      <div style="display:flex;gap:6px;padding:0 14px 6px;flex-shrink:0">
-        <div class="chip on chart-chip" id="chart-tv" onclick="TRADE.setChartType('tv',this)">TradingView</div>
-        <div class="chip chart-chip" id="chart-dex" onclick="TRADE.setChartType('dex',this)">DexScreener</div>
-      </div>
-      <!-- Charts -->
-      <div class="chart-box" id="tv-box">
-        <iframe id="tv-frame" src="about:blank" frameborder="0" scrolling="no" allowtransparency="true"></iframe>
-      </div>
-      <div class="chart-box" id="dex-box" style="display:none">
-        <iframe id="dex-frame" src="about:blank" frameborder="0" scrolling="no" allowtransparency="true"></iframe>
-      </div>
-      <!-- DexScreener Info -->
-      <div class="dex-bar" id="dex-info" style="display:none">
-        <div class="dex-item"><div class="dex-v" id="dex-price">--</div><div class="dex-l">السعر</div></div>
-        <div class="dex-item"><div class="dex-v" id="dex-liq">--</div><div class="dex-l">السيولة</div></div>
-        <div class="dex-item"><div class="dex-v" id="dex-mcap">--</div><div class="dex-l">Market Cap</div></div>
-        <div class="dex-item"><div class="dex-v" id="dex-vol">--</div><div class="dex-l">Volume 24h</div></div>
-        <div class="dex-item"><div class="dex-v" id="dex-age">--</div><div class="dex-l">العمر</div></div>
-      </div>
-      <!-- Signal Panel -->
-      <div id="sig-panel" style="display:none;margin:0 14px 6px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;flex-shrink:0"></div>
-      <!-- Force Stop -->
-      <div class="fstop" id="fstop" style="display:none">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--txt);">150M WHX</div>
+        <div style="font-family:'Bebas Neue',cursive;font-size:1.2rem;color:#9945FF;letter-spacing:1px;">15%</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--muted);">6 months</div>
         <div>
-          <div style="font-size:12px;font-weight:700;color:var(--red)">🤖 Auto Trading نشط</div>
-          <div style="font-size:10px;color:var(--text2)" id="auto-sym-lbl">--</div>
-        </div>
-        <button class="btn btn-danger btn-sm" style="width:auto;padding:8px 14px"
-          onclick="TRADE.forceStop()">⏹ إيقاف فوري</button>
-      </div>
-      <!-- Trade Form -->
-      <div style="flex:1;overflow-y:scroll;-webkit-overflow-scrolling:touch;padding:0 14px 14px">
-        <div class="tabs" style="margin:8px 0 10px">
-          <div class="tab on" onclick="TRADE.setTab('m',this)">يدوي</div>
-          <div class="tab" onclick="TRADE.setTab('a',this)">Auto AI</div>
-        </div>
-        <!-- Manual -->
-        <div id="tt-m">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-            <div>
-              <div class="fl">المبلغ (USDT)</div>
-              <input class="fi" type="number" placeholder="100" id="tr-amt" oninput="TRADE.checkGas()">
-            </div>
-            <div>
-              <div class="fl">الرافعة <span id="lev-txt" style="color:var(--neon);font-weight:800">10x</span></div>
-              <input type="range" id="lev-sl" min="1" max="100" value="10"
-                style="width:100%;margin-top:10px;-webkit-appearance:none;height:4px;border-radius:2px;outline:none;cursor:pointer"
-                oninput="TRADE.updateLeverage(this)">
-            </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--txt);margin-bottom:.4rem;">Linear over 24 months</div>
+          <div style="background:rgba(0,0,0,.3);border-radius:50px;height:6px;overflow:hidden;">
+            <div style="height:100%;width:0%;background:linear-gradient(90deg,#9945FF,#14F195);border-radius:50px;animation:vBar 2s 1.2s ease forwards;"></div>
           </div>
-          <div id="gas-warn" class="gas-warn" style="display:none">
-            ⚠️ رصيد Gas غير كافٍ — أضف USDT للمحفظة أولاً
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <button class="btn btn-green" onclick="TRADE.execute('LONG')">LONG شراء</button>
-            <button class="btn btn-red" onclick="TRADE.execute('SHORT')">SHORT بيع</button>
-          </div>
-        </div>
-        <!-- Auto -->
-        <div id="tt-a" style="display:none">
-          <div class="fld">
-            <div class="fl">المبلغ المخصص (USDT)</div>
-            <input class="fi" type="number" placeholder="500" id="auto-amt">
-          </div>
-          <div class="fld">
-            <div class="fl">مستوى المخاطرة</div>
-            <select class="fi" id="auto-risk">
-              <option value="low">منخفضة — 2x رافعة</option>
-              <option value="med" selected>متوسطة — 5x رافعة</option>
-              <option value="high">عالية — 10x رافعة</option>
-            </select>
-          </div>
-          <button class="btn btn-ai" onclick="TRADE.startAuto()">🤖 تشغيل Auto Trading</button>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:.3rem;">~6.25M WHX / month after cliff</div>
         </div>
       </div>
-    </div>
 
-    <!-- ── SC2: SIGNALS ── -->
-    <div class="screen" id="sc2">
-      <div class="tabs" style="margin:10px 14px 0">
-        <div class="tab on" id="st-f" onclick="SIGNALS.setTab('futures',this)">Futures</div>
-        <div class="tab" id="st-s" onclick="SIGNALS.setTab('spot',this)">Spot</div>
-        <div class="tab" id="st-m" onclick="SIGNALS.setTab('meme',this)">Meme</div>
+      <!-- Row: Marketing -->
+      <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1.6fr;padding:1.1rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.04);align-items:center;transition:background .2s;" onmouseover="this.style.background='rgba(255,107,53,.04)'" onmouseout="this.style.background='transparent'">
+        <div style="display:flex;align-items:center;gap:.7rem;">
+          <div style="width:10px;height:10px;border-radius:2px;background:#FF6B35;flex-shrink:0;"></div>
+          <span style="color:var(--white);font-weight:600;font-size:.92rem;">Marketing</span>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--txt);">150M WHX</div>
+        <div style="font-family:'Bebas Neue',cursive;font-size:1.2rem;color:#FF6B35;letter-spacing:1px;">15%</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--muted);">At TGE</div>
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--txt);margin-bottom:.4rem;">Linear over 24 months</div>
+          <div style="background:rgba(0,0,0,.3);border-radius:50px;height:6px;overflow:hidden;">
+            <div style="height:100%;width:0%;background:linear-gradient(90deg,#FF6B35,#F0BE3C);border-radius:50px;animation:vBar 2s 1.4s ease forwards;"></div>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:.3rem;">~6.25M WHX / month from TGE</div>
+        </div>
       </div>
-      <div class="scr-body" id="sig-list" style="padding-top:8px">
-        <div class="empty"><div class="empty-ico">📡</div><div class="empty-t">تحميل الإشارات...</div></div>
-      </div>
-    </div>
 
-    <!-- ── SC3: WALLET ── -->
-    <div class="screen" id="sc3">
-      <div class="scr-body">
-        <div class="wal-hero">
-          <div class="chips-row" id="chain-tabs" style="margin-bottom:12px">
-            <div class="chip on" onclick="WALLET.selectChain(this,'sol')">Solana</div>
-            <div class="chip" onclick="WALLET.selectChain(this,'eth')">Ethereum</div>
-            <div class="chip" onclick="WALLET.selectChain(this,'bsc')">BSC</div>
-            <div class="chip" onclick="WALLET.selectChain(this,'arb')">Arbitrum</div>
-            <div class="chip" onclick="WALLET.selectChain(this,'tron')">Tron</div>
-            <div class="chip" onclick="WALLET.selectChain(this,'btc')">Bitcoin</div>
+      <!-- Row: Development -->
+      <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1.6fr;padding:1.1rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.04);align-items:center;transition:background .2s;" onmouseover="this.style.background='rgba(0,207,255,.04)'" onmouseout="this.style.background='transparent'">
+        <div style="display:flex;align-items:center;gap:.7rem;">
+          <div style="width:10px;height:10px;border-radius:2px;background:#00CFFF;flex-shrink:0;"></div>
+          <span style="color:var(--white);font-weight:600;font-size:.92rem;">Development</span>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--txt);">150M WHX</div>
+        <div style="font-family:'Bebas Neue',cursive;font-size:1.2rem;color:#00CFFF;letter-spacing:1px;">15%</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--muted);">3 months</div>
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--txt);margin-bottom:.4rem;">Linear over 24 months</div>
+          <div style="background:rgba(0,0,0,.3);border-radius:50px;height:6px;overflow:hidden;">
+            <div style="height:100%;width:0%;background:linear-gradient(90deg,#00CFFF,#14F195);border-radius:50px;animation:vBar 2s 1.6s ease forwards;"></div>
           </div>
-          <div style="font-size:10px;color:var(--text3);font-weight:700;margin-bottom:5px;letter-spacing:1px">عنوان المحفظة</div>
-          <div class="addr-row">
-            <div class="addr-val" id="wal-addr">اختر شبكة</div>
-            <div class="copy-btn" onclick="WALLET.copyAddress()">نسخ</div>
-          </div>
-        </div>
-        <div style="margin:0 14px 10px;background:rgba(0,255,136,.04);border:1px solid rgba(0,255,136,.15);border-radius:10px;padding:10px 12px;font-size:11px;color:var(--text2);line-height:1.6">
-          🛡️ <b style="color:var(--green)">حماية Gas Fees:</b> يجب وجود رصيد كافٍ للغاز قبل أي تداول.
-        </div>
-        <div class="sec">
-          <div class="sec-t">الأصول</div>
-          <div class="sec-a" id="wal-total">$--</div>
-        </div>
-        <div id="assets-list"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px 14px 6px">
-          <button class="btn btn-neon" onclick="UI.openModal('mo-dep')">إيداع</button>
-          <button class="btn btn-outline" onclick="UI.openModal('mo-wit')">سحب</button>
-        </div>
-        <div style="padding:0 14px 14px">
-          <button class="btn btn-ai" onclick="UI.openModal('mo-newwal')">+ إنشاء محفظة جديدة</button>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:.3rem;">~6.25M WHX / month after cliff</div>
         </div>
       </div>
-    </div>
 
-    <!-- ── SC4: PROFILE ── -->
-    <div class="screen" id="sc4">
-      <div class="scr-body">
-        <div class="prof-top">
-          <div class="prof-av" id="p-av">W</div>
-          <div>
-            <div style="font-size:15px;font-weight:800;margin-bottom:2px" id="p-name">WhaleX User</div>
-            <div style="font-size:11px;color:var(--text3);margin-bottom:5px" id="p-email">--</div>
-            <span class="tag tag-ai" id="tier-badge">Free Plan</span>
-          </div>
+      <!-- Row: Insurance Fund -->
+      <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1.6fr;padding:1.1rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.04);align-items:center;transition:background .2s;" onmouseover="this.style.background='rgba(240,190,60,.04)'" onmouseout="this.style.background='transparent'">
+        <div style="display:flex;align-items:center;gap:.7rem;">
+          <div style="width:10px;height:10px;border-radius:2px;background:#F0BE3C;flex-shrink:0;"></div>
+          <span style="color:var(--white);font-weight:600;font-size:.92rem;">Insurance Fund</span>
         </div>
-        <div class="stats-row">
-          <div class="stat"><div class="stat-v" style="color:var(--green)" id="st-pnl">$0.00</div><div class="stat-l">PnL</div></div>
-          <div class="stat"><div class="stat-v" style="color:var(--neon)" id="st-tr">0</div><div class="stat-l">صفقة</div></div>
-          <div class="stat"><div class="stat-v" style="color:var(--gold)" id="st-wr">0%</div><div class="stat-l">فوز</div></div>
-        </div>
-        <!-- Referral -->
-        <div class="ref-box">
-          <div style="font-size:13px;font-weight:800;margin-bottom:4px">🎁 رابط الإحالة</div>
-          <div style="font-size:11px;color:var(--text2);margin-bottom:8px">احصل على <b style="color:var(--gold)">7 أيام PRO</b> مجاناً لكل شخص تدعوه</div>
-          <div class="ref-link" id="ref-link">whalexapp.io/ref/--</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <button class="btn btn-ghost btn-sm" onclick="PROFILE.copyRef()">نسخ الرابط</button>
-            <button class="btn btn-ai btn-sm" onclick="PROFILE.shareRef()">مشاركة</button>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--txt);">50M WHX</div>
+        <div style="font-family:'Bebas Neue',cursive;font-size:1.2rem;color:#F0BE3C;letter-spacing:1px;">5%</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--muted);">12 months</div>
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--txt);margin-bottom:.4rem;">Linear over 24 months · Multisig</div>
+          <div style="background:rgba(0,0,0,.3);border-radius:50px;height:6px;overflow:hidden;">
+            <div style="height:100%;width:0%;background:linear-gradient(90deg,#F0BE3C,#FF6B35);border-radius:50px;animation:vBar 2s 1.8s ease forwards;"></div>
           </div>
-          <div style="display:flex;gap:14px;margin-top:12px;text-align:center">
-            <div style="flex:1"><div style="font-size:20px;font-weight:900;color:var(--neon);font-family:var(--mono)" id="ref-cnt">0</div><div style="font-size:10px;color:var(--text3)">إحالة</div></div>
-            <div style="flex:1"><div style="font-size:20px;font-weight:900;color:var(--gold);font-family:var(--mono)" id="ref-pts">0</div><div style="font-size:10px;color:var(--text3)">PRO Points</div></div>
-            <div style="flex:1"><div style="font-size:20px;font-weight:900;color:var(--green);font-family:var(--mono)" id="ref-days">0</div><div style="font-size:10px;color:var(--text3)">أيام مجانية</div></div>
-          </div>
-        </div>
-        <!-- PRO -->
-        <div style="margin:0 14px 14px;background:linear-gradient(135deg,#150d28,#0d1528);border:1px solid rgba(124,58,255,.3);border-radius:var(--radius);padding:18px">
-          <div style="font-size:15px;font-weight:800;margin-bottom:4px">PRO Plan</div>
-          <div style="font-size:24px;font-weight:900;color:var(--ai);margin-bottom:12px">$50<span style="font-size:13px;color:var(--text2)">/شهر</span></div>
-          <div style="margin-bottom:14px;font-size:12px;line-height:1.9">
-            <div>✅ إشارات Futures + Spot + Meme</div>
-            <div>✅ Auto Trading + Pyramiding</div>
-            <div>✅ Guardian + Oracle Agents</div>
-            <div>✅ AI Chat غير محدود</div>
-          </div>
-          <button class="btn btn-gold" onclick="PROFILE.upgrade()">اشترك — $50/شهر</button>
-        </div>
-        <!-- Settings Rows -->
-        <div class="sg">
-          <div class="srow" onclick="PROFILE.openSettings()">
-            <div class="s-ico" style="background:rgba(0,245,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--neon)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
-            <div class="s-lbl">الإعدادات (منصة / محفظة / وضع التداول)</div>
-            <div class="s-r">›</div>
-          </div>
-          <div class="srow" onclick="UI.openModal('mo-api')">
-            <div class="s-ico" style="background:rgba(0,245,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--neon)" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div>
-            <div class="s-lbl">ربط API Key (CEX)</div>
-            <div class="s-r">›</div>
-          </div>
-          <div class="srow" onclick="UI.openModal('mo-newwal')">
-            <div class="s-ico" style="background:rgba(124,58,255,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ai)" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M16 12h.01"/></svg></div>
-            <div class="s-lbl">إنشاء / إدارة المحافظ</div>
-            <div class="s-r">›</div>
-          </div>
-          <div class="srow" onclick="ADMIN.show()">
-            <div class="s-ico" style="background:rgba(255,204,0,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
-            <div class="s-lbl" style="color:var(--gold)">Admin Panel</div>
-            <div class="s-r">›</div>
-          </div>
-          <div class="srow" onclick="PROFILE.logout()">
-            <div class="s-ico" style="background:rgba(255,34,85,.08)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></div>
-            <div class="s-lbl" style="color:var(--red)">تسجيل الخروج</div>
-          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:.3rem;">~2.08M WHX / month after cliff</div>
         </div>
       </div>
-    </div>
 
-    <!-- ── SC5: AI CHAT ── -->
-    <div class="screen" id="sc5">
-      <div class="chat-hd">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--ai),#00c8f0);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="rgba(255,255,255,0.15)"/><path d="M8 12h8M12 8v8" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+      <!-- Row: Presale -->
+      <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1.6fr;padding:1.1rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.04);align-items:center;transition:background .2s;" onmouseover="this.style.background='rgba(20,241,149,.04)'" onmouseout="this.style.background='transparent'">
+        <div style="display:flex;align-items:center;gap:.7rem;">
+          <div style="width:10px;height:10px;border-radius:2px;background:#14F195;flex-shrink:0;"></div>
+          <span style="color:var(--white);font-weight:600;font-size:.92rem;">Presale Allocation</span>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--txt);">450M WHX</div>
+        <div style="font-family:'Bebas Neue',cursive;font-size:1.2rem;color:#14F195;letter-spacing:1px;">45%</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--muted);">At TGE</div>
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--txt);margin-bottom:.4rem;">Claimable at Token Generation Event</div>
+          <div style="background:rgba(0,0,0,.3);border-radius:50px;height:6px;overflow:hidden;">
+            <div style="height:100%;width:100%;background:linear-gradient(90deg,#14F195,#9945FF);border-radius:50px;"></div>
           </div>
-          <div>
-            <div style="font-weight:800;color:var(--neon);font-size:14px">WhaleX AI</div>
-            <div style="font-size:11px;color:var(--green)">● محلل كريبتو متخصص فقط</div>
-          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:.3rem;">Staking rewards compound until TGE</div>
         </div>
       </div>
-      <div class="chat-body" id="chat-area"></div>
-      <div class="qbtns">
-        <div class="qbtn" onclick="CHAT.sendQuestion('حلل وضع السوق الحالي')">حلل السوق</div>
-        <div class="qbtn" onclick="CHAT.sendQuestion('ما أقوى إشارة الآن؟')">أقوى إشارة</div>
-        <div class="qbtn" onclick="CHAT.sendQuestion('اشرح CVD Divergence')">CVD</div>
-        <div class="qbtn" onclick="CHAT.sendQuestion('ما هو Liquidation Cascade؟')">Liquidation</div>
-        <div class="qbtn" onclick="CHAT.sendQuestion('كيف أتجنب Rug Pull؟')">Rug Pull</div>
-      </div>
-      <div class="chat-bar">
-        <input class="chat-inp" id="chat-inp"
-          placeholder="اسأل عن الكريبتو فقط..."
-          onkeydown="if(event.key==='Enter')CHAT.send()">
-        <button class="send-btn" onclick="CHAT.send()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-        </button>
-      </div>
-    </div>
 
-    <!-- ── SC6: SCANNER ── -->
-    <div class="screen" id="sc6">
-      <div class="scr-body">
-        <div style="margin:14px;background:linear-gradient(145deg,rgba(0,245,255,.04),rgba(124,58,255,.04));border:1px solid rgba(0,245,255,.12);border-radius:var(--radius);padding:16px;text-align:center">
-          <div style="font-size:30px;margin-bottom:8px">🛡️</div>
-          <div style="font-size:14px;font-weight:800;margin-bottom:4px">Meme Coin Scanner</div>
-          <div style="font-size:12px;color:var(--text2)">8 مراحل: Security · Liquidity · Ownership · Manipulation</div>
+      <!-- Row: Liquidity -->
+      <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1.6fr;padding:1.1rem 1.5rem;align-items:center;transition:background .2s;" onmouseover="this.style.background='rgba(46,204,113,.04)'" onmouseout="this.style.background='transparent'">
+        <div style="display:flex;align-items:center;gap:.7rem;">
+          <div style="width:10px;height:10px;border-radius:2px;background:#2ECC71;flex-shrink:0;"></div>
+          <span style="color:var(--white);font-weight:600;font-size:.92rem;">Initial Liquidity</span>
         </div>
-        <div style="padding:0 14px">
-          <div class="fld">
-            <div class="fl">عنوان العقد (Contract Address)</div>
-            <input class="fi" id="sc-addr" placeholder="0x... أو عنوان Solana...">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--txt);">50M WHX</div>
+        <div style="font-family:'Bebas Neue',cursive;font-size:1.2rem;color:#2ECC71;letter-spacing:1px;">5%</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--muted);">At Launch</div>
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--txt);margin-bottom:.4rem;">Locked in DEX liquidity pool</div>
+          <div style="background:rgba(0,0,0,.3);border-radius:50px;height:6px;overflow:hidden;">
+            <div style="height:100%;width:100%;background:linear-gradient(90deg,#2ECC71,#14F195);border-radius:50px;"></div>
           </div>
-          <div class="fld">
-            <div class="fl">الشبكة</div>
-            <select class="fi" id="sc-chain">
-              <option value="sol">Solana</option>
-              <option value="eth">Ethereum</option>
-              <option value="bsc">BSC</option>
-              <option value="base">Base</option>
-              <option value="arb">Arbitrum</option>
-            </select>
-          </div>
-          <button class="btn btn-ai" style="margin-bottom:14px" onclick="SCANNER.scan()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            فحص AI — 8 مراحل أمان
-          </button>
-          <div id="sc-res"></div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:.3rem;">Provides stability at listing</div>
         </div>
       </div>
-    </div>
 
-  </div><!-- screens -->
-
-  <!-- BOTTOM NAV -->
-  <div class="bnav">
-    <div class="ni on" id="n0" onclick="ROUTER.go(0)">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      <div class="ni-lbl">الرئيسية</div>
-    </div>
-    <div class="ni" id="n2" onclick="ROUTER.go(2)">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      <div class="ni-lbl">إشارات</div>
-    </div>
-    <div class="ni-orb-wrap" onclick="ROUTER.go(1)">
-      <div class="ni-orb"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
-      <div class="ni-lbl" style="color:var(--neon)">تداول</div>
-    </div>
-    <div class="ni" id="n3" onclick="ROUTER.go(3)">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M16 12h.01"/></svg>
-      <div class="ni-lbl">المحفظة</div>
-    </div>
-    <div class="ni" id="n5" onclick="ROUTER.go(5)">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <div class="ni-lbl">AI Chat</div>
     </div>
   </div>
 
-</div><!-- shell -->
-
-<!-- ════════════════════════════════════════
-     ADMIN PAGE
-════════════════════════════════════════ -->
-<div id="adm">
-  <div style="padding:14px 16px;background:rgba(2,4,8,.98);border-bottom:1px solid var(--border2);display:flex;align-items:center;flex-shrink:0">
-    <div style="flex:1;font-size:16px;font-weight:800;color:var(--gold)">⚙️ Admin Panel — WhaleX Prime</div>
-    <button class="btn btn-ghost btn-sm" style="width:auto" onclick="ADMIN.close()">إغلاق</button>
+  <!-- ── VESTING TIMELINE VISUAL ── -->
+  <div style="margin-top:3rem;padding:2rem;background:var(--glass);border:1px solid var(--bdr);border-radius:16px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--sol2);letter-spacing:3px;text-transform:uppercase;margin-bottom:1.5rem;">📅 24-Month Vesting Timeline</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1rem;text-align:center;">
+      <div style="padding:.9rem;background:rgba(0,0,0,.25);border-radius:10px;border:1px solid rgba(20,241,149,.15);">
+        <div style="font-family:'Bebas Neue',cursive;font-size:1.3rem;color:var(--sol2);letter-spacing:1px;">TGE</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:.2rem;">Presale + Liquidity unlock</div>
+      </div>
+      <div style="padding:.9rem;background:rgba(0,0,0,.25);border-radius:10px;border:1px solid rgba(0,207,255,.15);">
+        <div style="font-family:'Bebas Neue',cursive;font-size:1.3rem;color:#00CFFF;letter-spacing:1px;">M+3</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:.2rem;">Development vesting starts</div>
+      </div>
+      <div style="padding:.9rem;background:rgba(0,0,0,.25);border-radius:10px;border:1px solid rgba(153,69,255,.15);">
+        <div style="font-family:'Bebas Neue',cursive;font-size:1.3rem;color:#9945FF;letter-spacing:1px;">M+6</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:.2rem;">Team vesting starts</div>
+      </div>
+      <div style="padding:.9rem;background:rgba(0,0,0,.25);border-radius:10px;border:1px solid rgba(240,190,60,.15);">
+        <div style="font-family:'Bebas Neue',cursive;font-size:1.3rem;color:#F0BE3C;letter-spacing:1px;">M+12</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:.2rem;">Insurance Fund vesting starts</div>
+      </div>
+      <div style="padding:.9rem;background:rgba(0,0,0,.25);border-radius:10px;border:1px solid rgba(20,241,149,.15);">
+        <div style="font-family:'Bebas Neue',cursive;font-size:1.3rem;color:var(--sol2);letter-spacing:1px;">M+24</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:.2rem;">All vesting complete ✓</div>
+      </div>
+    </div>
   </div>
-  <div style="flex:1;overflow-y:scroll;-webkit-overflow-scrolling:touch;padding:14px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-      <div class="adm-stat"><div class="adm-v" style="color:var(--neon)" id="adm-u">--</div><div style="font-size:11px;color:var(--text3);font-weight:700">المستخدمون</div></div>
-      <div class="adm-stat"><div class="adm-v" style="color:var(--gold)" id="adm-p">--</div><div style="font-size:11px;color:var(--text3);font-weight:700">PRO نشط</div></div>
-      <div class="adm-stat"><div class="adm-v" style="color:var(--green)" id="adm-r">$--</div><div style="font-size:11px;color:var(--text3);font-weight:700">الإيرادات</div></div>
-      <div class="adm-stat"><div class="adm-v" style="color:var(--ai)" id="adm-s">--</div><div style="font-size:11px;color:var(--text3);font-weight:700">إشارات اليوم</div></div>
+
+  <!-- ── REVENUE MODEL ── -->
+  <div style="margin-top:3rem;padding:1.5rem;background:var(--glass);border:1px solid var(--bdr);border-radius:12px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);margin-bottom:1rem;letter-spacing:2px;text-transform:uppercase;" data-i="rev_lbl">REVENUE MODEL</div>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+      <div style="flex:1;text-align:center;padding:1rem;background:rgba(20,241,149,.06);border:1px solid rgba(20,241,149,.15);border-radius:10px;">
+        <span style="font-family:'Bebas Neue',cursive;font-size:2.5rem;color:var(--sol2);letter-spacing:2px;">70%</span>
+        <div style="font-size:.8rem;color:var(--muted);margin-top:.3rem;" data-i="rev_burn">🔥 Buyback & Burn — Dead wallet</div>
+      </div>
+      <div style="flex:1;text-align:center;padding:1rem;background:rgba(153,69,255,.06);border:1px solid rgba(153,69,255,.15);border-radius:10px;">
+        <span style="font-family:'Bebas Neue',cursive;font-size:2.5rem;color:var(--sol);letter-spacing:2px;">30%</span>
+        <div style="font-size:.8rem;color:var(--muted);margin-top:.3rem;" data-i="rev_ops">⚙️ Operations · Salaries · Infrastructure</div>
+      </div>
     </div>
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text2)">حالة الرادار</div>
-      <div id="adm-radar" style="font-size:12px;color:var(--text2)">يتم التحميل...</div>
+  </div>
+
+  <!-- vesting bar animation -->
+  <style>@keyframes vBar{from{width:0%}to{width:85%}}</style>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══ HOW TO BUY ══ -->
+<section class="sec" id="howtobuy">
+  <div class="stag" data-i="htb_tag">// How To Buy</div>
+  <h2 class="stitle" data-i="htb_title">HOW TO BUY <span class="g">$WHX</span></h2>
+  <div class="htb-grid">
+    <div class="htb-card">
+      <div class="htb-num">1</div>
+      <span class="htb-icon">🦊</span>
+      <h3 data-i="htb1_t">GET A WALLET</h3>
+      <p data-i="htb1_d">If you already have a compatible wallet go to step 2. We recommend Phantom for Solana on desktop. On mobile, download Phantom or Trust Wallet to get started.</p>
     </div>
-    <div style="background:rgba(255,34,85,.05);border:1px solid rgba(255,34,85,.25);border-radius:var(--radius);padding:16px;margin-bottom:14px">
-      <div style="font-size:14px;font-weight:800;color:var(--red);margin-bottom:6px">🚨 Kill Switch</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">يوقف جميع الصفقات فوراً في حالات الطوارئ</div>
-      <button class="btn btn-danger" onclick="ADMIN.killSwitch()">⏹ تفعيل Kill Switch</button>
+    <div class="htb-card">
+      <div class="htb-num">2</div>
+      <span class="htb-icon">💰</span>
+      <h3 data-i="htb2_t">LOAD YOUR WALLET</h3>
+      <p data-i="htb2_d">Paying by card? Skip to step 3. If paying with crypto, load SOL, ETH, USDT, USDC or BTC onto your wallet. All five are accepted for presale purchases.</p>
+    </div>
+    <div class="htb-card">
+      <div class="htb-num">3</div>
+      <span class="htb-icon">🚀</span>
+      <h3 data-i="htb3_t">BUY & STAKE $WHX</h3>
+      <p data-i="htb3_d">Connect your wallet to the presale widget above. Choose payment method and amount. Select Buy and Stake for maximum rewards — your rank is assigned automatically.</p>
+    </div>
+    <div class="htb-card">
+      <div class="htb-num">4</div>
+      <span class="htb-icon">🎯</span>
+      <h3 data-i="htb4_t">CLAIM AT TGE</h3>
+      <p data-i="htb4_d">When the presale ends, reconnect your wallet and click Claim. Your $WHX and staking rewards become available simultaneously. Your wallet is tracked in real-time.</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══ ROADMAP ══ -->
+<section class="sec" id="roadmap">
+  <div class="stag" data-i="rm_tag">// Roadmap</div>
+  <h2 class="stitle" data-i="rm_title">PATH TO <span class="g">SOVEREIGNTY</span></h2>
+  <p class="ssub" data-i="rm_sub">From genesis to Layer-1 global dominance — every milestone tracked and transparent.</p>
+  <div class="rm-track">
+    <div class="rm-list">
+
+      <div class="rm-row">
+        <div class="rm-card left"><div class="rm-q">Q1 2024</div><h3 data-i="rm1_t">🧬 GENESIS</h3><p data-i="rm1_d">Core team assembled, deep market research, protocol architecture designed, seed funding secured from strategic investors.</p><span class="rm-pill pill-done" data-i="p_done">✓ Completed</span></div>
+        <div class="rm-node"><div class="rm-dot nd-done"></div></div>
+        <div class="rm-card empty"></div>
+      </div>
+
+      <div class="rm-row">
+        <div class="rm-card empty"></div>
+        <div class="rm-node"><div class="rm-dot nd-done"></div></div>
+        <div class="rm-card right"><div class="rm-q">Q2 2024</div><h3 data-i="rm2_t">🏗️ DEVELOPMENT</h3><p data-i="rm2_d">SPL Token deployed on Solana devnet, security audits Phase 1 with leading firms, investor dashboard backend designed, database architecture complete.</p><span class="rm-pill pill-done" data-i="p_done">✓ Completed</span></div>
+      </div>
+
+      <div class="rm-row">
+        <div class="rm-card left"><div class="rm-q">Q3–Q4 2024</div><h3 data-i="rm3_t">🧪 TESTNET & AUDIT</h3><p data-i="rm3_d">Public testnet launch, Bug Bounty program launched, performance and scalability testing complete, multi-chain payment gateway integration finalized.</p><span class="rm-pill pill-done" data-i="p_done">✓ Completed</span></div>
+        <div class="rm-node"><div class="rm-dot nd-done"></div></div>
+        <div class="rm-card empty"></div>
+      </div>
+
+      <div class="rm-row">
+        <div class="rm-card empty"></div>
+        <div class="rm-node"><div class="rm-dot nd-live"></div></div>
+        <div class="rm-card right"><div class="rm-q" data-i="rm4_q">Q1 2025 — NOW 🔥</div><h3 data-i="rm4_t">🚀 PRESALE LAUNCH</h3><p data-i="rm4_d">Presale Stage 1 live (Top VIP rank), multi-chain payments active (SOL, BTC, ETH, USDT, USDC), investor dashboard alpha deployed, wallet database tracking live.</p><span class="rm-pill pill-live" data-i="p_live">🔴 Live Now</span></div>
+      </div>
+
+      <div class="rm-row">
+        <div class="rm-card left"><div class="rm-q">Q2 2025</div><h3 data-i="rm5_t">📈 STAGES 2 & 3 + MAINNET</h3><p data-i="rm5_d">Presale Stages 2 & 3 open, Mainnet protocol deployment, DEX listing on major Solana exchanges, Staking rewards program activation, Claim system live at TGE.</p><span class="rm-pill pill-soon" data-i="p_soon">Upcoming</span></div>
+        <div class="rm-node"><div class="rm-dot nd-soon"></div></div>
+        <div class="rm-card empty"></div>
+      </div>
+
+      <div class="rm-row">
+        <div class="rm-card empty"></div>
+        <div class="rm-node"><div class="rm-dot nd-soon"></div></div>
+        <div class="rm-card right"><div class="rm-q">Q3 2025</div><h3 data-i="rm6_t">🏦 EXCHANGE LISTINGS</h3><p data-i="rm6_d">Negotiations with Binance, OKX, and Coinbase for CEX listings. Market maker partnerships secured. Global marketing campaign launched. Mobile app released.</p><span class="rm-pill pill-soon" data-i="p_soon">Upcoming</span></div>
+      </div>
+
+      <div class="rm-row">
+        <div class="rm-card left"><div class="rm-q">Q4 2025 — 2026</div><h3 data-i="rm7_t">🌍 LAYER-1 SOVEREIGNTY</h3><p data-i="rm7_d">Full Layer-1 protocol launch, institutional partnerships, Insurance Fund deployment, governance DAO live, WhaleX becomes the premier trading fortress globally.</p><span class="rm-pill pill-soon" data-i="p_soon">Vision</span></div>
+        <div class="rm-node"><div class="rm-dot nd-soon"></div></div>
+        <div class="rm-card empty"></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ══ WALLETS & PAYMENTS ══ -->
+<div class="w-section" id="wallets">
+  <div class="w-inner">
+    <div class="stag" data-i="w_tag">// Payment Gateway</div>
+    <h2 class="stitle" data-i="w_title">PAY WITH <span class="g">ANY</span> WALLET OR CURRENCY</h2>
+    <p class="ssub" data-i="w_sub">Multi-chain payment gateway accepts all major wallets and cryptocurrencies — no restrictions, no barriers, borderless access for every investor worldwide.</p>
+
+    <div class="w-tabs">
+      <button class="wtab on" onclick="wTab(this,'ww')" data-i="wt1">🔐 Wallets</button>
+      <button class="wtab" onclick="wTab(this,'wc')" data-i="wt2">₿ Crypto</button>
+      <button class="wtab" onclick="wTab(this,'wf')" data-i="wt3">💳 Fiat</button>
+    </div>
+
+    <!-- WALLETS — pepetocoin grid style -->
+    <div id="ww">
+      <div class="wgrid">
+        <div class="wcard"><div class="wi">🦊</div><div class="wn">MetaMask</div></div>
+        <div class="wcard"><div class="wi">👻</div><div class="wn">Phantom</div></div>
+        <div class="wcard"><div class="wi">🔵</div><div class="wn">Coinbase</div></div>
+        <div class="wcard"><div class="wi">🔗</div><div class="wn">WalletConnect</div></div>
+        <div class="wcard"><div class="wi">🟡</div><div class="wn">Trust Wallet</div></div>
+        <div class="wcard"><div class="wi">🌐</div><div class="wn">Ledger Live</div></div>
+        <div class="wcard"><div class="wi">🔐</div><div class="wn">Trezor</div></div>
+        <div class="wcard"><div class="wi">⚡</div><div class="wn">Solflare</div></div>
+        <div class="wcard"><div class="wi">🟠</div><div class="wn">OKX Wallet</div></div>
+        <div class="wcard"><div class="wi">🌊</div><div class="wn">Backpack</div></div>
+        <div class="wcard"><div class="wi">🔷</div><div class="wn">Glow</div></div>
+        <div class="wcard"><div class="wi">🏦</div><div class="wn">Binance W3</div></div>
+        <div class="wcard"><div class="wi">🦁</div><div class="wn">Brave</div></div>
+        <div class="wcard"><div class="wi">🌀</div><div class="wn">Magic Eden</div></div>
+        <div class="wcard"><div class="wi">💜</div><div class="wn">Exodus</div></div>
+        <div class="wcard"><div class="wi">🔮</div><div class="wn">Atomic</div></div>
+      </div>
+    </div>
+
+    <div id="wc" style="display:none">
+      <div class="cgrid">
+        <div class="ccard"><div class="ci">◎</div><div><div class="cn">Solana</div><div class="cs">SOL</div></div></div>
+        <div class="ccard"><div class="ci">₿</div><div><div class="cn">Bitcoin</div><div class="cs">BTC</div></div></div>
+        <div class="ccard"><div class="ci">Ξ</div><div><div class="cn">Ethereum</div><div class="cs">ETH</div></div></div>
+        <div class="ccard"><div class="ci">💎</div><div><div class="cn">USDT</div><div class="cs">Tether</div></div></div>
+        <div class="ccard"><div class="ci">🔵</div><div><div class="cn">USDC</div><div class="cs">USD Coin</div></div></div>
+        <div class="ccard"><div class="ci">🔶</div><div><div class="cn">BNB</div><div class="cs">Binance</div></div></div>
+        <div class="ccard"><div class="ci">🟣</div><div><div class="cn">Polygon</div><div class="cs">MATIC</div></div></div>
+        <div class="ccard"><div class="ci">⚡</div><div><div class="cn">XRP</div><div class="cs">Ripple</div></div></div>
+        <div class="ccard"><div class="ci">🔺</div><div><div class="cn">Avalanche</div><div class="cs">AVAX</div></div></div>
+        <div class="ccard"><div class="ci">🌊</div><div><div class="cn">Cardano</div><div class="cs">ADA</div></div></div>
+        <div class="ccard"><div class="ci">🟡</div><div><div class="cn">TRX</div><div class="cs">Tron</div></div></div>
+        <div class="ccard"><div class="ci">💫</div><div><div class="cn">Stellar</div><div class="cs">XLM</div></div></div>
+      </div>
+    </div>
+
+    <div id="wf" style="display:none">
+      <div class="cgrid">
+        <div class="ccard"><div class="ci">💳</div><div><div class="cn">Visa / MC</div><div class="cs">Credit Card</div></div></div>
+        <div class="ccard"><div class="ci">🏦</div><div><div class="cn">Bank Wire</div><div class="cs">SWIFT/SEPA</div></div></div>
+        <div class="ccard"><div class="ci">📱</div><div><div class="cn">Apple Pay</div><div class="cs">iOS</div></div></div>
+        <div class="ccard"><div class="ci">🤖</div><div><div class="cn">Google Pay</div><div class="cs">Android</div></div></div>
+        <div class="ccard"><div class="ci">🅿️</div><div><div class="cn">PayPal</div><div class="cs">USD/EUR</div></div></div>
+        <div class="ccard"><div class="ci">🌍</div><div><div class="cn">Wise</div><div class="cs">Global</div></div></div>
+      </div>
+    </div>
+
+    <!-- INVESTOR DASHBOARD -->
+    <div style="margin-top:4rem;">
+      <div class="stag" data-i="db_tag">// Investor Dashboard</div>
+      <h2 class="stitle" data-i="db_title">YOUR <span class="g">FORTRESS</span> COMMAND CENTER</h2>
+      <div class="dash-wrap">
+        <div class="dash-bar">
+          <div class="dr dred"></div><div class="dr dyel"></div><div class="dr dgrn"></div>
+          <div class="durl">app.whalex.io/dashboard</div>
+        </div>
+        <div class="dash-body">
+          <div class="dash-top">
+            <div><div style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted);margin-bottom:.3rem;" data-i="db_wallet">CONNECTED WALLET</div><div style="font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--white);">7xKp...3mRq</div></div>
+            <div class="rank-badge">👑 <span data-i="db_rank">TOP VIP</span></div>
+          </div>
+          <div class="dcards">
+            <div class="dc"><div class="dc-lbl" data-i="db_bal">WHX BALANCE</div><div class="dc-val v-green">6,666,666</div></div>
+            <div class="dc"><div class="dc-lbl" data-i="db_pval">PURCHASE VALUE</div><div class="dc-val v-purple">$100.00</div></div>
+            <div class="dc"><div class="dc-lbl" data-i="db_cval">CURRENT VALUE</div><div class="dc-val v-gold">$666.67</div></div>
+            <div class="dc"><div class="dc-lbl" data-i="db_claim">CLAIM STATUS</div><div class="dc-val" style="font-size:.95rem;color:var(--muted);" data-i="db_tge">Locked until TGE</div></div>
+          </div>
+          <button class="btn-claim" data-i="db_btn">🐋 CLAIM $WHX AT TGE</button>
+          <div class="tge-note" data-i="db_note">Tokens claimable at TGE · Wallet tracked in real-time database · Rank assigned automatically</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     MODALS
-════════════════════════════════════════ -->
+<div class="divider"></div>
 
-<!-- SETTINGS -->
-<div class="mo" id="mo-settings"><div class="mo-sheet">
-  <div class="mo-handle"></div>
-  <div class="mo-hd"><div class="mo-title">⚙️ الإعدادات</div><div class="mo-x" onclick="UI.closeModal('mo-settings')">✕</div></div>
-  <div class="mo-body">
-    <div class="set-section">
-      <div class="set-section-title">منصة التداول</div>
-      <div id="set-plat-list"></div>
-    </div>
-    <div class="set-section">
-      <div class="set-section-title">نوع التداول</div>
-      <div class="set-opt" id="set-t-futures" onclick="PROFILE.toggleTradingType('futures')"><div style="font-size:20px">📈</div><div style="flex:1"><div style="font-weight:700">Futures</div><div style="font-size:11px;color:var(--text2)">تداول بالرافعة المالية</div></div><div class="set-dot"></div></div>
-      <div class="set-opt" id="set-t-spot" onclick="PROFILE.toggleTradingType('spot')"><div style="font-size:20px">💰</div><div style="flex:1"><div style="font-weight:700">Spot</div><div style="font-size:11px;color:var(--text2)">شراء وبيع مباشر</div></div><div class="set-dot"></div></div>
-      <div class="set-opt" id="set-t-meme" onclick="PROFILE.toggleTradingType('meme')"><div style="font-size:20px">🚀</div><div style="flex:1"><div style="font-weight:700">Meme Coins</div><div style="font-size:11px;color:var(--text2)">عملات الترند</div></div><div class="set-dot"></div></div>
-    </div>
-    <div class="set-section">
-      <div class="set-section-title">وضع التداول</div>
-      <div class="set-opt" id="set-m-auto" onclick="PROFILE.setAutoMode('auto')"><div style="font-size:20px">🤖</div><div style="flex:1"><div style="font-weight:700">Auto Trading</div><div style="font-size:11px;color:var(--text2)">AI يدير صفقاتك</div></div><div class="set-dot"></div></div>
-      <div class="set-opt" id="set-m-manual" onclick="PROFILE.setAutoMode('manual')"><div style="font-size:20px">✋</div><div style="flex:1"><div style="font-weight:700">يدوي</div><div style="font-size:11px;color:var(--text2)">أنت تتحكم</div></div><div class="set-dot"></div></div>
-    </div>
-    <button class="btn btn-neon" onclick="PROFILE.saveSettings()">حفظ الإعدادات</button>
+<!-- ══ FAQ ══ -->
+<section class="sec">
+  <div class="stag" data-i="fq_tag">// FAQ</div>
+  <h2 class="stitle" data-i="fq_title">FREQUENTLY ASKED <span class="g">QUESTIONS</span></h2>
+  <div class="faq-list">
+    <div class="fq" onclick="togFaq(this)"><div class="fq-q"><span data-i="fq1_q">WHAT IS WHALEX PROTOCOL?</span><span class="fq-tog">+</span></div><div class="fq-a" data-i="fq1_a">WhaleX is a Layer-1 protocol built on Solana, designed to eliminate the gap between retail traders and Whales. It provides institutional-grade tools, lightning-fast execution, automated security filtering, and a comprehensive investor dashboard with rank tracking and claim system.</div></div>
+    <div class="fq" onclick="togFaq(this)"><div class="fq-q"><span data-i="fq2_q">WHAT IS $WHX TOKEN?</span><span class="fq-tog">+</span></div><div class="fq-a" data-i="fq2_a">$WHX is the native utility and governance token of the WhaleX ecosystem. Used for trading fee discounts, governance voting, staking rewards, and rank qualification. 70% of all protocol fees fund Buyback & Burn, creating continuous deflationary pressure.</div></div>
+    <div class="fq" onclick="togFaq(this)"><div class="fq-q"><span data-i="fq3_q">WHICH BLOCKCHAIN IS WHALEX BUILT ON?</span><span class="fq-tog">+</span></div><div class="fq-a" data-i="fq3_a">WhaleX is built natively on Solana as an SPL Token — chosen for its sub-second execution speed, near-zero transaction fees, and 65,000+ TPS capacity. This ensures the fastest possible professional trading experience on-chain.</div></div>
+    <div class="fq" onclick="togFaq(this)"><div class="fq-q"><span data-i="fq4_q">WHEN CAN I CLAIM MY $WHX TOKENS?</span><span class="fq-tog">+</span></div><div class="fq-a" data-i="fq4_a">Tokens are claimable at the Token Generation Event (TGE). When the presale concludes, reconnect your wallet to the dashboard and click Claim. Staking rewards and purchased tokens become available simultaneously. Your wallet is tracked in the database from purchase.</div></div>
+    <div class="fq" onclick="togFaq(this)"><div class="fq-q"><span data-i="fq5_q">WHAT INVESTOR RANKS ARE AVAILABLE?</span><span class="fq-tog">+</span></div><div class="fq-a" data-i="fq5_a">WhaleX has three presale investor ranks: Top VIP (Stage 1 — earliest access, lowest price), VIP (Stage 2), and Gold (Stage 3). Each rank provides progressively different staking multipliers and early access benefits. Ranks are permanently recorded in the database.</div></div>
+    <div class="fq" onclick="togFaq(this)"><div class="fq-q"><span data-i="fq6_q">HAS THE WHALEX CONTRACT BEEN AUDITED?</span><span class="fq-tog">+</span></div><div class="fq-a" data-i="fq6_a">Yes. The WhaleX smart contract undergoes multi-layer security auditing before Mainnet launch. All audit reports are publicly disclosed and verifiable. The automated security filtering system also monitors every transaction in real-time post-launch.</div></div>
   </div>
-</div></div>
+</section>
 
-<!-- DEPOSIT -->
-<div class="mo" id="mo-dep"><div class="mo-sheet"><div class="mo-handle"></div><div class="mo-hd"><div class="mo-title">إيداع رصيد</div><div class="mo-x" onclick="UI.closeModal('mo-dep')">✕</div></div><div class="mo-body"><p style="color:var(--text2);font-size:13px;margin-bottom:14px">أرسل للعنوان أدناه. Gas Fees محجوزة تلقائياً.</p><div style="background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:14px;text-align:center;margin-bottom:12px"><div style="font-size:10px;color:var(--text3);margin-bottom:6px;font-weight:700">USDT / USDC (Solana)</div><div style="font-size:11px;font-family:var(--mono);word-break:break-all;color:var(--neon)" id="dep-addr">-</div></div><button class="btn btn-neon" onclick="UI.copy(document.getElementById('dep-addr').textContent,'✓ نسخ العنوان')">نسخ العنوان</button></div></div></div>
+<!-- ══ FOOTER ══ -->
+<footer>
+  <div class="foot-in">
+    <div class="foot-grid">
+      <div class="fc">
+        <div class="logo" style="margin-bottom:1.2rem;"><div class="lmark" style="width:40px;height:40px;">🐋</div><span class="ltxt" style="font-size:1.5rem;">Whale<span>X</span></span></div>
+        <p data-i="ft_about">The Sovereign Trading Fortress. WhaleX Protocol is built on Solana — transforming every trader into a Whale through institutional-grade infrastructure and security.</p>
+        <div class="socials" style="margin-top:1.5rem;">
+          <a href="#" class="soc">𝕏</a>
+          <a href="#" class="soc">✈️</a>
+          <a href="#" class="soc">💬</a>
+          <a href="#" class="soc">📺</a>
+          <a href="#" class="soc">🔗</a>
+        </div>
+      </div>
+      <div class="fc">
+        <h4 data-i="fc1_h">PROTOCOL</h4>
+        <ul>
+          <li><a href="#" data-i="fc1_1">Whitepaper</a></li>
+          <li><a href="#" data-i="fc1_2">Technical Brief</a></li>
+          <li><a href="#" data-i="fc1_3">Security Audit</a></li>
+          <li><a href="#" data-i="fc1_4">Smart Contracts</a></li>
+          <li><a href="#" data-i="fc1_5">GitHub</a></li>
+        </ul>
+      </div>
+      <div class="fc">
+        <h4 data-i="fc2_h">COMMUNITY</h4>
+        <ul>
+          <li><a href="#">Telegram</a></li>
+          <li><a href="#">Discord</a></li>
+          <li><a href="#">Twitter / X</a></li>
+          <li><a href="#">Medium</a></li>
+          <li><a href="#">YouTube</a></li>
+        </ul>
+      </div>
+      <div class="fc">
+        <h4 data-i="fc3_h">LEGAL</h4>
+        <ul>
+          <li><a href="#" data-i="fc3_1">Privacy Policy</a></li>
+          <li><a href="#" data-i="fc3_2">Terms of Service</a></li>
+          <li><a href="#" data-i="fc3_3">Disclaimer</a></li>
+          <li><a href="#" data-i="fc3_4">KYC / AML</a></li>
+          <li><a href="#" data-i="fc3_5">Contact Us</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bot">
+      <span>© 2025 WhaleX Protocol. All rights reserved.</span>
+      <span style="color:var(--sol2);">$WHX · Solana SPL · Presale Stage 1 Live</span>
+      <span>⚠️ <span data-i="disclaimer">Crypto investing carries risk. Not financial advice.</span></span>
+    </div>
+  </div>
+</footer>
 
-<!-- WITHDRAW -->
-<div class="mo" id="mo-wit"><div class="mo-sheet"><div class="mo-handle"></div><div class="mo-hd"><div class="mo-title">سحب رصيد</div><div class="mo-x" onclick="UI.closeModal('mo-wit')">✕</div></div><div class="mo-body"><div class="fld"><div class="fl">العملة</div><select class="fi"><option>USDT</option><option>USDC</option><option>SOL</option><option>ETH</option><option>BTC</option></select></div><div class="fld"><div class="fl">العنوان</div><input class="fi" placeholder="0x... أو T..."></div><div class="fld"><div class="fl">المبلغ</div><input class="fi" type="number" placeholder="0.00" id="wit-a" oninput="WALLET.calcWithdraw()"></div><div style="background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span style="color:var(--text2)">رسوم الغاز (1%)</span><span style="font-weight:700;color:var(--gold);font-family:var(--mono)" id="wit-g">$0.00</span></div><div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;border-top:1px solid var(--border);margin-top:5px;padding-top:7px"><span>تستقبل</span><span style="color:var(--green);font-family:var(--mono)" id="wit-r">-</span></div></div><button class="btn btn-neon" onclick="UI.toast('✓ طلب السحب أُرسل');UI.closeModal('mo-wit')">تأكيد السحب</button></div></div></div>
+<!-- ══ BOTTOM TICKER ══ -->
+<div class="bticker">
+  <div class="bt-inner" id="BTICKER"></div>
+</div>
 
-<!-- NEW WALLET -->
-<div class="mo" id="mo-newwal"><div class="mo-sheet"><div class="mo-handle"></div><div class="mo-hd"><div class="mo-title">إنشاء محفظة</div><div class="mo-x" onclick="UI.closeModal('mo-newwal')">✕</div></div><div class="mo-body"><div class="fld"><div class="fl">الشبكة</div><select class="fi" id="wal-ch"><option value="sol">Solana</option><option value="eth">Ethereum</option><option value="bsc">BSC</option><option value="arb">Arbitrum</option><option value="base">Base</option><option value="tron">Tron</option><option value="btc">Bitcoin</option></select></div><div style="background:rgba(255,204,0,.05);border:1px solid rgba(255,204,0,.2);border-radius:8px;padding:12px;font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:14px"><b style="color:var(--gold)">تحذير:</b> احفظ Seed Phrase في مكان آمن.</div><button class="btn btn-neon" onclick="WALLET.generate()">إنشاء محفظة جديدة</button><div id="wal-res" style="display:none;margin-top:14px"><div style="background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:14px;margin-bottom:8px"><div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-weight:700">العنوان</div><div style="font-size:11px;font-family:var(--mono);word-break:break-all;color:var(--neon)" id="new-addr"></div></div><div style="background:rgba(255,34,85,.05);border:1px solid rgba(255,34,85,.2);border-radius:10px;padding:14px"><div style="font-size:10px;color:var(--red);margin-bottom:6px;font-weight:700">Seed Phrase</div><div style="font-size:12px;font-family:var(--mono);color:var(--text);line-height:1.9;word-spacing:8px" id="new-seed"></div><button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="UI.copy(document.getElementById('new-seed').textContent,'✓ نسخ Seed')">نسخ Seed</button></div></div></div></div></div>
+<script>
+/* ── Cursor ── */
+const C=document.getElementById('CUR'),C2=document.getElementById('CUR2');
+document.addEventListener('mousemove',e=>{
+  C.style.cssText=`left:${e.clientX}px;top:${e.clientY}px;`;
+  setTimeout(()=>{C2.style.cssText=`left:${e.clientX}px;top:${e.clientY}px;`;},110);
+});
 
-<!-- HISTORY -->
-<div class="mo" id="mo-hist"><div class="mo-sheet"><div class="mo-handle"></div><div class="mo-hd"><div class="mo-title">سجل الصفقات</div><div class="mo-x" onclick="UI.closeModal('mo-hist')">✕</div></div><div class="mo-body"><div style="color:var(--text3);text-align:center;padding:20px">لا توجد صفقات بعد</div></div></div></div>
+/* ── Particles ── */
+const pc=document.getElementById('PTS');
+for(let i=0;i<45;i++){
+  const p=document.createElement('div');p.className='pt';
+  const col=['#14F195','#9945FF','#F0BE3C'][i%3];
+  const s=Math.random()*3+1;
+  p.style.cssText=`left:${Math.random()*100}%;width:${s}px;height:${s}px;background:${col};animation-duration:${Math.random()*18+8}s;animation-delay:${Math.random()*14}s;`;
+  pc.appendChild(p);
+}
 
-<!-- API KEY -->
-<div class="mo" id="mo-api"><div class="mo-sheet"><div class="mo-handle"></div><div class="mo-hd"><div class="mo-title">ربط API Key</div><div class="mo-x" onclick="UI.closeModal('mo-api')">✕</div></div><div class="mo-body"><div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">اربط حسابك في أي منصة CEX</div><div class="fld"><div class="fl">المنصة</div><select class="fi" id="api-plat"><option value="binance">Binance</option><option value="bybit">Bybit</option><option value="okx">OKX</option><option value="kucoin">KuCoin</option><option value="gate">Gate.io</option><option value="mexc">MEXC</option></select></div><div class="fld"><div class="fl">API Key</div><input class="fi" type="text" placeholder="أدخل API Key" id="api-k"></div><div class="fld"><div class="fl">API Secret</div><input class="fi" type="password" placeholder="أدخل API Secret" id="api-s"></div><div style="background:rgba(0,245,255,.04);border:1px solid rgba(0,245,255,.15);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--text2);margin-bottom:14px;line-height:1.6">🔒 فعّل <b style="color:var(--neon)">Trading Only</b> فقط — بدون سحب.</div><button class="btn btn-neon" onclick="PROFILE.saveApiKey()">حفظ وربط الحساب</button></div></div></div>
+/* ── News ticker ── */
+const newsItems=[
+  '🐋 WhaleX Presale Stage 1 — Top VIP Now Live',
+  '⚡ Built on Solana · SPL Token · Layer-1 Protocol',
+  '🔥 70% of Fees → Buyback & Burn Permanently',
+  '🛡️ Security Audit Complete · Multi-Layer Protection',
+  '🌍 Join 40+ Countries Already Participating',
+  '📊 Investor Dashboard · Real-Time Rank Tracking',
+];
+const nt=document.getElementById('NTICKER');
+nt.innerHTML=[...newsItems,...newsItems].map(n=>`<span class="ni">${n}</span>`).join('');
 
-<!-- ADMIN LOGIN -->
-<div class="mo" id="mo-adm-login"><div class="mo-sheet"><div class="mo-handle"></div><div class="mo-hd"><div class="mo-title">🔐 Admin Access</div><div class="mo-x" onclick="UI.closeModal('mo-adm-login')">✕</div></div><div class="mo-body"><div class="fld"><div class="fl">كلمة المرور</div><input class="fi" type="password" placeholder="Admin Password" id="adm-pw" onkeydown="if(event.key==='Enter')ADMIN.checkPassword()"></div><button class="btn btn-gold" onclick="ADMIN.checkPassword()">دخول</button></div></div></div>
+/* ── Featured logos (text) ── */
+const featItems=['CoinTelegraph','Forbes','Bloomberg','CoinDesk','Decrypt','TechCrunch','Reuters','BusinessInsider'];
+const ft=document.getElementById('FEAT');
+ft.innerHTML=[...featItems,...featItems].map(f=>`<span class="feat-item">${f}</span>`).join('');
 
-<!-- ════════════════════════════════════════
-     JS — الترتيب مهم جداً
-════════════════════════════════════════ -->
-<script src="js/config.js"></script>
-<script src="js/state.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/api.js"></script>
-<script src="js/router.js"></script>
-<script src="js/websocket.js"></script>
-<script src="js/ticker.js"></script>
-<script src="js/onboarding.js"></script>
-<script src="js/signals.js"></script>
-<script src="js/trade.js"></script>
-<script src="js/wallet.js"></script>
-<script src="js/chat.js"></script>
-<script src="js/scanner.js"></script>
-<script src="js/admin.js"></script>
-<script src="js/profile.js"></script>
-<script src="js/app.js"></script><!-- نقطة البداية — آخر ملف دائماً -->
+/* ── Bottom ticker ── */
+const tks=[
+  {n:'$WHX',p:'PRESALE',c:'up',ch:'LIVE'},
+  {n:'SOL',p:'$182',c:'up',ch:'▲3.2%'},
+  {n:'BTC',p:'$98,240',c:'up',ch:'▲2.1%'},
+  {n:'ETH',p:'$3,820',c:'up',ch:'▲1.8%'},
+  {n:'BNB',p:'$412',c:'dn',ch:'▼0.9%'},
+  {n:'USDT',p:'$1.00',c:'',ch:'—'},
+  {n:'AVAX',p:'$38.4',c:'up',ch:'▲4.1%'},
+  {n:'XRP',p:'$0.62',c:'up',ch:'▲1.4%'},
+];
+const bt=document.getElementById('BTICKER');
+bt.innerHTML=[...tks,...tks].map(t=>`<span class="ti"><span class="tn">${t.n}</span><span class="tp">${t.p}</span><span class="${t.c}">${t.ch}</span></span>`).join('');
 
+/* ── Countdown ── */
+(function cd(){
+  const t=new Date();t.setDate(t.getDate()+14);t.setHours(8,42,17,0);
+  const diff=t-new Date();if(diff<=0)return;
+  ['d','h','m','s'].forEach((id,i)=>{
+    const vals=[Math.floor(diff/86400000),Math.floor(diff%86400000/3600000),Math.floor(diff%3600000/60000),Math.floor(diff%60000/1000)];
+    const el=document.getElementById('cd-'+id);
+    if(el)el.textContent=String(vals[i]).padStart(2,'0');
+  });
+})();
+setInterval(function cd(){
+  const t=new Date();t.setDate(t.getDate()+14);t.setHours(8,42,17,0);
+  const diff=t-new Date();if(diff<=0)return;
+  ['d','h','m','s'].forEach((id,i)=>{
+    const vals=[Math.floor(diff/86400000),Math.floor(diff%86400000/3600000),Math.floor(diff%3600000/60000),Math.floor(diff%60000/1000)];
+    const el=document.getElementById('cd-'+id);
+    if(el)el.textContent=String(vals[i]).padStart(2,'0');
+  });
+},1000);
+
+/* ── Pay method selector ── */
+const solPrices={SOL:182,ETH:3820,USDT:1,USDC:1,BTC:98240,CARD:1};
+let selCurr='SOL';
+function selPay(el,curr){
+  document.querySelectorAll('.pm').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  selCurr=curr;
+  document.getElementById('payCurr').textContent=curr;
+  document.querySelector('[data-i="pw_pay"]').textContent='Pay with '+curr;
+  calcWhx();
+}
+
+/* ── WHX Calculator ── */
+function calcWhx(){
+  const amt=parseFloat(document.getElementById('payAmt').value)||0;
+  const priceEl=document.getElementById('TOKEN_PRICE');
+  const tPrice=parseFloat(priceEl.dataset.price);
+  const recv=document.getElementById('recvAmt');
+  if(isNaN(tPrice)||tPrice<=0){recv.value='Set price first';return;}
+  const usd=amt*(solPrices[selCurr]||1);
+  recv.value=Math.floor(usd/tPrice).toLocaleString();
+}
+
+/* ════════════════════════════════
+   HOW TO UPDATE TOKEN PRICE:
+   Find this line:  data-price="TBA"
+   Change TBA to your price e.g: data-price="0.015"
+   The calculator will work automatically
+════════════════════════════════ */
+
+/* ── Wallet tabs ── */
+function wTab(btn,tab){
+  document.querySelectorAll('.wtab').forEach(t=>t.classList.remove('on'));
+  btn.classList.add('on');
+  ['ww','wc','wf'].forEach(id=>{document.getElementById(id).style.display='none';});
+  document.getElementById(tab).style.display='block';
+}
+
+/* ── FAQ ── */
+function togFaq(el){el.classList.toggle('open');}
+
+/* ════════════════════════════════════
+   12-LANGUAGE SYSTEM
+════════════════════════════════════ */
+const T={
+  en:{n_about:'About',n_tok:'Tokenomics',n_how:'How To Buy',n_road:'Roadmap',n_pay:'Payment',n_buy:'Buy $WHX 🚀',h_badge:'PRESALE LIVE · SOLANA SPL TOKEN · JOIN NOW',h_l1:'THE SOVEREIGN',h_sub:'WhaleX transforms <strong>retail traders into Whales</strong>. Institutional-grade tools, Solana lightning execution, and automated security — for everyone, regardless of capital size.',h_net:'Solana · SPL Token · Layer-1 Protocol',h_btn1:'🐋 Buy $WHX Now',h_btn2:'📄 Whitepaper',pw_title:'BUY $WHX TOKENS NOW',pw_sub:'Presale Stage 1 · Top VIP · Get in early',pw_raised:'USDT Raised: $0 / $0',pw_until:'UNTIL PRICE RISE',cd_d:'Days',cd_h:'Hours',cd_m:'Minutes',cd_s:'Seconds',pw_price_lbl:'1 $WHX =',pw_purchased:'Your purchased $WHX =',pw_stakeable:'Your stakeable $WHX =',card:'Card',pw_pay:'Pay with SOL',pw_max:'Max',pw_connect:'🔗 Connect Wallet',pw_bnb:'Buy with BNB',pw_nowallet:"Don't have a wallet?",pw_powered:'Powered by Web3 Payments',feat_lbl:'Featured In',a_tag:'// WhaleX Utility Ecosystem',a_title:'TECHNOLOGY & OPTIMIZATION — THE TOOLS WHALES USE',a_sub:'WhaleX Protocol eliminates the gap between retail traders and institutional Whales — same infrastructure, security, and speed for everyone.',prob:'▼ THE PROBLEM',sol:'▲ WHALEX SOLUTION',u1_t:'IDENTITY SHIFT',u1_sub:'FROM SMALL FISH TO WHALE',u1_prob:'Retail traders face massive disadvantages: no institutional tools, no order flow data, no protection against manipulation.',u1_sol:'WhaleX provides institutional-grade order routing, real-time whale tracking, and professional tools to every trader.',u2_t:'SECURITY FIRST',u2_sub:'FORTRESS-GRADE PROTECTION',u2_prob:'Rug pulls, exploits, and malicious contracts drain billions from traders who cannot verify smart contract safety.',u2_sol:'Automated security filtering, Insurance Fund protection, multi-layer auditing, and AI engine scanning every interaction.',u3_t:'LIGHTNING SPEED',u3_sub:'SOLANA LAYER-1 EXECUTION',u3_prob:'Slow execution and high gas fees destroy profitability on small positions across congested networks.',u3_sol:'Built on Solana — sub-second execution, near-zero fees, and 65,000+ TPS capacity.',u4_t:'BUYBACK & BURN ENGINE',u4_sub:'70% OF FEES — PERMANENT BURN',u4_res:'Every fee collected permanently reduces total supply · Continuous deflationary pressure creates long-term value · 30% funds development and security',t_tag:'// Tokenomics',t_title:'$WHX TOKEN DISTRIBUTION',t_sub:'1 Billion total supply on Solana — strategically allocated for maximum long-term ecosystem value.',tk1:'Presale Allocation',tk2:'Locked (Vesting)',tk3:'Initial Liquidity',rev_lbl:'REVENUE MODEL',rev_burn:'🔥 Buyback & Burn',rev_ops:'⚙️ Operations',htb_tag:'// How To Buy',htb_title:'HOW TO BUY $WHX',htb1_t:'GET A WALLET',htb1_d:'Recommend Phantom for Solana on desktop. On mobile, download Phantom or Trust Wallet.',htb2_t:'LOAD YOUR WALLET',htb2_d:'SOL, ETH, USDT, USDC or BTC accepted for presale purchases.',htb3_t:'BUY & STAKE $WHX',htb3_d:'Connect wallet, choose payment and amount. Buy and Stake for maximum rewards.',htb4_t:'CLAIM AT TGE',htb4_d:'When presale ends, reconnect wallet and click Claim. Tokens and staking rewards available simultaneously.',rm_tag:'// Roadmap',rm_title:'PATH TO SOVEREIGNTY',rm_sub:'From genesis to Layer-1 global dominance — every milestone tracked and transparent.',rm1_t:'🧬 GENESIS',rm1_d:'Core team assembled, market research, protocol architecture, seed funding secured.',rm2_t:'🏗️ DEVELOPMENT',rm2_d:'SPL Token on Solana devnet, security audits Phase 1, dashboard backend, database architecture.',rm3_t:'🧪 TESTNET & AUDIT',rm3_d:'Public testnet, Bug Bounty, performance testing, multi-chain payment gateway integration.',rm4_q:'Q1 2025 — NOW 🔥',rm4_t:'🚀 PRESALE LAUNCH',rm4_d:'Stage 1 live (Top VIP), multi-chain payments active, investor dashboard alpha, wallet database live.',rm5_t:'📈 STAGES 2 & 3 + MAINNET',rm5_d:'Stages 2 & 3 open, Mainnet launch, DEX listing, Staking program, Claim system at TGE.',rm6_t:'🏦 EXCHANGE LISTINGS',rm6_d:'CEX listing negotiations, market maker partnerships, global marketing, mobile app.',rm7_t:'🌍 LAYER-1 SOVEREIGNTY',rm7_d:'Full L1 launch, institutional partnerships, Insurance Fund, governance DAO.',p_done:'✓ Completed',p_live:'🔴 Live Now',p_soon:'Upcoming',w_tag:'// Payment Gateway',w_title:'PAY WITH ANY WALLET OR CURRENCY',w_sub:'Multi-chain payment gateway — no restrictions, borderless access for every investor worldwide.',wt1:'🔐 Wallets',wt2:'₿ Crypto',wt3:'💳 Fiat',db_tag:'// Investor Dashboard',db_title:'YOUR FORTRESS COMMAND CENTER',db_wallet:'CONNECTED WALLET',db_rank:'TOP VIP',db_bal:'WHX BALANCE',db_pval:'PURCHASE VALUE',db_cval:'CURRENT VALUE',db_claim:'CLAIM STATUS',db_tge:'Locked until TGE',db_btn:'🐋 CLAIM $WHX AT TGE',db_note:'Tokens claimable at TGE · Wallet tracked in real-time database · Rank assigned automatically',fq_tag:'// FAQ',fq_title:'FREQUENTLY ASKED QUESTIONS',fq1_q:'WHAT IS WHALEX PROTOCOL?',fq1_a:'WhaleX is a Layer-1 protocol on Solana eliminating the gap between retail traders and Whales. Institutional tools, lightning execution, automated security, and investor dashboard with rank tracking.',fq2_q:'WHAT IS $WHX TOKEN?',fq2_a:'$WHX is the native utility token. Used for trading fee discounts, governance, staking rewards. 70% of fees fund Buyback & Burn.',fq3_q:'WHICH BLOCKCHAIN?',fq3_a:'Built on Solana as an SPL Token — sub-second execution, near-zero fees, 65,000+ TPS.',fq4_q:'WHEN CAN I CLAIM MY TOKENS?',fq4_a:'At TGE. Reconnect wallet to dashboard and click Claim. Staking rewards and purchased tokens available simultaneously.',fq5_q:'WHAT INVESTOR RANKS ARE AVAILABLE?',fq5_a:'Three ranks: Top VIP (Stage 1), VIP (Stage 2), Gold (Stage 3). Each provides different staking multipliers and benefits.',fq6_q:'HAS THE CONTRACT BEEN AUDITED?',fq6_a:'Yes. Multi-layer security auditing before Mainnet. All reports publicly disclosed and verifiable.',ft_about:'The Sovereign Trading Fortress. Built on Solana — transforming every trader into a Whale.',fc1_h:'PROTOCOL',fc1_1:'Whitepaper',fc1_2:'Technical Brief',fc1_3:'Security Audit',fc1_4:'Smart Contracts',fc1_5:'GitHub',fc2_h:'COMMUNITY',fc3_h:'LEGAL',fc3_1:'Privacy Policy',fc3_2:'Terms of Service',fc3_3:'Disclaimer',fc3_4:'KYC / AML',fc3_5:'Contact Us',disclaimer:'Crypto investing carries risk. Not financial advice.'},
+  ar:{n_about:'عن المشروع',n_tok:'التوكينومكس',n_how:'كيف تشتري',n_road:'خارطة الطريق',n_pay:'الدفع',n_buy:'اشتري $WHX 🚀',h_badge:'الاكتتاب مباشر · Solana SPL Token · انضم الآن',h_l1:'الحصن السيادي',h_sub:'WhaleX يحول <strong>المتداولين الصغار إلى حيتان</strong>. أدوات مؤسسية، تنفيذ البرق على Solana، وأمان تلقائي — للجميع بغض النظر عن حجم رأس المال.',h_net:'Solana · SPL Token · بروتوكول Layer-1',h_btn1:'🐋 اشتري $WHX الآن',h_btn2:'📄 الورقة البيضاء',pw_title:'اشتري توكنات $WHX الآن',pw_sub:'المرحلة الأولى من الاكتتاب · Top VIP · ادخل مبكراً',pw_raised:'USDT المجمعة: $0 / $0',pw_until:'حتى ارتفاع السعر',cd_d:'يوم',cd_h:'ساعة',cd_m:'دقيقة',cd_s:'ثانية',pw_price_lbl:'1 $WHX =',pw_purchased:'$WHX المشتراة =',pw_stakeable:'$WHX القابلة للستيكينج =',card:'بطاقة',pw_pay:'ادفع بـ SOL',pw_max:'الحد الأقصى',pw_connect:'🔗 ربط المحفظة',pw_bnb:'شراء بـ BNB',pw_nowallet:'ليس لديك محفظة؟',pw_powered:'مدعوم بـ Web3 Payments',feat_lbl:'كما ظهرنا في',a_tag:'// المنظومة الاستخدامية لـ WhaleX',a_title:'التكنولوجيا والتحسين — أدوات الحيتان',a_sub:'WhaleX يزيل الفجوة بين المتداولين الصغار والحيتان المؤسسية — نفس البنية التحتية والأمان والسرعة للجميع.',prob:'▼ المشكلة',sol:'▲ حل WhaleX',u1_t:'تحول الهوية',u1_sub:'من سمكة صغيرة إلى حوت',u1_prob:'يواجه المتداولون الأفراد مساوئ ضخمة: لا أدوات مؤسسية، لا بيانات تدفق الأوامر، لا حماية من التلاعب.',u1_sol:'WhaleX يوفر توجيه أوامر مؤسسي، تتبع الحيتان في الوقت الفعلي، وأدوات احترافية لكل متداول.',u2_t:'الأمان أولاً',u2_sub:'حماية على مستوى الحصون',u2_prob:'عمليات السحب، الثغرات، والعقود الخبيثة تستنزف مليارات من المتداولين غير القادرين على التحقق من أمان العقود الذكية.',u2_sol:'تصفية أمنية تلقائية، صندوق تأمين، تدقيق متعدد الطبقات، ومحرك ذكاء اصطناعي يفحص كل تفاعل.',u3_t:'سرعة البرق',u3_sub:'تنفيذ Solana Layer-1',u3_prob:'التنفيذ البطيء والرسوم العالية تدمر ربحية المراكز الصغيرة على الشبكات المزدحمة.',u3_sol:'مبني على Solana — تنفيذ دون الثانية، رسوم شبه صفرية، وسعة 65,000+ TPS.',u4_t:'محرك الشراء والإحراق',u4_sub:'70% من الرسوم — إحراق دائم',u4_res:'كل رسوم محصلة تقلل العرض الإجمالي بشكل دائم · ضغط انكماشي مستمر يخلق قيمة طويلة الأمد · 30% تموّل التطوير والأمان',t_tag:'// التوكينومكس',t_title:'توزيع توكن $WHX',t_sub:'مليار توكن إجمالاً على Solana — موزعة استراتيجياً لأقصى قيمة على المدى الطويل.',tk1:'مخصص الاكتتاب',tk2:'مقفل (Vesting)',tk3:'السيولة الأولية',rev_lbl:'نموذج الإيرادات',rev_burn:'🔥 شراء وإحراق',rev_ops:'⚙️ العمليات',htb_tag:'// كيف تشتري',htb_title:'كيف تشتري $WHX',htb1_t:'احصل على محفظة',htb1_d:'ننصح بـ Phantom لـ Solana على سطح المكتب. على الجوال، حمّل Phantom أو Trust Wallet.',htb2_t:'شحن المحفظة',htb2_d:'يُقبل SOL وETH وUSDT وUSDC وBTC لشراء الاكتتاب.',htb3_t:'اشترِ واستيك $WHX',htb3_d:'اربط محفظتك، اختر طريقة الدفع والمبلغ. اختر Stake للحصول على أقصى مكافآت.',htb4_t:'اطلب عند TGE',htb4_d:'عندما ينتهي الاكتتاب، أعد ربط محفظتك واضغط Claim. التوكنات ومكافآت الستيكينج متاحة في آن واحد.',rm_tag:'// خارطة الطريق',rm_title:'الطريق إلى السيادة',rm_sub:'من النشأة إلى الهيمنة العالمية على Layer-1 — كل مرحلة موثقة وشفافة.',rm1_t:'🧬 النشأة',rm1_d:'تجميع الفريق الأساسي، بحث السوق، هندسة البروتوكول، تأمين التمويل الأولي.',rm2_t:'🏗️ التطوير',rm2_d:'نشر SPL Token على Solana devnet، تدقيقات أمنية، خلفية لوحة التحكم، معمارية قاعدة البيانات.',rm3_t:'🧪 الشبكة التجريبية والتدقيق',rm3_d:'إطلاق الشبكة التجريبية العامة، Bug Bounty، اختبار الأداء، تكامل بوابة الدفع متعدد السلاسل.',rm4_q:'الربع الأول 2025 — الآن 🔥',rm4_t:'🚀 إطلاق الاكتتاب',rm4_d:'المرحلة الأولى مباشرة (Top VIP)، مدفوعات متعددة السلاسل، ألفا لوحة التحكم، قاعدة بيانات المحافظ مباشرة.',rm5_t:'📈 المراحل 2 و3 + Mainnet',rm5_d:'فتح المراحل 2 و3، إطلاق Mainnet، إدراج DEX، برنامج Staking، نظام Claim عند TGE.',rm6_t:'🏦 إدراج البورصات',rm6_d:'مفاوضات إدراج CEX، شراكات صانعي السوق، حملة تسويق عالمية، تطبيق الجوال.',rm7_t:'🌍 سيادة Layer-1',rm7_d:'إطلاق L1 كامل، شراكات مؤسسية، صندوق التأمين، حوكمة DAO.',p_done:'✓ مكتمل',p_live:'🔴 مباشر الآن',p_soon:'قادم',w_tag:'// بوابة الدفع',w_title:'ادفع بأي محفظة أو عملة',w_sub:'بوابة دفع متعددة السلاسل — لا قيود، وصول عالمي بلا حدود لكل مستثمر.',wt1:'🔐 المحافظ',wt2:'₿ عملات مشفرة',wt3:'💳 عملات ورقية',db_tag:'// لوحة تحكم المستثمر',db_title:'مركز قيادة حصنك',db_wallet:'المحفظة المتصلة',db_rank:'Top VIP',db_bal:'رصيد WHX',db_pval:'قيمة الشراء',db_cval:'القيمة الحالية',db_claim:'حالة المطالبة',db_tge:'مقفل حتى TGE',db_btn:'🐋 طالب بـ $WHX عند TGE',db_note:'التوكنات قابلة للمطالبة عند TGE · المحفظة مسجلة في قاعدة البيانات · الرتبة تُسند تلقائياً',fq_tag:'// الأسئلة الشائعة',fq_title:'الأسئلة الشائعة',fq1_q:'ما هو بروتوكول WhaleX؟',fq1_a:'WhaleX بروتوكول Layer-1 على Solana يزيل الفجوة بين المتداولين الصغار والحيتان. أدوات مؤسسية، تنفيذ البرق، أمان تلقائي، ولوحة تحكم مع تتبع الرتب.',fq2_q:'ما هو توكن $WHX؟',fq2_a:'$WHX هو توكن المرافق والحوكمة الأصلي. يُستخدم لخصومات الرسوم والتصويت والستيكينج. 70% من الرسوم تذهب للشراء والإحراق.',fq3_q:'على أي بلوكتشين مبني؟',fq3_a:'مبني على Solana كـ SPL Token — تنفيذ دون الثانية، رسوم شبه صفرية، 65,000+ TPS.',fq4_q:'متى يمكنني المطالبة بتوكناتي؟',fq4_a:'عند TGE. أعد ربط محفظتك باللوحة واضغط Claim. التوكنات ومكافآت الستيكينج متاحة في آن واحد.',fq5_q:'ما هي رتب المستثمرين المتاحة؟',fq5_a:'ثلاث رتب: Top VIP (المرحلة 1)، VIP (المرحلة 2)، ذهبي (المرحلة 3). كل رتبة توفر مضاعفات ستيكينج ومزايا مختلفة.',fq6_q:'هل تم تدقيق العقد الذكي؟',fq6_a:'نعم. تدقيق أمني متعدد الطبقات قبل إطلاق Mainnet. جميع التقارير منشورة وقابلة للتحقق.',ft_about:'الحصن التجاري السيادي. مبني على Solana — يحول كل متداول إلى حوت.',fc1_h:'البروتوكول',fc1_1:'الورقة البيضاء',fc1_2:'الملخص التقني',fc1_3:'تقرير الأمان',fc1_4:'العقود الذكية',fc1_5:'GitHub',fc2_h:'المجتمع',fc3_h:'قانوني',fc3_1:'سياسة الخصوصية',fc3_2:'شروط الاستخدام',fc3_3:'إخلاء مسؤولية',fc3_4:'KYC / AML',fc3_5:'تواصل معنا',disclaimer:'الاستثمار في العملات يحمل مخاطر. ليس نصيحة مالية.'},
+  zh:{n_about:'关于',n_tok:'代币经济',n_how:'如何购买',n_road:'路线图',n_pay:'支付',n_buy:'购买 $WHX 🚀',h_badge:'预售进行中 · Solana SPL代币 · 立即加入',h_l1:'主权交易',h_sub:'WhaleX将<strong>零售交易者转变为鲸鱼</strong>。机构级工具、Solana闪电执行和自动安全保障——为所有人服务。',h_net:'Solana · SPL代币 · Layer-1协议',h_btn1:'🐋 立即购买 $WHX',h_btn2:'📄 白皮书',pw_title:'立即购买 $WHX 代币',pw_sub:'预售第1阶段 · 顶级VIP · 尽早入场',pw_raised:'USDT募集: $0 / $0',pw_until:'直到价格上涨',cd_d:'天',cd_h:'时',cd_m:'分',cd_s:'秒',pw_price_lbl:'1 $WHX =',pw_purchased:'您购买的 $WHX =',pw_stakeable:'可质押的 $WHX =',card:'银行卡',pw_pay:'用SOL支付',pw_max:'最大',pw_connect:'🔗 连接钱包',pw_bnb:'用BNB购买',pw_nowallet:'没有钱包？',pw_powered:'由 Web3 支付提供支持',feat_lbl:'媒体报道',a_tag:'// WhaleX 实用生态系统',a_title:'技术与优化——鲸鱼使用的工具',a_sub:'WhaleX消除零售交易者与机构鲸鱼之间的差距——为所有人提供相同的基础设施、安全性和速度。',prob:'▼ 问题所在',sol:'▲ WhaleX 解决方案',u1_t:'身份转变',u1_sub:'从小鱼变成鲸鱼',u1_prob:'零售交易者面临巨大劣势：没有机构工具，没有订单流数据，没有对抗操纵的保护。',u1_sol:'WhaleX为每位交易者提供机构级订单路由、实时鲸鱼追踪和专业工具。',u2_t:'安全第一',u2_sub:'堡垒级保护',u2_prob:'跑路、漏洞和恶意合约每年从无法核实智能合约安全性的交易者那里抽干数十亿资金。',u2_sol:'自动安全过滤、保险基金保护、多层审计和AI引擎实时扫描每次交互。',u3_t:'闪电速度',u3_sub:'Solana Layer-1执行',u3_prob:'在拥挤网络上执行缓慢、gas费高，严重影响小仓位的盈利能力。',u3_sol:'基于Solana构建——亚秒级执行，接近零费用，65,000+ TPS容量。',u4_t:'回购销毁引擎',u4_sub:'70%费用——永久销毁',u4_res:'每笔收取的费用永久减少总供应量 · 持续通缩压力创造长期价值 · 30%资助开发和安全',t_tag:'// 代币经济学',t_title:'$WHX 代币分配',t_sub:'Solana上总供应量10亿——为最大长期生态系统价值战略性分配。',tk1:'预售分配',tk2:'锁仓（归属期）',tk3:'初始流动性',rev_lbl:'收益模型',rev_burn:'🔥 回购销毁',rev_ops:'⚙️ 运营',htb_tag:'// 如何购买',htb_title:'如何购买 $WHX',htb1_t:'获取钱包',htb1_d:'推荐桌面端使用Phantom。移动端下载Phantom或Trust Wallet。',htb2_t:'充值钱包',htb2_d:'接受SOL、ETH、USDT、USDC和BTC购买预售。',htb3_t:'购买并质押 $WHX',htb3_d:'连接钱包，选择支付方式和金额。选择购买并质押以获得最大奖励。',htb4_t:'在TGE领取',htb4_d:'预售结束后，重新连接钱包并点击领取。代币和质押奖励同时可用。',rm_tag:'// 路线图',rm_title:'通往主权之路',rm_sub:'从创世到Layer-1全球主导——每个里程碑都被追踪和透明公开。',rm1_t:'🧬 创世记',rm1_d:'核心团队组建，市场调研，协议架构，获得种子资金。',rm2_t:'🏗️ 开发阶段',rm2_d:'在Solana devnet部署SPL代币，第一阶段安全审计，仪表板后端，数据库架构。',rm3_t:'🧪 测试网与审计',rm3_d:'公开测试网，漏洞赏金，性能测试，多链支付网关集成。',rm4_q:'2025年第一季度——现在 🔥',rm4_t:'🚀 预售启动',rm4_d:'第1阶段上线（顶级VIP），多链支付激活，投资者仪表板alpha，钱包数据库上线。',rm5_t:'📈 第2和3阶段+主网',rm5_d:'第2和3阶段预售，主网部署，DEX上线，质押计划，TGE领取系统。',rm6_t:'🏦 交易所上市',rm6_d:'CEX上市谈判，做市商合作，全球营销，移动应用发布。',rm7_t:'🌍 Layer-1主权',rm7_d:'完整L1启动，机构合作伙伴关系，保险基金，治理DAO。',p_done:'✓ 已完成',p_live:'🔴 进行中',p_soon:'即将推出',w_tag:'// 支付网关',w_title:'用任何钱包或货币支付',w_sub:'多链支付网关——无限制，全球每位投资者无障碍访问。',wt1:'🔐 钱包',wt2:'₿ 加密货币',wt3:'💳 法币',db_tag:'// 投资者仪表板',db_title:'您的要塞指挥中心',db_wallet:'已连接钱包',db_rank:'顶级VIP',db_bal:'WHX余额',db_pval:'购买价值',db_cval:'当前价值',db_claim:'领取状态',db_tge:'锁定至TGE',db_btn:'🐋 在TGE领取 $WHX',db_note:'代币在TGE可领取 · 钱包在实时数据库中追踪 · 等级自动分配',fq_tag:'// 常见问题',fq_title:'常见问题解答',fq1_q:'什么是WhaleX协议？',fq1_a:'WhaleX是建立在Solana上的Layer-1协议，消除零售交易者与鲸鱼之间的差距。机构工具、闪电执行、自动安全和带等级追踪的投资者仪表板。',fq2_q:'$WHX代币是什么？',fq2_a:'$WHX是原生实用代币。用于交易费折扣、治理、质押奖励。70%费用用于回购销毁。',fq3_q:'建立在哪个区块链上？',fq3_a:'作为SPL代币建立在Solana上——亚秒级执行，接近零费用，65,000+ TPS。',fq4_q:'何时可以领取代币？',fq4_a:'在TGE时。重新连接钱包到仪表板并点击领取。购买的代币和质押奖励同时可用。',fq5_q:'有哪些投资者等级？',fq5_a:'三个等级：顶级VIP（第1阶段）、VIP（第2阶段）、黄金（第3阶段）。每个等级提供不同的质押倍数和福利。',fq6_q:'合约是否经过审计？',fq6_a:'是的。主网发布前进行多层安全审计。所有报告公开披露可验证。',ft_about:'主权交易要塞。建立在Solana上——将每位交易者转变为鲸鱼。',fc1_h:'协议',fc1_1:'白皮书',fc1_2:'技术简介',fc1_3:'安全审计',fc1_4:'智能合约',fc1_5:'GitHub',fc2_h:'社区',fc3_h:'法律',fc3_1:'隐私政策',fc3_2:'服务条款',fc3_3:'免责声明',fc3_4:'KYC/AML',fc3_5:'联系我们',disclaimer:'加密货币投资有风险。非财务建议。'},
+  es:{n_about:'Acerca',n_tok:'Tokenomics',n_how:'Cómo Comprar',n_road:'Roadmap',n_pay:'Pago',n_buy:'Comprar $WHX 🚀',h_badge:'PREVENTA ACTIVA · TOKEN SPL SOLANA · ÚNETE AHORA',h_l1:'LA FORTALEZA',h_sub:'WhaleX transforma <strong>traders en Ballenas</strong>. Herramientas institucionales, ejecución relámpago en Solana y seguridad automatizada — para todos.',h_net:'Solana · Token SPL · Protocolo Layer-1',h_btn1:'🐋 Comprar $WHX Ahora',h_btn2:'📄 Whitepaper',pw_title:'COMPRA TOKENS $WHX AHORA',pw_sub:'Preventa Etapa 1 · Top VIP · Entra temprano',pw_raised:'USDT Recaudado: $0 / $0',pw_until:'HASTA SUBIDA DE PRECIO',cd_d:'Días',cd_h:'Horas',cd_m:'Minutos',cd_s:'Segundos',pw_price_lbl:'1 $WHX =',pw_purchased:'Tu $WHX comprado =',pw_stakeable:'Tu $WHX stakeable =',card:'Tarjeta',pw_pay:'Pagar con SOL',pw_max:'Máx',pw_connect:'🔗 Conectar Billetera',pw_bnb:'Comprar con BNB',pw_nowallet:'¿No tienes billetera?',pw_powered:'Impulsado por Web3 Payments',feat_lbl:'Destacado En',a_tag:'// Ecosistema de Utilidad WhaleX',a_title:'TECNOLOGÍA Y OPTIMIZACIÓN — HERRAMIENTAS DE BALLENAS',a_sub:'WhaleX elimina la brecha entre traders particulares y Ballenas institucionales.',prob:'▼ EL PROBLEMA',sol:'▲ SOLUCIÓN WHALEX',u1_t:'CAMBIO DE IDENTIDAD',u1_sub:'DE PEZ PEQUEÑO A BALLENA',u1_prob:'Los traders particulares enfrentan desventajas masivas: sin herramientas institucionales, sin datos de flujo, sin protección contra manipulación.',u1_sol:'WhaleX proporciona enrutamiento de órdenes institucional, seguimiento de ballenas en tiempo real y herramientas profesionales.',u2_t:'SEGURIDAD PRIMERO',u2_sub:'PROTECCIÓN DE NIVEL FORTALEZA',u2_prob:'Los rug pulls, exploits y contratos maliciosos drenan miles de millones de traders que no pueden verificar la seguridad.',u2_sol:'Filtrado de seguridad automático, Fondo de Seguro, auditoría multicapa y motor AI escaneando cada interacción.',u3_t:'VELOCIDAD RELÁMPAGO',u3_sub:'EJECUCIÓN SOLANA LAYER-1',u3_prob:'La ejecución lenta y las altas comisiones destruyen la rentabilidad en posiciones pequeñas.',u3_sol:'Construido en Solana — ejecución sub-segundo, comisiones casi nulas, capacidad 65,000+ TPS.',u4_t:'MOTOR RECOMPRA Y QUEMA',u4_sub:'70% DE COMISIONES — QUEMA PERMANENTE',u4_res:'Cada comisión cobrada reduce permanentemente el suministro total · Presión deflacionaria continua · 30% financia desarrollo y seguridad',t_tag:'// Tokenomics',t_title:'DISTRIBUCIÓN DEL TOKEN $WHX',t_sub:'1.000 millones de suministro total en Solana — asignado estratégicamente.',tk1:'Asignación Preventa',tk2:'Bloqueado (Vesting)',tk3:'Liquidez Inicial',rev_lbl:'MODELO DE INGRESOS',rev_burn:'🔥 Recompra y Quema',rev_ops:'⚙️ Operaciones',htb_tag:'// Cómo Comprar',htb_title:'CÓMO COMPRAR $WHX',htb1_t:'OBTÉN UNA BILLETERA',htb1_d:'Recomendamos Phantom para Solana en escritorio. En móvil, descarga Phantom o Trust Wallet.',htb2_t:'CARGA TU BILLETERA',htb2_d:'SOL, ETH, USDT, USDC o BTC aceptados para compras de preventa.',htb3_t:'COMPRA Y STAKING $WHX',htb3_d:'Conecta billetera, elige método y monto. Selecciona Comprar y Stakear para máximas recompensas.',htb4_t:'RECLAMA EN TGE',htb4_d:'Cuando termine la preventa, reconecta la billetera y haz clic en Reclamar.',rm_tag:'// Roadmap',rm_title:'CAMINO A LA SOBERANÍA',rm_sub:'Del génesis a la dominancia Layer-1 global — cada hito rastreado.',rm1_t:'🧬 GÉNESIS',rm1_d:'Equipo formado, investigación, arquitectura, financiación semilla.',rm2_t:'🏗️ DESARROLLO',rm2_d:'Token SPL en Solana devnet, auditorías, backend dashboard.',rm3_t:'🧪 TESTNET Y AUDITORÍA',rm3_d:'Testnet público, Bug Bounty, pruebas, integración gateway.',rm4_q:'T1 2025 — AHORA 🔥',rm4_t:'🚀 LANZAMIENTO PREVENTA',rm4_d:'Etapa 1 activa (Top VIP), pagos multicadena, dashboard alpha.',rm5_t:'📈 ETAPAS 2 Y 3 + MAINNET',rm5_d:'Etapas 2&3, Mainnet, DEX, Staking, Claim en TGE.',rm6_t:'🏦 LISTADOS EN BOLSAS',rm6_d:'Listados CEX, market makers, marketing global, app móvil.',rm7_t:'🌍 SOBERANÍA LAYER-1',rm7_d:'Lanzamiento L1 completo, socios institucionales, Fondo Seguro, DAO.',p_done:'✓ Completado',p_live:'🔴 En Vivo',p_soon:'Próximamente',w_tag:'// Pasarela de Pago',w_title:'PAGA CON CUALQUIER BILLETERA',w_sub:'Pasarela multicadena — sin restricciones, acceso global.',wt1:'🔐 Billeteras',wt2:'₿ Cripto',wt3:'💳 Fiat',db_tag:'// Panel del Inversor',db_title:'TU CENTRO DE MANDO FORTALEZA',db_wallet:'BILLETERA CONECTADA',db_rank:'TOP VIP',db_bal:'BALANCE WHX',db_pval:'VALOR DE COMPRA',db_cval:'VALOR ACTUAL',db_claim:'ESTADO RECLAMACIÓN',db_tge:'Bloqueado hasta TGE',db_btn:'🐋 RECLAMAR $WHX EN TGE',db_note:'Tokens reclamables en TGE · Billetera rastreada en BD en tiempo real',fq_tag:'// FAQ',fq_title:'PREGUNTAS FRECUENTES',fq1_q:'¿QUÉ ES WHALEX PROTOCOL?',fq1_a:'WhaleX es un protocolo Layer-1 en Solana que elimina la brecha entre traders particulares y Ballenas institucionales.',fq2_q:'¿QUÉ ES EL TOKEN $WHX?',fq2_a:'Token de utilidad nativo. Para descuentos, gobernanza, staking. 70% de comisiones al Buyback & Burn.',fq3_q:'¿QUÉ BLOCKCHAIN?',fq3_a:'Solana como Token SPL — ejecución sub-segundo, comisiones casi nulas, 65,000+ TPS.',fq4_q:'¿CUÁNDO PUEDO RECLAMAR?',fq4_a:'En TGE. Reconecta billetera y haz clic en Reclamar.',fq5_q:'¿QUÉ RANGOS HAY?',fq5_a:'Top VIP (Etapa 1), VIP (Etapa 2), Oro (Etapa 3). Cada uno con multiplicadores diferentes.',fq6_q:'¿AUDITADO?',fq6_a:'Sí. Auditoría multicapa antes del Mainnet. Todos los informes públicamente verificables.',ft_about:'La Fortaleza de Trading Soberana. Construida en Solana.',fc1_h:'PROTOCOLO',fc1_1:'Whitepaper',fc1_2:'Resumen Técnico',fc1_3:'Auditoría',fc1_4:'Contratos',fc1_5:'GitHub',fc2_h:'COMUNIDAD',fc3_h:'LEGAL',fc3_1:'Privacidad',fc3_2:'Términos',fc3_3:'Aviso Legal',fc3_4:'KYC/AML',fc3_5:'Contacto',disclaimer:'Invertir en cripto conlleva riesgo. No es consejo financiero.'},
+  fr:{n_about:'À Propos',n_tok:'Tokenomics',n_how:'Comment Acheter',n_road:'Feuille de Route',n_pay:'Paiement',n_buy:'Acheter $WHX 🚀',h_badge:'PRÉVENTE EN DIRECT · TOKEN SPL SOLANA · REJOIGNEZ-NOUS',h_l1:'LA FORTERESSE',h_sub:'WhaleX transforme les <strong>traders en Baleines</strong>. Outils institutionnels, exécution éclair sur Solana et sécurité automatisée — pour tous.',h_net:'Solana · Token SPL · Protocole Layer-1',h_btn1:'🐋 Acheter $WHX Maintenant',h_btn2:'📄 Livre Blanc',pw_title:'ACHETER DES TOKENS $WHX MAINTENANT',pw_sub:'Prévente Étape 1 · Top VIP · Entrez tôt',pw_raised:'USDT Levé: $0 / $0',pw_until:"JUSQU'À LA HAUSSE DE PRIX",cd_d:'Jours',cd_h:'Heures',cd_m:'Minutes',cd_s:'Secondes',pw_price_lbl:'1 $WHX =',pw_purchased:'Vos $WHX achetés =',pw_stakeable:'Vos $WHX stakeable =',card:'Carte',pw_pay:'Payer avec SOL',pw_max:'Max',pw_connect:'🔗 Connecter le Portefeuille',pw_bnb:'Acheter avec BNB',pw_nowallet:'Pas de portefeuille?',pw_powered:'Propulsé par Web3 Payments',feat_lbl:'Présenté Dans',a_tag:"// Écosystème d'Utilité WhaleX",a_title:'TECHNOLOGIE ET OPTIMISATION — LES OUTILS DES BALEINES',a_sub:"WhaleX élimine l'écart entre les traders particuliers et les Baleines institutionnelles.",prob:'▼ LE PROBLÈME',sol:'▲ SOLUTION WHALEX',u1_t:'CHANGEMENT D\'IDENTITÉ',u1_sub:'DU PETIT POISSON À LA BALEINE',u1_prob:'Les traders particuliers font face à d\'énormes désavantages: pas d\'outils institutionnels, pas de protection contre la manipulation.',u1_sol:'WhaleX fournit un routage d\'ordres institutionnel, le suivi des baleines en temps réel et des outils professionnels.',u2_t:'SÉCURITÉ D\'ABORD',u2_sub:'PROTECTION NIVEAU FORTERESSE',u2_prob:'Les rug pulls, exploits et contrats malveillants drainent des milliards de traders.',u2_sol:'Filtrage automatique, Fonds d\'assurance, audit multicouche et moteur IA scannant chaque interaction.',u3_t:'VITESSE ÉCLAIR',u3_sub:'EXÉCUTION SOLANA LAYER-1',u3_prob:'L\'exécution lente et les frais élevés détruisent la rentabilité.',u3_sol:'Construit sur Solana — exécution sub-seconde, frais quasi nuls, 65 000+ TPS.',u4_t:'MOTEUR RACHAT ET BRÛLAGE',u4_sub:'70% DES FRAIS — BRÛLAGE PERMANENT',u4_res:'Chaque frais collecté réduit définitivement l\'offre totale · Pression déflationniste continue · 30% finance le développement',t_tag:'// Tokenomics',t_title:'DISTRIBUTION DU TOKEN $WHX',t_sub:'1 milliard d\'offre totale sur Solana — alloué stratégiquement.',tk1:'Allocation Prévente',tk2:'Verrouillé (Vesting)',tk3:'Liquidité Initiale',rev_lbl:'MODÈLE DE REVENUS',rev_burn:'🔥 Rachat et Brûlage',rev_ops:'⚙️ Opérations',htb_tag:'// Comment Acheter',htb_title:'COMMENT ACHETER $WHX',htb1_t:'OBTENIR UN PORTEFEUILLE',htb1_d:'Phantom recommandé pour Solana sur bureau. Sur mobile, téléchargez Phantom ou Trust Wallet.',htb2_t:'ALIMENTER LE PORTEFEUILLE',htb2_d:'SOL, ETH, USDT, USDC ou BTC acceptés.',htb3_t:'ACHETER ET STAKER $WHX',htb3_d:'Connectez le portefeuille, choisissez paiement et montant. Sélectionnez Acheter et Staker.',htb4_t:'RÉCLAMER AU TGE',htb4_d:'Quand la prévente se termine, reconnectez et cliquez sur Réclamer.',rm_tag:'// Feuille de Route',rm_title:'CHEMIN VERS LA SOUVERAINETÉ',rm_sub:'De la genèse à la domination Layer-1 mondiale.',rm1_t:'🧬 GENÈSE',rm1_d:'Équipe, recherche, architecture, financement initial.',rm2_t:'🏗️ DÉVELOPPEMENT',rm2_d:'Token SPL sur Solana devnet, audits, backend.',rm3_t:'🧪 TESTNET ET AUDIT',rm3_d:'Testnet public, Bug Bounty, tests, intégration gateway.',rm4_q:'T1 2025 — MAINTENANT 🔥',rm4_t:'🚀 LANCEMENT PRÉVENTE',rm4_d:'Étape 1 active (Top VIP), paiements multichaîne, dashboard alpha.',rm5_t:'📈 ÉTAPES 2 ET 3 + MAINNET',rm5_d:'Étapes 2&3, Mainnet, DEX, Staking, Claim TGE.',rm6_t:'🏦 COTATIONS EN BOURSE',rm6_d:'Cotations CEX, teneurs de marché, marketing mondial, app.',rm7_t:'🌍 SOUVERAINETÉ LAYER-1',rm7_d:'Lancement L1 complet, partenariats, Fonds d\'assurance, DAO.',p_done:'✓ Terminé',p_live:'🔴 En Direct',p_soon:'Bientôt',w_tag:'// Passerelle de Paiement',w_title:'PAYEZ AVEC N\'IMPORTE QUEL PORTEFEUILLE',w_sub:'Passerelle multichaîne — sans restrictions, accès mondial.',wt1:'🔐 Portefeuilles',wt2:'₿ Crypto',wt3:'💳 Fiat',db_tag:'// Tableau de Bord Investisseur',db_title:'VOTRE CENTRE DE COMMANDEMENT',db_wallet:'PORTEFEUILLE CONNECTÉ',db_rank:'TOP VIP',db_bal:'SOLDE WHX',db_pval:'VALEUR D\'ACHAT',db_cval:'VALEUR ACTUELLE',db_claim:'STATUT RÉCLAMATION',db_tge:'Verrouillé jusqu\'au TGE',db_btn:'🐋 RÉCLAMER $WHX AU TGE',db_note:'Tokens réclamables au TGE · Portefeuille suivi en BD en temps réel',fq_tag:'// FAQ',fq_title:'QUESTIONS FRÉQUENTES',fq1_q:'QU\'EST-CE QUE WHALEX?',fq1_a:'WhaleX est un protocole Layer-1 sur Solana éliminant l\'écart entre traders particuliers et Baleines.',fq2_q:'QU\'EST-CE QUE $WHX?',fq2_a:'Token utilitaire natif. Pour réductions, gouvernance, staking. 70% des frais au Buyback & Burn.',fq3_q:'QUELLE BLOCKCHAIN?',fq3_a:'Solana en tant que Token SPL — exécution sub-seconde, frais quasi nuls.',fq4_q:'QUAND PUIS-JE RÉCLAMER?',fq4_a:'Au TGE. Reconnectez le portefeuille et cliquez Réclamer.',fq5_q:'QUELS RANGS SONT DISPONIBLES?',fq5_a:'Top VIP (Étape 1), VIP (Étape 2), Or (Étape 3).',fq6_q:'AUDITÉ?',fq6_a:'Oui. Audit multicouche avant Mainnet. Rapports publics vérifiables.',ft_about:'La Forteresse de Trading Souveraine. Construite sur Solana.',fc1_h:'PROTOCOLE',fc1_1:'Livre Blanc',fc1_2:'Résumé Technique',fc1_3:'Audit Sécurité',fc1_4:'Contrats Intelligents',fc1_5:'GitHub',fc2_h:'COMMUNAUTÉ',fc3_h:'LÉGAL',fc3_1:'Confidentialité',fc3_2:'Conditions',fc3_3:'Avertissement',fc3_4:'KYC/AML',fc3_5:'Contact',disclaimer:'Investir comporte des risques. Pas de conseil financier.'},
+  ru:{n_about:'О нас',n_tok:'Токеномика',n_how:'Как купить',n_road:'Дорожная карта',n_pay:'Оплата',n_buy:'Купить $WHX 🚀',h_badge:'ПРЕДПРОДАЖА LIVE · SOLANA SPL ТОКЕН · ПРИСОЕДИНЯЙСЯ',h_l1:'СУВЕРЕННАЯ',h_sub:'WhaleX превращает <strong>трейдеров в Китов</strong>. Инструменты институционального уровня, молниеносное исполнение на Solana и автоматическая безопасность — для всех.',h_net:'Solana · SPL Токен · Layer-1 Протокол',h_btn1:'🐋 Купить $WHX Сейчас',h_btn2:'📄 Белая книга',pw_title:'КУПИТЬ ТОКЕНЫ $WHX СЕЙЧАС',pw_sub:'Предпродажа Этап 1 · TOP VIP · Войди первым',pw_raised:'Собрано USDT: $0 / $0',pw_until:'ДО РОСТА ЦЕНЫ',cd_d:'Дней',cd_h:'Часов',cd_m:'Минут',cd_s:'Секунд',pw_price_lbl:'1 $WHX =',pw_purchased:'Ваш купленный $WHX =',pw_stakeable:'Ваш стейкируемый $WHX =',card:'Карта',pw_pay:'Оплата через SOL',pw_max:'Макс',pw_connect:'🔗 Подключить кошелёк',pw_bnb:'Купить за BNB',pw_nowallet:'Нет кошелька?',pw_powered:'Работает на Web3 Payments',feat_lbl:'Представлено В',a_tag:'// Утилитарная экосистема WhaleX',a_title:'ТЕХНОЛОГИИ И ОПТИМИЗАЦИЯ — ИНСТРУМЕНТЫ КИТОВ',a_sub:'WhaleX устраняет разрыв между розничными трейдерами и институциональными Китами.',prob:'▼ ПРОБЛЕМА',sol:'▲ РЕШЕНИЕ WHALEX',u1_t:'СМЕНА ИДЕНТИЧНОСТИ',u1_sub:'ОТ МАЛЬКА К КИТУ',u1_prob:'Розничные трейдеры в невыгодном положении: нет институциональных инструментов, нет защиты от манипуляций.',u1_sol:'WhaleX предоставляет институциональную маршрутизацию ордеров, отслеживание китов в реальном времени.',u2_t:'БЕЗОПАСНОСТЬ ПРЕЖДЕ ВСЕГО',u2_sub:'ЗАЩИТА УРОВНЯ КРЕПОСТИ',u2_prob:'Rug pull-ы, эксплойты и вредоносные контракты ежегодно опустошают миллиарды.',u2_sol:'Автоматическая фильтрация, Страховой фонд, многоуровневый аудит и AI-движок.',u3_t:'МОЛНИЕНОСНАЯ СКОРОСТЬ',u3_sub:'ИСПОЛНЕНИЕ SOLANA LAYER-1',u3_prob:'Медленное исполнение и высокие комиссии уничтожают прибыльность.',u3_sol:'Построен на Solana — исполнение менее секунды, минимальные комиссии, 65 000+ TPS.',u4_t:'ДВИЖОК ВЫКУПА И СЖИГАНИЯ',u4_sub:'70% КОМИССИЙ — ПОСТОЯННОЕ СЖИГАНИЕ',u4_res:'Каждая комиссия навсегда сокращает общее предложение · Дефляционное давление · 30% финансирует разработку',t_tag:'// Токеномика',t_title:'РАСПРЕДЕЛЕНИЕ ТОКЕНА $WHX',t_sub:'1 миллиард общего предложения на Solana — стратегически распределено.',tk1:'Аллокация предпродажи',tk2:'Заблокировано (Vesting)',tk3:'Начальная ликвидность',rev_lbl:'МОДЕЛЬ ДОХОДА',rev_burn:'🔥 Выкуп и сжигание',rev_ops:'⚙️ Операции',htb_tag:'// Как купить',htb_title:'КАК КУПИТЬ $WHX',htb1_t:'ПОЛУЧИТЬ КОШЕЛЁК',htb1_d:'Рекомендуем Phantom для Solana на рабочем столе. На мобильном — Phantom или Trust Wallet.',htb2_t:'ПОПОЛНИТЬ КОШЕЛЁК',htb2_d:'SOL, ETH, USDT, USDC или BTC принимаются.',htb3_t:'КУПИТЬ И ЗАСТЕЙКАТЬ',htb3_d:'Подключите кошелёк, выберите способ и сумму.',htb4_t:'ПОЛУЧИТЬ НА TGE',htb4_d:'Когда предпродажа закончится, переподключите кошелёк и нажмите Получить.',rm_tag:'// Дорожная карта',rm_title:'ПУТЬ К СУВЕРЕНИТЕТУ',rm_sub:'От генезиса до Layer-1 глобального доминирования.',rm1_t:'🧬 ГЕНЕЗИС',rm1_d:'Команда, исследование, архитектура протокола, финансирование.',rm2_t:'🏗️ РАЗРАБОТКА',rm2_d:'SPL-токен на Solana devnet, аудиты, бэкенд, архитектура БД.',rm3_t:'🧪 ТЕСТНЕТ И АУДИТ',rm3_d:'Публичный тестнет, Bug Bounty, тестирование, интеграция.',rm4_q:'Q1 2025 — СЕЙЧАС 🔥',rm4_t:'🚀 ЗАПУСК ПРЕДПРОДАЖИ',rm4_d:'Этап 1 запущен (TOP VIP), мультичейн-платежи, альфа-панель.',rm5_t:'📈 ЭТАПЫ 2, 3 + MAINNET',rm5_d:'Этапы 2&3, Mainnet, DEX, Стейкинг, Claim TGE.',rm6_t:'🏦 ЛИСТИНГИ НА БИРЖАХ',rm6_d:'Листинги CEX, маркет-мейкеры, глобальный маркетинг, приложение.',rm7_t:'🌍 СУВЕРЕНИТЕТ LAYER-1',rm7_d:'Полный L1, институциональные партнёрства, Страховой фонд, DAO.',p_done:'✓ Завершено',p_live:'🔴 В эфире',p_soon:'Скоро',w_tag:'// Платёжный шлюз',w_title:'ПЛАТИТЕ ЛЮБЫМ КОШЕЛЬКОМ',w_sub:'Мультичейн-шлюз — без ограничений, глобальный доступ.',wt1:'🔐 Кошельки',wt2:'₿ Криптo',wt3:'💳 Фиат',db_tag:'// Панель инвестора',db_title:'ВАШ КОМАНДНЫЙ ЦЕНТР',db_wallet:'ПОДКЛЮЧЁННЫЙ КОШЕЛЁК',db_rank:'ТОП VIP',db_bal:'БАЛАНС WHX',db_pval:'СТОИМОСТЬ ПОКУПКИ',db_cval:'ТЕКУЩАЯ СТОИМОСТЬ',db_claim:'СТАТУС ПОЛУЧЕНИЯ',db_tge:'Заблокировано до TGE',db_btn:'🐋 ПОЛУЧИТЬ $WHX НА TGE',db_note:'Токены доступны на TGE · Кошелёк в реальной базе данных',fq_tag:'// ЧЗВ',fq_title:'ЧАСТО ЗАДАВАЕМЫЕ ВОПРОСЫ',fq1_q:'ЧТО ТАКОЕ WHALEX?',fq1_a:'Layer-1 протокол на Solana, устраняющий разрыв между розничными трейдерами и Китами.',fq2_q:'ЧТО ТАКОЕ $WHX?',fq2_a:'Нативный утилитарный токен. Для скидок, управления, стейкинга. 70% комиссий — выкуп и сжигание.',fq3_q:'КАКОЙ БЛОКЧЕЙН?',fq3_a:'Solana как SPL-токен — исполнение менее секунды, минимальные комиссии.',fq4_q:'КОГДА ПОЛУЧИТЬ ТОКЕНЫ?',fq4_a:'На TGE. Переподключите кошелёк и нажмите Получить.',fq5_q:'КАКИЕ РАНГИ ДОСТУПНЫ?',fq5_a:'ТОП VIP (Этап 1), VIP (Этап 2), Золото (Этап 3).',fq6_q:'АУДИТ ПРОЙДЕН?',fq6_a:'Да. Многоуровневый аудит перед Mainnet. Все отчёты публичны.',ft_about:'Суверенная торговая крепость. Построена на Solana.',fc1_h:'ПРОТОКОЛ',fc1_1:'Белая книга',fc1_2:'Техобзор',fc1_3:'Аудит',fc1_4:'Контракты',fc1_5:'GitHub',fc2_h:'СООБЩЕСТВО',fc3_h:'ПРАВОВАЯ INFO',fc3_1:'Конфиденциальность',fc3_2:'Условия',fc3_3:'Отказ',fc3_4:'KYC/AML',fc3_5:'Контакт',disclaimer:'Крипто-инвестиции несут риски. Не финансовый совет.'},
+  de:{n_about:'Über uns',n_tok:'Tokenomik',n_how:'Wie kaufen',n_road:'Roadmap',n_pay:'Zahlung',n_buy:'$WHX kaufen 🚀',h_badge:'VORVERKAUF LIVE · SOLANA SPL TOKEN · JETZT BEITRETEN',h_l1:'DIE FESTUNG',h_sub:'WhaleX verwandelt <strong>Händler in Wale</strong>. Institutionelle Werkzeuge, Solana-Blitzausführung und automatische Sicherheit — für alle.',h_net:'Solana · SPL Token · Layer-1 Protokoll',h_btn1:'🐋 $WHX jetzt kaufen',h_btn2:'📄 Whitepaper',pw_title:'$WHX TOKENS JETZT KAUFEN',pw_sub:'Vorverkauf Phase 1 · Top VIP · Frühzeitig einsteigen',pw_raised:'USDT gesammelt: $0 / $0',pw_until:'BIS ZUM PREISANSTIEG',cd_d:'Tage',cd_h:'Stunden',cd_m:'Minuten',cd_s:'Sekunden',pw_price_lbl:'1 $WHX =',pw_purchased:'Ihre gekauften $WHX =',pw_stakeable:'Ihre stakebaren $WHX =',card:'Karte',pw_pay:'Mit SOL bezahlen',pw_max:'Max',pw_connect:'🔗 Wallet verbinden',pw_bnb:'Mit BNB kaufen',pw_nowallet:'Kein Wallet?',pw_powered:'Unterstützt von Web3 Payments',feat_lbl:'Vorgestellt in',a_tag:'// WhaleX Nutzen-Ökosystem',a_title:'TECHNOLOGIE & OPTIMIERUNG — DIE WERKZEUGE DER WALE',a_sub:'WhaleX beseitigt die Lücke zwischen Privatanlegern und institutionellen Walen.',prob:'▼ DAS PROBLEM',sol:'▲ WHALEX LÖSUNG',u1_t:'IDENTITÄTSWANDEL',u1_sub:'VOM KLEINEN FISCH ZUM WAL',u1_prob:'Privatanleger haben massive Nachteile: keine institutionellen Tools, kein Schutz gegen Manipulation.',u1_sol:'WhaleX bietet institutionelles Order-Routing, Echtzeit-Wal-Tracking und professionelle Tools.',u2_t:'SICHERHEIT ZUERST',u2_sub:'FESTUNGS-SCHUTZ',u2_prob:'Rug Pulls, Exploits und bösartige Verträge entziehen Milliarden von Händlern.',u2_sol:'Automatische Filterung, Versicherungsfonds, mehrschichtige Prüfung und KI-Engine.',u3_t:'BLITZGESCHWINDIGKEIT',u3_sub:'SOLANA LAYER-1 AUSFÜHRUNG',u3_prob:'Langsame Ausführung und hohe Gebühren zerstören die Rentabilität.',u3_sol:'Auf Solana gebaut — Sub-Sekunden-Ausführung, nahezu null Gebühren, 65.000+ TPS.',u4_t:'RÜCKKAUF & VERBRENNUNG MOTOR',u4_sub:'70% DER GEBÜHREN — PERMANENTE VERBRENNUNG',u4_res:'Jede Gebühr reduziert dauerhaft das Gesamtangebot · Dauerhafter Deflationsdruck · 30% finanziert Entwicklung',t_tag:'// Tokenomik',t_title:'$WHX TOKEN-VERTEILUNG',t_sub:'1 Milliarde Gesamtangebot auf Solana — strategisch zugeteilt.',tk1:'Vorverkaufs-Zuteilung',tk2:'Gesperrt (Vesting)',tk3:'Anfangsliquidität',rev_lbl:'EINNAHMENMODELL',rev_burn:'🔥 Rückkauf und Verbrennung',rev_ops:'⚙️ Betrieb',htb_tag:'// Wie kaufen',htb_title:'WIE MAN $WHX KAUFT',htb1_t:'WALLET HOLEN',htb1_d:'Phantom für Solana auf Desktop empfohlen. Mobil: Phantom oder Trust Wallet.',htb2_t:'WALLET AUFLADEN',htb2_d:'SOL, ETH, USDT, USDC oder BTC werden akzeptiert.',htb3_t:'$WHX KAUFEN & STAKEN',htb3_d:'Wallet verbinden, Zahlungsmethode und Betrag wählen.',htb4_t:'BEI TGE EINLÖSEN',htb4_d:'Nach Ende des Vorverkaufs Wallet verbinden und auf Einlösen klicken.',rm_tag:'// Roadmap',rm_title:'WEG ZUR SOUVERÄNITÄT',rm_sub:'Vom Genesis zur Layer-1 globalen Dominanz.',rm1_t:'🧬 GENESIS',rm1_d:'Team, Forschung, Protokollarchitektur, Startfinanzierung.',rm2_t:'🏗️ ENTWICKLUNG',rm2_d:'SPL-Token auf Solana devnet, Sicherheitsaudits, Backend.',rm3_t:'🧪 TESTNET & AUDIT',rm3_d:'Öffentliches Testnet, Bug-Bounty, Performance-Tests.',rm4_q:'Q1 2025 — JETZT 🔥',rm4_t:'🚀 VORVERKAUFS-START',rm4_d:'Phase 1 live (Top VIP), Multi-Chain-Zahlungen, Alpha-Dashboard.',rm5_t:'📈 PHASEN 2 & 3 + MAINNET',rm5_d:'Phasen 2&3, Mainnet, DEX, Staking, Claim bei TGE.',rm6_t:'🏦 BÖRSENNOTIERUNGEN',rm6_d:'CEX-Notierungen, Market Maker, globales Marketing, App.',rm7_t:'🌍 LAYER-1-SOUVERÄNITÄT',rm7_d:'Vollständiger L1, institutionelle Partner, Versicherungsfonds, DAO.',p_done:'✓ Abgeschlossen',p_live:'🔴 Live',p_soon:'Demnächst',w_tag:'// Zahlungsgateway',w_title:'MIT JEDEM WALLET ZAHLEN',w_sub:'Multi-Chain-Gateway — keine Einschränkungen, globaler Zugang.',wt1:'🔐 Wallets',wt2:'₿ Krypto',wt3:'💳 Fiat',db_tag:'// Investoren-Dashboard',db_title:'IHR FESTUNGS-KOMMANDOZENTRUM',db_wallet:'VERBUNDENES WALLET',db_rank:'TOP VIP',db_bal:'WHX-GUTHABEN',db_pval:'KAUFWERT',db_cval:'AKTUELLER WERT',db_claim:'CLAIM-STATUS',db_tge:'Gesperrt bis TGE',db_btn:'🐋 $WHX BEI TGE EINLÖSEN',db_note:'Token bei TGE einlösbar · Wallet in Echtzeit-DB verfolgt',fq_tag:'// FAQ',fq_title:'HÄUFIG GESTELLTE FRAGEN',fq1_q:'WAS IST WHALEX?',fq1_a:'Layer-1 Protokoll auf Solana, das die Lücke zwischen Privatanlegern und Walen beseitigt.',fq2_q:'WAS IST $WHX?',fq2_a:'Nativer Utility-Token. Für Rabatte, Governance, Staking. 70% der Gebühren für Buyback & Burn.',fq3_q:'WELCHE BLOCKCHAIN?',fq3_a:'Solana als SPL-Token — Sub-Sekunden-Ausführung, nahezu null Gebühren.',fq4_q:'WANN KANN ICH EINLÖSEN?',fq4_a:'Bei TGE. Wallet verbinden und auf Einlösen klicken.',fq5_q:'WELCHE RÄNGE GIBT ES?',fq5_a:'Top VIP (Phase 1), VIP (Phase 2), Gold (Phase 3).',fq6_q:'AUDITIERT?',fq6_a:'Ja. Mehrschichtiger Audit vor Mainnet. Alle Berichte öffentlich.',ft_about:'Die Souveräne Handelsfestung. Auf Solana gebaut.',fc1_h:'PROTOKOLL',fc1_1:'Whitepaper',fc1_2:'Technische Übersicht',fc1_3:'Sicherheitsaudit',fc1_4:'Intelligente Verträge',fc1_5:'GitHub',fc2_h:'GEMEINSCHAFT',fc3_h:'RECHTLICHES',fc3_1:'Datenschutz',fc3_2:'Nutzungsbedingungen',fc3_3:'Haftungsausschluss',fc3_4:'KYC/AML',fc3_5:'Kontakt',disclaimer:'Krypto-Investitionen bergen Risiken. Keine Finanzberatung.'},
+  ja:{n_about:'概要',n_tok:'トークノミクス',n_how:'購入方法',n_road:'ロードマップ',n_pay:'支払い',n_buy:'$WHX 購入 🚀',h_badge:'プレセール進行中 · Solana SPLトークン · 今すぐ参加',h_l1:'主権の要塞',h_sub:'WhaleXは<strong>個人トレーダーをクジラ</strong>に変えます。機関投資家レベルのツール、Solana超高速実行、自動セキュリティ。',h_net:'Solana · SPLトークン · Layer-1プロトコル',h_btn1:'🐋 $WHX今すぐ購入',h_btn2:'📄 ホワイトペーパー',pw_title:'$WHXトークンを今すぐ購入',pw_sub:'プレセール第1段階 · TOP VIP · 早期参加',pw_raised:'USDT調達額: $0 / $0',pw_until:'価格上昇まで',cd_d:'日',cd_h:'時間',cd_m:'分',cd_s:'秒',pw_price_lbl:'1 $WHX =',pw_purchased:'購入済み $WHX =',pw_stakeable:'ステーク可能 $WHX =',card:'カード',pw_pay:'SOLで支払う',pw_max:'最大',pw_connect:'🔗 ウォレット接続',pw_bnb:'BNBで購入',pw_nowallet:'ウォレットがない?',pw_powered:'Web3 Paymentsを使用',feat_lbl:'メディア掲載',a_tag:'// WhaleX ユーティリティエコシステム',a_title:'技術と最適化 — クジラのツール',a_sub:'WhaleXは個人トレーダーと機関投資家のクジラの差を埋めます。',prob:'▼ 問題',sol:'▲ WhaleXの解決策',u1_t:'アイデンティティの変革',u1_sub:'小さな魚からクジラへ',u1_prob:'個人トレーダーは不利な立場にいます：機関向けツールなし、操作からの保護なし。',u1_sol:'WhaleXはすべてのトレーダーに機関投資家レベルのツールとリアルタイムのクジラ追跡を提供。',u2_t:'セキュリティ最優先',u2_sub:'要塞レベルの保護',u2_prob:'ラグプル、エクスプロイト、悪意のあるコントラクトが数十億を奪います。',u2_sol:'自動セキュリティフィルタリング、保険基金、多層監査、AI エンジン。',u3_t:'超高速実行',u3_sub:'Solana Layer-1実行',u3_prob:'遅い実行と高いガス代が小さなポジションの収益性を壊します。',u3_sol:'Solana上に構築 — サブ秒実行、ほぼゼロのコスト、65,000+ TPS。',u4_t:'バイバック＆バーンエンジン',u4_sub:'手数料の70% — 永続的なバーン',u4_res:'すべての手数料が永続的に総供給量を削減 · 継続的なデフレ圧力 · 30%が開発に充当',t_tag:'// トークノミクス',t_title:'$WHX トークン配分',t_sub:'Solanaで総供給量10億 — 長期的エコシステム価値のために戦略的に配分。',tk1:'プレセール配分',tk2:'ロック済み（ベスティング）',tk3:'初期流動性',rev_lbl:'収益モデル',rev_burn:'🔥 バイバック＆バーン',rev_ops:'⚙️ 運営',htb_tag:'// 購入方法',htb_title:'$WHXの購入方法',htb1_t:'ウォレット取得',htb1_d:'デスクトップにはPhantomを推奨。モバイルはPhantomまたはTrust Wallet。',htb2_t:'ウォレットに入金',htb2_d:'SOL、ETH、USDT、USDC、BTCが使用可能。',htb3_t:'$WHX購入＆ステーク',htb3_d:'ウォレットを接続し、支払い方法と金額を選択。',htb4_t:'TGEでクレーム',htb4_d:'プレセール終了後、ウォレットを再接続してクレームをクリック。',rm_tag:'// ロードマップ',rm_title:'主権への道',rm_sub:'創世からLayer-1グローバル支配まで。',rm1_t:'🧬 創世記',rm1_d:'チーム結成、調査、アーキテクチャ、資金調達。',rm2_t:'🏗️ 開発',rm2_d:'Solana devnetでSPLトークン、セキュリティ監査、バックエンド。',rm3_t:'🧪 テストネット＆監査',rm3_d:'公開テストネット、バグバウンティ、統合テスト。',rm4_q:'2025年Q1 — 現在 🔥',rm4_t:'🚀 プレセール開始',rm4_d:'第1段階ライブ(TOP VIP)、マルチチェーン支払い、ダッシュボードアルファ。',rm5_t:'📈 第2・3段階＋メインネット',rm5_d:'第2・3段階、メインネット、DEX、ステーキング、TGEクレーム。',rm6_t:'🏦 取引所上場',rm6_d:'CEX上場、マーケットメーカー、グローバルマーケティング、アプリ。',rm7_t:'🌍 Layer-1主権',rm7_d:'完全L1ローンチ、機関パートナーシップ、保険基金、DAO。',p_done:'✓ 完了',p_live:'🔴 ライブ',p_soon:'近日公開',w_tag:'// 決済ゲートウェイ',w_title:'あらゆるウォレットで支払い',w_sub:'マルチチェーンゲートウェイ — 制限なし、グローバルアクセス。',wt1:'🔐 ウォレット',wt2:'₿ 暗号通貨',wt3:'💳 法定通貨',db_tag:'// 投資家ダッシュボード',db_title:'あなたの要塞司令センター',db_wallet:'接続済みウォレット',db_rank:'TOP VIP',db_bal:'WHX残高',db_pval:'購入価値',db_cval:'現在価値',db_claim:'クレーム状況',db_tge:'TGEまでロック',db_btn:'🐋 TGEで$WHXをクレーム',db_note:'TGEでクレーム可能 · ウォレットはリアルタイムDBで追跡',fq_tag:'// よくある質問',fq_title:'よくある質問',fq1_q:'WhaleXとは?',fq1_a:'SolanaのLayer-1プロトコル。個人トレーダーとクジラの差を埋める。',fq2_q:'$WHXトークンとは?',fq2_a:'ネイティブユーティリティトークン。割引、ガバナンス、ステーキング。手数料の70%がバーン。',fq3_q:'どのブロックチェーン?',fq3_a:'SolanaのSPLトークン — サブ秒実行、ほぼゼロコスト。',fq4_q:'いつクレームできる?',fq4_a:'TGEで。ウォレットを再接続してクレームをクリック。',fq5_q:'どんなランクがある?',fq5_a:'TOP VIP(第1段階)、VIP(第2段階)、ゴールド(第3段階)。',fq6_q:'監査済み?',fq6_a:'はい。メインネット前に多層セキュリティ監査。レポートは公開済み。',ft_about:'主権トレーディング要塞。Solana上に構築。',fc1_h:'プロトコル',fc1_1:'ホワイトペーパー',fc1_2:'技術概要',fc1_3:'セキュリティ監査',fc1_4:'スマートコントラクト',fc1_5:'GitHub',fc2_h:'コミュニティ',fc3_h:'法的情報',fc3_1:'プライバシーポリシー',fc3_2:'利用規約',fc3_3:'免責事項',fc3_4:'KYC/AML',fc3_5:'お問い合わせ',disclaimer:'暗号投資にはリスクがあります。財務アドバイスではありません。'},
+  tr:{n_about:'Hakkında',n_tok:'Tokenomik',n_how:'Nasıl Alınır',n_road:'Yol Haritası',n_pay:'Ödeme',n_buy:'$WHX Al 🚀',h_badge:'PRESALE CANLI · SOLANA SPL TOKEN · ŞİMDİ KATIL',h_l1:'EGEMENLİK KALESİ',h_sub:'WhaleX <strong>perakende yatırımcıları Balinaları</strong>a dönüştürür. Kurumsal araçlar, Solana yıldırım yürütme ve otomatik güvenlik.',h_net:'Solana · SPL Token · Layer-1 Protokolü',h_btn1:'🐋 $WHX Şimdi Al',h_btn2:'📄 Teknik Rapor',pw_title:'$WHX TOKENLARINI ŞİMDİ AL',pw_sub:'Presale Aşama 1 · Top VIP · Erken gir',pw_raised:'USDT Toplandı: $0 / $0',pw_until:'FİYAT YÜKSELMEDEN',cd_d:'Gün',cd_h:'Saat',cd_m:'Dakika',cd_s:'Saniye',pw_price_lbl:'1 $WHX =',pw_purchased:'Satın aldığın $WHX =',pw_stakeable:'Stake edilebilir $WHX =',card:'Kart',pw_pay:'SOL ile öde',pw_max:'Maks',pw_connect:'🔗 Cüzdan Bağla',pw_bnb:'BNB ile Al',pw_nowallet:'Cüzdanın yok mu?',pw_powered:'Web3 Payments tarafından desteklenir',feat_lbl:'Öne Çıkan',a_tag:'// WhaleX Fayda Ekosistemi',a_title:'TEKNOLOJİ VE OPTİMİZASYON — BALİNALARIN ARAÇLARI',a_sub:'WhaleX perakende yatırımcılar ile kurumsal Balinalar arasındaki uçurumu ortadan kaldırır.',prob:'▼ PROBLEM',sol:'▲ WHALEX ÇÖZÜMÜ',u1_t:'KİMLİK DÖNÜŞÜMÜ',u1_sub:'KÜÇÜK BALIKTAN BALİNAYA',u1_prob:'Perakende yatırımcılar büyük dezavantajlarla karşı karşıya: kurumsal araç yok, manipülasyona karşı koruma yok.',u1_sol:'WhaleX kurumsal seviye sipariş yönlendirme, gerçek zamanlı balina takibi ve profesyonel araçlar sağlar.',u2_t:'GÜVENLİK ÖNCE',u2_sub:'KALE SEVİYESİ KORUMA',u2_prob:'Rug pull\'lar, açıklar ve kötü amaçlı sözleşmeler milyarlarca doları boşaltıyor.',u2_sol:'Otomatik güvenlik filtresi, Sigorta Fonu, çok katmanlı denetim ve AI motoru.',u3_t:'YILDIRIM HIZI',u3_sub:'SOLANA LAYER-1 YÜRÜTME',u3_prob:'Yavaş yürütme ve yüksek ücretler küçük pozisyonların karlılığını yok ediyor.',u3_sol:'Solana üzerine kurulu — saniyenin altında yürütme, sıfıra yakın ücretler, 65.000+ TPS.',u4_t:'GERİ ALIM VE YAKMA MOTORU',u4_sub:'ÜCRETLERİN %70\'İ — KALICI YAKMA',u4_res:'Tahsil edilen her ücret toplam arzı kalıcı olarak azaltır · Sürekli deflasyonist baskı · %30 geliştirmeyi finanse eder',t_tag:'// Tokenomik',t_title:'$WHX TOKEN DAĞILIMI',t_sub:'Solana\'da 1 Milyar toplam arz — stratejik dağılım.',tk1:'Presale Tahsisi',tk2:'Kilitli (Vesting)',tk3:'Başlangıç Likiditesi',rev_lbl:'GELİR MODELİ',rev_burn:'🔥 Geri Alım ve Yakma',rev_ops:'⚙️ Operasyonlar',htb_tag:'// Nasıl Alınır',htb_title:'$WHX NASIL ALINIR',htb1_t:'CÜZDAN EDİN',htb1_d:'Solana için masaüstünde Phantom önerilir. Mobilde Phantom veya Trust Wallet.',htb2_t:'CÜZDANI DOLDUR',htb2_d:'SOL, ETH, USDT, USDC veya BTC kabul edilir.',htb3_t:'$WHX SAT IN AL VE STAKE ET',htb3_d:'Cüzdanı bağla, ödeme yöntemi ve miktarı seç.',htb4_t:'TGE\'DE TALEP ET',htb4_d:'Presale bitince cüzdanı yeniden bağla ve Talep Et\'e tıkla.',rm_tag:'// Yol Haritası',rm_title:'EGEMENLİĞE GİDEN YOL',rm_sub:'Genesis\'ten Layer-1 küresel dominasyonuna.',rm1_t:'🧬 OLUŞUM',rm1_d:'Ekip, araştırma, mimari, finansman.',rm2_t:'🏗️ GELİŞTİRME',rm2_d:'Solana devnet\'te SPL Token, denetimler, backend.',rm3_t:'🧪 TESTNET VE DENETİM',rm3_d:'Genel testnet, Bug Bounty, gateway entegrasyonu.',rm4_q:'Q1 2025 — ŞİMDİ 🔥',rm4_t:'🚀 PRESALE BAŞLANGICI',rm4_d:'Aşama 1 canlı (Top VIP), çok zincirli ödemeler, alpha dashboard.',rm5_t:'📈 AŞAMA 2 VE 3 + MAINNET',rm5_d:'Aşama 2&3, Mainnet, DEX, Staking, TGE Claim.',rm6_t:'🏦 BORSA LİSTELEMELERİ',rm6_d:'CEX listeleri, piyasa yapıcılar, küresel pazarlama, uygulama.',rm7_t:'🌍 LAYER-1 EGEMENLİĞİ',rm7_d:'Tam L1, kurumsal ortaklıklar, Sigorta Fonu, DAO.',p_done:'✓ Tamamlandı',p_live:'🔴 Canlı',p_soon:'Yakında',w_tag:'// Ödeme Ağ Geçidi',w_title:'HERHANGİ BİR CÜZDANLA ÖDE',w_sub:'Çok zincirli ağ geçidi — kısıtlama yok, küresel erişim.',wt1:'🔐 Cüzdanlar',wt2:'₿ Kripto',wt3:'💳 Fiat',db_tag:'// Yatırımcı Paneli',db_title:'KALENİZ KOMUTA MERKEZİ',db_wallet:'BAĞLI CÜZDAN',db_rank:'TOP VIP',db_bal:'WHX BAKİYE',db_pval:'SATIN ALMA DEĞERİ',db_cval:'MEVCUT DEĞER',db_claim:'TALEP DURUMU',db_tge:'TGE\'ye kadar kilitli',db_btn:'🐋 TGE\'DE $WHX TALEP ET',db_note:'TGE\'de token talep edilebilir · Cüzdan gerçek zamanlı DB\'de takip ediliyor',fq_tag:'// SSS',fq_title:'SIK SORULAN SORULAR',fq1_q:'WHALEX NEDİR?',fq1_a:"Solana'daki Layer-1 protokolü. Perakende yatırımcılar ile Balinalar arasındaki uçurumu ortadan kaldırır.",fq2_q:'$WHX TOKEN NEDİR?',fq2_a:'Yerel yardımcı program tokeni. İndirimler, yönetim, staking için. Ücretlerin %70\'i Buyback & Burn\'e gider.',fq3_q:'HANGİ BLOCKCHAIN?',fq3_a:"Solana'da SPL Token — saniyenin altında yürütme, sıfıra yakın ücretler.",fq4_q:'NE ZAMAN TALEP EDEBİLİRİM?',fq4_a:"TGE'de. Cüzdanı yeniden bağla ve Talep Et'e tıkla.",fq5_q:'HANGİ SIRALAMALAR VAR?',fq5_a:'Top VIP (Aşama 1), VIP (Aşama 2), Altın (Aşama 3).',fq6_q:'DENETİM YAPILDI MI?',fq6_a:"Evet. Mainnet'ten önce çok katmanlı güvenlik denetimi. Tüm raporlar halka açık.",ft_about:'Egemenlik Ticaret Kalesi. Solana üzerine kurulu.',fc1_h:'PROTOKOL',fc1_1:'Teknik Rapor',fc1_2:'Teknik Özet',fc1_3:'Güvenlik Denetimi',fc1_4:'Akıllı Sözleşmeler',fc1_5:'GitHub',fc2_h:'TOPLULUK',fc3_h:'YASAL',fc3_1:'Gizlilik Politikası',fc3_2:'Hizmet Şartları',fc3_3:'Sorumluluk Reddi',fc3_4:'KYC/AML',fc3_5:'İletişim',disclaimer:'Kripto yatırımı risk taşır. Finansal tavsiye değildir.'},
+  pt:{n_about:'Sobre',n_tok:'Tokenomics',n_how:'Como Comprar',n_road:'Roadmap',n_pay:'Pagamento',n_buy:'Comprar $WHX 🚀',h_badge:'PRÉVENDA LIVE · TOKEN SPL SOLANA · JUNTE-SE AGORA',h_l1:'A FORTALEZA',h_sub:'WhaleX transforma <strong>traders em Baleias</strong>. Ferramentas institucionais, execução relâmpago no Solana e segurança automatizada.',h_net:'Solana · Token SPL · Protocolo Layer-1',h_btn1:'🐋 Comprar $WHX Agora',h_btn2:'📄 Whitepaper',pw_title:'COMPRE TOKENS $WHX AGORA',pw_sub:'Pré-Venda Fase 1 · Top VIP · Entre cedo',pw_raised:'USDT Arrecadado: $0 / $0',pw_until:'ATÉ SUBIDA DE PREÇO',cd_d:'Dias',cd_h:'Horas',cd_m:'Minutos',cd_s:'Segundos',pw_price_lbl:'1 $WHX =',pw_purchased:'Seu $WHX comprado =',pw_stakeable:'Seu $WHX stakeable =',card:'Cartão',pw_pay:'Pagar com SOL',pw_max:'Máx',pw_connect:'🔗 Conectar Carteira',pw_bnb:'Comprar com BNB',pw_nowallet:'Não tem carteira?',pw_powered:'Powered by Web3 Payments',feat_lbl:'Destaque Em',a_tag:'// Ecossistema de Utilidade WhaleX',a_title:'TECNOLOGIA E OTIMIZAÇÃO — AS FERRAMENTAS DAS BALEIAS',a_sub:'WhaleX elimina a lacuna entre traders comuns e Baleias institucionais.',prob:'▼ O PROBLEMA',sol:'▲ SOLUÇÃO WHALEX',u1_t:'MUDANÇA DE IDENTIDADE',u1_sub:'DE PEIXE PEQUENO A BALEIA',u1_prob:'Traders comuns enfrentam desvantagens massivas: sem ferramentas institucionais, sem proteção contra manipulação.',u1_sol:'WhaleX fornece roteamento institucional, rastreamento de baleias em tempo real e ferramentas profissionais.',u2_t:'SEGURANÇA PRIMEIRO',u2_sub:'PROTEÇÃO NÍVEL FORTALEZA',u2_prob:'Rug pulls, exploits e contratos maliciosos drenam bilhões de traders.',u2_sol:'Filtragem automática, Fundo de Seguro, auditoria multicamadas e motor AI.',u3_t:'VELOCIDADE RELÂMPAGO',u3_sub:'EXECUÇÃO SOLANA LAYER-1',u3_prob:'Execução lenta e taxas altas destroem a lucratividade em posições pequenas.',u3_sol:'Construído no Solana — execução sub-segundo, taxas quase nulas, 65.000+ TPS.',u4_t:'MOTOR RECOMPRA E QUEIMA',u4_sub:'70% DAS TAXAS — QUEIMA PERMANENTE',u4_res:'Cada taxa coletada reduz permanentemente o fornecimento total · Pressão deflacionária contínua · 30% financia desenvolvimento',t_tag:'// Tokenomics',t_title:'DISTRIBUIÇÃO DO TOKEN $WHX',t_sub:'1 Bilhão de fornecimento total no Solana — alocado estrategicamente.',tk1:'Alocação Pré-Venda',tk2:'Bloqueado (Vesting)',tk3:'Liquidez Inicial',rev_lbl:'MODELO DE RECEITA',rev_burn:'🔥 Recompra e Queima',rev_ops:'⚙️ Operações',htb_tag:'// Como Comprar',htb_title:'COMO COMPRAR $WHX',htb1_t:'OBTENHA UMA CARTEIRA',htb1_d:'Phantom recomendado para Solana no desktop. No mobile, Phantom ou Trust Wallet.',htb2_t:'CARREGUE SUA CARTEIRA',htb2_d:'SOL, ETH, USDT, USDC ou BTC aceitos.',htb3_t:'COMPRE E FAÇA STAKE DE $WHX',htb3_d:'Conecte a carteira, escolha pagamento e valor.',htb4_t:'REIVINDIQUE NO TGE',htb4_d:'Quando a pré-venda terminar, reconecte a carteira e clique em Reivindicar.',rm_tag:'// Roadmap',rm_title:'CAMINHO PARA A SOBERANIA',rm_sub:'Da gênese à dominância Layer-1 global.',rm1_t:'🧬 GÊNESE',rm1_d:'Equipe, pesquisa, arquitetura, financiamento.',rm2_t:'🏗️ DESENVOLVIMENTO',rm2_d:'Token SPL na Solana devnet, auditorias, backend.',rm3_t:'🧪 TESTNET E AUDITORIA',rm3_d:'Testnet público, Bug Bounty, testes, integração.',rm4_q:'T1 2025 — AGORA 🔥',rm4_t:'🚀 LANÇAMENTO DA PRÉ-VENDA',rm4_d:'Fase 1 ativa (Top VIP), pagamentos multi-chain, dashboard alpha.',rm5_t:'📈 FASES 2 E 3 + MAINNET',rm5_d:'Fases 2&3, Mainnet, DEX, Staking, Claim TGE.',rm6_t:'🏦 LISTAGENS EM EXCHANGES',rm6_d:'Listagens CEX, formadores de mercado, marketing global, app.',rm7_t:'🌍 SOBERANIA LAYER-1',rm7_d:'Lançamento L1 completo, parcerias, Fundo de Seguro, DAO.',p_done:'✓ Concluído',p_live:'🔴 Ao Vivo',p_soon:'Em Breve',w_tag:'// Gateway de Pagamento',w_title:'PAGUE COM QUALQUER CARTEIRA',w_sub:'Gateway multi-chain — sem restrições, acesso global.',wt1:'🔐 Carteiras',wt2:'₿ Cripto',wt3:'💳 Fiat',db_tag:'// Painel do Investidor',db_title:'SEU CENTRO DE COMANDO',db_wallet:'CARTEIRA CONECTADA',db_rank:'TOP VIP',db_bal:'SALDO WHX',db_pval:'VALOR DE COMPRA',db_cval:'VALOR ATUAL',db_claim:'STATUS DE REIVINDICAÇÃO',db_tge:'Bloqueado até TGE',db_btn:'🐋 REIVINDICAR $WHX NO TGE',db_note:'Tokens reivindicáveis no TGE · Carteira rastreada em BD em tempo real',fq_tag:'// FAQ',fq_title:'PERGUNTAS FREQUENTES',fq1_q:'O QUE É WHALEX?',fq1_a:'Protocolo Layer-1 no Solana eliminando a lacuna entre traders comuns e Baleias.',fq2_q:'O QUE É $WHX?',fq2_a:'Token utilitário nativo. Para descontos, governança, staking. 70% das taxas para Buyback & Burn.',fq3_q:'QUAL BLOCKCHAIN?',fq3_a:'Solana como Token SPL — execução sub-segundo, taxas quase nulas.',fq4_q:'QUANDO POSSO REIVINDICAR?',fq4_a:'No TGE. Reconecte a carteira e clique em Reivindicar.',fq5_q:'QUAIS RANKINGS EXISTEM?',fq5_a:'Top VIP (Fase 1), VIP (Fase 2), Ouro (Fase 3).',fq6_q:'AUDITADO?',fq6_a:'Sim. Auditoria multicamadas antes do Mainnet. Relatórios públicos.',ft_about:'A Fortaleza de Trading Soberana. Construída no Solana.',fc1_h:'PROTOCOLO',fc1_1:'Whitepaper',fc1_2:'Resumo Técnico',fc1_3:'Auditoria',fc1_4:'Contratos',fc1_5:'GitHub',fc2_h:'COMUNIDADE',fc3_h:'LEGAL',fc3_1:'Privacidade',fc3_2:'Termos',fc3_3:'Aviso Legal',fc3_4:'KYC/AML',fc3_5:'Contato',disclaimer:'Investir em cripto tem riscos. Não é conselho financeiro.'},
+  ko:{n_about:'소개',n_tok:'토크노믹스',n_how:'구매 방법',n_road:'로드맵',n_pay:'결제',n_buy:'$WHX 구매 🚀',h_badge:'프리세일 진행 중 · Solana SPL 토큰 · 지금 참여',h_l1:'주권 트레이딩',h_sub:'WhaleX는 <strong>개인 트레이더를 고래</strong>로 변환합니다. 기관 수준의 도구, Solana 번개 실행, 자동화된 보안.',h_net:'Solana · SPL 토큰 · Layer-1 프로토콜',h_btn1:'🐋 $WHX 지금 구매',h_btn2:'📄 백서',pw_title:'$WHX 토큰 지금 구매',pw_sub:'프리세일 1단계 · TOP VIP · 일찍 참여',pw_raised:'USDT 모금: $0 / $0',pw_until:'가격 상승까지',cd_d:'일',cd_h:'시간',cd_m:'분',cd_s:'초',pw_price_lbl:'1 $WHX =',pw_purchased:'구매한 $WHX =',pw_stakeable:'스테이크 가능 $WHX =',card:'카드',pw_pay:'SOL로 결제',pw_max:'최대',pw_connect:'🔗 지갑 연결',pw_bnb:'BNB로 구매',pw_nowallet:'지갑이 없나요?',pw_powered:'Web3 Payments 제공',feat_lbl:'언론 보도',a_tag:'// WhaleX 유틸리티 에코시스템',a_title:'기술과 최적화 — 고래들의 도구',a_sub:'WhaleX는 개인 트레이더와 기관 고래 사이의 격차를 없앱니다.',prob:'▼ 문제점',sol:'▲ WhaleX 해결책',u1_t:'정체성 전환',u1_sub:'작은 물고기에서 고래로',u1_prob:'개인 트레이더는 불리한 상황: 기관 도구 없음, 조작에 대한 보호 없음.',u1_sol:'WhaleX는 모든 트레이더에게 기관 수준의 주문 라우팅, 실시간 고래 추적 제공.',u2_t:'보안 최우선',u2_sub:'요새 수준 보호',u2_prob:'러그풀, 익스플로잇, 악성 컨트랙트가 매년 수십억을 빼앗아 갑니다.',u2_sol:'자동 보안 필터링, 보험 기금 보호, 다중 레이어 감사, AI 엔진.',u3_t:'번개 속도',u3_sub:'Solana Layer-1 실행',u3_prob:'느린 실행과 높은 가스비가 소규모 포지션의 수익성을 파괴합니다.',u3_sol:'Solana 기반 — 서브 초 실행, 거의 제로 수수료, 65,000+ TPS.',u4_t:'바이백 & 소각 엔진',u4_sub:'수수료의 70% — 영구 소각',u4_res:'모든 수수료가 영구적으로 총 공급량 감소 · 지속적인 디플레이션 압력 · 30%는 개발 자금',t_tag:'// 토크노믹스',t_title:'$WHX 토큰 배분',t_sub:'Solana에서 총 공급량 10억 — 장기 생태계 가치를 위해 전략적 배분.',tk1:'프리세일 배분',tk2:'잠금 (베스팅)',tk3:'초기 유동성',rev_lbl:'수익 모델',rev_burn:'🔥 바이백 & 소각',rev_ops:'⚙️ 운영',htb_tag:'// 구매 방법',htb_title:'$WHX 구매 방법',htb1_t:'지갑 준비',htb1_d:'데스크톱은 Phantom 권장. 모바일은 Phantom 또는 Trust Wallet.',htb2_t:'지갑 충전',htb2_d:'SOL, ETH, USDT, USDC, BTC 사용 가능.',htb3_t:'$WHX 구매 & 스테이크',htb3_d:'지갑 연결, 결제 방법과 금액 선택.',htb4_t:'TGE에서 클레임',htb4_d:'프리세일 종료 후 지갑 재연결 후 클레임 클릭.',rm_tag:'// 로드맵',rm_title:'주권으로 가는 길',rm_sub:'창세부터 Layer-1 글로벌 지배까지.',rm1_t:'🧬 창세기',rm1_d:'팀 구성, 시장 조사, 프로토콜 아키텍처, 시드 자금.',rm2_t:'🏗️ 개발',rm2_d:'Solana devnet에서 SPL 토큰, 보안 감사, 백엔드.',rm3_t:'🧪 테스트넷 & 감사',rm3_d:'공개 테스트넷, 버그 바운티, 결제 게이트웨이 통합.',rm4_q:'2025년 Q1 — 현재 🔥',rm4_t:'🚀 프리세일 출시',rm4_d:'1단계 라이브 (TOP VIP), 멀티체인 결제, 투자자 대시보드 알파.',rm5_t:'📈 2&3단계 + 메인넷',rm5_d:'2&3단계 프리세일, 메인넷, DEX, 스테이킹, TGE 클레임.',rm6_t:'🏦 거래소 상장',rm6_d:'CEX 상장, 마켓 메이커, 글로벌 마케팅, 모바일 앱.',rm7_t:'🌍 Layer-1 주권',rm7_d:'완전한 L1, 기관 파트너십, 보험 기금, DAO.',p_done:'✓ 완료',p_live:'🔴 진행 중',p_soon:'예정',w_tag:'// 결제 게이트웨이',w_title:'어떤 지갑이나 통화로도 결제',w_sub:'멀티체인 게이트웨이 — 제한 없음, 글로벌 접근.',wt1:'🔐 지갑',wt2:'₿ 암호화폐',wt3:'💳 법정화폐',db_tag:'// 투자자 대시보드',db_title:'당신의 요새 지휘 센터',db_wallet:'연결된 지갑',db_rank:'TOP VIP',db_bal:'WHX 잔액',db_pval:'구매 가치',db_cval:'현재 가치',db_claim:'클레임 상태',db_tge:'TGE까지 잠금',db_btn:'🐋 TGE에서 $WHX 클레임',db_note:'TGE에서 클레임 가능 · 지갑 실시간 DB에서 추적',fq_tag:'// 자주 묻는 질문',fq_title:'자주 묻는 질문',fq1_q:'WhaleX란 무엇인가요?',fq1_a:'Solana의 Layer-1 프로토콜. 개인 트레이더와 고래의 격차를 없앱니다.',fq2_q:'$WHX 토큰이란?',fq2_a:'네이티브 유틸리티 토큰. 할인, 거버넌스, 스테이킹. 수수료의 70%가 소각됩니다.',fq3_q:'어떤 블록체인?',fq3_a:'Solana SPL 토큰 — 서브 초 실행, 거의 제로 수수료.',fq4_q:'언제 클레임할 수 있나요?',fq4_a:'TGE에서. 지갑을 재연결하고 클레임 클릭.',fq5_q:'투자자 등급은?',fq5_a:'TOP VIP (1단계), VIP (2단계), 골드 (3단계).',fq6_q:'감사 받았나요?',fq6_a:'예. 메인넷 전 다중 레이어 보안 감사. 모든 보고서 공개.',ft_about:'주권 트레이딩 요새. Solana 기반.',fc1_h:'프로토콜',fc1_1:'백서',fc1_2:'기술 개요',fc1_3:'보안 감사',fc1_4:'스마트 계약',fc1_5:'GitHub',fc2_h:'커뮤니티',fc3_h:'법적 사항',fc3_1:'개인정보처리방침',fc3_2:'이용약관',fc3_3:'면책조항',fc3_4:'KYC/AML',fc3_5:'문의',disclaimer:'암호화폐 투자는 위험을 수반합니다. 재무 조언이 아닙니다.'},
+  id:{n_about:'Tentang',n_tok:'Tokenomik',n_how:'Cara Beli',n_road:'Peta Jalan',n_pay:'Pembayaran',n_buy:'Beli $WHX 🚀',h_badge:'PRESALE LIVE · TOKEN SPL SOLANA · BERGABUNG SEKARANG',h_l1:'BENTENG BERDAULAT',h_sub:'WhaleX mengubah <strong>trader ritel menjadi Paus</strong>. Alat institusional, eksekusi kilat Solana, dan keamanan otomatis.',h_net:'Solana · Token SPL · Protokol Layer-1',h_btn1:'🐋 Beli $WHX Sekarang',h_btn2:'📄 Whitepaper',pw_title:'BELI TOKEN $WHX SEKARANG',pw_sub:'Presale Tahap 1 · Top VIP · Masuk lebih awal',pw_raised:'USDT Terkumpul: $0 / $0',pw_until:'SAMPAI HARGA NAIK',cd_d:'Hari',cd_h:'Jam',cd_m:'Menit',cd_s:'Detik',pw_price_lbl:'1 $WHX =',pw_purchased:'$WHX yang dibeli =',pw_stakeable:'$WHX yang bisa di-stake =',card:'Kartu',pw_pay:'Bayar dengan SOL',pw_max:'Maks',pw_connect:'🔗 Hubungkan Dompet',pw_bnb:'Beli dengan BNB',pw_nowallet:'Belum punya dompet?',pw_powered:'Didukung oleh Web3 Payments',feat_lbl:'Ditampilkan Di',a_tag:'// Ekosistem Utilitas WhaleX',a_title:'TEKNOLOGI DAN OPTIMASI — ALAT PARA PAUS',a_sub:'WhaleX menghilangkan kesenjangan antara trader ritel dan Paus institusional.',prob:'▼ MASALAH',sol:'▲ SOLUSI WHALEX',u1_t:'PERGESERAN IDENTITAS',u1_sub:'DARI IKAN KECIL MENJADI PAUS',u1_prob:'Trader ritel menghadapi kerugian besar: tidak ada alat institusional, tidak ada perlindungan dari manipulasi.',u1_sol:'WhaleX menyediakan perutean pesanan institusional, pelacakan paus real-time dan alat profesional.',u2_t:'KEAMANAN UTAMA',u2_sub:'PERLINDUNGAN SETINGKAT BENTENG',u2_prob:'Rug pull, eksploit, dan kontrak jahat menguras miliaran dari trader.',u2_sol:'Filter keamanan otomatis, Dana Asuransi, audit berlapis dan mesin AI.',u3_t:'KECEPATAN KILAT',u3_sub:'EKSEKUSI SOLANA LAYER-1',u3_prob:'Eksekusi lambat dan biaya gas tinggi menghancurkan profitabilitas.',u3_sol:'Dibangun di Solana — eksekusi sub-detik, biaya hampir nol, 65.000+ TPS.',u4_t:'MESIN BELI KEMBALI & BAKAR',u4_sub:'70% BIAYA — PEMBAKARAN PERMANEN',u4_res:'Setiap biaya yang dikumpulkan mengurangi total pasokan secara permanen · Tekanan deflasi berkelanjutan · 30% mendanai pengembangan',t_tag:'// Tokenomik',t_title:'DISTRIBUSI TOKEN $WHX',t_sub:'Total pasokan 1 Miliar di Solana — dialokasikan secara strategis.',tk1:'Alokasi Presale',tk2:'Terkunci (Vesting)',tk3:'Likuiditas Awal',rev_lbl:'MODEL PENDAPATAN',rev_burn:'🔥 Beli Kembali & Bakar',rev_ops:'⚙️ Operasi',htb_tag:'// Cara Beli',htb_title:'CARA MEMBELI $WHX',htb1_t:'DAPATKAN DOMPET',htb1_d:'Phantom direkomendasikan untuk Solana di desktop. Di mobile, unduh Phantom atau Trust Wallet.',htb2_t:'ISI DOMPET',htb2_d:'SOL, ETH, USDT, USDC, atau BTC diterima.',htb3_t:'BELI & STAKE $WHX',htb3_d:'Hubungkan dompet, pilih metode pembayaran dan jumlah.',htb4_t:'KLAIM DI TGE',htb4_d:'Ketika presale berakhir, hubungkan kembali dompet dan klik Klaim.',rm_tag:'// Peta Jalan',rm_title:'JALAN MENUJU KEDAULATAN',rm_sub:'Dari genesis hingga dominasi Layer-1 global.',rm1_t:'🧬 GENESIS',rm1_d:'Tim, riset, arsitektur, pendanaan awal.',rm2_t:'🏗️ PENGEMBANGAN',rm2_d:'Token SPL di Solana devnet, audit keamanan, backend.',rm3_t:'🧪 TESTNET & AUDIT',rm3_d:'Testnet publik, Bug Bounty, pengujian integrasi.',rm4_q:'Q1 2025 — SEKARANG 🔥',rm4_t:'🚀 PELUNCURAN PRESALE',rm4_d:'Tahap 1 live (Top VIP), pembayaran multi-chain, dashboard alpha.',rm5_t:'📈 TAHAP 2 & 3 + MAINNET',rm5_d:'Tahap 2&3, Mainnet, DEX, Staking, Klaim TGE.',rm6_t:'🏦 LISTING DI BURSA',rm6_d:'Listing CEX, pembuat pasar, pemasaran global, aplikasi.',rm7_t:'🌍 KEDAULATAN LAYER-1',rm7_d:'Peluncuran L1 penuh, kemitraan institusional, Dana Asuransi, DAO.',p_done:'✓ Selesai',p_live:'🔴 Sedang Berlangsung',p_soon:'Segera',w_tag:'// Gateway Pembayaran',w_title:'BAYAR DENGAN DOMPET APA SAJA',w_sub:'Gateway multi-chain — tanpa batasan, akses global.',wt1:'🔐 Dompet',wt2:'₿ Kripto',wt3:'💳 Fiat',db_tag:'// Dasbor Investor',db_title:'PUSAT KOMANDO BENTENG ANDA',db_wallet:'DOMPET TERHUBUNG',db_rank:'TOP VIP',db_bal:'SALDO WHX',db_pval:'NILAI PEMBELIAN',db_cval:'NILAI SAAT INI',db_claim:'STATUS KLAIM',db_tge:'Terkunci hingga TGE',db_btn:'🐋 KLAIM $WHX SAAT TGE',db_note:'Token dapat diklaim saat TGE · Dompet dilacak dalam DB real-time',fq_tag:'// FAQ',fq_title:'PERTANYAAN YANG SERING DIAJUKAN',fq1_q:'APA ITU WHALEX?',fq1_a:'Protokol Layer-1 di Solana yang menghilangkan kesenjangan antara trader ritel dan Paus.',fq2_q:'APA ITU TOKEN $WHX?',fq2_a:'Token utilitas asli. Untuk diskon, tata kelola, staking. 70% biaya untuk Buyback & Burn.',fq3_q:'BLOCKCHAIN APA?',fq3_a:'Solana sebagai Token SPL — eksekusi sub-detik, biaya hampir nol.',fq4_q:'KAPAN SAYA BISA KLAIM?',fq4_a:'Di TGE. Hubungkan kembali dompet dan klik Klaim.',fq5_q:'PERINGKAT APA YANG TERSEDIA?',fq5_a:'Top VIP (Tahap 1), VIP (Tahap 2), Emas (Tahap 3).',fq6_q:'SUDAH DIAUDIT?',fq6_a:'Ya. Audit keamanan berlapis sebelum Mainnet. Semua laporan publik.',ft_about:'Benteng Trading Berdaulat. Dibangun di Solana.',fc1_h:'PROTOKOL',fc1_1:'Whitepaper',fc1_2:'Ringkasan Teknis',fc1_3:'Audit Keamanan',fc1_4:'Kontrak Cerdas',fc1_5:'GitHub',fc2_h:'KOMUNITAS',fc3_h:'HUKUM',fc3_1:'Kebijakan Privasi',fc3_2:'Syarat Layanan',fc3_3:'Penafian',fc3_4:'KYC/AML',fc3_5:'Hubungi Kami',disclaimer:'Investasi kripto mengandung risiko. Bukan saran keuangan.'}
+};
+
+function L(lang){
+  const d=T[lang]||T.en;
+  document.querySelectorAll('[data-i]').forEach(el=>{
+    const k=el.getAttribute('data-i');
+    if(d[k]!==undefined)el.innerHTML=d[k];
+  });
+  const rtl=['ar'];
+  const h=document.documentElement;
+  h.setAttribute('dir',rtl.includes(lang)?'rtl':'ltr');
+  h.setAttribute('lang',lang);
+  document.querySelectorAll('.lb').forEach(b=>b.classList.remove('on'));
+  const map={en:'EN',ar:'AR',zh:'中文',es:'ES',fr:'FR',ru:'RU',de:'DE',ja:'JP',tr:'TR',pt:'PT',ko:'KO',id:'ID'};
+  document.querySelectorAll('.lb').forEach(b=>{if(b.textContent.trim()===map[lang])b.classList.add('on');});
+}
+</script>
 </body>
 </html>
