@@ -80,6 +80,9 @@ class Signal:
     rr_tp3: float = 0.0
     accuracy: float = 0.0
     strategy_count: int = 0
+    regime: str = ""
+    range_pos: float = 0.0
+    rsi: float = 0.0
 
 @dataclass
 class ShadowTrade:
@@ -1387,6 +1390,9 @@ async def predator_agent(
         rr_tp3=round(rr_tp3, 2),
         accuracy=real_accuracy,
         strategy_count=strat_count,
+        regime=regime,
+        range_pos=range_pos,
+        rsi=rsi_v,
     )
 
     await signal_queue.put(sig)
@@ -1486,6 +1492,9 @@ async def shadow_record(sig: Signal) -> ShadowTrade:
         oi_change=getattr(sig, "open_interest_change", 0.0),
         btc_trend=getattr(sig, "btc_trend", ""),
         key_strat_count=getattr(sig, "strategy_count", 0),
+        regime=getattr(sig, "regime", ""),
+        range_pos=getattr(sig, "range_pos", 0.0),
+        rsi=getattr(sig, "rsi", 0.0),
     )
     SHADOW_TRADES.append(trade)
     # حفظ دائم في قاعدة بيانات النموذج (يبقى عبر restarts)

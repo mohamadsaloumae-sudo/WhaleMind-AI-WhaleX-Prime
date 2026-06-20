@@ -83,10 +83,12 @@ async def fetch_top_gainers() -> list[dict]:
                 continue
             change = float(d["priceChangePercent"])
             vol = float(d["quoteVolume"])
-            if change >= MIN_GAIN_PCT and vol >= MIN_VOLUME_USD:
+            # منطق جديد: عملات هادئة عرضية (تغيّر يومي ضيّق ±8%)، لا صاعدة ولا منهارة
+            if -8.0 <= change <= 8.0 and vol >= MIN_VOLUME_USD:
                 out.append({"symbol": d["symbol"], "change": change,
                             "volume": vol, "price": float(d["lastPrice"])})
-        return sorted(out, key=lambda x: x["change"], reverse=True)
+        # الأهدأ أولاً (الأقرب للحياد = الأكثر تجمّعاً عرضياً)
+        return sorted(out, key=lambda x: abs(x["change"]))
     except Exception as e:
         log.error("fetch_top_gainers error: %s", e)
         return []
@@ -133,7 +135,12 @@ async def detect_rebound(symbol: str, candles) -> dict:
     # تصحيح في اتجاه صاعد (لا قاع هابط): العملة صاعدة، نزلت من قمتها 5-18% (تصحيح صحي)،
     # لكن ما زالت في النصف العلوي (pos>0.35 = الاتجاه الصاعد سليم، ليست منهارة).
     dist_from_peak = (peak_4h - cur) / peak_4h * 100 if peak_4h > 0 else 0
-    in_uptrend_dip = (pos_in_range > 0.35) and (5.0 <= dist_from_peak <= 18.0)
+    # ─── منطق جديد: عرضية عند القاع (لا صاعدة في تصحيح) ───
+    # عرض النطاق الكلّي: ضيّق = عملة هادئة متجمّعة (ليست منفجرة ولا منهارة)
+    rng_width_pct = (peak_4h - lo_4h) / lo_4h * 100 if lo_4h > 0 else 999
+    is_sideways = rng_width_pct <= 12.0       # نطاق ضيّق ≤12% = عرضية هادئة
+    at_bottom_half = pos_in_range < 0.45      # النصف السفلي = عند القاع لا مرتفعة
+    in_uptrend_dip = is_sideways and at_bottom_half
 
     # ارتداد لحظي مؤكّد من الأوردر بوك الاحترافي (safe_for_long) — لا سكين.
     ob_safe_long = True
@@ -170,7 +177,7 @@ async def detect_rebound(symbol: str, candles) -> dict:
 
 
 def _build_long_signal(symbol: str, price: float, candles: list, bottom: float,
-                       ob_signals: list, rsi_v: float) -> Signal:
+                       ob_signals: list, rsi_v: float, range_pos: float = 0.0) -> Signal:
     """إشارة LONG نظامية كاملة (SL تحت، TP فوق) — معكوس SHORT."""
     atr_v = atr(candles)
     if atr_v <= 0:
@@ -194,13 +201,24 @@ def _build_long_signal(symbol: str, price: float, candles: list, bottom: float,
         leverage=3.0, strategies="\n".join(strats), radar_type="futures", tier="PH",
         rr_tp1=round(rr1, 2), rr_tp2=round(rr2, 2), rr_tp3=round(rr3, 2),
         strategy_count=len(strats), btc_trend="NEUTRAL",
+        rsi=rsi_v,
+        range_pos=range_pos,
     )
 
 
 async def _send_long_and_open(symbol, price, candles, bottom, res, position_manager_fn):
     """بناء إشارة LONG + إرسال + فتح عبر المدير."""
+    # منع تكرار البطاقة/التسجيل: لو العملة مفتوحة بالفعل، لا ننشر ولا نسجّل (المدير يرفضها أصلاً)
+    try:
+        from radars.futures.position_manager import ACTIVE as _ACTIVE
+        for _ex in _ACTIVE.values():
+            if getattr(_ex, "status", "") == "open" and _ex.symbol == symbol:
+                log.info("🔭🔼 %s: صفقة مفتوحة بالفعل — تخطّي (لا تكرار بطاقة/تسجيل)", symbol)
+                return
+    except Exception as _e:
+        log.debug("active check %s: %s", symbol, _e)
     sigs = res["signals"]
-    sig = _build_long_signal(symbol, price, candles, bottom, sigs, res["rsi"])
+    sig = _build_long_signal(symbol, price, candles, bottom, sigs, res["rsi"], res.get("pos", 0.0))
 
     # تسجيل في ml_training (يكمل حلقة التعلّم)
     try:
@@ -271,7 +289,7 @@ async def scout_long_loop(broadcast_fn=None, position_manager_fn=None):
                     watchlist[g["symbol"]] = g["price"]
                 last_scan = now
                 if gainers:
-                    log.info("🔭🔼 [فرز LONG] %d عملة صاعدة في تصحيح", len(gainers[:25]))
+                    log.info("🔭🔼 [فرز LONG] %d عملة هادئة عند القاع", len(gainers[:25]))
 
             # مراقبة كل عملة
             for symbol in list(watchlist.keys()):

@@ -435,6 +435,50 @@ async def is_real_reversal(symbol: str, is_long: bool) -> tuple[bool, str]:
     فلسفة: القمة عند الانهيار = معركة شرسة (تذبذب طبيعي).
     لا نخرج للزبزبة. نخرج فقط عند انقلاب بنيوي مؤكّد:
       • اختلال قوي مستمر قرب السعر + جدار معاكس ضخم + تآكل صفّنا."""
+    # ═══════════════════════════════════════════════════════════
+    # العين الذكية (V2) — ميزان ديناميكي + وعي الموقع
+    #   pressure_score: -1 (بائعون مسيطرون) → +1 (مشترون مسيطرون)
+    #   العتبة تتدرّج بالموقع: مرنة عند القاع، يقظة عند القمة
+    # ═══════════════════════════════════════════════════════════
+    try:
+        from quant_engine.order_book_analyzer import analyze_order_book
+        from quant_engine.hawk_eye import read_market_structure
+        from radars.futures.engine import fetch_klines_async as _fk_eye
+
+        _a = await analyze_order_book(symbol, check_spoofing=True)
+        if _a is not None:
+            _ps = getattr(_a, "pressure_score", 0.0)
+
+            # الموقع: range_pos من القمة/القاع التاريخي (30 يوم)
+            _range_pos = 0.5
+            try:
+                _ms = await read_market_structure(symbol, _fk_eye)
+                _hi = getattr(_ms, "period_high", 0.0)
+                _lo = getattr(_ms, "period_low", 0.0)
+                _pr = _hi - (getattr(_ms, "resistance_distance_pct", 0.0) / 100.0 * _hi) if _hi else 0.0
+                # نحسب السعر الحالي مباشرة من آخر شمعة (أوثق)
+                _kl = await _fk_eye(symbol, "15m", 3)
+                _cur = _kl[-1].close if _kl else 0.0
+                if _hi > _lo > 0 and _cur > 0:
+                    _range_pos = max(0.0, min(1.0, (_cur - _lo) / (_hi - _lo)))
+            except Exception as _e2:
+                log.debug("eye range_pos %s: %s", symbol, _e2)
+
+            # العتبة حسب الموقع
+            if _range_pos < 0.40:
+                _thr = 0.45      # قاع: مرن (نصبر على التذبذب والتصحيح)
+            elif _range_pos < 0.70:
+                _thr = 0.30      # منتصف: حذر متوسط
+            else:
+                _thr = 0.15      # قمة/خط أصفر: يقظة قصوى
+
+            # القرار الديناميكي
+            if is_long and _ps < -_thr:
+                return True, f"انقلاب ديناميكي (بائعون مسيطرون {_ps:+.2f} @ موقع {_range_pos:.0%}, عتبة -{_thr})"
+            if (not is_long) and _ps > _thr:
+                return True, f"انقلاب ديناميكي (مشترون مسيطرون {_ps:+.2f} @ موقع {_range_pos:.0%}, عتبة {_thr})"
+    except Exception as _e:
+        log.debug("smart eye V2 %s: %s", symbol, _e)
     # الخطوة 0: فخاخ WebSocket اللحظية — ارتداد مفتعل بفخ وهمي؟ لا نخرج (تنفّس)
     try:
         from quant_engine.ob_stream import get_signals
@@ -454,13 +498,16 @@ async def is_real_reversal(symbol: str, is_long: bool) -> tuple[bool, str]:
         from radars.futures.engine import fetch_klines_async
         from quant_engine.hawk_eye import read_market_structure
         ms = await read_market_structure(symbol, fetch_klines_async)
-        if not is_long:  # SHORT — نريد الهبوط يستمر للدعم
-            # لو السعر لم يصل الدعم بعد (بعيد عنه >1.5%) ولم يكسره → الهبوط مستمر
+        # ملاحظة: التنفّس صار رأياً لا قراراً (العين الديناميكية + الجدار يقرّران).
+        #   نسجّل فقط، لا return — فلا يُحتجَز LONG/SHORT خاسر بانتظار مستوى بعيد (درس GWEI -15%).
+        if not is_long:  # SHORT
             if ms.support_distance_pct > 1.5 and not ms.at_support:
-                return False, f"السعر لم يصل الدعم بعد ({ms.support_distance_pct:+.1f}%) — فخ قطيع، الهبوط مستمر"
-        else:  # LONG — نريد الصعود يستمر للمقاومة
+                log.debug("breathe-advisory %s SHORT: لم يصل الدعم (%+.1f%%) — رأي لا قرار",
+                          symbol, ms.support_distance_pct)
+        else:  # LONG
             if ms.resistance_distance_pct > 1.5 and not ms.at_resistance:
-                return False, f"السعر لم يصل المقاومة بعد ({ms.resistance_distance_pct:+.1f}%) — فخ، الصعود مستمر"
+                log.debug("breathe-advisory %s LONG: لم يصل المقاومة (%+.1f%%) — رأي لا قرار",
+                          symbol, ms.resistance_distance_pct)
     except Exception as _e:
         log.debug("hawk in reversal %s: %s", symbol, _e)
 
@@ -477,17 +524,17 @@ async def is_real_reversal(symbol: str, is_long: bool) -> tuple[bool, str]:
                 # فجوة صاعدة تحت السعر الحالي ولم تُملأ بعد (top أقل من السعر)
                 gap_below = [g for g in fvgs if g["type"] == "bullish" and g["top"] < cur_price * 0.998]
                 if gap_below:
-                    nearest = max(gap_below, key=lambda g: g["top"])  # أقرب فجوة تحت
+                    nearest = max(gap_below, key=lambda g: g["top"])
                     dist = (cur_price - nearest["mid"]) / cur_price * 100
-                    if dist > 0.8:  # الفجوة بعيدة تحت = السعر سيرجع لها
-                        return False, f"فجوة صاعدة لم تُملأ ({dist:.1f}% تحت) — السعر سيعود لها، الهبوط مستمر"
+                    if dist > 0.8:
+                        log.debug("breathe-advisory %s SHORT: فجوة صاعدة (%.1f%% تحت) — رأي لا قرار", symbol, dist)
             else:  # LONG
                 gap_above = [g for g in fvgs if g["type"] == "bearish" and g["bottom"] > cur_price * 1.002]
                 if gap_above:
                     nearest = min(gap_above, key=lambda g: g["bottom"])
                     dist = (nearest["mid"] - cur_price) / cur_price * 100
                     if dist > 0.8:
-                        return False, f"فجوة هابطة لم تُملأ ({dist:.1f}% فوق) — السعر سيعود لها، الصعود مستمر"
+                        log.debug("breathe-advisory %s LONG: فجوة هابطة (%.1f%% فوق) — رأي لا قرار", symbol, dist)
     except Exception as _e:
         log.debug("fvg in reversal %s: %s", symbol, _e)
 
@@ -970,7 +1017,7 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
 
     # ═══ شرط 4: حد أقصى للصفقات المتزامنة بنفس الاتجاه + نفس الرادار ═══
     #   يمنع رهاناً واحداً مكرّراً (مثل 6 شورت متزامنة على عملات مرتبطة بـ BTC)
-    MAX_CONCURRENT = 50  # رُفِع من 3: نفتح كل إشارة A/S (paper) — التكرار والفخ يبقيان حمايةً
+    MAX_CONCURRENT = 5  # خُفِض من 50: سقف المخاطرة — يمنع تكدّس الصفقات (كارثة الـ14)
     sig_is_ph = (sig.radar_type == "futures" and getattr(sig, "tier", "") == "PH")
     same = 0
     for _ex in ACTIVE.values():

@@ -300,6 +300,7 @@ def _build_signal(symbol: str, price: float, candles: list, peak: float,
         leverage=3.0, strategies="\n".join(strats), radar_type="futures", tier="PH",
         rr_tp1=round(rr1, 2), rr_tp2=round(rr2, 2), rr_tp3=round(rr3, 2),
         strategy_count=len(strats), btc_trend="NEUTRAL",
+        rsi=rsi_v,
     )
 
 
