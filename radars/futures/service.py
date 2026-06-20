@@ -16,10 +16,11 @@ import asyncio, logging, time, json, os
 from typing import Optional
 from .engine import (
     Candle, Signal, MarketTier, ShadowTrade,
-    predator_analyze, sleeping_giant_analyze,
+    predator_agent, sleeping_giants_radar,
     guardian_agent, shadow_record, get_shadow_stats,
-    build_oracle_context, create_queues
+    build_oracle_context, create_queues, btc_macro_loop
 )
+from radars.futures.ob_reversal_loop import ob_reversal_loop
 
 log = logging.getLogger("service")
 
@@ -203,6 +204,7 @@ class OracleAgent:
 CANDLE_CACHE: dict[str, list[Candle]] = {}
 LAST_SIGNALS: dict[str, int] = {}
 SIGNAL_COOLDOWN = 3600  # ساعة بين إشارتين لنفس العملة
+GRADE_RANK = {"S": 4, "A": 3, "B": 2, "C": 1}
 ALL_SYMBOLS: list[MarketTier] = []
 
 async def fetch_candles(symbol: str, interval: str = "15m", limit: int = 100) -> list[Candle]:
@@ -232,40 +234,43 @@ async def fetch_candles(symbol: str, interval: str = "15m", limit: int = 100) ->
         return []
 
 async def fetch_all_symbols() -> list[MarketTier]:
-    """جلب كل عملات Futures من Binance وتصنيفها"""
+    """جلب فقط العملات الآمنة من Coin Profiler DB (44 عملة Tier 1-3)"""
     try:
-        import httpx
-        async with httpx.AsyncClient(timeout=20) as c:
-            r1 = await c.get("https://fapi.binance.com/fapi/v1/exchangeInfo")
-            symbols = [
-                s["symbol"] for s in r1.json()["symbols"]
-                if s["status"] == "TRADING" and s["symbol"].endswith("USDT")
-            ]
-            r2 = await c.get("https://fapi.binance.com/fapi/v1/ticker/24hr")
-            vols = {t["symbol"]: float(t["quoteVolume"]) for t in r2.json()}
+        import httpx, sqlite3
+        # نقرأ Tier 1-3 (آمنة) من Coin Profiler DB
+        conn = sqlite3.connect("/opt/whalex/coin_profiles.db")
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT symbol, tier, avg_daily_volume FROM coin_profiles "
+            "WHERE safe_to_trade=1 AND tier <= 3 "
+            "ORDER BY tier ASC, avg_daily_volume DESC"
+        ).fetchall()
+        conn.close()
 
-        sym_vols = [(s, vols.get(s, 0)) for s in symbols]
-        sym_vols.sort(key=lambda x: x[1], reverse=True)
-
-        # حدود ديناميكية
-        active = [(s, v) for s, v in sym_vols if v >= 5_000_000]
-        if not active:
+        if not rows:
+            log.warning("⚠️ Profile DB empty — fallback to default")
             return []
 
-        p80 = active[int(len(active) * 0.20)][1]
-        p40 = active[int(len(active) * 0.60)][1]
+        # جلب الحجم الحالي (24h) للحصول على بيانات حية
+        async with httpx.AsyncClient(timeout=20) as c:
+            r = await c.get("https://fapi.binance.com/fapi/v1/ticker/24hr")
+            vols = {t["symbol"]: float(t["quoteVolume"]) for t in r.json()}
 
         tiers = []
-        for sym, vol in active:
-            if vol >= p80:
-                t = MarketTier(sym, vol, "S", 50, 4.5, 62)
-            elif vol >= p40:
-                t = MarketTier(sym, vol, "A", 25, 3.5, 55)
-            else:
-                t = MarketTier(sym, vol, "B", 10, 3.0, 50)
+        for row in rows:
+            sym = row["symbol"]
+            current_vol = vols.get(sym, row["avg_daily_volume"])
+            profile_tier = row["tier"]
+            # نُحول tier رقمي إلى حرف
+            if profile_tier == 1:
+                t = MarketTier(sym, current_vol, "S", 10, 6.0, 70)
+            elif profile_tier == 2:
+                t = MarketTier(sym, current_vol, "A", 7, 6.0, 65)
+            else:  # tier 3
+                t = MarketTier(sym, current_vol, "B", 5, 6.0, 62)
             tiers.append(t)
 
-        log.info("Symbols loaded: %d (S:%d A:%d B:%d)",
+        log.info("✅ Loaded %d safe symbols from Profile DB (T1:%d T2:%d T3:%d)",
                  len(tiers),
                  sum(1 for t in tiers if t.tier == "S"),
                  sum(1 for t in tiers if t.tier == "A"),
@@ -366,29 +371,48 @@ async def orchestrate_approved(
         try:
             sig = await asyncio.wait_for(approved_queue.get(), timeout=1.0)
 
-            # cooldown — تجنب إشارتين متتاليتين لنفس العملة
+            # cooldown — رمز فقط، لكن إشارة أقوى تخترق التبريد
             now = int(time.time())
-            if now - LAST_SIGNALS.get(sig.symbol, 0) < SIGNAL_COOLDOWN:
-                log.debug("Cooldown: %s", sig.symbol)
+            _prev = LAST_SIGNALS.get(sig.symbol)
+            _rank = GRADE_RANK.get(sig.grade, 0)
+            if _prev and now - _prev["ts"] < SIGNAL_COOLDOWN and _rank <= _prev["rank"]:
+                log.debug("Cooldown: %s grade=%s (<= %s)", sig.symbol, sig.grade, _prev["rank"])
                 approved_queue.task_done()
                 continue
 
-            LAST_SIGNALS[sig.symbol] = now
+            LAST_SIGNALS[sig.symbol] = {"ts": now, "rank": _rank}
 
-            # تنفيذ بالتوازي — لا شيء يوقف الآخر
-            await asyncio.gather(
-                save_signal(sig),
-                _broadcast_telegram(sig, broadcast_fn),
-                shadow_record(sig),
-                return_exceptions=True
-            )
+            # حفظ في DB
+            await save_signal(sig)
+            await shadow_record(sig)
 
-            # إعلام position_manager
-            if position_manager_fn:
-                asyncio.create_task(position_manager_fn(sig))
+            # Claude Approval - نقطة الحسم الموحدة
+            claude_ok = True
+            try:
+                from services.claude_approval import claude_approval
+                claude_ok, claude_reason = await claude_approval(sig)
+                if claude_ok:
+                    log.info("Claude APPROVED: %s %s", sig.symbol, sig.direction)
+                else:
+                    log.info("Claude REJECTED [final]: %s %s - %s",
+                             sig.symbol, sig.direction, claude_reason)
+            except Exception as e:
+                log.debug("Claude approval error: %s", e)
+
+            if not claude_ok:
+                approved_queue.task_done()
+                continue
+
+            # معتمدة - توزيع شامل (المدير يُستدعى داخل _broadcast بعد نجاح كل الفلاتر)
+            asyncio.create_task(_broadcast_telegram(sig, broadcast_fn, position_manager_fn))
+
+            try:
+                from services.auto_trade_engine import on_signal_approved
+                asyncio.create_task(on_signal_approved(sig))
+            except Exception as e:
+                log.debug("auto_trade error: %s", e)
 
             approved_queue.task_done()
-
         except asyncio.TimeoutError:
             continue
         except Exception as e:
@@ -396,8 +420,23 @@ async def orchestrate_approved(
             await asyncio.sleep(1)
 
 
-async def _broadcast_telegram(sig: Signal, broadcast_fn):
-    """إرسال الإشارة لـ Telegram"""
+async def _broadcast_telegram(sig: Signal, broadcast_fn, position_manager_fn=None):
+    """إرسال الإشارة لـ Telegram — Grade A و S فقط للقناة"""
+    # فلتر الجودة: فقط أعلى درجات للقناة
+    if sig.grade not in ("S", "A"):
+        log.info("Skip channel broadcast: %s grade=%s (only A/S)", sig.symbol, sig.grade)
+        # لكن نرسلها للـ WebSocket (الميني آب يعرض كل الإشارات)
+        if broadcast_fn:
+            sig_dict = {
+                "radar_type": sig.radar_type, "symbol": sig.symbol,
+                "direction": sig.direction, "grade": sig.grade,
+                "confidence": sig.confidence, "entry": sig.entry,
+                "sl": sig.sl, "tp1": sig.tp1, "tp2": sig.tp2, "tp3": sig.tp3,
+                "leverage": sig.leverage, "strategies": sig.strategies,
+                "tier": sig.tier,
+            }
+            await broadcast_fn({"event": "signal", "data": sig_dict})
+        return
     try:
         from services.telegram import TG
         sig_dict = {
@@ -405,6 +444,7 @@ async def _broadcast_telegram(sig: Signal, broadcast_fn):
             "symbol": sig.symbol,
             "direction": sig.direction,
             "grade": sig.grade,
+            "score": sig.score,
             "confidence": sig.confidence,
             "entry": sig.entry,
             "sl": sig.sl,
@@ -414,11 +454,98 @@ async def _broadcast_telegram(sig: Signal, broadcast_fn):
             "leverage": sig.leverage,
             "strategies": sig.strategies,
             "tier": sig.tier,
+            "funding_rate": getattr(sig, "funding_rate", 0),
+            "open_interest_change": getattr(sig, "open_interest_change", 0),
+            "btc_trend": getattr(sig, "btc_trend", "NEUTRAL"),
+            "mtf_15m": getattr(sig, "mtf_15m", "NEUTRAL"),
+            "mtf_1h": getattr(sig, "mtf_1h", "NEUTRAL"),
+            "mtf_4h": getattr(sig, "mtf_4h", "NEUTRAL"),
+            "rr_tp1": getattr(sig, "rr_tp1", 0),
+            "rr_tp2": getattr(sig, "rr_tp2", 0),
+            "rr_tp3": getattr(sig, "rr_tp3", 0),
+            "accuracy": getattr(sig, "accuracy", 75.0),
+            "strategy_count": getattr(sig, "strategy_count", 0),
         }
+        # ═══ 🦅 Hawk Eye — عين الصقر: السياق التاريخي ═══
+        try:
+            from quant_engine.hawk_eye import read_market_structure, evaluate_reversal_context
+            from radars.futures.engine import fetch_klines_async
+            ms = await read_market_structure(sig.symbol, fetch_klines_async)
+            hawk_mod, hawk_reason = evaluate_reversal_context(ms, sig.direction)
+            if hawk_mod == 0.0:
+                log.info("🦅 Hawk Eye REJECTED: %s %s — %s", sig.symbol, sig.direction, hawk_reason)
+                if broadcast_fn:
+                    sig_dict["hawk_rejected"] = True
+                    sig_dict["hawk_reason"] = hawk_reason
+                    await broadcast_fn({"event": "signal", "data": sig_dict})
+                return
+            # تعديل الثقة حسب السياق التاريخي
+            sig.confidence = min(99.0, sig.confidence * hawk_mod)
+            sig_dict["confidence"] = round(sig.confidence, 1)
+            sig_dict["hawk_phase"] = ms.phase
+            sig_dict["hawk_reason"] = hawk_reason
+            log.info("🦅 Hawk Eye %s %s [%s] ×%.2f → conf=%.0f%% — %s",
+                     sig.symbol, sig.direction, ms.phase, hawk_mod, sig.confidence, hawk_reason)
+        except Exception as e:
+            log.debug("Hawk Eye error: %s", e)
+
+        # ═══ Coin Profile Filter — قبل Claude ═══
+        try:
+            from profiler.coin_profiler import load_profile_sqlite, should_emit_signal
+            profile = load_profile_sqlite("/opt/whalex/coin_profiles.db", sig.symbol)
+            profile_ok, profile_reason = should_emit_signal(profile, sig.confidence)
+            if not profile_ok:
+                log.info("🧠 Profile REJECTED: %s %s — %s", sig.symbol, sig.direction, profile_reason)
+                if broadcast_fn:
+                    sig_dict["profile_rejected"] = True
+                    sig_dict["profile_reason"] = profile_reason
+                    await broadcast_fn({"event": "signal", "data": sig_dict})
+                return
+            sig_dict["profile_approved"] = True
+            log.info("🧠 Profile ✅ %s %s (threshold=%.0f%%, lev=%s)",
+                     sig.symbol, sig.direction,
+                     profile.get("confidence_threshold", 0),
+                     profile.get("recommended_leverage", 0))
+        except Exception as e:
+            log.debug("Profile filter error: %s", e)
+
+        sig_dict["claude_approved"] = True
         await TG.broadcast_signal(sig_dict)
         # WebSocket broadcast للـ Mini App
         if broadcast_fn:
             await broadcast_fn({"event": "signal", "data": sig_dict})
+        # ═══ كشف الجدار الوهمي قبل الدخول (نفس عين بيك هنتر والمدير) ═══
+        # جدار وهمي ضدنا = فخ منصة → لا ندخل. حقيقي/جليدي = ندخل بثقة.
+        try:
+            from radars.explosion.scout import classify_wall
+            sym_w = sig.symbol.replace("/", "").replace("-", "")
+            if not sym_w.endswith("USDT"):
+                sym_w += "USDT"
+            # SHORT يخشى جدار شراء وهمي (دعم كاذب)، LONG يخشى جدار بيع وهمي
+            wside = "bid" if sig.direction == "SHORT" else "ask"
+            w = await classify_wall(sym_w, side=wside)
+            if w.get("valid") and w.get("type") == "وهمي":
+                log.info("🧊 %s %s — جدار وهمي ضدنا (فخ منصة) → لا دخول",
+                         sig.symbol, sig.direction)
+                return
+        except Exception as _we:
+            log.debug("wall check %s: %s", sig.symbol, _we)
+
+        # فخ لحظي (WebSocket) ضدنا قبل الدخول → لا دخول
+        try:
+            from quant_engine.ob_stream import get_signals
+            _sp = get_signals(sym_w).get("spoof", [])
+            _bad = "bid" if sig.direction == "SHORT" else "ask"
+            if any(x["side"]==_bad for x in _sp):
+                log.info("🧊 %s %s — فخ وهمي لحظي ضدنا → لا دخول", sig.symbol, sig.direction)
+                return
+        except Exception as _e:
+            log.debug("ob entry %s: %s", sig.symbol, _e)
+
+        # ✅ المدير يُفتح فقط بعد نجاح كل الفلاتر (Hawk + Profile + Claude + الجدار)
+        if position_manager_fn:
+            asyncio.create_task(position_manager_fn(sig))
+            log.info("📈 Position manager notified: %s %s (اجتاز كل الفلاتر)", sig.symbol, sig.direction)
     except Exception as e:
         log.error("Telegram broadcast error: %s", e)
 
@@ -444,7 +571,7 @@ async def futures_scan_loop(oracle: OracleAgent, signal_queue: asyncio.Queue):
             if not candles:
                 return
             oracle_ctx = oracle.get_context()
-            await predator_analyze(candles, tier.symbol, tier, oracle_ctx, signal_queue)
+            await predator_agent(candles, tier.symbol, tier, oracle_ctx, signal_queue)
 
     while True:
         try:
@@ -465,13 +592,13 @@ async def futures_scan_loop(oracle: OracleAgent, signal_queue: asyncio.Queue):
             await asyncio.gather(*tasks, return_exceptions=True)
 
             elapsed = time.time() - start
-            log.info("Scan #%d done — %d symbols in %.1fs — next in 5min",
+            log.info("Scan #%d done — %d symbols in %.1fs — next in 60s",
                      _scan_count, len(ALL_SYMBOLS), elapsed)
 
         except Exception as e:
             log.error("Scan loop error: %s", e)
 
-        await asyncio.sleep(300)  # 5 دقائق
+        await asyncio.sleep(60)  # 60 ثانية (كان 300 — أسرع للسوق النشط)
 
 
 async def sleeping_giants_loop(oracle: OracleAgent, signal_queue: asyncio.Queue):
@@ -485,7 +612,7 @@ async def sleeping_giants_loop(oracle: OracleAgent, signal_queue: asyncio.Queue)
         async with sem:
             candles = await fetch_candles(tier.symbol, "1d", 60)
             if candles:
-                await sleeping_giant_analyze(candles, tier.symbol, tier, signal_queue)
+                await sleeping_giants_radar(candles, tier.symbol, tier, signal_queue)
 
     while True:
         try:
@@ -597,6 +724,25 @@ async def mlops_loop():
 
 oracle = OracleAgent()
 
+async def mc_refresh_loop():
+    """تحديث دوري لتصنيف Market Cap كل 6 ساعات.
+    يعيد حساب MC لكل العملات ويحدّث التصنيف، ثم يحدّث ALL_SYMBOLS فوراً.
+    محاط بحماية كاملة: أي فشل (CoinGecko/شبكة) لا يُسقط الخدمة."""
+    global ALL_SYMBOLS
+    await asyncio.sleep(300)  # نومة أولى: لا نزاحم الإقلاع
+    while True:
+        try:
+            from quant_engine.market_cap_filter import update_profiles_with_market_cap
+            log.info("🔄 MC refresh: بدء تحديث Market Cap الدوري")
+            updated, safe = await update_profiles_with_market_cap("/opt/whalex/coin_profiles.db")
+            log.info("✅ MC refresh: حُدّثت %d عملة | آمنة %d", updated, safe)
+            ALL_SYMBOLS = await fetch_all_symbols()
+            log.info("✅ MC refresh: ALL_SYMBOLS محدّثة → %d عملة", len(ALL_SYMBOLS))
+        except Exception as e:
+            log.error("MC refresh loop error: %s", e)
+        await asyncio.sleep(6 * 3600)  # كل 6 ساعات
+
+
 async def start_all_services(broadcast_fn=None, position_manager_fn=None):
     """
     نقطة التشغيل الرئيسية — تشغيل كل الوكلاء معاً بدون اختناق
@@ -619,6 +765,9 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
     global ALL_SYMBOLS
     ALL_SYMBOLS = await fetch_all_symbols()
 
+    from shadow_tracker import shadow_loop
+    from radars.explosion.scout_long import scout_long_loop  # مُفعّل: تصحيح صاعد (لا هابطة)
+    from quant_engine.ob_stream import run as ob_stream_run
     # تشغيل كل الوكلاء بالتوازي
     await asyncio.gather(
         oracle.run_loop(),
@@ -626,6 +775,12 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
         sleeping_giants_loop(oracle, signal_queue),
         guardian_agent(signal_queue, approved_queue, oracle.get_context()),
         orchestrate_approved(approved_queue, broadcast_fn, position_manager_fn),
+        ob_reversal_loop(signal_queue),  # 🐋 الآن يمر بالحارس المركزي (لا تجاوز)
         mlops_loop(),
+        btc_macro_loop(),
+        mc_refresh_loop(),
+        shadow_loop(),
+        scout_long_loop(position_manager_fn=position_manager_fn),
+        ob_stream_run([t.symbol for t in ALL_SYMBOLS]),
         return_exceptions=True
     )

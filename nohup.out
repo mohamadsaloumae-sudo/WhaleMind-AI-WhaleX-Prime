@@ -1,0 +1,28 @@
+INFO:     Started server process [135159]
+INFO:     Waiting for application startup.
+2026-05-21 13:18:40,977 INFO     main - WhaleX Prime starting up
+2026-05-21 13:18:41,089 INFO     httpx - HTTP Request: POST https://api.telegram.org/bot8684741017:AAHhJpMwWiYeF9LT2wBvwz0mzBarMlBL6-I/setMyCommands "HTTP/1.1 200 OK"
+2026-05-21 13:18:41,090 INFO     telegram - Telegram bot ready
+2026-05-21 13:18:41,191 INFO     httpx - HTTP Request: POST https://api.telegram.org/bot8684741017:AAHhJpMwWiYeF9LT2wBvwz0mzBarMlBL6-I/sendMessage "HTTP/1.1 200 OK"
+2026-05-21 13:18:41,191 INFO     main - WhaleX Prime ready
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     157.245.146.57:60120 - "GET / HTTP/1.1" 302 Found
+INFO:     157.245.146.57:60124 - "GET /static/index.html HTTP/1.1" 404 Not Found
+INFO:     157.245.146.57:60128 - "GET /login HTTP/1.1" 404 Not Found
+INFO:     157.245.146.57:60140 - "GET /dashboard HTTP/1.1" 404 Not Found
+INFO:     157.245.146.57:60156 - "GET /panel HTTP/1.1" 404 Not Found
+INFO:     157.245.146.57:60170 - "GET /xui HTTP/1.1" 404 Not Found
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+INFO:     127.0.0.1:38064 - "GET / HTTP/1.1" 302 Found
+INFO:     127.0.0.1:32962 - "GET /static/index.html HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:32978 - "GET /static/favicon.ico HTTP/1.1" 404 Not Found
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-05-21 13:28:42,797 INFO     main - WhaleX Prime shutting down
+INFO:     Application shutdown complete.
+INFO:     Finished server process [135159]

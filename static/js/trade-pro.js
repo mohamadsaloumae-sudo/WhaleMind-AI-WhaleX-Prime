@@ -1,8 +1,8 @@
 /**
- * trade-pro.js — WhaleX Prime
+ * trade-pro.js — WhaleX Prime v2
  * ══════════════════════════════════════
  * صفحة التداول الاحترافية + نظام الطبقات.
- * مستقل تماماً — يستخدم BUS للتواصل.
+ * مع Manual + Auto Trading + Notifications.
  * ══════════════════════════════════════
  */
 
@@ -13,9 +13,13 @@ const TRADEPRO = {
   _orderType: 'limit',
   _leverage:  10,
   _margin:    'cross',
+  _mode:      'manual',  // manual | auto
   _obInterval: null,
   _priceInterval: null,
   _activePos: null,
+  _allSymbols: [],
+  _notifications: [],  // قائمة التنبيهات
+  _autoActive: false,
 
   // ── الدخول للصفحة ────────────────────
   onEnter() {
@@ -23,6 +27,10 @@ const TRADEPRO = {
     document.getElementById('tp-sym').textContent = this._sym;
     this._startStreams();
     this._loadPositions();
+    this._updateBellBadge();
+
+    // الاستماع للتنبيهات من مدير الصفقات
+    BUS.on('ws:alert', (msg) => this._addNotification(msg));
   },
 
   onLeave() {
@@ -67,7 +75,6 @@ const TRADEPRO = {
         curEl.className = 'tp-ob-current ' + (up ? 'up' : 'dn');
       }
 
-      // تعبئة السعر الافتراضي في حقل الأمر
       const pInp = document.getElementById('tp-price-inp');
       if(pInp && !pInp.value) pInp.value = px.toFixed(this._decimals(px));
     } catch(e) {}
@@ -77,10 +84,9 @@ const TRADEPRO = {
     try {
       const r = await fetch(`https://fapi.binance.com/fapi/v1/depth?symbol=${this._sym}&limit=10`);
       const d = await r.json();
-      const bids = d.bids.slice(0, 5); // 5 أوامر شراء
-      const asks = d.asks.slice(0, 5).reverse(); // 5 أوامر بيع (مرتبة من الأعلى)
+      const bids = d.bids.slice(0, 5);
+      const asks = d.asks.slice(0, 5).reverse();
 
-      // أكبر كمية لحساب نسبة الـ background
       const maxQty = Math.max(
         ...bids.map(b => parseFloat(b[1])),
         ...asks.map(a => parseFloat(a[1]))
@@ -90,7 +96,7 @@ const TRADEPRO = {
         const px = parseFloat(row[0]);
         const qty = parseFloat(row[1]);
         const pct = (qty / maxQty * 100).toFixed(1);
-        return `<div class="tp-ob-row">
+        return `<div class="tp-ob-row" onclick="TRADEPRO.setPrice(${px})">
           <div class="tp-ob-bg" style="width:${pct}%"></div>
           <span class="tp-ob-px">${this._fmtPrice(px)}</span>
           <span class="tp-ob-qty">${this._fmtQty(qty)}</span>
@@ -102,19 +108,32 @@ const TRADEPRO = {
       if(sellsEl) sellsEl.innerHTML = asks.map(renderRow).join('');
       if(buysEl) buysEl.innerHTML = bids.map(renderRow).join('');
 
-      // نسبة الشراء/البيع
       const totalBids = bids.reduce((s, b) => s + parseFloat(b[1]), 0);
       const totalAsks = asks.reduce((s, a) => s + parseFloat(a[1]), 0);
       const total = totalBids + totalAsks;
       if(total > 0) {
         const buyPct  = (totalBids / total * 100);
         const sellPct = 100 - buyPct;
-        document.getElementById('tp-buy-pct').textContent = buyPct.toFixed(2) + '%';
-        document.getElementById('tp-sell-pct').textContent = sellPct.toFixed(2) + '%';
+        document.getElementById('tp-buy-pct').textContent = buyPct.toFixed(1) + '%';
+        document.getElementById('tp-sell-pct').textContent = sellPct.toFixed(1) + '%';
         document.getElementById('tp-bar-buy').style.width = buyPct + '%';
         document.getElementById('tp-bar-sell').style.width = sellPct + '%';
       }
     } catch(e) {}
+  },
+
+  setPrice(px) {
+    const inp = document.getElementById('tp-price-inp');
+    if(inp) inp.value = px.toFixed(this._decimals(px));
+  },
+
+  // ── Mode Switch (Manual / Auto) ──────
+  setMode(mode, el) {
+    this._mode = mode;
+    document.querySelectorAll('.tp-mode-tab').forEach(t => t.classList.remove('on'));
+    el.classList.add('on');
+    document.getElementById('tp-manual-mode').style.display = mode === 'manual' ? 'flex' : 'none';
+    document.getElementById('tp-auto-mode').style.display   = mode === 'auto' ? 'block' : 'none';
   },
 
   // ── الطبقات (Layers) ─────────────────
@@ -122,11 +141,11 @@ const TRADEPRO = {
     const layer = document.getElementById('layer-' + name);
     if(!layer) return;
     layer.classList.add('on');
-    // تحميل المحتوى عند الفتح
-    if(name === 'sym')      this._loadSymbols();
-    if(name === 'signals')  this._loadSignalsLayer();
-    if(name === 'positions') this._loadPositionsLayer();
-    if(name === 'chart')    this._loadChart();
+    if(name === 'sym')         this._loadSymbols();
+    if(name === 'signals')     this._loadSignalsLayer();
+    if(name === 'positions')   this._loadPositionsLayer();
+    if(name === 'chart')       this._loadChart();
+    if(name === 'notifications') this._loadNotificationsLayer();
   },
 
   closeLayer(name) {
@@ -142,11 +161,10 @@ const TRADEPRO = {
     try {
       const r = await fetch('https://fapi.binance.com/fapi/v1/ticker/24hr');
       const data = await r.json();
-      // العملات الأكثر تداولاً (USDT)
+      // جلب كل العملات المتاحة على Binance Futures (USDT pairs)
       const top = data
-        .filter(x => x.symbol.endsWith('USDT'))
-        .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
-        .slice(0, 50);
+        .filter(x => x.symbol.endsWith('USDT') && parseFloat(x.quoteVolume) > 0)
+        .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume));
 
       this._allSymbols = top;
       this._renderSymbols(top);
@@ -165,7 +183,7 @@ const TRADEPRO = {
           <div class="tp-sym-name-row">${s.symbol}</div>
           <div class="tp-sym-vol">Vol: $${this._fmtCompact(parseFloat(s.quoteVolume))}</div>
         </div>
-        <div style="text-align:left">
+        <div style="text-align:left;flex-shrink:0">
           <div class="tp-sym-price">${this._fmtPrice(parseFloat(s.lastPrice))}</div>
           <div class="tp-sym-chg ${up ? 'up' : 'dn'}">${up?'+':''}${parseFloat(s.priceChangePercent).toFixed(2)}%</div>
         </div>
@@ -197,7 +215,7 @@ const TRADEPRO = {
     document.querySelectorAll('.tp-side-tab').forEach(t => t.classList.remove('on'));
     el.classList.add('on');
     const btn = document.getElementById('tp-submit');
-    btn.textContent = side === 'buy' ? 'صفقة شراء' : 'صفقة بيع';
+    btn.textContent = side === 'buy' ? 'صفقة شراء / Long' : 'صفقة بيع / Short';
     btn.className = 'tp-submit ' + side;
   },
 
@@ -211,18 +229,19 @@ const TRADEPRO = {
     };
     document.getElementById('tp-order-type-lbl').textContent = labels[type];
     document.querySelectorAll('[id^="ot-"]').forEach(e => e.textContent = '');
-    document.getElementById('ot-' + type).textContent = '✓';
+    const chk = document.getElementById('ot-' + type);
+    if(chk) chk.textContent = '✓';
     this.closeLayer('ordertype');
   },
 
   // ── الرافعة ──────────────────────────
   setLev(v) {
     this._leverage = parseInt(v);
-    document.getElementById('tp-leverage').textContent = v + 'x';
-    document.getElementById('lev-current')?.textContent = v + 'x';
-    document.getElementById('lev-slider')?.value = v;
-    document.getElementById('set-leverage')?.value = v;
-    document.getElementById('set-lev-val')?.textContent = v + 'x';
+    const _t = document.getElementById('tp-leverage'); if(_t) _t.textContent = v + 'x';
+    const _lc = document.getElementById('lev-current'); if(_lc) _lc.textContent = v + 'x';
+    const _ls = document.getElementById('lev-slider'); if(_ls) _ls.value = v;
+    const _sl = document.getElementById('set-leverage'); if(_sl) _sl.value = v;
+    const _slv = document.getElementById('set-lev-val'); if(_slv) _slv.textContent = v + 'x';
   },
 
   setMargin(m, el) {
@@ -253,7 +272,7 @@ const TRADEPRO = {
 
   onSlider(el) {
     const pct = el.value / 100;
-    const available = 1000; // TODO: من المحفظة الحقيقية
+    const available = 1000;
     const usdt = available * pct;
     document.getElementById('tp-amount-inp').value = usdt.toFixed(2);
     this.calcTotal();
@@ -270,11 +289,9 @@ const TRADEPRO = {
     document.getElementById('tp-cost').textContent = cost.toFixed(2) + ' USDT';
   },
 
-  toggleTPSL(chk) {
-    // TODO: عرض حقول TP/SL إضافية
-  },
+  toggleTPSL(chk) {},
 
-  // ── تنفيذ الصفقة ─────────────────────
+  // ── تنفيذ الصفقة اليدوية ─────────────
   async execute() {
     const price = parseFloat(document.getElementById('tp-price-inp').value);
     const amt   = parseFloat(document.getElementById('tp-amount-inp').value);
@@ -304,16 +321,59 @@ const TRADEPRO = {
     }
   },
 
+  // ── Auto Trading ─────────────────────
+  async toggleAuto() {
+    if(this._autoActive) {
+      // إيقاف
+      if(!confirm('إيقاف Auto Trading؟ ستبقى الصفقات المفتوحة تحت إدارة مدير الصفقات.')) return;
+      this._autoActive = false;
+      this._updateAutoUI();
+      UI.toast('⏹ Auto Trading أُوقف');
+      BUS.emit('trade:auto:stop', null);
+    } else {
+      // تفعيل
+      if(!STATE.isPro) {
+        UI.toast('⚠️ يتطلب اشتراك PRO');
+        return;
+      }
+      const amt = parseFloat(document.getElementById('auto-amount').value) || 0;
+      if(amt < 50) { UI.toast('الحد الأدنى $50'); return; }
+
+      this._autoActive = true;
+      this._updateAutoUI();
+      UI.toast('🤖 Auto Trading مفعّل');
+      BUS.emit('trade:auto:start', {
+        amount: amt,
+        risk: document.getElementById('auto-risk').value,
+      });
+    }
+  },
+
+  _updateAutoUI() {
+    const dot = document.getElementById('auto-status-dot');
+    const txt = document.getElementById('auto-status-txt');
+    const btn = document.getElementById('auto-toggle-btn');
+    if(this._autoActive) {
+      dot.classList.add('active');
+      txt.textContent = 'نشط — يستقبل الإشارات';
+      btn.textContent = '⏹ إيقاف Auto Trading';
+      btn.className = 'tp-submit sell';
+    } else {
+      dot.classList.remove('active');
+      txt.textContent = 'متوقف';
+      btn.textContent = '🤖 تشغيل Auto Trading';
+      btn.className = 'tp-submit buy';
+    }
+  },
+
   // ── الصفقات المفتوحة ─────────────────
   async _loadPositions() {
     const d = await API.getTradeStats();
     const count = d?.open_positions || 0;
     const badge = document.getElementById('tp-pos-count');
-    if(count > 0) {
-      badge.style.display = 'flex';
-      badge.textContent = count;
-    } else {
-      badge.style.display = 'none';
+    if(badge) {
+      if(count > 0) { badge.style.display = 'flex'; badge.textContent = count; }
+      else badge.style.display = 'none';
     }
   },
 
@@ -321,40 +381,18 @@ const TRADEPRO = {
     const list = document.getElementById('tp-positions-list');
     if(!list) return;
     list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">جاري التحميل...</div>';
-
-    // TODO: API call لجلب الصفقات الحقيقية
-    const positions = []; // مؤقت
-
+    const positions = [];
     if(positions.length === 0) {
-      list.innerHTML = `<div class="empty">
-        <div class="empty-ico">📭</div>
-        <div class="empty-t">لا توجد صفقات مفتوحة</div>
-      </div>`;
+      list.innerHTML = `<div class="empty"><div class="empty-ico">📭</div><div class="empty-t">لا توجد صفقات مفتوحة</div></div>`;
       return;
     }
-
-    list.innerHTML = positions.map(p => `
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-          <div>
-            <div style="font-weight:800">${p.symbol}</div>
-            <div style="font-size:11px;color:${p.direction==='LONG'?'var(--green)':'var(--red)'};font-weight:700">${p.direction} ${p.leverage}x</div>
-          </div>
-          <div style="text-align:left">
-            <div style="font-family:var(--mono);font-weight:700;color:${p.pnl>0?'var(--green)':'var(--red)'}">${p.pnl>0?'+':''}${p.pnl.toFixed(2)}%</div>
-            <div style="font-size:11px;color:var(--text3)">${p.entry}</div>
-          </div>
-        </div>
-        <button class="tp-stop-btn" style="width:100%" onclick="TRADEPRO.closePosition('${p.id}')">⏹ إغلاق الصفقة</button>
-      </div>
-    `).join('');
   },
 
   _showStopBar(sym, dir) {
     const bar = document.getElementById('tp-stop-bar');
     bar.style.display = 'flex';
     document.getElementById('tp-stop-title').textContent = `${sym} ${dir}`;
-    document.getElementById('tp-stop-sub').textContent = `رافعة ${this._leverage}x — ${this._orderType}`;
+    document.getElementById('tp-stop-sub').textContent = `رافعة ${this._leverage}x`;
     this._activePos = { sym, dir };
   },
 
@@ -365,17 +403,9 @@ const TRADEPRO = {
     UI.toast(d?.status === 'force_closed' ? '✓ تم الإغلاق' : 'فشل الإغلاق');
     document.getElementById('tp-stop-bar').style.display = 'none';
     this._activePos = null;
-    this._loadPositions();
   },
 
-  async closePosition(id) {
-    if(!confirm('إغلاق الصفقة؟')) return;
-    UI.toast('جاري الإغلاق...');
-    // TODO: API call
-    this._loadPositionsLayer();
-  },
-
-  // ── الإشارات ─────────────────────────
+  // ── الإشارات — مع TP1 + TP2 + TP3 ─────
   async _loadSignalsLayer() {
     const list = document.getElementById('tp-signals-list');
     if(!list) return;
@@ -385,43 +415,59 @@ const TRADEPRO = {
     const signals = d?.signals || [];
 
     if(signals.length === 0) {
-      list.innerHTML = `<div class="empty">
-        <div class="empty-ico">📡</div>
-        <div class="empty-t">لا توجد إشارات الآن</div>
-      </div>`;
+      list.innerHTML = `<div class="empty"><div class="empty-ico">📡</div><div class="empty-t">لا توجد إشارات الآن</div></div>`;
       return;
     }
 
-    list.innerHTML = signals.slice(0, 10).map(s => {
+    list.innerHTML = signals.slice(0, 15).map(s => {
       const isL = s.direction === 'LONG';
-      return `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer"
-        onclick="TRADEPRO.applySignal('${s.symbol}','${s.direction}',${s.entry},${s.sl},${s.tp1},${s.leverage||10})">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <span style="font-weight:800">${s.symbol}</span>
+      // التاريخ بـ UTC+4 (الإمارات)
+      // التوقيت — تحويل لـ UTC+4 (الإمارات)
+      let dt;
+      if(typeof s.created_at === 'number') {
+        dt = new Date(s.created_at * (s.created_at < 1e12 ? 1000 : 1));
+      } else {
+        const str = String(s.created_at);
+        dt = new Date(str.includes('Z') || str.includes('+') ? str : str + 'Z');
+      }
+      const dxb = new Date(dt.getTime() + 4*3600000);
+      const pad = n => String(n).padStart(2,'0');
+      const tm = `${dxb.getUTCFullYear()}-${pad(dxb.getUTCMonth()+1)}-${pad(dxb.getUTCDate())} ${pad(dxb.getUTCHours())}:${pad(dxb.getUTCMinutes())}`;
+
+      return `<div class="tp-signal-row" onclick='TRADEPRO.applySignal(${JSON.stringify({sym:s.symbol,dir:s.direction,entry:s.entry,sl:s.sl,tp1:s.tp1,tp2:s.tp2,tp3:s.tp3,lev:s.leverage||10,grade:s.grade,conf:s.confidence}).replace(/'/g,"&apos;")})'>
+        <div class="tp-signal-hd">
+          <span style="font-size:14px;font-weight:800">${s.symbol}</span>
           <span class="pill ${isL?'pill-g':'pill-r'}">${s.direction}</span>
           <span class="grd ${UI.gradeClass(s.grade)}">${s.grade}</span>
-          <span style="margin-right:auto;font-size:11px;color:var(--neon);font-weight:700">${s.confidence||0}%</span>
+          <span class="tp-signal-time">${tm} +4</span>
+          <span class="tp-signal-conf">${s.confidence||0}%</span>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:11px">
-          <div><span style="color:var(--text3)">دخول:</span> <b>${UI.fmtPrice(s.entry)}</b></div>
-          <div><span style="color:var(--text3)">SL:</span> <b style="color:var(--red)">${UI.fmtPrice(s.sl)}</b></div>
-          <div><span style="color:var(--text3)">TP1:</span> <b style="color:var(--green)">${UI.fmtPrice(s.tp1)}</b></div>
+        <div class="tp-signal-lvls">
+          <div class="tp-signal-lv en"><div class="tp-signal-lv-l">دخول</div><div class="tp-signal-lv-v">${UI.fmtPrice(s.entry)}</div></div>
+          <div class="tp-signal-lv sl"><div class="tp-signal-lv-l">SL</div><div class="tp-signal-lv-v">${UI.fmtPrice(s.sl)}</div></div>
+          <div class="tp-signal-lv t1"><div class="tp-signal-lv-l">TP1</div><div class="tp-signal-lv-v">${UI.fmtPrice(s.tp1)}</div></div>
+          <div class="tp-signal-lv t2"><div class="tp-signal-lv-l">TP2</div><div class="tp-signal-lv-v">${UI.fmtPrice(s.tp2)}</div></div>
+          <div class="tp-signal-lv t3"><div class="tp-signal-lv-l">TP3</div><div class="tp-signal-lv-v">${UI.fmtPrice(s.tp3)}</div></div>
         </div>
       </div>`;
     }).join('');
   },
 
-  applySignal(sym, dir, entry, sl, tp1, lev) {
-    this.selectSymbol(sym);
+  applySignal(data) {
+    if(typeof data === 'string') {
+      try { data = JSON.parse(data.replace(/&apos;/g,"'")); } catch { return; }
+    }
+    this.selectSymbol(data.sym);
     setTimeout(() => {
-      this._side = dir === 'LONG' ? 'buy' : 'sell';
+      this._side = data.dir === 'LONG' ? 'buy' : 'sell';
       document.querySelectorAll('.tp-side-tab').forEach(t => t.classList.remove('on'));
       document.querySelector(`.tp-side-tab.${this._side}`)?.classList.add('on');
-      document.getElementById('tp-price-inp').value = entry;
-      this.setLev(lev);
+      this.setSide(this._side, document.querySelector(`.tp-side-tab.${this._side}`));
+      document.getElementById('tp-price-inp').value = data.entry;
+      this.setLev(data.lev);
       this.closeLayer('signals');
-      UI.toast(`✓ تم تطبيق إشارة ${sym}`);
-    }, 100);
+      UI.toast(`✓ تم تطبيق إشارة ${data.sym} ${data.dir} ${data.grade}`);
+    }, 150);
   },
 
   // ── الرسم البياني ────────────────────
@@ -430,6 +476,77 @@ const TRADEPRO = {
     if(!frame) return;
     document.getElementById('chart-title').textContent = this._sym + ' — الرسم';
     frame.src = `https://s.tradingview.com/widgetembed/?symbol=BINANCE%3A${this._sym}.P&interval=15&theme=dark&style=1&locale=ar&toolbar_bg=%23020408&hide_side_toolbar=0&allow_symbol_change=0`;
+  },
+
+  // ── التنبيهات / Notifications ─────────
+  _addNotification(msg) {
+    const cleanMsg = (msg.message || '').replace(/<[^>]*>/g, '');
+    this._notifications.unshift({
+      msg:  cleanMsg,
+      icon: this._getNotifIcon(cleanMsg),
+      time: Date.now(),
+      read: false,
+    });
+    if(this._notifications.length > 30) this._notifications.pop();
+    this._updateBellBadge();
+  },
+
+  _getNotifIcon(msg) {
+    if(msg.includes('TP3')) return '🏆';
+    if(msg.includes('TP2')) return '🚀';
+    if(msg.includes('TP1')) return '🎯';
+    if(msg.includes('SL')) return '🔴';
+    if(msg.includes('هروب')) return '🏃';
+    if(msg.includes('Pyramid')) return '📈';
+    if(msg.includes('Claude') || msg.includes('AI')) return '🤖';
+    if(msg.includes('انفجار') || msg.includes('Explosion')) return '💥';
+    return '📡';
+  },
+
+  _updateBellBadge() {
+    const badge = document.getElementById('tp-bell-badge');
+    if(!badge) return;
+    const unread = this._notifications.filter(n => !n.read).length;
+    if(unread > 0) {
+      badge.style.display = 'flex';
+      badge.textContent = unread > 99 ? '99+' : unread;
+    } else {
+      badge.style.display = 'none';
+    }
+  },
+
+  _loadNotificationsLayer() {
+    const list = document.getElementById('tp-notif-list');
+    if(!list) return;
+
+    // علّم كل التنبيهات كمقروءة
+    this._notifications.forEach(n => n.read = true);
+    this._updateBellBadge();
+
+    if(this._notifications.length === 0) {
+      list.innerHTML = `<div class="empty"><div class="empty-ico">🔕</div><div class="empty-t">لا توجد تنبيهات</div></div>`;
+      return;
+    }
+
+    list.innerHTML = this._notifications.map(n => {
+      const dt = new Date(n.time);
+      const utcMs = dt.getTime() + dt.getTimezoneOffset()*60000;
+      const dxb = new Date(utcMs + 4*3600000);
+      const tm = dxb.toISOString().replace('T',' ').slice(0,16);
+      return `<div class="tp-notif-row">
+        <div class="tp-notif-icon">${n.icon}</div>
+        <div class="tp-notif-content">
+          <div class="tp-notif-msg">${n.msg}</div>
+          <div class="tp-notif-time">${tm} +4</div>
+        </div>
+      </div>`;
+    }).join('');
+  },
+
+  clearNotifications() {
+    this._notifications = [];
+    this._updateBellBadge();
+    this._loadNotificationsLayer();
   },
 
   // ── Utils ────────────────────────────

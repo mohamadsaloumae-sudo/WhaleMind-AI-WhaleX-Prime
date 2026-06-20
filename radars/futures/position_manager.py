@@ -76,6 +76,8 @@ class Position:
     force_close_lock: bool = False
     # FVG zone من الإشارة
     fvg_zone: Optional[float] = None
+    # نوع الرادار (futures للرئيسي وبيك هنتر، يُميَّز بـ tier)
+    radar_type: str = "futures"
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -153,13 +155,105 @@ def get_stats_dict() -> dict:
 
 ACTIVE: dict[str, Position] = {}
 
+# ═══════════════════════════════════════════════════════════════
+# PERSISTENCE — حفظ الصفقات في DB (تبقى عبر restart)
+# ═══════════════════════════════════════════════════════════════
+import sqlite3 as _sqlite
+import json as _json
+import time as _time
+from dataclasses import asdict as _asdict, fields as _fields
+
+POS_DB = "/opt/whalex/positions.db"
+
+
+def _pos_db_init():
+    conn = _sqlite.connect(POS_DB)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS active_positions (
+            id TEXT PRIMARY KEY,
+            data TEXT,
+            status TEXT,
+            updated_at INTEGER
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def _pos_save(pos):
+    """Save/update a position in DB."""
+    try:
+        conn = _sqlite.connect(POS_DB)
+        conn.execute(
+            "INSERT OR REPLACE INTO active_positions (id, data, status, updated_at) VALUES (?,?,?,?)",
+            (pos.id, _json.dumps(_asdict(pos)), pos.status, int(_time.time()))
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        log.error("pos_save error: %s", e)
+
+
+def _pos_delete(pos_id):
+    """Delete a position from DB."""
+    try:
+        conn = _sqlite.connect(POS_DB)
+        conn.execute("DELETE FROM active_positions WHERE id=?", (pos_id,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        log.error("pos_delete error: %s", e)
+
+
+def _pos_load_all():
+    """Load all open positions from DB (on startup)."""
+    try:
+        _pos_db_init()
+        conn = _sqlite.connect(POS_DB)
+        rows = conn.execute("SELECT data FROM active_positions WHERE status='open'").fetchall()
+        conn.close()
+        valid = {f.name for f in _fields(Position)}
+        out = []
+        for (data,) in rows:
+            d = _json.loads(data)
+            d = {k: v for k, v in d.items() if k in valid}
+            out.append(Position(**d))
+        return out
+    except Exception as e:
+        log.error("pos_load_all error: %s", e)
+        return []
+
+
 async def add_position(pos: Position):
     pos.peak_price = pos.entry
     ACTIVE[pos.id] = pos
+    _pos_save(pos)
     log.info("Position opened: %s %s @%.6f lev=%.0fx", pos.symbol, pos.direction, pos.entry, pos.leverage)
+    src = "Peak Hunter" if pos.radar_type == "futures" and getattr(pos, "tier", "") == "PH" else "Radar"
+    msg = (
+        f"🟢 <b>POSITION OPENED</b> · {pos.direction} · {pos.leverage:.0f}x\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"<code>{pos.symbol}</code>\n\n"
+        f"Entry   <code>{pos.entry:.6g}</code>\n"
+        f"Stop    <code>{pos.sl:.6g}</code>\n"
+        f"TP1     <code>{pos.tp1:.6g}</code>\n"
+        f"TP2     <code>{pos.tp2:.6g}</code>\n"
+        f"TP3     <code>{pos.tp3:.6g}</code>\n\n"
+        f"Grade <b>{pos.grade}</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"📡 Now monitoring · auto-managed"
+    )
+    # بيك هنتر يرسل رسالته الغنية بنفسه → لا نكرر POSITION OPENED له
+    is_peak_hunter = (pos.radar_type == "futures" and getattr(pos, "tier", "") == "PH")
+    if not is_peak_hunter:
+        try:
+            await notify(pos.user_id, msg)
+        except Exception as e:
+            log.debug("open notify error: %s", e)
 
 async def remove_position(pos_id: str):
     ACTIVE.pop(pos_id, None)
+    _pos_delete(pos_id)
 
 async def force_close_all(reason: str = "kill_switch"):
     """Kill Switch — إغلاق كل الصفقات فوراً"""
@@ -243,9 +337,12 @@ async def check_pyramiding(pos: Position, price: float) -> bool:
             pos.leverage = min(new_lev, 25.0)
             pos.pyramid_level = 2
             await notify(pos.user_id,
-                f"📈 <b>Pyramiding Level 2</b> — {pos.symbol}\n"
-                f"TP1 مُصاب ✅ | رافعة مرفوعة → <b>{pos.leverage:.0f}x</b>\n"
-                f"OBI: {imbalance:+.2f} | الزخم إيجابي")
+                f"📈 <b>PYRAMIDING · Level 2</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"<code>{pos.symbol}</code> · {pos.direction}\n\n"
+                f"TP1 secured ✅\n"
+                f"Leverage raised → <b>{pos.leverage:.0f}x</b>\n"
+                f"OBI {imbalance:+.2f} · momentum positive")
             log.info("Pyramid L2: %s lev=%.0fx", pos.symbol, pos.leverage)
             return True
 
@@ -315,7 +412,7 @@ C) انتظار — ضع SL أقرب
                     "content-type": "application/json",
                 },
                 json={
-                    "model": "claude-sonnet-4-20250514",
+                    "model": "claude-sonnet-4-5",
                     "max_tokens": 100,
                     "messages": [{"role": "user", "content": prompt}]
                 }
@@ -333,42 +430,147 @@ C) انتظار — ضع SL أقرب
 # ─── TACTICAL EXIT ANALYZER ─────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
+async def is_real_reversal(symbol: str, is_long: bool) -> tuple[bool, str]:
+    """تمييز الانقلاب الحقيقي من الزبزبة — قراءة عمق OB (depth=100).
+    فلسفة: القمة عند الانهيار = معركة شرسة (تذبذب طبيعي).
+    لا نخرج للزبزبة. نخرج فقط عند انقلاب بنيوي مؤكّد:
+      • اختلال قوي مستمر قرب السعر + جدار معاكس ضخم + تآكل صفّنا."""
+    # الخطوة 0: فخاخ WebSocket اللحظية — ارتداد مفتعل بفخ وهمي؟ لا نخرج (تنفّس)
+    try:
+        from quant_engine.ob_stream import get_signals
+        _sw = symbol.replace("/","").replace("-","")
+        if not _sw.endswith("USDT"): _sw += "USDT"
+        _sp = get_signals(_sw).get("spoof", [])
+        if not is_long and any(x["side"]=="bid" for x in _sp):
+            return False, "فخ شراء وهمي لحظي — ارتداد مفتعل، الهبوط مستمر"
+        if is_long and any(x["side"]=="ask" for x in _sp):
+            return False, "فخ بيع وهمي لحظي — هبوط مفتعل، الصعود مستمر"
+    except Exception as _e:
+        log.debug("ob reversal %s: %s", symbol, _e)
+    # ─── الخطوة 1: عين الصقر — هل وصل السعر الدعم/المقاومة فعلاً؟ ───
+    # فلسفة فخ القطيع: لو السعر لم يصل الدعم بعد، فأي ارتداد الآن = فخ
+    # (الحيتان يخيفون القطيع ليهربوا، ثم يكمل الهبوط). لا نخرج للفخ.
+    try:
+        from radars.futures.engine import fetch_klines_async
+        from quant_engine.hawk_eye import read_market_structure
+        ms = await read_market_structure(symbol, fetch_klines_async)
+        if not is_long:  # SHORT — نريد الهبوط يستمر للدعم
+            # لو السعر لم يصل الدعم بعد (بعيد عنه >1.5%) ولم يكسره → الهبوط مستمر
+            if ms.support_distance_pct > 1.5 and not ms.at_support:
+                return False, f"السعر لم يصل الدعم بعد ({ms.support_distance_pct:+.1f}%) — فخ قطيع، الهبوط مستمر"
+        else:  # LONG — نريد الصعود يستمر للمقاومة
+            if ms.resistance_distance_pct > 1.5 and not ms.at_resistance:
+                return False, f"السعر لم يصل المقاومة بعد ({ms.resistance_distance_pct:+.1f}%) — فخ، الصعود مستمر"
+    except Exception as _e:
+        log.debug("hawk in reversal %s: %s", symbol, _e)
+
+    # ─── الخطوة 2: الفجوات السعرية — هل توجد فجوة لم تُملأ تجذب السعر؟ ───
+    # الحيتان تترك فجوات عند الدفع العنيف، والسعر يعود لملئها.
+    # للـSHORT: فجوة صاعدة تحت السعر = السعر سينزل لها = الهبوط مستمر = لا نخرج
+    try:
+        from radars.futures.engine import fetch_klines_async as _fk, find_fvg as _ffvg
+        k15 = await _fk(symbol, "15m", 60)
+        if k15 and len(k15) >= 10:
+            cur_price = k15[-1].close
+            fvgs = _ffvg(k15)
+            if not is_long:  # SHORT
+                # فجوة صاعدة تحت السعر الحالي ولم تُملأ بعد (top أقل من السعر)
+                gap_below = [g for g in fvgs if g["type"] == "bullish" and g["top"] < cur_price * 0.998]
+                if gap_below:
+                    nearest = max(gap_below, key=lambda g: g["top"])  # أقرب فجوة تحت
+                    dist = (cur_price - nearest["mid"]) / cur_price * 100
+                    if dist > 0.8:  # الفجوة بعيدة تحت = السعر سيرجع لها
+                        return False, f"فجوة صاعدة لم تُملأ ({dist:.1f}% تحت) — السعر سيعود لها، الهبوط مستمر"
+            else:  # LONG
+                gap_above = [g for g in fvgs if g["type"] == "bearish" and g["bottom"] > cur_price * 1.002]
+                if gap_above:
+                    nearest = min(gap_above, key=lambda g: g["bottom"])
+                    dist = (nearest["mid"] - cur_price) / cur_price * 100
+                    if dist > 0.8:
+                        return False, f"فجوة هابطة لم تُملأ ({dist:.1f}% فوق) — السعر سيعود لها، الصعود مستمر"
+    except Exception as _e:
+        log.debug("fvg in reversal %s: %s", symbol, _e)
+
+    try:
+        import httpx
+        sym = symbol.replace("/", "").replace("-", "")
+        if not sym.endswith("USDT"):
+            sym += "USDT"
+        async with httpx.AsyncClient(timeout=6) as cl:
+            r = await cl.get(f"https://fapi.binance.com/fapi/v1/depth?symbol={sym}&limit=100")
+            d = r.json()
+        bids_raw = [(float(b[0]), float(b[1])) for b in d.get("bids", [])]
+        asks_raw = [(float(a[0]), float(a[1])) for a in d.get("asks", [])]
+        if not bids_raw or not asks_raw:
+            return False, ""
+
+        bid_vol = sum(b[1] for b in bids_raw)
+        ask_vol = sum(a[1] for a in asks_raw)
+        # اختلال قرب السعر (أول 15 مستوى = الأهم)
+        near_bid = sum(b[1] for b in bids_raw[:15])
+        near_ask = sum(a[1] for a in asks_raw[:15])
+        near_imb = (near_bid - near_ask) / (near_bid + near_ask) if (near_bid + near_ask) > 0 else 0
+        # جدار معاكس ضخم
+        avg_b = bid_vol / len(bids_raw) if bids_raw else 0
+        avg_a = ask_vol / len(asks_raw) if asks_raw else 0
+        max_bid_wall = max((b[1] for b in bids_raw), default=0)
+        max_ask_wall = max((a[1] for a in asks_raw), default=0)
+        bid_wall_ratio = max_bid_wall / avg_b if avg_b > 0 else 0
+        ask_wall_ratio = max_ask_wall / avg_a if avg_a > 0 else 0
+
+        # للـSHORT: انقلاب صاعد حقيقي = مشترون يسيطرون بعمق
+        #   near_imb موجب قوي (>0.45) + جدار شراء ضخم (>6x)
+        # للـLONG: انقلاب هابط حقيقي = بائعون يسيطرون بعمق
+        # كشف الانقلاب المبدئي (القراءة الأولى)
+        if not is_long:  # SHORT
+            strong = near_imb > 0.45 and bid_wall_ratio > 6.0
+        else:  # LONG
+            strong = near_imb < -0.45 and ask_wall_ratio > 6.0
+        if not strong:
+            return False, ""
+
+        # ═══ تمييز الجدار بالأداة الموحّدة (نفس عين الرادار): حقيقي/وهمي/جبل ثلجي ═══
+        # الجدار الحقيقي أو الجبل الثلجي → انقلاب فعلي (نخرج). الوهمي → فخ قطيع (نصبر).
+        try:
+            from radars.explosion.scout import classify_wall
+            wside = "bid" if not is_long else "ask"  # SHORT يراقب جدار الشراء (دعم/انقلاب صاعد)
+            w = await classify_wall(sym, side=wside)
+        except Exception:
+            return False, ""
+        if not w.get("valid"):
+            return False, ""
+        wtype = w.get("type", "")
+        if wtype == "حقيقي":
+            return True, f"انقلاب مؤكد (جدار حقيقي ثابت {w.get('ratio',0):.0f}x)"
+        if wtype == "جبل_ثلجي":
+            return True, f"انقلاب قوي (جبل ثلجي — سيولة مخفية {w.get('ratio',0):.0f}x)"
+        if wtype == "وهمي":
+            return False, "جدار وهمي اختفى — فخ قطيع، الاتجاه مستمر"
+        return False, ""  # لا_جدار أو غير معروف → لا انقلاب
+    except Exception:
+        return False, ""
+
+
 async def should_tactical_exit(pos: Position, price: float, ob: dict, ls_change: float) -> tuple[bool, str]:
-    """
-    هروب تكتيكي استباقي — يقرر قبل ضرب SL
-    يعيد (exit: bool, reason: str)
-    """
+    """خروج تكتيكي — انقلاب الأوردر بوك الحقيقي فقط (فلسفة صيد القمم).
+    لا نخرج للزبزبة، لا لحركة سعر، لا لـspread. فقط انقلاب OB بنيوي عميق.
+    SL و TP منفصلان في monitor_position (يبقيان للحماية والجني)."""
     if pos.force_close_lock:
         return False, ""
 
     is_long = pos.direction == "LONG"
     pnl_pct = calc_pnl(pos, price)
-    imbalance = ob.get("imbalance", 0)
 
-    # 1. Order Book ينقلب بشكل حاد ضدنا
-    if is_long and imbalance < -0.4:
-        return True, f"Order Book انقلب ضد LONG (Imbalance: {imbalance:.2f})"
-    if not is_long and imbalance > 0.4:
-        return True, f"Order Book انقلب ضد SHORT (Imbalance: {imbalance:.2f})"
+    # ضابط الوقت: لا خروج تكتيكي في أول 90 ثانية
+    import time as _t
+    age_sec = _t.time() - getattr(pos, "opened_at", 0)
+    if age_sec < 90:
+        return False, ""
 
-    # 2. Liquidation cascade معاكس يبدأ
-    if ls_change != 0:
-        if is_long and ls_change < -5:
-            return True, f"شلال تصفية لونق بدأ ({ls_change:.1f}%)"
-        if not is_long and ls_change > 5:
-            return True, f"شلال تصفية شورت بدأ ({ls_change:.1f}%)"
-
-    # 3. ربح لا بأس به مع علامات انعكاس
-    if pnl_pct > 1.5 and pos.tp1_hit:
-        if is_long and imbalance < -0.2:
-            return True, f"TP1 مصاب + OB ضعيف — تأمين {pnl_pct:.1f}%"
-        if not is_long and imbalance > 0.2:
-            return True, f"TP1 مصاب + OB ضعيف — تأمين {pnl_pct:.1f}%"
-
-    # 4. Spread كبير جداً = سيولة تجف
-    spread_pct = ob.get("spread", 0) / price * 100 if price > 0 else 0
-    if spread_pct > 0.5 and abs(pnl_pct) < 0.5:
-        return True, f"السيولة تجف (Spread: {spread_pct:.2f}%) — هروب وقائي"
+    # الشرط الوحيد: انقلاب الأوردر بوك البنيوي الحقيقي (depth=100 + جدار ضخم)
+    real_rev, rev_reason = await is_real_reversal(pos.symbol, is_long)
+    if real_rev:
+        return True, f"🔻 {rev_reason} | PnL {pnl_pct:+.1f}%"
 
     return False, ""
 
@@ -383,20 +585,58 @@ def calc_pnl(pos: Position, price: float) -> float:
     else:
         return (pos.entry - price) / pos.entry * 100 * pos.leverage
 
-async def notify(user_id: str, msg: str, event_type: str = "alert", data: dict = None):
-    """إرسال إشعار للمستخدم عبر Telegram + WebSocket"""
-    # 1. Telegram
+async def notify(user_id: str, msg: str, event_type: str = "alert", data: dict = None, to_channel: bool = True):
+    """إرسال إشعار: للقناة + للمستخدم + WebSocket"""
+    if to_channel:
+        try:
+            from services.telegram import send_message, _kb_channel
+            from core.config import get_settings
+            s = get_settings()
+            ch = s.telegram_channel_futures
+            if ch:
+                await send_message(ch, msg, reply_markup=_kb_channel())
+        except Exception as e:
+            log.debug("notify channel error: %s", e)
     try:
-        from services.telegram import TG
-        await TG.send_message(user_id, msg)
+        if user_id and str(user_id).lstrip("-").isdigit():
+            from services.telegram import TG
+            await TG.send_message(user_id, msg)
     except Exception as e:
-        log.debug("notify telegram error: %s", e)
-    # 2. WebSocket → Mini App
+        log.debug("notify user error: %s", e)
     try:
         from routers.ws import registry
         await registry.broadcast({"event": event_type, "user_id": user_id, "message": msg, "data": data or {}})
     except Exception as e:
         log.debug("notify ws error: %s", e)
+
+# ═══════════════════════════════════════════════════════════
+#  العيون عند الإغلاق: نغلق أم نتنفّس؟ (يخدم بوّابتَي SL و HARD_STOP)
+#  أرضية pnl صلبة لا تُخترق. فوقها نستشير is_real_reversal:
+#    انقلاب مؤكد→نغلق | فخ مكشوف→نتنفّس | صمت→نغلق (احترام الوقف).
+#  القرار يُخزَّن 60 ثانية لكل صفقة (يمنع إغراق Binance وتضارب البوّابتين).
+# ═══════════════════════════════════════════════════════════
+PNL_HARD_FLOOR = -15.0   # أرضية الخسارة المطلقة (pnl مُرفّع)
+_REV_CACHE: dict = {}    # pos.id -> (ts, breathe, reason)
+
+async def _should_breathe(pos: "Position", price: float, pnl_pct: float) -> tuple:
+    """True = تنفّس (لا تغلق هذه الدورة). False = أغلق. السبب للّوج."""
+    if pnl_pct <= PNL_HARD_FLOOR:
+        return False, f"أرضية صلبة {pnl_pct:.1f}% <= {PNL_HARD_FLOOR:.0f}%"
+    import time as _t
+    _now = _t.time()
+    _c = _REV_CACHE.get(pos.id)
+    if _c and (_now - _c[0]) < 60:
+        return _c[1], _c[2]
+    real_rev, reason = await is_real_reversal(pos.symbol, pos.direction == "LONG")
+    if real_rev:
+        dec = (False, f"انقلاب مؤكد — {reason}")
+    elif reason:
+        dec = (True, reason)
+    else:
+        dec = (False, "لا دليل فخ — احترام الوقف")
+    _REV_CACHE[pos.id] = (_now, dec[0], dec[1])
+    return dec
+
 
 async def monitor_position(pos: Position):
     """
@@ -426,11 +666,54 @@ async def monitor_position(pos: Position):
     if pos.force_close_lock:
         return
 
-    # ─ SL ─
-    sl_hit = (is_long and price <= pos.sl) or (not is_long and price >= pos.sl)
-    if sl_hit:
+    # ─ شبكة أمان مطلقة: أرضية pnl صلبة (كل دورة، قبل أي منطق وقف) ─
+    if pnl_pct <= PNL_HARD_FLOOR:
+        log.warning("PNL FLOOR %s %s pnl=%.1f%% — إغلاق فوري",
+                    pos.symbol, pos.direction, pnl_pct)
         await _close_position(pos, price, ExitReason.SL_HIT, pnl_pct)
         return
+
+    # ─ حد أقصى صلب للخسارة (شبكة أمان مطلقة — يمنع كوارث -34%) ─
+    #   مهما كان SL المحسوب (ATR قد يكون واسعاً)، لا نسمح بخسارة > 8%
+    # HARD STOP بحركة السعر (لا pnl المُرفّع): يمنع الطرد عند ضوضاء العملات المتذبذبة.
+    #   السبب: pnl=-5% مع رافعة 3x = حركة 1.67% فقط = داخل ضوضاء عملة تتذبذب ±13%،
+    #   فكان يطرد الشورت الصحيح عند أول ارتداد. الآن: حركة سعر فعلية ≥7% (خارج الضوضاء).
+    price_move_pct = abs(price - pos.entry) / pos.entry * 100 if pos.entry > 0 else 0
+    against = (is_long and price < pos.entry) or (not is_long and price > pos.entry)
+    HARD_STOP_MOVE = 4.5  # حركة 4.5% (=13.5% مع رافعة): يقص الخسائر الكبيرة، الأرباح (TP) تبقى
+    if against and price_move_pct >= HARD_STOP_MOVE:
+        _br, _why = await _should_breathe(pos, price, pnl_pct)
+        if _br:
+            log.info("HARD STOP مؤجَّل (تنفّس) %s: %s | حركة=%.1f%% pnl=%.1f%%",
+                     pos.symbol, _why, price_move_pct, pnl_pct)
+        else:
+            log.warning("HARD STOP %s %s @ حركة=%.1f%% pnl=%.1f%% (%s)",
+                        pos.symbol, pos.direction, price_move_pct, pnl_pct, _why)
+            await _close_position(pos, price, ExitReason.SL_HIT, pnl_pct)
+            return
+
+    # ─ SL / Trailing Stop ─
+    sl_hit = (is_long and price <= pos.sl) or (not is_long and price >= pos.sl)
+    if sl_hit:
+        # Trailing رابح (جني فوري) أم SL خسارة (استشر العيون)؟
+        if pos.tp1_hit and pnl_pct > 0:
+            # Trailing Stop بعد TP1 = إغلاق رابح، يُؤخذ فوراً بلا تنفّس
+            await notify(pos.user_id,
+                f"🔒 <b>Trailing Stop — ربح محمي</b>\n"
+                f"{pos.symbol} {pos.direction}\n"
+                f"💰 الربح المُحقق: <b>+{pnl_pct:.2f}%</b>\n"
+                f"✅ تم تأمين الأرباح بعد TP1\n"
+                f"<i>Trailing Stop يحمي مكاسبك</i>")
+            await _close_position(pos, price, ExitReason.TP1_HIT, pnl_pct)
+            return
+        # SL خسارة: العيون تقرّر — انقلاب مؤكد نغلق، فخ مكشوف نتنفّس
+        _br, _why = await _should_breathe(pos, price, pnl_pct)
+        if _br:
+            log.info("SL مؤجَّل (تنفّس) %s: %s | pnl=%.1f%%", pos.symbol, _why, pnl_pct)
+        else:
+            log.info("SL إغلاق %s: %s | pnl=%.1f%%", pos.symbol, _why, pnl_pct)
+            await _close_position(pos, price, ExitReason.SL_HIT, pnl_pct)
+            return
 
     # ─ TP1 ─
     tp1_hit = (is_long and price >= pos.tp1) or (not is_long and price <= pos.tp1)
@@ -443,10 +726,13 @@ async def monitor_position(pos: Position):
 
         profit = abs((price - pos.tp1) / pos.entry * 100)
         await notify(pos.user_id,
-            f"🎯 <b>TP1 مصاب</b> — {pos.symbol}\n"
-            f"{'📈' if is_long else '📉'} {pos.direction} | +{profit:.2f}%\n"
-            f"✅ SL نُقل لنقطة التعادل\n"
-            f"🔒 رأس المال محمي")
+            f"🎯 <b>TARGET 1 HIT</b> · +{profit:.2f}%\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"<code>{pos.symbol}</code> · {pos.direction}\n\n"
+            f"Profit secured  <b>+{profit:.2f}%</b>\n"
+            f"Stop moved to   breakeven 🛡️\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"▶ Holding for TP2 · capital protected")
 
         # Pyramiding check
         await check_pyramiding(pos, price)
@@ -458,10 +744,11 @@ async def monitor_position(pos: Position):
         pos.explosion_mode = True
 
         await notify(pos.user_id,
-            f"🚀 <b>TP2 مصاب — Explosion Mode</b>\n"
-            f"{pos.symbol} {pos.direction}\n"
-            f"💥 الانفجار السعري مؤكد\n"
-            f"⬆️ TP3 الهدف القادم")
+            f"🚀 <b>TARGET 2 HIT</b> · Explosion Mode\n"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"<code>{pos.symbol}</code> · {pos.direction}\n\n"
+            f"💥 Breakout confirmed\n"
+            f"⬆️ Next target: TP3")
 
         await check_pyramiding(pos, price)
 
@@ -479,13 +766,16 @@ async def monitor_position(pos: Position):
 
     # ─ Trailing Stop ─
     if pos.trailing_active and pos.trailing_sl > 0:
+        # المسافة موسّعة (0.5→1.2): trailing يتحمّل تذبذب العملات المنفجرة،
+        # لا يخرج على ارتداد بسيط — يركب الهبوط/الصعود الكامل (BEAT واصلت -27%).
+        TRAIL_MULT = 1.2
         if is_long:
-            new_sl = price - (pos.tp1 - pos.entry) * 0.5
+            new_sl = price - (pos.tp1 - pos.entry) * TRAIL_MULT
             if new_sl > pos.trailing_sl:
                 pos.trailing_sl = new_sl
                 pos.sl = new_sl
         else:
-            new_sl = price + (pos.entry - pos.tp1) * 0.5
+            new_sl = price + (pos.entry - pos.tp1) * TRAIL_MULT
             if new_sl < pos.trailing_sl or pos.trailing_sl == 0:
                 pos.trailing_sl = new_sl
                 pos.sl = new_sl
@@ -498,7 +788,7 @@ async def monitor_position(pos: Position):
         (not is_long and imbalance > 0.35)
     )
 
-    if ai_alert_needed and now - pos.ai_last_called > pos.ai_cooldown:
+    if False and ai_alert_needed and now - pos.ai_last_called > pos.ai_cooldown:
         alert_reason = f"OB Imbalance انقلب ({imbalance:+.2f})"
         ai_reply = await claude_emergency_analysis(pos, price, ob, alert_reason)
 
@@ -524,18 +814,12 @@ async def monitor_position(pos: Position):
             tp_status = "TP2" if pos.tp2_hit else "TP1" if pos.tp1_hit else "قبل TP1"
             profit_str = f"+{abs(pnl_pct):.2f}%" if pnl_pct > 0 else f"{pnl_pct:.2f}%"
 
-            await notify(pos.user_id,
-                f"🏃 <b>هروب تكتيكي مقترح</b> — {pos.symbol}\n"
-                f"{'📈' if is_long else '📉'} <b>{pos.direction}</b>\n"
-                f"📊 الوضع: <b>{tp_status}</b> | PnL: <b>{profit_str}</b>\n"
-                f"⚠️ السبب: {reason}\n"
-                f"💡 <i>يُنصح بالخروج الاستباقي</i>\n\n"
-                f"[اضغط Force Close للخروج الآن]")
-
-            # إذا كان PnL إيجابياً وكان تحذيراً قوياً → نفذ تلقائياً
-            if pnl_pct > 2.0 and "شلال" in reason:
-                await _close_position(pos, price, ExitReason.TACTICAL, pnl_pct)
-                return
+            # الهروب التكتيكي = إغلاق فوري دائماً (حماية استباقية حقيقية)
+            # عند انقلاب Order Book ضدنا، البقاء = خسارة أكبر عند SL
+            # رسالة واحدة فقط (POSITION CLOSED من _close_position) — لا تكرار
+            log.info("Tactical exit %s: %s", pos.symbol, reason)
+            await _close_position(pos, price, ExitReason.TACTICAL, pnl_pct)
+            return
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -547,6 +831,14 @@ async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_p
     pos.status = "closed"
     await remove_position(pos.id)
     update_stats(reason, pnl_pct)
+    # ═══ ربط النتيجة بالنموذج (يكمل درس التعلّم: فتح + نتيجة) ═══
+    try:
+        from ml_recorder import update_result_by_match
+        _result = "win" if pnl_pct > 0 else "loss"
+        update_result_by_match(pos.symbol, pos.direction, pos.entry,
+                               _result, price, pnl_pct)
+    except Exception as _e:
+        log.debug("ML update error: %s", _e)
 
     emoji = {
         ExitReason.SL_HIT: "🔴",
@@ -559,14 +851,32 @@ async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_p
         ExitReason.KILL_SWITCH: "🚨",
     }.get(reason, "⚪")
 
-    result_word = "خسارة" if pnl_pct < 0 else "ربح"
+    is_profit = pnl_pct >= 0
+    head_emoji = "✅" if is_profit else "🔴"
+    head_word = "POSITION CLOSED" if is_profit else "POSITION CLOSED"
+    side_word = "PROFIT" if is_profit else "LOSS"
+    reason_en = {
+        ExitReason.SL_HIT: "Stop loss hit",
+        ExitReason.TP1_HIT: "TP1 hit",
+        ExitReason.TP2_HIT: "TP2 hit",
+        ExitReason.TP3_HIT: "TP3 — full target",
+        ExitReason.EXPLOSION: "Explosion mode exit",
+        ExitReason.TACTICAL: "Tactical exit",
+        ExitReason.FORCE_CLOSE: "Force close",
+        ExitReason.KILL_SWITCH: "Kill switch",
+    }.get(reason, reason.value.replace('_', ' '))
+
     msg = (
-        f"{emoji} <b>{reason.value.replace('_', ' ').upper()}</b>\n"
-        f"{'─' * 20}\n"
-        f"{pos.symbol} {pos.direction}\n"
-        f"دخول: {pos.entry:.4f} | خروج: {price:.4f}\n"
-        f"<b>{result_word}: {pnl_pct:+.2f}%</b>\n"
-        f"الرافعة: {pos.leverage}x | المستوى: {pos.pyramid_level}"
+        f"{head_emoji} <b>{head_word}</b> · {side_word}\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"<code>{pos.symbol}</code> · {pos.direction}\n\n"
+        f"Entry   <code>{pos.entry:.6g}</code>\n"
+        f"Exit    <code>{price:.6g}</code>\n"
+        f"<b>PnL     {pnl_pct:+.2f}%</b>\n\n"
+        f"Reason  {reason_en}\n"
+        f"Lev {pos.leverage:.0f}x · Level {pos.pyramid_level}\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"{'🎊 Successful trade' if is_profit else '📊 Logged for model training'}"
     )
 
     await notify(pos.user_id, msg)
@@ -638,13 +948,40 @@ async def force_close(pos_id: str, user_id: str) -> dict:
 
 async def open_from_signal(sig: Signal, user_id: str = "system", amount: float = 100.0):
     """
-    يفتح صفقة من إشارة الرادار
-    يبدأ برافعة 2x — Pyramiding يرفعها لاحقاً
+    يفتح صفقة من إشارة الرادار - فقط Grade A و S
     """
-    # لا تفتح إذا Kill Switch مفعّل
-    from service import is_kill_switch_active
+    # ═══ شرط 1: Grade A أو S فقط ═══
+    if sig.grade not in ("A", "S"):
+        log.debug("Position skip: %s grade=%s (only A/S open positions)", sig.symbol, sig.grade)
+        return None
+    
+    # ═══ شرط 2: Kill Switch ═══
+    from .service import is_kill_switch_active
     if is_kill_switch_active():
         log.warning("Kill Switch active — لا صفقات جديدة")
+        return None
+
+    # ═══ شرط 3: منع تكرار نفس العملة (يمنع الصفقات الشبحية) ═══
+    for existing in ACTIVE.values():
+        if existing.status == "open" and existing.symbol == sig.symbol:
+            log.info("Position skip: %s مفتوحة بالفعل (%s) — لا تكرار",
+                     sig.symbol, existing.direction)
+            return None
+
+    # ═══ شرط 4: حد أقصى للصفقات المتزامنة بنفس الاتجاه + نفس الرادار ═══
+    #   يمنع رهاناً واحداً مكرّراً (مثل 6 شورت متزامنة على عملات مرتبطة بـ BTC)
+    MAX_CONCURRENT = 50  # رُفِع من 3: نفتح كل إشارة A/S (paper) — التكرار والفخ يبقيان حمايةً
+    sig_is_ph = (sig.radar_type == "futures" and getattr(sig, "tier", "") == "PH")
+    same = 0
+    for _ex in ACTIVE.values():
+        if _ex.status != "open" or _ex.direction != sig.direction:
+            continue
+        ex_is_ph = (_ex.radar_type == "futures" and getattr(_ex, "tier", "") == "PH")
+        if ex_is_ph == sig_is_ph:
+            same += 1
+    if same >= MAX_CONCURRENT:
+        log.info("Position skip: %s %s — بلغ الحد %d/%d لنفس الاتجاه/الرادار",
+                 sig.symbol, sig.direction, same, MAX_CONCURRENT)
         return None
 
     pos_id = f"{sig.symbol}_{sig.direction}_{int(time.time())}"
@@ -682,6 +1019,15 @@ async def run_position_manager():
     - كل صفقة في coroutine مستقل
     """
     log.info("Position Manager started")
+    # ═══ استعادة الصفقات من DB (تبقى عبر restart) ═══
+    try:
+        restored = _pos_load_all()
+        for _p in restored:
+            ACTIVE[_p.id] = _p
+        if restored:
+            log.info("🔄 Restored %d open position(s) from DB", len(restored))
+    except Exception as _e:
+        log.error("restore positions error: %s", _e)
     sem = asyncio.Semaphore(10)
 
     async def monitor_one(pos: Position):
@@ -703,4 +1049,4 @@ async def run_position_manager():
         except Exception as e:
             log.error("PM loop error: %s", e)
 
-        await asyncio.sleep(30)
+        await asyncio.sleep(10)  # مراقبة كل 10s (كان 30 — أسرع للصفقات السريعة، SL يُقطع مبكراً)

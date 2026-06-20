@@ -8,6 +8,8 @@ from fastapi.staticfiles import StaticFiles
 from core.config import get_settings
 from db.database import create_tables, seed_admin
 from routers.auth import router as auth_router
+from routers.binance import router as binance_router
+from routers.binance_manual import router as binance_manual_router
 from routers.signals import router as signals_router
 from routers.trade import router as trade_router
 from routers.wallet import router as wallet_router
@@ -29,14 +31,30 @@ async def lifespan(app: FastAPI):
     seed_admin()
     await TG.setup()
     from radars.futures.service import start_all_services
-    from radars.futures.position_manager import run_position_manager
+    from radars.futures.position_manager import run_position_manager, open_from_signal
     from routers.ws import registry
     async def _broadcast(data):
         await registry.broadcast(data)
-    asyncio.create_task(start_all_services(broadcast_fn=_broadcast))
+    asyncio.create_task(start_all_services(broadcast_fn=_broadcast, position_manager_fn=open_from_signal))
     asyncio.create_task(run_position_manager())
     from services.prices import start_price_stream
     asyncio.create_task(start_price_stream(), name="prices")
+    # 🔭 Explosion Scout — رادار الطبقة الثانية (وضع تجريبي، منفصل تماماً)
+    try:
+        from radars.explosion.scout import scout_loop
+        asyncio.create_task(scout_loop(broadcast_fn=_broadcast, position_manager_fn=open_from_signal), name="explosion_scout")
+        log.info("🔭 Explosion Scout started (وضع تجريبي)")
+    except Exception as e:
+        log.error("Explosion Scout failed to start: %s", e)
+
+    # 📊 Report Engine — تقرير كل 8 ساعات للقناة
+    try:
+        from report_engine import report_loop
+        from radars.futures.position_manager import notify
+        asyncio.create_task(report_loop(notify_fn=notify), name="report")
+        log.info("📊 Report Engine started (كل 8 ساعات)")
+    except Exception as e:
+        log.error("Report Engine failed to start: %s", e)
     log.info("WhaleX Prime ready")
     yield
     log.info("WhaleX Prime shutting down")
@@ -47,6 +65,8 @@ settings = get_settings()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 app.include_router(auth_router)
+app.include_router(binance_router)
+app.include_router(binance_manual_router)
 app.include_router(signals_router)
 app.include_router(trade_router)
 app.include_router(wallet_router)

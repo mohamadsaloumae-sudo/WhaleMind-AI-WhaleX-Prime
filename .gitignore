@@ -1,7 +1,21 @@
+# الأسرار — ممنوع رفعها
+.env
+*.env
+*.key
+*.pem
+secrets*
+
+# النسخ الاحتياطية الكثيرة
+*.bak
+*.bak-*
+*.pre-*
+
+# ملفات بايثون المؤقتة
 __pycache__/
 *.pyc
 *.pyo
-*.db
-.env
+venv/
+.venv/
+
+# سجلّات
 *.log
-.DS_Store

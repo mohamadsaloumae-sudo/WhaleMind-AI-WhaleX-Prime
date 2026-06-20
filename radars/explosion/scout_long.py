@@ -1,0 +1,299 @@
+# ═══════════════════════════════════════════════════════════════
+# EXPLOSION SCOUT LONG — رادار اصطياد القيعان (نسخة LONG مستقلّة)
+# النوع 2: LONG من القيعان (الأعلى خسارة → ترتدّ → نصطاد الارتداد)
+#
+# مستقلّ تماماً عن scout.py (SHORT). يعمل بالتوازي. لا يتعارض.
+# الفلسفة (معكوسة عن SHORT):
+#   1. فرز → الأعلى خسارة (هبطت بقوة، قاع محتمل)
+#   2. قاع + جدار شراء + اختلال موجب → لحظة ارتداد OB
+#   3. إشارة LONG نظامية + المدير
+# ═══════════════════════════════════════════════════════════════
+import asyncio
+import logging
+import time
+import httpx
+
+# إعادة استخدام الدوال المُختبَرة من الرادار الأصلي
+# ─── دوال مستقلّة (منسوخة، لا استيراد من scout — فصل تامّ) ───
+async def fetch_ob_deep(symbol: str) -> dict:
+    """تحليل Order Book العميق (مستقلّ عن scout)."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(f"https://fapi.binance.com/fapi/v1/depth?symbol={symbol}&limit=500")
+            d = r.json()
+        bids_raw = [(float(b[0]), float(b[1])) for b in d.get("bids", [])]
+        asks_raw = [(float(a[0]), float(a[1])) for a in d.get("asks", [])]
+        if not bids_raw or not asks_raw:
+            return {"valid": False}
+        bid_vol = sum(b[1] for b in bids_raw)
+        ask_vol = sum(a[1] for a in asks_raw)
+        total = bid_vol + ask_vol
+        imbalance = (bid_vol - ask_vol) / total if total > 0 else 0
+        max_ask_wall = max((a[1] for a in asks_raw), default=0)
+        avg_ask = ask_vol / len(asks_raw) if asks_raw else 0
+        sell_wall_ratio = max_ask_wall / avg_ask if avg_ask > 0 else 0
+        max_bid_wall = max((b[1] for b in bids_raw), default=0)
+        avg_bid = bid_vol / len(bids_raw) if bids_raw else 0
+        bid_wall_ratio = max_bid_wall / avg_bid if avg_bid > 0 else 0
+        near_ask = sum(a[1] for a in asks_raw[:10])
+        near_bid = sum(b[1] for b in bids_raw[:10])
+        near_imb = (near_bid - near_ask) / (near_bid + near_ask) if (near_bid + near_ask) > 0 else 0
+        return {
+            "valid": True, "imbalance": imbalance, "near_imbalance": near_imb,
+            "sell_wall_ratio": sell_wall_ratio, "bid_wall_ratio": bid_wall_ratio,
+            "sell_pressure": ask_vol / total if total > 0 else 0.5,
+            "bid_vol": bid_vol, "ask_vol": ask_vol,
+            "max_ask_wall": max_ask_wall, "max_bid_wall": max_bid_wall,
+        }
+    except Exception:
+        return {"valid": False}
+
+
+def _filter_line(name: str, value: str, triggered: bool) -> str:
+    mark = "✅" if triggered else "⬜"
+    return f"{mark} {name:14} {value}"
+from radars.futures.engine import (
+    fetch_klines_async, rsi, stoch_rsi, atr, range_position, Signal,
+)
+
+log = logging.getLogger("explosion_long")
+
+# ─── إعدادات (معكوسة) ───
+MIN_VOLUME_USD = 15_000_000
+MIN_GAIN_PCT = 30.0           # صعود ≥30% (اتجاه صاعد — نشتري تصحيحه)
+RADAR_SENSITIVITY = 50
+SCAN_INTERVAL = 60
+WATCH_INTERVAL = 10
+
+PREV_OB = {}                  # تتبّع تآكل البائعين
+COOLDOWN = {}                 # منع تكرار الإشارة
+COOLDOWN_SEC = 1800
+
+
+async def fetch_top_gainers() -> list[dict]:
+    """الصاعدة بقوة (اتجاه صاعد) — للبحث عن تصحيح + ارتداد LONG.
+    معكوس الفلسفة القديمة (الهابطة): نشتري الانخفاض المؤقت في صعود، لا القاع الهابط."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get("https://fapi.binance.com/fapi/v1/ticker/24hr")
+            data = r.json()
+        out = []
+        for d in data:
+            if not d["symbol"].endswith("USDT"):
+                continue
+            change = float(d["priceChangePercent"])
+            vol = float(d["quoteVolume"])
+            if change >= MIN_GAIN_PCT and vol >= MIN_VOLUME_USD:
+                out.append({"symbol": d["symbol"], "change": change,
+                            "volume": vol, "price": float(d["lastPrice"])})
+        return sorted(out, key=lambda x: x["change"], reverse=True)
+    except Exception as e:
+        log.error("fetch_top_gainers error: %s", e)
+        return []
+
+
+async def detect_rebound(symbol: str, candles) -> dict:
+    """كشف ارتداد OB الوشيك من القاع (معكوس detect_collapse)."""
+    deep = await fetch_ob_deep(symbol)
+    prev = PREV_OB.get(symbol)
+    PREV_OB[symbol] = deep
+
+    if not deep.get("valid"):
+        return {"rebound": False, "signals": [], "rsi": 50}
+
+    signals = []
+    # اختلال موجب = ضغط شراء قرب السعر (عكس < -0.30)
+    if deep["near_imbalance"] > 0.30:
+        signals.append("اختلال_شراء_قرب_السعر")
+    # جدار شراء ضخم (عكس جدار البيع)
+    if deep["bid_wall_ratio"] > 5.0:
+        signals.append("جدار_شراء_ضخم")
+    # ضغط شراء عام = sell_pressure منخفض (عكس > 0.62)
+    if deep["sell_pressure"] < 0.38:
+        signals.append("ضغط_شراء_عام")
+    # تآكل البائعين = ask_vol ينخفض (عكس تآكل المشترين)
+    if prev and prev.get("valid") and deep.get("ask_vol", 0) < prev.get("ask_vol", 1) * 0.85:
+        signals.append("تآكل_البائعين")
+
+    closes = [c.close for c in candles]
+    r = rsi(closes)
+    sk, sd = stoch_rsi(closes)
+
+    # موقع السعر في النطاق
+    highs = [c.high for c in candles]
+    lows = [c.low for c in candles]
+    peak_4h = max(highs)
+    lo_4h = min(lows)
+    cur = closes[-1]
+    rng = peak_4h - lo_4h
+    pos_in_range = (cur - lo_4h) / rng if rng > 0 else 0.5
+    # ارتفاع من القاع (كم ارتدّ)
+    dist_from_bottom = (cur - lo_4h) / lo_4h * 100 if lo_4h > 0 else 0
+
+    # تصحيح في اتجاه صاعد (لا قاع هابط): العملة صاعدة، نزلت من قمتها 5-18% (تصحيح صحي)،
+    # لكن ما زالت في النصف العلوي (pos>0.35 = الاتجاه الصاعد سليم، ليست منهارة).
+    dist_from_peak = (peak_4h - cur) / peak_4h * 100 if peak_4h > 0 else 0
+    in_uptrend_dip = (pos_in_range > 0.35) and (5.0 <= dist_from_peak <= 18.0)
+
+    # ارتداد لحظي مؤكّد من الأوردر بوك الاحترافي (safe_for_long) — لا سكين.
+    ob_safe_long = True
+    try:
+        from quant_engine.order_book_analyzer import analyze_order_book
+        _a = await analyze_order_book(symbol, check_spoofing=True)
+        if _a is not None:
+            ob_safe_long = _a.safe_for_long
+    except Exception:
+        ob_safe_long = True
+
+    # الرادار: جدار شراء ضخم + علامة شراء ثانية (مشترون يدخلون عند التصحيح).
+    has_buy_wall = "جدار_شراء_ضخم" in signals
+    radar_ok = has_buy_wall and len(signals) >= 2
+
+    # RSI في منطقة وسطى (تصحيح صحي 40-60، لا oversold=سكين، لا overbought=قمة).
+    rsi_ok = 38 <= r <= 60
+
+    at_real_bottom = in_uptrend_dip  # توافق مع باقي الكود
+    _ns=True
+    try:
+        from quant_engine.ob_stream import get_signals
+        _sw=symbol.replace("/","").replace("-","")
+        if not _sw.endswith("USDT"): _sw+="USDT"
+        if any(x["side"]=="ask" for x in get_signals(_sw).get("spoof",[])): _ns=False
+    except Exception: pass
+    rebound = in_uptrend_dip and radar_ok and ob_safe_long and rsi_ok and _ns
+
+    return {
+        "rebound": rebound, "signals": signals, "rsi": r,
+        "pos": pos_in_range, "dist_from_bottom": dist_from_bottom,
+        "bottom": lo_4h, "at_bottom": at_real_bottom,
+    }
+
+
+def _build_long_signal(symbol: str, price: float, candles: list, bottom: float,
+                       ob_signals: list, rsi_v: float) -> Signal:
+    """إشارة LONG نظامية كاملة (SL تحت، TP فوق) — معكوس SHORT."""
+    atr_v = atr(candles)
+    if atr_v <= 0:
+        atr_v = price * 0.01
+    sl = price - atr_v * 1.5         # SL تحت الدخول
+    tp1 = price + atr_v * 1.5        # TP فوق
+    tp2 = price + atr_v * 3.0
+    tp3 = price + atr_v * 5.0
+    risk = abs(price - sl)
+    rr1 = abs(tp1 - price) / risk if risk > 0 else 0
+    rr2 = abs(tp2 - price) / risk if risk > 0 else 0
+    rr3 = abs(tp3 - price) / risk if risk > 0 else 0
+    rise = (price - bottom) / bottom * 100 if bottom > 0 else 0
+    conf = min(92.0, 72.0 + len(ob_signals) * 5.0)
+    strats = ["🔭 Explosion Long — ارتداد OB"] + ob_signals + [f"ارتداد من القاع: +{rise:.1f}%"]
+    return Signal(
+        symbol=symbol, direction="LONG", grade="A",
+        score=round(6.5 + len(ob_signals) * 0.3, 2),
+        confidence=round(conf, 1), entry=price,
+        sl=round(sl, 8), tp1=round(tp1, 8), tp2=round(tp2, 8), tp3=round(tp3, 8),
+        leverage=3.0, strategies="\n".join(strats), radar_type="futures", tier="PH",
+        rr_tp1=round(rr1, 2), rr_tp2=round(rr2, 2), rr_tp3=round(rr3, 2),
+        strategy_count=len(strats), btc_trend="NEUTRAL",
+    )
+
+
+async def _send_long_and_open(symbol, price, candles, bottom, res, position_manager_fn):
+    """بناء إشارة LONG + إرسال + فتح عبر المدير."""
+    sigs = res["signals"]
+    sig = _build_long_signal(symbol, price, candles, bottom, sigs, res["rsi"])
+
+    # تسجيل في ml_training (يكمل حلقة التعلّم)
+    try:
+        from ml_recorder import record_signal
+        record_signal(sig)
+    except Exception as _e:
+        log.debug("Long ml_record error: %s", _e)
+
+    log.info("🔭🔼 PEAK HUNTER LONG SIGNAL: %s LONG @%.6g grade=%s [%s]",
+             symbol, price, sig.grade, "+".join(sigs))
+
+    # ─── نشر بطاقة LONG (📈 أخضر، أرقام قابلة للنسخ) ───
+    rise = (price - bottom) / bottom * 100 if bottom > 0 else 0
+    n_trig = len(sigs)
+    f_imb = _filter_line("Buy Imbalance", "yes" if "اختلال_شراء_قرب_السعر" in sigs else "no", "اختلال_شراء_قرب_السعر" in sigs)
+    f_prs = _filter_line("Buy Pressure", "yes" if "ضغط_شراء_عام" in sigs else "no", "ضغط_شراء_عام" in sigs)
+    f_wal = _filter_line("Buy Wall", "yes" if "جدار_شراء_ضخم" in sigs else "no", "جدار_شراء_ضخم" in sigs)
+    f_ero = _filter_line("Seller Erosion", "yes" if "تآكل_البائعين" in sigs else "no", "تآكل_البائعين" in sigs)
+    f_rsi = _filter_line("RSI", f"{res['rsi']:.0f}", res['rsi'] < 40)
+    msg = (
+        f"📈 <b>PEAK HUNTER</b> — LONG\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"⚡ <code>{symbol}</code>   ▲ {rise:.0f}% from bottom\n\n"
+        f"Entry   <code>{sig.entry:.6g}</code>\n"
+        f"Stop    <code>{sig.sl:.6g}</code>\n"
+        f"TP1     <code>{sig.tp1:.6g}</code>\n"
+        f"TP2     <code>{sig.tp2:.6g}</code>\n"
+        f"TP3     <code>{sig.tp3:.6g}</code>\n\n"
+        f"Grade <b>{sig.grade}</b>  ·  Conf <b>{sig.confidence:.0f}%</b>  ·  Lev <b>{sig.leverage:.0f}x</b>\n"
+        f"R:R   {sig.rr_tp1} / {sig.rr_tp2} / {sig.rr_tp3}\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"🎯 <b>DETECTION FILTERS</b>   {n_trig}/5\n"
+        f"{f_imb}\n{f_prs}\n{f_wal}\n{f_ero}\n{f_rsi}\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"📈 Rebound confirmed — entering rise\n"
+        f"🐋 <i>WhaleMind Prime</i>"
+    )
+    try:
+        from services.telegram import send_message
+        from core.config import get_settings
+        ch = get_settings().telegram_channel_futures
+        if ch:
+            await send_message(ch, msg)
+    except Exception as _e:
+        log.error("Long signal broadcast error: %s", _e)
+
+    if position_manager_fn:
+        try:
+            await position_manager_fn(sig)
+            log.info("🔭📈 Peak Hunter LONG → manager: %s LONG (opened)", symbol)
+        except Exception as _e:
+            log.error("Long open error %s: %s", symbol, _e)
+
+
+async def scout_long_loop(broadcast_fn=None, position_manager_fn=None):
+    """حلقة رادار LONG المستقلّة (فرز 60s + مراقبة 10s)."""
+    log.info("🔭🔼 Peak Hunter LONG بدأ — اصطياد القيعان (مستقلّ عن SHORT)")
+    watchlist = {}
+    last_scan = 0
+
+    while True:
+        try:
+            now = time.time()
+            # فرز دوري
+            if now - last_scan >= SCAN_INTERVAL:
+                gainers = await fetch_top_gainers()
+                for g in gainers[:25]:
+                    watchlist[g["symbol"]] = g["price"]
+                last_scan = now
+                if gainers:
+                    log.info("🔭🔼 [فرز LONG] %d عملة صاعدة في تصحيح", len(gainers[:25]))
+
+            # مراقبة كل عملة
+            for symbol in list(watchlist.keys()):
+                # cooldown
+                if symbol in COOLDOWN and now - COOLDOWN[symbol] < COOLDOWN_SEC:
+                    continue
+                try:
+                    candles = await fetch_klines_async(symbol, "4h", 50)
+                    if not candles or len(candles) < 20:
+                        continue
+                    price = candles[-1].close
+                    res = await detect_rebound(symbol, candles)
+                    if res["rebound"]:
+                        await _send_long_and_open(symbol, price, candles,
+                                                  res["bottom"], res, position_manager_fn)
+                        COOLDOWN[symbol] = now
+                        log.info("🔭🔼 %s: ارتداد OB → إشارة LONG (cooldown 10د)", symbol)
+                except Exception as _e:
+                    log.debug("long watch %s: %s", symbol, _e)
+                await asyncio.sleep(0.2)
+
+            await asyncio.sleep(WATCH_INTERVAL)
+        except Exception as e:
+            log.error("scout_long_loop: %s", e)
+            await asyncio.sleep(30)

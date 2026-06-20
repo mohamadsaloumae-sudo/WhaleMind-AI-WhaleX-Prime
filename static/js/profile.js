@@ -140,13 +140,38 @@ const PROFILE = {
     const k = document.getElementById('api-k').value;
     const s = document.getElementById('api-s').value;
     if(!k || !s) { UI.toast('أدخل API Key و Secret'); return; }
-    UI.toast('جاري الربط...');
-    const d = await API.connectExchange({ platform:p, api_key:k, api_secret:s });
-    if(d?.status === 'connected') {
-      UI.toast(`✓ تم ربط ${p} بنجاح!`);
-      UI.closeModal('mo-api');
-    } else {
-      UI.toast('فشل الربط — تحقق من المفاتيح');
+    if(k.length < 20 || s.length < 20) { UI.toast('المفاتيح قصيرة جداً'); return; }
+    UI.toast('جاري اختبار المفاتيح...');
+    if (p === 'binance') {
+      try {
+        const token = STATE.load('authToken');
+        const isTestnet = confirm('استخدام Testnet (تجريبي)؟\n\nموافق = Testnet (آمن)\nإلغاء = Live (حقيقي)');
+        const res = await fetch(`${CONFIG.API_BASE}/api/binance/connect`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : '',
+          },
+          body: JSON.stringify({
+            api_key: k, api_secret: s,
+            is_testnet: isTestnet, account_type: 'futures',
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          UI.toast(`تم ربط Binance ${isTestnet ? 'Testnet' : 'Live'} بنجاح!`);
+          UI.closeModal('mo-api');
+          if (typeof BINANCE_WALLET !== 'undefined') {
+            setTimeout(() => { ROUTER.go(3); BINANCE_WALLET.load(); }, 500);
+          }
+        } else {
+          UI.toast((data.detail || 'فشل الربط'));
+        }
+      } catch (e) {
+        UI.toast('خطأ: ' + e.message);
+      }
+      return;
     }
+    UI.toast(`منصة ${p} ستكون متاحة قريباً — الآن Binance فقط`);
   },
 };
