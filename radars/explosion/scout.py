@@ -249,6 +249,11 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
         elif _drop > 10.0:
             hawk_ok = False
             hawk_block_reason = f"هبطت كثيراً ({_drop:.1f}% — شورت متأخّر)"
+        # مساحة الهبوط: لا شورت إن كان السعر ملاصقاً للدعم (قاع تصحيح، الارتداد محتمل).
+        #   support_distance_pct موجب = فوق الدعم. نطلب مسافة ≥3% (مساحة هبوط أمام السعر).
+        elif hawk_ok and 0 <= ms.support_distance_pct < 3.0:
+            hawk_ok = False
+            hawk_block_reason = f"ملاصق للدعم ({ms.support_distance_pct:.1f}% — قاع تصحيح، ارتداد محتمل)"
     except Exception as _e:
         log.debug("hawk in collapse %s: %s", symbol, _e)
         hawk_ok = True
