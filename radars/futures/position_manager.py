@@ -21,6 +21,10 @@ from .engine import Signal
 
 log = logging.getLogger("position_manager")
 
+# تأكيد الاستمرارية للعين: يخزّن إنذار الانقلاب من الدورة السابقة لكل صفقة.
+#   المفتاح: "SYMBOL_L" أو "SYMBOL_S". لا نغلق إلا إن صمد الانقلاب عبر قراءتين.
+_reversal_warn = {}
+
 # ═══════════════════════════════════════════════════════════════
 # ─── DATA STRUCTURES ────────────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════
@@ -472,16 +476,21 @@ async def is_real_reversal(symbol: str, is_long: bool, opened_at: float = 0) -> 
             else:
                 _thr = 0.15      # قمة/خط أصفر: يقظة قصوى
 
-            # فترة سماح: صفقة وليدة (<10د) لا تُغلق إلا على انهيار عنيف (لا تذبذب لحظي)
-            import time as _t_eye
-            if opened_at and (_t_eye.time() - opened_at) < 600:
-                _thr = max(_thr, 0.70)
-
-            # القرار الديناميكي
-            if is_long and _ps < -_thr:
-                return True, f"انقلاب ديناميكي (بائعون مسيطرون {_ps:+.2f} @ موقع {_range_pos:.0%}, عتبة -{_thr})"
-            if (not is_long) and _ps > _thr:
-                return True, f"انقلاب ديناميكي (مشترون مسيطرون {_ps:+.2f} @ موقع {_range_pos:.0%}, عتبة {_thr})"
+            # تأكيد الاستمرارية: لا نغلق على لقطة واحدة (تذبذب/امتصاص لحظي).
+            #   الانقلاب يجب أن يصمد عبر قراءتين متتاليتين (~10s) ليُعتبر حقيقياً.
+            _against = (is_long and _ps < -_thr) or ((not is_long) and _ps > _thr)
+            _wkey = f"{symbol}_{'L' if is_long else 'S'}"
+            if _against:
+                if _reversal_warn.get(_wkey):
+                    _reversal_warn.pop(_wkey, None)
+                    _side_txt = "بائعون مسيطرون" if is_long else "مشترون مسيطرون"
+                    return True, f"انقلاب مؤكّد ({_side_txt} {_ps:+.2f} @ موقع {_range_pos:.0%}, صمد قراءتين)"
+                else:
+                    _reversal_warn[_wkey] = True
+                    log.debug("إنذار انقلاب %s: ضغط %+.2f @ موقع %.0f%% — بانتظار تأكيد القراءة التالية",
+                              _wkey, _ps, _range_pos*100)
+            else:
+                _reversal_warn.pop(_wkey, None)
     except Exception as _e:
         log.debug("smart eye V2 %s: %s", symbol, _e)
     # الخطوة 0: فخاخ WebSocket اللحظية — ارتداد مفتعل بفخ وهمي؟ لا نخرج (تنفّس)
@@ -592,10 +601,14 @@ async def is_real_reversal(symbol: str, is_long: bool, opened_at: float = 0) -> 
         if not w.get("valid"):
             return False, ""
         wtype = w.get("type", "")
+        # فترة السماح: صفقة وليدة (<10د) لا تُغلق بإشارة الجدار — فقط الميزان الديناميكي العنيف يقرّر
+        import time as _t_wall
+        # الجدار صار رأياً لا قراراً: الميزان الديناميكي (pressure_score) يشمل الجدران
+        #   والـ iceberg أصلاً، ومحميّ بتأكيد الاستمرارية. نسجّل فقط، لا نغلق هنا (درس ETH "جبل ثلجي 0x").
         if wtype == "حقيقي":
-            return True, f"انقلاب مؤكد (جدار حقيقي ثابت {w.get('ratio',0):.0f}x)"
+            log.debug("wall-advisory %s: جدار حقيقي معاكس %.0fx — رأي (الميزان يقرّر)", symbol, w.get('ratio',0))
         if wtype == "جبل_ثلجي":
-            return True, f"انقلاب قوي (جبل ثلجي — سيولة مخفية {w.get('ratio',0):.0f}x)"
+            log.debug("wall-advisory %s: جبل ثلجي معاكس — رأي (الميزان يقرّر)", symbol)
         if wtype == "وهمي":
             return False, "جدار وهمي اختفى — فخ قطيع، الاتجاه مستمر"
         return False, ""  # لا_جدار أو غير معروف → لا انقلاب
