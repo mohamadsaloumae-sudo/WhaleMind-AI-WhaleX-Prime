@@ -430,7 +430,7 @@ C) انتظار — ضع SL أقرب
 # ─── TACTICAL EXIT ANALYZER ─────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
-async def is_real_reversal(symbol: str, is_long: bool) -> tuple[bool, str]:
+async def is_real_reversal(symbol: str, is_long: bool, opened_at: float = 0) -> tuple[bool, str]:
     """تمييز الانقلاب الحقيقي من الزبزبة — قراءة عمق OB (depth=100).
     فلسفة: القمة عند الانهيار = معركة شرسة (تذبذب طبيعي).
     لا نخرج للزبزبة. نخرج فقط عند انقلاب بنيوي مؤكّد:
@@ -471,6 +471,11 @@ async def is_real_reversal(symbol: str, is_long: bool) -> tuple[bool, str]:
                 _thr = 0.30      # منتصف: حذر متوسط
             else:
                 _thr = 0.15      # قمة/خط أصفر: يقظة قصوى
+
+            # فترة سماح: صفقة وليدة (<10د) لا تُغلق إلا على انهيار عنيف (لا تذبذب لحظي)
+            import time as _t_eye
+            if opened_at and (_t_eye.time() - opened_at) < 600:
+                _thr = max(_thr, 0.70)
 
             # القرار الديناميكي
             if is_long and _ps < -_thr:
@@ -615,7 +620,7 @@ async def should_tactical_exit(pos: Position, price: float, ob: dict, ls_change:
         return False, ""
 
     # الشرط الوحيد: انقلاب الأوردر بوك البنيوي الحقيقي (depth=100 + جدار ضخم)
-    real_rev, rev_reason = await is_real_reversal(pos.symbol, is_long)
+    real_rev, rev_reason = await is_real_reversal(pos.symbol, is_long, getattr(pos, "opened_at", 0))
     if real_rev:
         return True, f"🔻 {rev_reason} | PnL {pnl_pct:+.1f}%"
 
@@ -674,7 +679,7 @@ async def _should_breathe(pos: "Position", price: float, pnl_pct: float) -> tupl
     _c = _REV_CACHE.get(pos.id)
     if _c and (_now - _c[0]) < 60:
         return _c[1], _c[2]
-    real_rev, reason = await is_real_reversal(pos.symbol, pos.direction == "LONG")
+    real_rev, reason = await is_real_reversal(pos.symbol, pos.direction == "LONG", getattr(pos, "opened_at", 0))
     if real_rev:
         dec = (False, f"انقلاب مؤكد — {reason}")
     elif reason:
