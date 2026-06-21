@@ -154,7 +154,7 @@ async def detect_rebound(symbol: str, candles) -> dict:
 
     # الرادار: جدار شراء ضخم + علامة شراء ثانية (مشترون يدخلون عند التصحيح).
     has_buy_wall = "جدار_شراء_ضخم" in signals
-    radar_ok = has_buy_wall and len(signals) >= 2
+    radar_ok = has_buy_wall and len(signals) >= 4  # الأربعة كلها: imbalance+pressure+wall+erosion (نظافة الدخول)
 
     # RSI في منطقة وسطى (تصحيح صحي 40-60، لا oversold=سكين، لا overbought=قمة).
     rsi_ok = 38 <= r <= 60
