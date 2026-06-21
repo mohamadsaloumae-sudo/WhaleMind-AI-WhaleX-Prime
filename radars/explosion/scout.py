@@ -238,9 +238,17 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
         from quant_engine.hawk_eye import read_market_structure
         ms = await read_market_structure(symbol, fetch_klines_async)
         hawk_phase = ms.phase
-        if not ms.near_period_high:
+        # نافذة بداية الهبوط: نصطاد إذا هبطت 3-10% من القمّة (أكّدت الانعكاس، لم تتأخّر).
+        #   <3%: ما زالت عند القمّة، الانعكاس غير مؤكّد. >10%: هبطت كثيراً، شورت متأخّر.
+        #   (peak_price = قمّة الرادار المخزّنة، أدقّ من period_high)
+        _cur = closes[-1] if closes else 0
+        _drop = (peak_price - _cur) / peak_price * 100 if peak_price > 0 else 0
+        if _drop < 3.0:
             hawk_ok = False
-            hawk_block_reason = "ليست قرب قمتها (شورت متأخّر)"
+            hawk_block_reason = f"عند القمّة ({_drop:.1f}% — لم تؤكّد الانعكاس)"
+        elif _drop > 10.0:
+            hawk_ok = False
+            hawk_block_reason = f"هبطت كثيراً ({_drop:.1f}% — شورت متأخّر)"
     except Exception as _e:
         log.debug("hawk in collapse %s: %s", symbol, _e)
         hawk_ok = True
@@ -252,7 +260,7 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
     if RADAR_SENSITIVITY >= 70:
         radar_ok = has_imbalance and len(signals) >= 1      # تساهل
     elif RADAR_SENSITIVITY >= 40:
-        radar_ok = has_imbalance and has_erosion and len(signals) >= 3   # وسط + تآكل إلزامي
+        radar_ok = has_imbalance and len(signals) >= 2   # وسط: اختلال + إشارة ثانية (تآكل مفضّل لا إلزامي)
     else:
         radar_ok = has_imbalance and has_erosion and len(signals) >= 3   # تشدد + تآكل إلزامي
 

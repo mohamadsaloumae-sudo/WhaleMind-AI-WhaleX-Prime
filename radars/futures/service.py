@@ -386,18 +386,10 @@ async def orchestrate_approved(
             await save_signal(sig)
             await shadow_record(sig)
 
-            # Claude Approval - نقطة الحسم الموحدة
+            # Claude Approval — معطّلة مؤقتاً (لا استدعاء API حتى يستقرّ النظام).
+            #   الفلاتر الذاتية (الأربعة في بيك هنتر + العين الذكية في المدير) تكفي حالياً.
+            #   لإعادتها: استرجع كتلة الاستدعاء من النسخة الاحتياطية.
             claude_ok = True
-            try:
-                from services.claude_approval import claude_approval
-                claude_ok, claude_reason = await claude_approval(sig)
-                if claude_ok:
-                    log.info("Claude APPROVED: %s %s", sig.symbol, sig.direction)
-                else:
-                    log.info("Claude REJECTED [final]: %s %s - %s",
-                             sig.symbol, sig.direction, claude_reason)
-            except Exception as e:
-                log.debug("Claude approval error: %s", e)
 
             if not claude_ok:
                 approved_queue.task_done()
