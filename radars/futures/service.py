@@ -254,7 +254,10 @@ async def fetch_all_symbols() -> list[MarketTier]:
         # جلب الحجم الحالي (24h) للحصول على بيانات حية
         async with httpx.AsyncClient(timeout=20) as c:
             r = await c.get("https://fapi.binance.com/fapi/v1/ticker/24hr")
-            vols = {t["symbol"]: float(t["quoteVolume"]) for t in r.json()}
+            # نتجاهل العقود بلا quoteVolume (عقود COIN-M مثل ETHUSD_PERP — نحن USDT فقط)
+            vols = {t["symbol"]: float(t["quoteVolume"])
+                    for t in r.json()
+                    if isinstance(t, dict) and "symbol" in t and "quoteVolume" in t}
 
         tiers = []
         for row in rows:

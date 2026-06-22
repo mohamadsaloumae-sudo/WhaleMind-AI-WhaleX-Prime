@@ -1279,14 +1279,17 @@ async def predator_agent(
         log.debug("Reject %s %s — no key strategy", symbol, direction)
         return
 
-    # ═══ بوّابة BTC: لا تداول ضد اتجاه BTC المؤكّد (يمنع الرهان الجماعي الخاطئ) ═══
-    #   الـ44 عملة مرتبطة بـ BTC؛ لونغ في هبوط مؤكّد أو شورت في صعود مؤكّد = خطر منهجي.
+    # ═══ بوّابة BTC الذكية: العملات مرتبطة بـBTC، فالتعارض معه خطر (الارتباط يغلب) ═══
+    #   نتداول مع اتّجاه BTC، أو ضدّه/في المحايد فقط بانعكاس قويّ مؤكّد (score>=9).
+    #   الجذر: كارثة 01:00 — 5 شورت في BTC محايد (score 7-8.5) ماتت لمّا صعد BTC.
+    #   score>=9 نادر (7 من ~190) = قمّة/قاع راسخ يبرّر مخالفة BTC.
     _btc = BTC_TREND.get("trend", "NEUTRAL")
-    if _btc == "BEARISH" and direction == "LONG":
-        log.info("₿ BTC gate: %s LONG مرفوض — BTC هابط مؤكّد", symbol)
+    _strong = (score >= 9.0)
+    if direction == "SHORT" and _btc != "BEARISH" and not _strong:
+        log.info("₿ BTC gate: %s SHORT مرفوض — BTC %s (ليس هابطاً) score=%.1f", symbol, _btc, score)
         return
-    if _btc == "BULLISH" and direction == "SHORT":
-        log.info("₿ BTC gate: %s SHORT مرفوض — BTC صاعد مؤكّد", symbol)
+    if direction == "LONG" and _btc != "BULLISH" and not _strong:
+        log.info("₿ BTC gate: %s LONG مرفوض — BTC %s (ليس صاعداً) score=%.1f", symbol, _btc, score)
         return
 
     # ─── الثقة ───
