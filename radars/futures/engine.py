@@ -1123,7 +1123,11 @@ async def predator_agent(
         # أو السعر قرب/فوق بولينجر العلوي (قمة محلية / تجاوز)
         at_resistance = price >= bb_u * 0.985
 
-        in_short_zone = at_pullback_top or (at_resistance and range_pos > 0.50)
+        # مساحة الهبوط الإلزامية: لا شورت إذا كان السعر ملاصقاً للدعم (BB سفلي، ضمن 2%).
+        #   قاع الحركة = ارتداد محتمل، مساحة ربح ضيّقة. (DOGE دخلت على بُعد 0.5% من الدعم)
+        #   نعتمد bb_l اللحظي لا range_pos (الذي قد يكون مضلّلاً).
+        _has_drop_room = price > bb_l * 1.02
+        in_short_zone = (at_pullback_top or (at_resistance and range_pos > 0.50)) and _has_drop_room
 
         if not in_short_zone:
             # ليس عند قمة → لا SHORT، ننتظر ونراقب (لا نفتح من الوسط)
