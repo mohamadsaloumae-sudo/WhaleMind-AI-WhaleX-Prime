@@ -393,21 +393,27 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
     )
     log.info("🔭🔻 PEAK HUNTER SIGNAL: %s SHORT @%.6g grade=%s [%s]",
              symbol, price, sig.grade, "+".join(sigs))
-    try:
-        from services.telegram import send_message
-        from core.config import get_settings
-        ch = get_settings().telegram_channel_futures
-        if ch:
-            await send_message(ch, msg)
-    except Exception as e:
-        log.error("scout signal error: %s", e)
-
+    # نفتح أولاً، ونرسل البطاقة للقناة فقط إن فُتحت الصفقة فعلاً (لا بطاقة لصفقة مُنعت/مكرّرة)
+    opened_ok = False
     if position_manager_fn:
         try:
-            await position_manager_fn(sig)
-            log.info("🔭📈 Peak Hunter → manager: %s SHORT (opened)", symbol)
+            _result = await position_manager_fn(sig)
+            opened_ok = (_result is not None)   # open_from_signal يرجع pos عند الفتح، None عند المنع
         except Exception as e:
             log.error("scout → manager error: %s", e)
+
+    if opened_ok:
+        try:
+            from services.telegram import send_message
+            from core.config import get_settings
+            ch = get_settings().telegram_channel_futures
+            if ch:
+                await send_message(ch, msg)
+        except Exception as e:
+            log.error("scout signal error: %s", e)
+        log.info("🔭📈 Peak Hunter → manager: %s SHORT (opened)", symbol)
+    else:
+        log.info("🔭⏭️ Peak Hunter: %s SHORT لم تُفتح (مفتوحة بالفعل/مُنعت) — لا بطاقة للقناة", symbol)
 
 
 
