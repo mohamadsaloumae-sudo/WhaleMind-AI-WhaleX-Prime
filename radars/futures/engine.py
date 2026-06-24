@@ -255,7 +255,14 @@ async def mtf_check(symbol: str, direction: str) -> tuple[bool, dict]:
         agreed = sum(1 for t in [t15, t1h, t4h] if t == required)
         opposed = sum(1 for t in [t15, t1h, t4h] if t != required and t != "NEUTRAL")
 
-        # الإشارة تمر إذا 2 من 3 على الأقل يتفقان (و لا أحد يعاكس بشدة)
+        # 🦅 الإطار الكبير (4h) حاكم: لا نقاوم الاتجاه الحقيقي للعملة.
+        #   العملة صاعدة فعلاً (4h)؟ لا SHORT — ما نراه على 15m تصحيح مؤقّت.
+        #   العملة هابطة فعلاً (4h)؟ لا LONG. (هذا يميّز التصحيح من الانعكاس الحقيقي)
+        if direction == "SHORT" and t4h == "BULLISH":
+            return False, details
+        if direction == "LONG" and t4h == "BEARISH":
+            return False, details
+        # تأكيد إضافي: 2 من 3 يتفقان (و لا أحد يعاكس بشدة)
         passed = agreed >= 2 and opposed <= 1
         return passed, details
     except Exception as e:
@@ -887,7 +894,8 @@ def range_position(candles: list, lookback: int = 20) -> float:
 
 def guardian_veto_v3(direction, rsi_v, sk, sd, price, bb_u, bb_l, bb_m,
                      range_pos, regime, cvd_hint, oracle_context,
-                     hist_low_dist=100.0, hist_high_dist=100.0):
+                     hist_low_dist=100.0, hist_high_dist=100.0,
+                     true_range_pos=0.5):
     """
     Guardian Veto V3 — عتبات واقعية + فلتر موقع لحظي + فلتر اتجاه
     + 🦅 حارس القاع/القمة التاريخي (يمنع SHORT في قاع تاريخي مهما كان range_pos).
