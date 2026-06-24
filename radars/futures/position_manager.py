@@ -82,6 +82,7 @@ class Position:
     fvg_zone: Optional[float] = None
     # نوع الرادار (futures للرئيسي وبيك هنتر، يُميَّز بـ tier)
     radar_type: str = "futures"
+    breathe_alerted: bool = False   # أُرسل تنبيه اقتراب الوقف للقناة؟ (مرّة واحدة)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -741,6 +742,19 @@ async def monitor_position(pos: Position):
     # Force Close lock — لا شيء بعد قرار المستخدم
     if pos.force_close_lock:
         return
+
+    # ─ تنبيه استباقيّ: السعر يقترب من الوقف المكتوب — نُعلم المشترك قبل ضربه ─
+    #   ليملك وقتاً لرفع وقفه أو إلغائه إن أراد متابعة البوت. مرّة واحدة لكل صفقة.
+    if pos.entry > 0 and pos.sl > 0 and not pos.breathe_alerted:
+        _dist_sl = abs(price - pos.sl) / pos.sl * 100
+        _approaching = (is_long and price > pos.sl) or (not is_long and price < pos.sl)
+        if _approaching and _dist_sl <= 1.5:
+            pos.breathe_alerted = True
+            await notify(pos.user_id,
+                f"⚠️ <b>{pos.symbol} {pos.direction} — السعر يقترب من الوقف</b>\n"
+                f"البوت يراقب لحظياً. إن رصد تذبذباً مؤقّتاً (لا انعكاساً), سيستمرّ في الصفقة.\n"
+                f"📌 <b>استعدّ: ارفع وقف الخسارة أو ألغِه إن أردت متابعة البوت.</b>\n"
+                f"<i>نُغلق فوراً عند تأكّد انقلاب حقيقيّ.</i>")
 
     # ─ شبكة أمان مطلقة: أرضية pnl صلبة (كل دورة، قبل أي منطق وقف) ─
     if pnl_pct <= PNL_HARD_FLOOR:
