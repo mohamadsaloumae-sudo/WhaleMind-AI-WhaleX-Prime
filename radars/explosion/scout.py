@@ -475,7 +475,20 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
                     if status == "signaled":
                         if now - (last_check or 0) < SIGNAL_COOLDOWN:
                             continue  # ما زالت في الراحة القصيرة
-                        # انتهى cooldown → تعود للمراقبة (تُحيا)
+                        # 🔭 كسر الحلقة: إن خسرت آخر صفقة خلال ساعتين، لا تُعاد بعد (INX خسرت 3 مرّات متتالية صاعدة)
+                        try:
+                            _cc = sqlite3.connect("/opt/whalex/ml_training.db")
+                            _last = _cc.execute(
+                                "SELECT pnl_pct, closed_at FROM training_signals "
+                                "WHERE symbol=? AND tier='PH' AND pnl_pct IS NOT NULL "
+                                "ORDER BY closed_at DESC LIMIT 1", (symbol,)).fetchone()
+                            _cc.close()
+                            if _last and _last[0] is not None and _last[0] <= 0 and _last[1] and (now - int(_last[1])) < 7200:
+                                log.info("🔭 %s: خسرت آخر صفقة (%.2f%%) قبل <ساعتين — كسر الحلقة، لا إعادة اصطياد", symbol, _last[0])
+                                continue
+                        except Exception as _e:
+                            log.debug("loop-break check %s: %s", symbol, _e)
+                        # انتهى cooldown + لم تخسر حديثاً → تعود للمراقبة (تُحيا)
                         conn = sqlite3.connect(DB_PATH)
                         conn.execute("UPDATE watchlist SET status='watching', signal_sent=0 WHERE symbol=?", (symbol,))  # alert_sent يبقى — لا Watch مكرّر
                         conn.commit()
@@ -497,6 +510,21 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
                     candles = await fetch_klines_async(symbol, "15m", 50)
                     col = await detect_collapse(symbol, peak, candles)
                     if col["collapse"]:
+                        # 🔭 إعادة فحص السيولة الحيّة قبل الصيد — HANA دخلت بـ15M ثمّ انهارت لـ0.9M (تلاعب)
+                        try:
+                            async with httpx.AsyncClient(timeout=8) as _vc:
+                                _vr = await _vc.get(f"https://fapi.binance.com/fapi/v1/ticker/24hr?symbol={symbol}")
+                                _vol_now = float(_vr.json().get("quoteVolume", 0))
+                            if _vol_now < MIN_VOLUME_USD:
+                                log.info("🔭 %s: سيولة انهارت (%.1fM < %.0fM) — حذف من watchlist، لا صيد",
+                                         symbol, _vol_now/1e6, MIN_VOLUME_USD/1e6)
+                                conn = sqlite3.connect(DB_PATH)
+                                conn.execute("DELETE FROM watchlist WHERE symbol=?", (symbol,))
+                                conn.commit()
+                                conn.close()
+                                continue
+                        except Exception as _ve:
+                            log.debug("liquidity recheck %s: %s", symbol, _ve)
                         price = candles[-1].close
                         await _send_signal_and_open(symbol, price, candles, peak, col, position_manager_fn)
                         conn = sqlite3.connect(DB_PATH)
