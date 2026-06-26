@@ -348,6 +348,25 @@ def _filter_line(name: str, value: str, triggered: bool) -> str:
     return f"{icon} {name:<16}<code>{value}</code>"
 
 
+def _save_to_signals_table(sig, strategies_text):
+    """يحفظ إشارة Peak Hunter في جدول signals (نفس مصدر الواجهة) بـ radar_type=explosion"""
+    try:
+        from db.database import get_session, Signal
+        db = get_session()
+        try:
+            row = Signal(
+                radar_type="explosion", symbol=sig.symbol, direction=sig.direction,
+                grade=sig.grade, score=getattr(sig, "score", 0.0), confidence=sig.confidence,
+                entry=sig.entry, sl=sig.sl, tp1=sig.tp1, tp2=sig.tp2, tp3=sig.tp3,
+                leverage=sig.leverage, strategies=strategies_text,
+            )
+            db.add(row); db.commit()
+        finally:
+            db.close()
+    except Exception as _e:
+        log.debug("Peak Hunter save_to_signals error: %s", _e)
+
+
 async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: float,
                                  col: dict, position_manager_fn):
     """Full systematic SHORT signal + open in manager."""
@@ -411,6 +430,7 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
                 await send_message(ch, msg)
         except Exception as e:
             log.error("scout signal error: %s", e)
+        _save_to_signals_table(sig, "🎯 Peak Hunter SHORT\n" + "\n".join(sigs))
         log.info("🔭📈 Peak Hunter → manager: %s SHORT (opened)", symbol)
     else:
         log.info("🔭⏭️ Peak Hunter: %s SHORT لم تُفتح (مفتوحة بالفعل/مُنعت) — لا بطاقة للقناة", symbol)

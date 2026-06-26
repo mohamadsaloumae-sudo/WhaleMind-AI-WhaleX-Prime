@@ -1,0 +1,52 @@
+// الإشارات الحيّة
+import { useEffect, useState } from "react";
+import { api } from "../lib/api.js";
+import { useLang } from "../context/LangContext.jsx";
+
+export default function Signals() {
+  const { t } = useLang();
+  const [signals, setSignals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+
+  async function load() {
+    try {
+      const data = await api.get("/api/signals/all");
+      setSignals(Array.isArray(data) ? data : data?.signals || []);
+    } catch (e) { setErr(e.message); }
+    finally { setLoading(false); }
+  }
+  useEffect(() => {
+    load();
+    const tm = setInterval(load, 15000);
+    return () => clearInterval(tm);
+  }, []);
+
+  if (loading) return <div className="loading">{t("loadingSignals")}</div>;
+
+  return (
+    <>
+      {err && <div className="alert info">{t("signalsFetchFail")}: {err}</div>}
+      {signals.length === 0 ? (
+        <div className="card"><div className="empty">{t("noSignals")}</div></div>
+      ) : (
+        <div className="grid grid-3">
+          {signals.map((s, i) => (
+            <div className="card" key={i}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+                <strong>{s.symbol}</strong>
+                <span className={`badge ${s.direction === "LONG" ? "long" : "short"}`}>{s.direction}</span>
+              </div>
+              <div style={{ fontSize: 13, color: "var(--txt-2)", display: "grid", gap: 6 }}>
+                <div>{t("entry")}: <b style={{ color: "var(--txt-1)" }}>{s.entry}</b></div>
+                <div>{t("stopLoss")}: {s.sl}</div>
+                <div>{t("target")}: {s.tp1}</div>
+                <div>{t("grade")}: <span className="badge grade">{s.grade}</span> · {t("confidence")} {s.confidence}%</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
