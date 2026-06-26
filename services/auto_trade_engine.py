@@ -25,7 +25,7 @@ from services.binance_trader import (
 
 log = logging.getLogger("auto_trade_engine")
 
-DB_PATH = "/opt/whalex/whalex.db"
+DB_PATH = "/opt/whalex/db/whalex.db"
 
 
 # ═══════════════════════════════════════════════════════════════

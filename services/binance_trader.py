@@ -25,7 +25,7 @@ from binance.exceptions import BinanceAPIException, BinanceOrderException
 
 log = logging.getLogger("binance_trader")
 
-DB_PATH = "/opt/whalex/whalex.db"
+DB_PATH = "/opt/whalex/db/whalex.db"
 
 
 # ═══════════════════════════════════════════════════════════════
