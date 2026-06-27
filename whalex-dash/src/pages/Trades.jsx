@@ -49,8 +49,8 @@ export default function Trades() {
                   <td>{p.entry_price || p.entryPrice}</td>
                   <td>{p.mark_price || p.markPrice || "—"}</td>
                   <td>{p.leverage}x</td>
-                  <td style={{ color: (p.pnl || p.unRealizedProfit) >= 0 ? "var(--green)" : "var(--red)", fontWeight: 700 }}>
-                    {Number(p.pnl || p.unRealizedProfit || 0).toFixed(2)}
+                  <td style={{ color: (p.unrealized_pnl ?? p.pnl ?? p.unRealizedProfit) >= 0 ? "var(--green)" : "var(--red)", fontWeight: 700 }}>
+                    {Number((p.unrealized_pnl ?? p.pnl ?? p.unRealizedProfit) || 0).toFixed(2)}
                   </td>
                 </tr>
               ))}
