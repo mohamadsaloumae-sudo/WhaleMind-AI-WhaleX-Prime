@@ -34,6 +34,17 @@ def get_plans():
     }
 
 
+@router.get("/stats")
+def sub_stats():
+    """عدّاد المشتركين (أساس ترحيبيّ 500 + المشتركون الفعليّون)"""
+    db = get_session()
+    try:
+        real = db.query(User).filter(User.tier == "pro").count()
+        return {"subscribers": 500 + real}
+    finally:
+        db.close()
+
+
 @router.post("/upgrade")
 def upgrade(body: UpgradeBody, user=Depends(get_current_user)):
     # 1) نتحقّق أنّ الخطّة صحيحة

@@ -13,10 +13,12 @@ export default function Subscription() {
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [subs, setSubs] = useState(null);
 
   async function load() {
     try { setSub(await subscription.status()); } catch { /* */ }
     try { setInfo(await subscription.plans()); } catch { /* */ }
+    try { const st = await subscription.stats(); setSubs(st?.subscribers); } catch { /* */ }
   }
   useEffect(() => { load(); }, []);
 
@@ -47,6 +49,21 @@ export default function Subscription() {
   return (
     <div style={{ maxWidth: 560 }}>
       {msg && <div className={`alert ${msg.type}`}>{msg.text}</div>}
+
+      {/* عدّاد المشتركين */}
+      {subs && (
+        <div className="card" style={{ marginBottom: 16, textAlign: "center", background: "linear-gradient(135deg, var(--brand-dim), var(--bg-2))" }}>
+          <div style={{ fontSize: 13, color: "var(--txt-2)", marginBottom: 4 }}>{t("joinedMembers")}</div>
+          <div style={{ fontSize: 32, fontWeight: 800, color: "var(--brand)" }}>{subs.toLocaleString()}+</div>
+          <div style={{ fontSize: 12, color: "var(--txt-3)" }}>{t("welcomeOffer")}</div>
+        </div>
+      )}
+
+      {/* من نحن */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-title">{t("aboutTitle")}</div>
+        <p style={{ fontSize: 13.5, color: "var(--txt-2)", lineHeight: 1.7 }}>{t("aboutDesc")}</p>
+      </div>
 
       {/* الباقة الحالية */}
       <div className="card" style={{ marginBottom: 16 }}>
