@@ -26,6 +26,9 @@ export default function Positions() {
   const wins = history.filter((x) => x.is_win).length;
   const losses = history.length - wins;
   const winRate = history.length ? ((wins / history.length) * 100).toFixed(0) : 0;
+  const totalProfit = history.filter((x) => x.is_win).reduce((a, x) => a + Number(x.pnl_pct || 0), 0);
+  const totalLoss = history.filter((x) => !x.is_win).reduce((a, x) => a + Math.abs(Number(x.pnl_pct || 0)), 0);
+  const net = totalProfit - totalLoss;
 
   if (loading) return <div className="loading">{t("loading")}</div>;
 
@@ -38,12 +41,12 @@ export default function Positions() {
           <span className="value" style={{ color: "var(--brand)" }}>{winRate}%</span>
         </div>
         <div className="card stat">
-          <span className="label">{t("wins")}</span>
-          <span className="value green">{wins}</span>
+          <span className="label">{t("wins")} ({wins})</span>
+          <span className="value green">+{totalProfit.toFixed(1)}%</span>
         </div>
         <div className="card stat">
-          <span className="label">{t("losses")}</span>
-          <span className="value red">{losses}</span>
+          <span className="label">{t("losses")} ({losses})</span>
+          <span className="value red">-{totalLoss.toFixed(1)}%</span>
         </div>
       </div>
 

@@ -63,7 +63,8 @@ def signals_history():
                    result, pnl_pct, outcome, closed_at, strategies
             FROM training_signals
             WHERE pnl_pct IS NOT NULL AND closed_at IS NOT NULL
-            ORDER BY closed_at DESC LIMIT 50
+              AND closed_at > (strftime('%s', date('now','+4 hours')) - 14400)
+            ORDER BY closed_at DESC LIMIT 300
         """).fetchall()
         con.close()
         out = []
