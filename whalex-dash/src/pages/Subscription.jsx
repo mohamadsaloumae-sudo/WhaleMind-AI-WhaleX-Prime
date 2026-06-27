@@ -35,6 +35,7 @@ export default function Subscription() {
       const r = await subscription.upgrade({ tx_hash: txHash.trim(), plan });
       setMsg({ type: "success", text: t("upgradeSuccess") + " — " + r.plan });
       setTxHash(""); load();
+      setTimeout(() => window.location.reload(), 2000);
     } catch (e) { setMsg({ type: "error", text: e.message }); }
     finally { setBusy(false); }
   }

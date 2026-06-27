@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { binance } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
 import { Bot, Hand, Link2, Unlink, Save } from "lucide-react";
+import Paywall from "../components/Paywall.jsx";
 
 export default function AutoTrade() {
   const { t } = useLang();
@@ -86,6 +87,7 @@ export default function AutoTrade() {
   const autoOn = settings?.auto_trade_enabled;
 
   return (
+    <Paywall>
     <div style={{ maxWidth: 640 }}>
       {msg && <div className={`alert ${msg.type}`}>{msg.text}</div>}
 
@@ -191,5 +193,6 @@ export default function AutoTrade() {
         <div className="card"><div className="empty">{t("manualHint")}</div></div>
       )}
     </div>
+    </Paywall>
   );
 }

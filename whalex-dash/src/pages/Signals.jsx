@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
+import Paywall from "../components/Paywall.jsx";
 
 export default function Signals() {
   const { t, lang } = useLang();
@@ -25,6 +26,7 @@ export default function Signals() {
   if (loading) return <div className="loading">{t("loadingSignals")}</div>;
 
   return (
+    <Paywall>
     <>
       {err && <div className="alert info">{t("signalsFetchFail")}: {err}</div>}
       {signals.length === 0 ? (
@@ -63,5 +65,6 @@ export default function Signals() {
         </div>
       )}
     </>
+    </Paywall>
   );
 }
