@@ -61,6 +61,11 @@ export const binance = {
   settings:   ()     => api.get("/api/binance/settings"),
 };
 
+export const signals = {
+  all:     () => api.get("/api/signals/all"),
+  history: () => api.get("/api/signals/history"),
+};
+
 export const subscription = {
   status:  () => api.get("/api/subscription/status"),
   upgrade: (b) => api.post("/api/subscription/upgrade", b),
