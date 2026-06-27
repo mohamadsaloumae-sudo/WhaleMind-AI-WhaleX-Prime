@@ -68,6 +68,7 @@ export const signals = {
 };
 
 export const subscription = {
+  plans:   () => api.get("/api/subscription/plans"),
   status:  () => api.get("/api/subscription/status"),
   upgrade: (b) => api.post("/api/subscription/upgrade", b),
 };
