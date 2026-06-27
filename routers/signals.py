@@ -63,6 +63,7 @@ def signals_history():
                    result, pnl_pct, outcome, closed_at, strategies
             FROM training_signals
             WHERE pnl_pct IS NOT NULL AND closed_at IS NOT NULL
+              AND result IN ('win','loss')
               AND closed_at > (strftime('%s', date('now','+4 hours')) - 14400)
             ORDER BY closed_at DESC LIMIT 300
         """).fetchall()
@@ -80,3 +81,34 @@ def signals_history():
         return {"history": out}
     except Exception as e:
         return {"history": [], "error": str(e)}
+
+
+@router.get("/monthly")
+def signals_monthly():
+    """ملخّص الشهر (من تاريخ 1 بتوقيت دبي): رابحة/خاسرة + المجاميع"""
+    import sqlite3
+    try:
+        con = sqlite3.connect("/opt/whalex/ml_training.db")
+        con.row_factory = sqlite3.Row
+        # بداية الشهر بتوقيت دبي (UTC+4): أول يوم في الشهر منتصف الليل، محوّل لـUTC
+        rows = con.execute("""
+            SELECT pnl_pct, outcome FROM training_signals
+            WHERE pnl_pct IS NOT NULL AND closed_at IS NOT NULL
+              AND result IN ('win','loss')
+              AND closed_at > (strftime('%s', date('now','+4 hours','start of month')) - 14400)
+        """).fetchall()
+        con.close()
+        wins = [r for r in rows if r["outcome"]]
+        losses = [r for r in rows if not r["outcome"]]
+        total_profit = sum(r["pnl_pct"] for r in wins)
+        total_loss = sum(abs(r["pnl_pct"]) for r in losses)
+        return {
+            "wins_count": len(wins),
+            "losses_count": len(losses),
+            "total_profit_pct": round(total_profit, 2),
+            "total_loss_pct": round(total_loss, 2),
+            "net_pct": round(total_profit - total_loss, 2),
+            "total_trades": len(rows),
+        }
+    except Exception as e:
+        return {"wins_count": 0, "losses_count": 0, "total_profit_pct": 0, "total_loss_pct": 0, "net_pct": 0, "error": str(e)}

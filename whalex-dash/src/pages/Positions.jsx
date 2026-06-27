@@ -7,12 +7,15 @@ import { TrendingUp, TrendingDown } from "lucide-react";
 export default function Positions() {
   const { t, lang } = useLang();
   const [history, setHistory] = useState([]);
+  const [monthly, setMonthly] = useState(null);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     try {
       const h = await signals.history();
       setHistory(h?.history || []);
+      const m = await signals.monthly();
+      setMonthly(m);
     } catch { /* */ }
     finally { setLoading(false); }
   }
@@ -34,7 +37,32 @@ export default function Positions() {
 
   return (
     <>
-      {/* ملخّص الأداء */}
+      {/* ملخّص الشهر */}
+      {monthly && (
+        <div className="card" style={{ marginBottom: 20, background: "linear-gradient(135deg, var(--bg-1), var(--bg-2))", border: "1px solid var(--brand-dim)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--brand)" }}>📅 {t("monthSummary")}</span>
+            <span style={{ fontSize: 12, color: "var(--txt-3)" }}>{new Date().toLocaleDateString(lang === "ar" ? "ar-AE" : "en-US", { timeZone: "Asia/Dubai", month: "long", year: "numeric" })}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-around", textAlign: "center" }}>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--txt-2)" }}>{t("wins")} ({monthly.wins_count})</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "var(--green)" }}>+{monthly.total_profit_pct}%</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--txt-2)" }}>{t("losses")} ({monthly.losses_count})</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "var(--red)" }}>-{monthly.total_loss_pct}%</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--txt-2)" }}>{t("net")}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: monthly.net_pct >= 0 ? "var(--green)" : "var(--red)" }}>{monthly.net_pct >= 0 ? "+" : ""}{monthly.net_pct}%</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ملخّص اليوم */}
+      <div className="card-title" style={{ marginBottom: 10 }}>📆 {t("today")}</div>
       <div className="grid grid-3" style={{ marginBottom: 20 }}>
         <div className="card stat">
           <span className="label">{t("winRate")}</span>

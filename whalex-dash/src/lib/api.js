@@ -64,6 +64,7 @@ export const binance = {
 export const signals = {
   all:     () => api.get("/api/signals/all"),
   history: () => api.get("/api/signals/history"),
+  monthly: () => api.get("/api/signals/monthly"),
 };
 
 export const subscription = {
