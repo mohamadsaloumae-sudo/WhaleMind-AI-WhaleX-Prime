@@ -49,3 +49,33 @@ def all_signals():
         return {"signals": _fmt(sigs)}
     finally:
         db.close()
+
+
+@router.get("/history")
+def signals_history():
+    """آخر الصفقات المغلقة بنتائجها (رابح/خاسر + النسبة) من ml_training.db"""
+    import sqlite3
+    try:
+        con = sqlite3.connect("/opt/whalex/ml_training.db")
+        con.row_factory = sqlite3.Row
+        rows = con.execute("""
+            SELECT symbol, direction, entry, exit_price, grade, tier,
+                   result, pnl_pct, outcome, closed_at, strategies
+            FROM training_signals
+            WHERE pnl_pct IS NOT NULL AND closed_at IS NOT NULL
+            ORDER BY closed_at DESC LIMIT 50
+        """).fetchall()
+        con.close()
+        out = []
+        for r in rows:
+            out.append({
+                "symbol": r["symbol"], "direction": r["direction"],
+                "entry": r["entry"], "exit_price": r["exit_price"],
+                "grade": r["grade"], "tier": r["tier"],
+                "result": r["result"], "pnl_pct": r["pnl_pct"],
+                "is_win": bool(r["outcome"]), "closed_at": r["closed_at"],
+                "strategies": r["strategies"],
+            })
+        return {"history": out}
+    except Exception as e:
+        return {"history": [], "error": str(e)}

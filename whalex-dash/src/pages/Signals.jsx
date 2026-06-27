@@ -53,7 +53,7 @@ export default function Signals() {
                     ))}
                   </div>
                 )}
-                <div>{t("grade")}: <span className="badge grade">{s.grade}</span> · {t("confidence")} {s.confidence}%</div>
+                <div>{t("grade")}: <span className="badge" style={{ background: s.grade === "B" ? "rgba(245,158,11,0.18)" : "rgba(45,212,191,0.15)", color: s.grade === "B" ? "var(--amber)" : "var(--brand)" }}>{s.grade}{s.grade === "B" ? " ⚠️" : ""}</span> · {t("confidence")} {s.confidence}%</div>
                 <div style={{ color: "var(--txt-3)", fontSize: 12, marginTop: 4 }}>
                   🕐 {s.created_at ? new Date(s.created_at.replace(" ", "T") + "Z").toLocaleString(lang === "ar" ? "ar-AE" : "en-US", { timeZone: "Asia/Dubai", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
                 </div>
