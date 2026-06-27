@@ -268,13 +268,9 @@ async def test_connection(api_key: str, api_secret: str, is_testnet: bool = True
         except Exception:
             permissions["futures"] = False
         
-        # ⚠️ تحذير أمني: لو withdraw مفعّل، نرفض
+        # ⚠️ تحذير أمني: لو withdraw مفعّل، ننبّه فقط (لا نرفض — Binance قد يُرجع canWithdraw=True رغم إطفائه فعلياً)
         if permissions["withdraw"]:
-            return {
-                "success": False,
-                "error": "⚠️ مفتاحك يملك صلاحية السحب! لأمانك، أنشئ مفتاحاً بدون Withdraw.",
-                "permissions": permissions
-            }
+            log.warning("⚠️ مفتاح المستخدم يُظهر canWithdraw=True — يُنصح بمفتاح بلا سحب")
         
         if not permissions["spot"] and not permissions["futures"]:
             return {

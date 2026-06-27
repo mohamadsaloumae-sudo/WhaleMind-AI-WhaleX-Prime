@@ -44,7 +44,7 @@ export default function Signals() {
                 <div>{t("target")} 2: <b style={{ color: "var(--green)" }}>{s.tp2}</b></div>
                 <div>{t("target")} 3: <b style={{ color: "var(--green)" }}>{s.tp3}</b></div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
-                  <span className="badge" style={{ background: "rgba(99,102,241,0.15)", color: "var(--accent)" }}>{s.radar_type}</span>
+                  <span className="badge" style={{ background: "rgba(99,102,241,0.15)", color: "var(--accent)" }}>{s.radar_type === "explosion" ? (s.direction === "SHORT" ? "🎯 Peak Hunter SHORT" : "🎯 Peak Hunter LONG") : "⚡ Predator"}</span>
                 </div>
                 {s.strategies && (
                   <div style={{ display: "grid", gap: 4, marginTop: 6, marginBottom: 6 }}>

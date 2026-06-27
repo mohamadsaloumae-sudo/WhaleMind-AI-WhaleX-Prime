@@ -28,8 +28,11 @@ async function request(method, path, body) {
   try { data = await res.json(); } catch { /* قد لا يكون JSON */ }
 
   if (!res.ok) {
-    const msg = data?.detail || data?.error || `خطأ ${res.status}`;
-    throw new Error(msg);
+    let msg = data?.detail || data?.error || `خطأ ${res.status}`;
+    // 422: detail قد يكون مصفوفة أخطاء أو كائن
+    if (Array.isArray(msg)) msg = msg.map((e) => e?.msg || JSON.stringify(e)).join(" · ");
+    else if (typeof msg === "object") msg = msg?.msg || JSON.stringify(msg);
+    throw new Error(String(msg));
   }
   return data;
 }
