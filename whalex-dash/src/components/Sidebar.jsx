@@ -17,7 +17,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="nav-list">
-        {PAGES.filter((p) => !p.adminOnly || isAdmin).map((p) => {
+        {PAGES.filter((p) => !p.adminOnly).map((p) => {
           const Icon = p.icon;
           return (
             <NavLink
