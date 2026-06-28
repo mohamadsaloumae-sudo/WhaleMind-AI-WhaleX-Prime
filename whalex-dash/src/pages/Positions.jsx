@@ -63,7 +63,7 @@ export default function Positions() {
 
       {/* ملخّص اليوم */}
       <div className="card-title" style={{ marginBottom: 10 }}>📆 {t("today")}</div>
-      <div className="grid grid-3" style={{ marginBottom: 20 }}>
+      <div className="grid grid-4" style={{ marginBottom: 20 }}>
         <div className="card stat">
           <span className="label">{t("winRate")}</span>
           <span className="value" style={{ color: "var(--brand)" }}>{winRate}%</span>
@@ -75,6 +75,10 @@ export default function Positions() {
         <div className="card stat">
           <span className="label">{t("losses")} ({losses})</span>
           <span className="value red">-{totalLoss.toFixed(1)}%</span>
+        </div>
+        <div className="card stat">
+          <span className="label">{t("net")}</span>
+          <span className="value" style={{ color: net >= 0 ? "var(--green)" : "var(--red)" }}>{net >= 0 ? "+" : ""}{net.toFixed(1)}%</span>
         </div>
       </div>
 

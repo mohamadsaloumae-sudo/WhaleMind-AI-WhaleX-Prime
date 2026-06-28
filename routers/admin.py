@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from db.database import get_session, User, Trade, Signal, Subscription
 from routers.auth import require_admin
 from pydantic import BaseModel
@@ -63,6 +63,42 @@ class SignalBody(BaseModel):
     tp3: Optional[float] = None
     leverage: Optional[float] = None
     strategies: str = ""
+
+@router.delete("/users/{user_id}")
+def delete_user(user_id: str, user=Depends(require_admin)):
+    """حذف مستخدم نهائياً (لا يمكن حذف الأدمن نفسه)"""
+    db = get_session()
+    try:
+        if user_id == user["sub"]:
+            raise HTTPException(400, "لا يمكنك حذف حسابك")
+        u = db.query(User).filter(User.id == user_id).first()
+        if not u:
+            raise HTTPException(404, "المستخدم غير موجود")
+        if u.tier == "admin":
+            raise HTTPException(403, "لا يمكن حذف حساب أدمن")
+        db.delete(u)
+        db.commit()
+        return {"status": "deleted", "user_id": user_id}
+    finally:
+        db.close()
+
+
+@router.post("/users/{user_id}/revoke-pro")
+def revoke_pro(user_id: str, user=Depends(require_admin)):
+    """إلغاء اشتراك PRO (إرجاع لـ free)"""
+    db = get_session()
+    try:
+        u = db.query(User).filter(User.id == user_id).first()
+        if not u:
+            raise HTTPException(404, "المستخدم غير موجود")
+        if u.tier == "admin":
+            raise HTTPException(403, "لا يمكن تعديل حساب أدمن")
+        u.tier = "free"
+        db.commit()
+        return {"status": "ok", "user_id": user_id, "tier": "free"}
+    finally:
+        db.close()
+
 
 @router.post("/signals/publish")
 async def publish_signal(body: SignalBody, user=Depends(require_admin)):
