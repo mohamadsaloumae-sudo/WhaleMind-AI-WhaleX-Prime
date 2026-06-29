@@ -176,6 +176,17 @@ class ClientRegistry:
 # Singleton
 registry = ClientRegistry()
 
+
+@router.get("/api/test-bell")
+async def test_bell():
+    """مسار اختبار مؤقّت — يبثّ إشعاراً تجريبياً للجرس"""
+    await registry.broadcast({
+        "event": "test",
+        "message": "🐋 اختبار الجرس — WhaleX Prime يعمل!",
+        "data": {},
+    })
+    return {"sent": True, "clients": len(registry._clients) if hasattr(registry, "_clients") else "?"}
+
 # ═══════════════════════════════════════════════════════════════
 # ─── PRICE BROADCASTER — مهمة مركزية واحدة ─────────────────────
 # ═══════════════════════════════════════════════════════════════

@@ -897,7 +897,10 @@ async def monitor_position(pos: Position):
                 return
 
     # ─ Tactical Exit Check ─
-    if now - pos.last_warned > 300:  # كل 5 دقائق max
+    # مراقبة ديناميكية: شديدة بعد TP1 (حماية الربح)، يقظة قبله (خروج وقائي).
+    #   الحلقة الضائعة كانت 300ث (نوم 5 دقائق) — الانقلاب يضرب الستوب قبل الفحص.
+    _tac_interval = 20 if pos.tp1_hit else 45
+    if now - pos.last_warned > _tac_interval:
         tactical, reason = await should_tactical_exit(pos, price, ob, ls_change)
         if tactical:
             pos.last_warned = now
