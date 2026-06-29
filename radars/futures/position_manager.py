@@ -482,9 +482,9 @@ async def is_real_reversal(symbol: str, is_long: bool, opened_at: float = 0) -> 
                 # SHORT: مرن عند القمة (الهبوط بدأ، مكانه المثالي — نصبر على الارتداد البسيط)،
                 #   يقظ عند القاع (هبط كثيراً، قد يرتدّ — نحمي الربح)
                 if _range_pos > 0.60:
-                    _thr = 0.45
+                    _thr = 0.28
                 elif _range_pos > 0.30:
-                    _thr = 0.30
+                    _thr = 0.22
                 else:
                     _thr = 0.15
 
