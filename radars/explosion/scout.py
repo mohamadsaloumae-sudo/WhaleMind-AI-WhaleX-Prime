@@ -303,6 +303,18 @@ def _build_signal(symbol: str, price: float, candles: list, peak: float,
     rr2 = abs(tp2 - price) / risk if risk > 0 else 0
     rr3 = abs(tp3 - price) / risk if risk > 0 else 0
     drop = (peak - price) / peak * 100 if peak > 0 else 0
+    # موقع السعر في النطاق (للتسجيل والتحليل — كان فارغاً 0.0)
+    try:
+        _rng_pos = range_position(candles, 20)
+    except Exception:
+        _rng_pos = 0.0
+    # نسبة حجم آخر شمعة لمتوسط 20 (للتسجيل)
+    try:
+        _vols = [c.volume for c in candles[-20:] if getattr(c, "volume", 0)]
+        _avg_vol = sum(_vols) / len(_vols) if _vols else 0
+        _vol_ratio = (candles[-1].volume / _avg_vol) if _avg_vol > 0 else 0.0
+    except Exception:
+        _vol_ratio = 0.0
     conf = min(92.0, 72.0 + len(ob_signals) * 5.0)
     strats = ["🔭 Explosion Scout — انهيار OB"] + ob_signals + [f"هبوط من الذروة: -{drop:.1f}%"]
     return Signal(
@@ -313,7 +325,7 @@ def _build_signal(symbol: str, price: float, candles: list, peak: float,
         leverage=3.0, strategies="\n".join(strats), radar_type="futures", tier="PH",
         rr_tp1=round(rr1, 2), rr_tp2=round(rr2, 2), rr_tp3=round(rr3, 2),
         strategy_count=len(strats), btc_trend="NEUTRAL",
-        rsi=rsi_v,
+        rsi=rsi_v, range_pos=round(_rng_pos, 4), volume_ratio=round(_vol_ratio, 2),
     )
 
 
