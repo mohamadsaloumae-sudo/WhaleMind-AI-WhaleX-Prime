@@ -44,8 +44,17 @@ def grant_pro(user_id: str, user=Depends(require_admin)):
             from fastapi import HTTPException
             raise HTTPException(404, "User not found")
         u.tier = "pro"
+        # ننشئ سجلّ اشتراك (30 يوماً) — بدونه البوّابة ترى is_active=false ولا تفتح الصفحات
+        from datetime import datetime, timedelta
+        from db.database import Subscription
+        expires = datetime.utcnow() + timedelta(days=30)
+        sub = Subscription(
+            user_id=u.id, plan="month", tx_hash=f"admin-grant-{u.id}-{int(datetime.utcnow().timestamp())}",
+            amount_paid=0.0, expires_at=expires,
+        )
+        db.add(sub)
         db.commit()
-        return {"status": "ok", "user_id": user_id, "tier": "pro"}
+        return {"status": "ok", "user_id": user_id, "tier": "pro", "expires_at": str(expires)}
     finally:
         db.close()
 

@@ -243,10 +243,10 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
         #   (peak_price = قمّة الرادار المخزّنة، أدقّ من period_high)
         _cur = closes[-1] if closes else 0
         _drop = (peak_price - _cur) / peak_price * 100 if peak_price > 0 else 0
-        if _drop < 3.0:
+        if _drop < 2.0:
             hawk_ok = False
             hawk_block_reason = f"عند القمّة ({_drop:.1f}% — لم تؤكّد الانعكاس)"
-        elif _drop > 10.0:
+        elif _drop > 14.0:
             hawk_ok = False
             hawk_block_reason = f"هبطت كثيراً ({_drop:.1f}% — شورت متأخّر)"
         # مساحة الهبوط: لا شورت إن كان السعر ملاصقاً للدعم (قاع تصحيح، الارتداد محتمل).
@@ -306,8 +306,10 @@ def _build_signal(symbol: str, price: float, candles: list, peak: float,
     # موقع السعر في النطاق (للتسجيل والتحليل — كان فارغاً 0.0)
     try:
         _rng_pos = range_position(candles, 20)
-    except Exception:
+        log.info("📊 range_pos %s = %.3f (شموع=%d)", symbol, _rng_pos, len(candles) if candles else 0)
+    except Exception as _e_rp:
         _rng_pos = 0.0
+        log.warning("⚠️ range_pos فشل %s: %s (شموع=%d)", symbol, _e_rp, len(candles) if candles else 0)
     # نسبة حجم آخر شمعة لمتوسط 20 (للتسجيل)
     try:
         _vols = [c.volume for c in candles[-20:] if getattr(c, "volume", 0)]
