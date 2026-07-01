@@ -1580,6 +1580,19 @@ async def guardian_agent(
 
             oracle_veto = (sig.grade == "C")
 
+            # فحص التعارض: صفقة مفتوحة بعكس الاتجاه على نفس الرمز (من أي رادار)
+            if not oracle_veto:
+                try:
+                    from radars.futures.position_manager import ACTIVE
+                    for _pos in ACTIVE.values():
+                        if _pos.symbol == sig.symbol and _pos.status == "open" and _pos.direction != sig.direction:
+                            log.warning("Guardian central REJECT (conflict): %s %s — صفقة %s مفتوحة بالفعل",
+                                        sig.symbol, sig.direction, _pos.direction)
+                            oracle_veto = True
+                            break
+                except Exception as _e:
+                    log.debug("conflict check %s: %s", sig.symbol, _e)
+
             if oracle_context.get("market_crash_warning"):
                 oracle_veto = True
                 log.warning("Guardian: Oracle crash warning — %s rejected", sig.symbol)

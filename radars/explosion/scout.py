@@ -247,8 +247,16 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
             hawk_ok = False
             hawk_block_reason = f"عند القمّة ({_drop:.1f}% — لم تؤكّد الانعكاس)"
         elif _drop > 14.0:
-            hawk_ok = False
-            hawk_block_reason = f"هبطت كثيراً ({_drop:.1f}% — شورت متأخّر)"
+            # انهيار عميق: لا نرفض تلقائياً — نتحقق أولاً من قوة أدلة الأوردر بوك.
+            # إن كان البيع مستمرّاً بقوة حقيقية (تآكل مشترين حقيقي + جدار/ضغط بيع)، الشورت لا يزال صالحاً.
+            _strong_ob = ("تآكل_المشترين" in signals) and (
+                ("جدار_بيع_ضخم" in signals) or ("ضغط_بيع_عام" in signals)
+            ) and len(signals) >= 3
+            if not _strong_ob:
+                hawk_ok = False
+                hawk_block_reason = f"هبطت كثيراً ({_drop:.1f}% — شورت متأخّر، لا دليل OB قوي على استمرار البيع)"
+            else:
+                hawk_block_reason = f"هبطت {_drop:.1f}% لكن دليل OB قوي يؤكّد استمرار الانهيار — مقبول"
         # مساحة الهبوط: لا شورت إن كان السعر ملاصقاً للدعم (قاع تصحيح، الارتداد محتمل).
         #   support_distance_pct موجب = فوق الدعم. نطلب مسافة ≥3% (مساحة هبوط أمام السعر).
         elif hawk_ok and 0 <= ms.support_distance_pct < 3.0:
@@ -262,12 +270,14 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
     # يراقب انهيار الشراء/السيولة في الأوردر بوك. المقبض يحدد كم علامة يطلب.
     has_imbalance = "اختلال_قرب_السعر" in signals
     has_erosion = "تآكل_المشترين" in signals      # إلزامي: انهيار طلب حقيقي لا جدار وهمي
+    has_pressure_wall = ("ضغط_بيع_عام" in signals) and ("جدار_بيع_ضخم" in signals)  # بديل للاختلال: ضغط+جدار معاً
+    has_imbalance_or_alt = has_imbalance or has_pressure_wall
     if RADAR_SENSITIVITY >= 70:
-        radar_ok = has_imbalance and len(signals) >= 1      # تساهل
+        radar_ok = has_imbalance_or_alt and len(signals) >= 1      # تساهل
     elif RADAR_SENSITIVITY >= 40:
-        radar_ok = has_imbalance and len(signals) >= 2   # وسط: اختلال + إشارة ثانية (تآكل مفضّل لا إلزامي)
+        radar_ok = has_imbalance_or_alt and len(signals) >= 2   # وسط: اختلال أو بديله + إشارة ثانية
     else:
-        radar_ok = has_imbalance and has_erosion and len(signals) >= 3   # تشدد + تآكل إلزامي
+        radar_ok = has_imbalance_or_alt and has_erosion and len(signals) >= 3   # تشدد + تآكل إلزامي
 
     # القرار اللحظي: انعكاس OB مؤكّد (radar_ok) + قرب القمة (hawk) + لا فخّ (safe_short) + RSI.
     # لا شموع 4h متأخّرة — دخول فوري عند انقلاب الأوردر بوك الحقيقي (رؤية التداول اللحظي).
@@ -278,7 +288,7 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
         if not _sw.endswith("USDT"): _sw+="USDT"
         if any(x["side"]=="bid" for x in get_signals(_sw).get("spoof",[])): _ns=False
     except Exception: pass
-    collapse = radar_ok and hawk_ok and ob_safe_short and r > 45 and _ns
+    collapse = radar_ok and hawk_ok and ob_safe_short and r > 35 and _ns
 
     if radar_ok and not collapse:
         log.debug("🦅 %s: OB إشارات لكن مُنع (hawk=%s safe_short=%s)", symbol, hawk_ok, ob_safe_short)
