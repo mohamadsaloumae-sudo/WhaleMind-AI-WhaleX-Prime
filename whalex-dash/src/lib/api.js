@@ -61,6 +61,12 @@ export const binance = {
   settings:   ()     => api.get("/api/binance/settings"),
 };
 
+export const livePositions = {
+  radar:   () => api.get("/api/live/radar-positions"),
+  binance: () => api.get("/api/live/binance-positions"),
+  close:   (symbol) => api.post("/api/binance/manual/close", { symbol }),
+};
+
 export const signals = {
   all:     () => api.get("/api/signals/all"),
   history: () => api.get("/api/signals/history"),
