@@ -61,6 +61,12 @@ export const binance = {
   settings:   ()     => api.get("/api/binance/settings"),
 };
 
+export const push = {
+  publicKey: () => api.get("/api/push/public-key"),
+  subscribe: (subscription) => api.post("/api/push/subscribe", { subscription }),
+  unsubscribe: (subscription) => api.post("/api/push/unsubscribe", { subscription }),
+};
+
 export const livePositions = {
   radar:   () => api.get("/api/live/radar-positions"),
   binance: () => api.get("/api/live/binance-positions"),

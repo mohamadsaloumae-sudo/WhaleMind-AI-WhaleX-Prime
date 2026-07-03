@@ -20,6 +20,7 @@ from routers.ai import router as ai_router
 from routers.prices import router as prices_router
 from routers.ws import router as ws_router
 from routers.live_positions import router as live_router
+from routers.push import router as push_router
 from services.telegram import TG
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-8s %(name)s - %(message)s")
@@ -72,6 +73,7 @@ app.include_router(signals_router)
 app.include_router(trade_router)
 app.include_router(wallet_router)
 app.include_router(live_router)
+app.include_router(push_router)
 app.include_router(sub_router)
 app.include_router(admin_router)
 app.include_router(tg_router)

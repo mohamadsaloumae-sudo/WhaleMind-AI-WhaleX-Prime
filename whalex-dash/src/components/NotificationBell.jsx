@@ -16,7 +16,7 @@ export default function NotificationBell() {
 
     function connect() {
       if (!alive) return;
-      ws = new WebSocket(`${proto}://${location.host}/ws`);
+      ws = new WebSocket(`${proto}://${location.host}/ws/live`);
       wsRef.current = ws;
       ws.onmessage = (e) => {
         try {

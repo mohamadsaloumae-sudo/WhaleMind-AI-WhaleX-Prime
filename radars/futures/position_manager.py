@@ -685,6 +685,11 @@ async def notify(user_id: str, msg: str, event_type: str = "alert", data: dict =
         await registry.broadcast({"event": event_type, "user_id": user_id, "message": msg, "data": data or {}})
     except Exception as e:
         log.debug("notify ws error: %s", e)
+    try:
+        from routers.push import send_push_to_all
+        await send_push_to_all("WhaleX Prime", msg)
+    except Exception as _pe:
+        log.debug("push notify error: %s", _pe)
 
 # ═══════════════════════════════════════════════════════════
 #  العيون عند الإغلاق: نغلق أم نتنفّس؟ (يخدم بوّابتَي SL و HARD_STOP)

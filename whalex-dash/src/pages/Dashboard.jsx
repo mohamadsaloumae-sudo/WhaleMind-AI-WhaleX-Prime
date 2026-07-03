@@ -32,14 +32,19 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    let ws;
-    try {
-      const proto = location.protocol === "https:" ? "wss" : "ws";
-      ws = new WebSocket(`${proto}://${location.host}/ws`);
-      ws.onopen = () => setLive(true);
-      ws.onclose = () => setLive(false);
-    } catch { /* تجاهل */ }
-    return () => ws && ws.close();
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    let ws, alive = true, retry;
+    function connect() {
+      if (!alive) return;
+      try {
+        ws = new WebSocket(`${proto}://${location.host}/ws/live`);
+        ws.onopen = () => { if (alive) setLive(true); };
+        ws.onclose = () => { if (alive) { setLive(false); retry = setTimeout(connect, 5000); } };
+        ws.onerror = () => { try { ws.close(); } catch { /* */ } };
+      } catch { /* */ }
+    }
+    connect();
+    return () => { alive = false; clearTimeout(retry); try { ws && ws.close(); } catch { /* */ } };
   }, []);
 
   return (
