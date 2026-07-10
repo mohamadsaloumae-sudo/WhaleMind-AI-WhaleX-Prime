@@ -66,6 +66,8 @@ async def radar_positions():
                 "pnl_pct": round(pnl, 2), "leverage": leverage,
                 "tp1_hit": d.get("tp1_hit", False),
                 "opened_at": d.get("opened_at", 0),
+                "radar_type": d.get("radar_type", "futures"),
+                "tier": d.get("tier", ""),
             })
         except Exception as e:
             log.debug("radar parse: %s", e)

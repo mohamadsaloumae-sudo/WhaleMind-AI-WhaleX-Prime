@@ -157,7 +157,8 @@ def get_credentials(user_id: str) -> Optional[dict]:
             "auto_trade_enabled": bool(row["auto_trade_enabled"]),
             "trade_amount_usdt": row["trade_amount_usdt"],
             "max_open_positions": row["max_open_positions"],
-            "allowed_grades": (row["allowed_grades"] or "A,S").split(","),
+            "allowed_grades": (row["allowed_grades"] or "A,S"),
+            "leverage": row["leverage"] if "leverage" in row.keys() else None,
             "account_type": row["account_type"],
             "disabled_reason": row["disabled_reason"],
         }
@@ -185,7 +186,8 @@ def update_auto_trade_settings(
     enabled: Optional[bool] = None,
     trade_amount: Optional[float] = None,
     max_positions: Optional[int] = None,
-    allowed_grades: Optional[str] = None
+    allowed_grades: Optional[str] = None,
+    leverage: Optional[int] = None
 ) -> bool:
     """يُحدّث إعدادات Auto-Trade"""
     try:
@@ -204,6 +206,9 @@ def update_auto_trade_settings(
         if allowed_grades:
             fields.append("allowed_grades=?")
             values.append(allowed_grades)
+        if leverage is not None:
+            fields.append("leverage=?")
+            values.append(int(leverage))
         
         if not fields:
             conn.close()
@@ -364,6 +369,39 @@ def get_open_positions(user_id: str) -> list:
 # ─── TRADE EXECUTION (سيُستخدم لاحقاً) ─────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
+_SYMBOL_FILTERS: dict = {}
+
+def _get_symbol_filters(client, symbol: str) -> dict:
+    """يجلب دقة السعر والكمية للعملة من Binance (مع cache)."""
+    if symbol in _SYMBOL_FILTERS:
+        return _SYMBOL_FILTERS[symbol]
+    try:
+        info = client.futures_exchange_info()
+        for s in info["symbols"]:
+            if s["symbol"] == symbol:
+                f = {
+                    "price_prec": int(s["pricePrecision"]),
+                    "qty_prec": int(s["quantityPrecision"]),
+                }
+                _SYMBOL_FILTERS[symbol] = f
+                return f
+    except Exception as e:
+        log.warning("exchange_info %s فشل: %s", symbol, e)
+    return {"price_prec": 2, "qty_prec": 3}
+
+
+def _fmt_price(client, symbol: str, price: float) -> float:
+    """يضبط السعر لدقة العملة."""
+    p = _get_symbol_filters(client, symbol)["price_prec"]
+    return round(float(price), p)
+
+
+def _fmt_qty(client, symbol: str, qty: float) -> float:
+    """يضبط الكمية لدقة العملة."""
+    q = _get_symbol_filters(client, symbol)["qty_prec"]
+    return round(float(qty), q)
+
+
 async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
     """
     ينفّذ إشارة على حساب المستخدم
@@ -390,10 +428,12 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
     if signal.get("grade") not in creds["allowed_grades"]:
         return {"success": False, "error": f"grade {signal.get('grade')} not allowed"}
     
-    # تحقق max positions
-    open_count = len(get_open_positions(user_id))
-    if open_count >= creds["max_open_positions"]:
-        return {"success": False, "error": f"max positions reached ({open_count})"}
+    # تحقق max positions + منع التكرار على نفس العملة
+    _open = get_open_positions(user_id)
+    if len(_open) >= creds["max_open_positions"]:
+        return {"success": False, "error": f"max positions reached ({len(_open)})"}
+    if any(p.get("symbol") == signal["symbol"] for p in _open):
+        return {"success": False, "error": f"position already open for {signal['symbol']}"}
     
     client = get_client(user_id)
     if not client:
@@ -402,16 +442,34 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
     symbol = signal["symbol"]
     direction = signal["direction"]
     side = "BUY" if direction == "LONG" else "SELL"
-    leverage = signal.get("leverage", 5)
     trade_usdt = creds["trade_amount_usdt"]
-    
+
+    # الرافعة: اختيار المستخدم إن وُجد، وإلا رافعة الإشارة (أوتو)
+    _user_lev = creds.get("leverage")
+    leverage = int(_user_lev) if _user_lev else 20
+
     try:
-        # 1. ضبط الرافعة
+        # 1. فحص أقصى رافعة مسموحة للعملة، وتقييد اختيار المستخدم ضمنها
+        try:
+            _br = client.futures_leverage_bracket(symbol=symbol)
+            _max_lev = int(_br[0]["brackets"][0]["initialLeverage"])
+            if leverage > _max_lev:
+                log.info("رافعة %s: طُلب %dx، أقصى %dx → نستخدم %dx", symbol, leverage, _max_lev, _max_lev)
+                leverage = _max_lev
+        except Exception as _le:
+            log.warning("leverage_bracket %s فشل: %s — نكمل %dx", symbol, _le, leverage)
+
+        # 2. فحص الحد الأدنى (Binance: notional ≥ 5 USDT)
+        _notional = trade_usdt * leverage
+        if _notional < 5.0:
+            return {"success": False, "error": f"notional {_notional:.2f}$ < 5$ (زد المبلغ أو الرافعة)"}
+
+        # 3. ضبط الرافعة
         client.futures_change_leverage(symbol=symbol, leverage=leverage)
-        
-        # 2. حساب الكمية
+
+        # 4. حساب الكمية (بدقة العملة)
         entry = signal["entry"]
-        quantity = round((trade_usdt * leverage) / entry, 3)
+        quantity = _fmt_qty(client, symbol, (trade_usdt * leverage) / entry)
         
         # 3. فتح الصفقة (Market order)
         order = client.futures_create_order(
@@ -432,27 +490,14 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
                 symbol=symbol,
                 side=sl_side,
                 type="STOP_MARKET",
-                stopPrice=signal["sl"],
+                stopPrice=_fmt_price(client, symbol, signal["sl"]),
                 closePosition=True,
             )
         except Exception as e:
             log.warning("SL placement failed: %s", e)
         
-        # 5. وضع TP1, TP2, TP3 (33% كل واحد)
-        tp_qty = round(quantity / 3, 3)
-        for tp_price in [signal.get("tp1"), signal.get("tp2"), signal.get("tp3")]:
-            if not tp_price:
-                continue
-            try:
-                client.futures_create_order(
-                    symbol=symbol,
-                    side=sl_side,
-                    type="TAKE_PROFIT_MARKET",
-                    stopPrice=tp_price,
-                    quantity=tp_qty,
-                )
-            except Exception as e:
-                log.warning("TP placement failed: %s", e)
+        # 5. لا أوامر TP ثابتة — مدير الصفقات يدير الأهداف والخروج بذكاء
+        #    (SL الأوّلي فوق يبقى كحماية طوارئ، والمدير يحدّثه لحظياً)
         
         return {
             "success": True,

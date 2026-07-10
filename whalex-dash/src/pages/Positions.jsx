@@ -91,32 +91,31 @@ export default function Positions() {
           <div style={{ display: "grid", gap: 10 }}>
             {history.map((x, i) => (
               <div key={i} style={{
-                display: "flex", justifyContent: "space-between", alignItems: "center",
                 padding: "12px 14px", background: "var(--bg-2)", borderRadius: "var(--radius-sm)",
                 borderInlineStart: `3px solid ${x.is_win ? "var(--green)" : "var(--red)"}`,
               }}>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <strong>{x.symbol}</strong>
-                    <span className={`badge ${x.direction === "LONG" ? "long" : "short"}`}>{x.direction}</span>
-                    {x.tier === "PH" && <span style={{ fontSize: 11, color: "var(--accent)" }}>🎯 Peak Hunter</span>}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <strong style={{ whiteSpace: "nowrap" }}>{x.symbol}</strong>
+                    <span className={`badge ${x.direction === "LONG" ? "long" : "short"}`} style={{ flexShrink: 0 }}>{x.direction}</span>
+                    <span style={{ fontSize: 11, color: "var(--accent)", whiteSpace: "nowrap" }}>{x.tier === "PH" ? (x.direction === "LONG" ? "📈 WhaleX Long" : "🎯 WhaleX Short") : "⚡ WhaleX Predator"}</span>
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--txt-3)", marginTop: 3 }}>
-                    {x.closed_at ? new Date(x.closed_at * 1000).toLocaleString(lang === "ar" ? "ar-AE" : "en-US", { timeZone: "Asia/Dubai", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
-                  </div>
-                </div>
-                <div style={{ textAlign: "center" }}>
                   <div style={{
-                    fontSize: 18, fontWeight: 800,
+                    fontSize: 16, fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0,
                     color: x.is_win ? "var(--green)" : "var(--red)",
                     display: "flex", alignItems: "center", gap: 4,
                   }}>
-                    {x.is_win ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                    {x.is_win ? <TrendingUp size={15} /> : <TrendingDown size={15} />}
                     {x.pnl_pct >= 0 ? "+" : ""}{Number(x.pnl_pct).toFixed(2)}%
                   </div>
-                  <div style={{ fontSize: 11, color: x.is_win ? "var(--green)" : "var(--red)" }}>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 5 }}>
+                  <span style={{ fontSize: 12, color: "var(--txt-3)" }}>
+                    {x.closed_at ? new Date(x.closed_at * 1000).toLocaleString(lang === "ar" ? "ar-AE" : "en-US", { timeZone: "Asia/Dubai", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: x.is_win ? "var(--green)" : "var(--red)" }}>
                     {x.is_win ? t("win") : t("loss")}
-                  </div>
+                  </span>
                 </div>
               </div>
             ))}

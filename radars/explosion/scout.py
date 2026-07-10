@@ -222,7 +222,18 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
         from quant_engine.order_book_analyzer import analyze_order_book
         _a = await analyze_order_book(symbol, check_spoofing=True)
         if _a is not None:
+            # قراءة الحكم الكامل للأوردر بوك (لا الحقل الواحد):
+            #   ضغط شراء مسيطر / جدار بيع وهمي (spoofing على ask) = خدعة → لا شورت
+            _pdir = getattr(_a, "pressure_direction", "NEUTRAL")
+            _psc = getattr(_a, "pressure_score", 0.0)
+            _spf = getattr(_a, "spoofing_side", "")
             ob_safe_short = _a.safe_for_short
+            if _pdir == "LONG":
+                ob_safe_short = False
+            if _spf == "ask":
+                ob_safe_short = False
+            log.info("🔬 %s OB: safe_short=%s | ضغط=%s(%.2f) | spoof=%s",
+                     symbol, ob_safe_short, _pdir, _psc, _spf or "لا")
     except Exception as _e:
         log.debug("ob_analyzer %s: %s", symbol, _e)
         ob_safe_short = True
@@ -278,10 +289,15 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
         if not _sw.endswith("USDT"): _sw+="USDT"
         if any(x["side"]=="bid" for x in get_signals(_sw).get("spoof",[])): _ns=False
     except Exception: pass
-    collapse = radar_ok and hawk_ok and ob_safe_short and r > 45 and _ns
+    # 🌊 وعي الترند الحي: لا ضغط بيع عام ولا تآكل مشترين = المشترون أحياء → تصحيح لا انعكاس
+    _buyers_alive = ("ضغط_بيع_عام" not in signals) and (not has_erosion)
+    if _buyers_alive and radar_ok:
+        log.info("🌊 %s: المشترون أحياء (لا ضغط بيع + لا تآكل) — تصحيح في ترند حي، لا شورت", symbol)
+    collapse = radar_ok and hawk_ok and ob_safe_short and r > 45 and _ns and not _buyers_alive
 
     if radar_ok and not collapse:
-        log.debug("🦅 %s: OB إشارات لكن مُنع (hawk=%s safe_short=%s)", symbol, hawk_ok, ob_safe_short)
+        log.info("🦅 %s مُنع: hawk=%s(%s) safe_short=%s rsi=%.0f spoof_ok=%s",
+                 symbol, hawk_ok, hawk_block_reason or "-", ob_safe_short, r, _ns)
     return {
         "collapse": collapse, "signals": signals, "deep": deep,
         "rsi": r, "stoch_k": sk, "stoch_d": sd,
@@ -322,7 +338,7 @@ async def _send_alert_once(symbol: str, res: dict, peak: float):
     price = res["price"]
     drop = (peak - price) / peak * 100 if peak > 0 else 0
     msg = (
-        f"🎯 <b>PEAK HUNTER</b> — Watch Started\n"
+        f"🎯 <b>WhaleX Short</b> — Watch Started\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"📡 <code>{symbol}</code>   ▼ {drop:.0f}% from peak\n\n"
         f"Price   <code>{price:.6g}</code>\n"
@@ -393,7 +409,7 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
     f_rsi = _filter_line("RSI", f"{col['rsi']:.0f}", col['rsi'] >= 58)
 
     msg = (
-        f"🎯 <b>PEAK HUNTER</b> — 🔻 SHORT\n"
+        f"🎯 <b>WhaleX Short</b> — 🔻 SHORT\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"⚡ <code>{symbol}</code>   ▼ {drop:.0f}% from peak\n\n"
         f"Entry   <code>{sig.entry:.6g}</code>\n"
@@ -422,6 +438,12 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
             log.error("scout → manager error: %s", e)
 
     if opened_ok:
+        # ✅ التنفيذ الحقيقي (Binance) — نفس نقطة الفتح الورقي
+        try:
+            from services.auto_trade_engine import on_signal_approved
+            asyncio.create_task(on_signal_approved(sig))
+        except Exception as _ae:
+            log.error("auto_trade (PH) error: %s", _ae, exc_info=True)
         try:
             from services.telegram import send_message
             from core.config import get_settings
@@ -484,13 +506,31 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
             conn = sqlite3.connect(DB_PATH)
             # نراقب كل العملات إلا التي في cooldown (signaled حديثاً)
             rows = conn.execute("""
-                SELECT symbol, peak_price, alert_sent, signal_sent, last_check, status
+                SELECT symbol, peak_price, alert_sent, signal_sent, last_check, status, gain_pct
                 FROM watchlist
             """).fetchall()
             conn.close()
 
-            for symbol, peak, alert_sent, signal_sent, last_check, status in rows:
+            for symbol, peak, alert_sent, signal_sent, last_check, status, gain_pct in rows:
                 try:
+                    # ─ إخراج الجثث (فحص رخيص قبل أي مرحلة): ─
+                    #   عملة استهلكت هبوطها معظم صعودها (≥85% من gain) = انتهت موجتها.
+                    #   تُحذف نهائياً؛ إن انفجرت من جديد يعيدها الفرز بقمة جديدة تلقائياً.
+                    try:
+                        _k1 = await fetch_klines_async(symbol, "1m", 1)
+                        _px = _k1[-1].close if _k1 else 0
+                        if _px and peak and peak > 0 and gain_pct and gain_pct > 0:
+                            _dr = (peak - _px) / peak * 100
+                            if _dr >= gain_pct * 0.85:
+                                conn = sqlite3.connect(DB_PATH)
+                                conn.execute("DELETE FROM watchlist WHERE symbol=?", (symbol,))
+                                conn.commit(); conn.close()
+                                log.info("🪦 %s خرجت من المراقبة: هبطت %.1f%% من قمتها (صعودها كان %.1f%%) — موجتها انتهت",
+                                         symbol, _dr, gain_pct)
+                                continue
+                    except Exception as _ev:
+                        log.debug("evict check %s: %s", symbol, _ev)
+
                     # العملة في cooldown بعد إشارة؟ (لا تموت — تعود بعد 10د)
                     if status == "signaled":
                         if now - (last_check or 0) < SIGNAL_COOLDOWN:

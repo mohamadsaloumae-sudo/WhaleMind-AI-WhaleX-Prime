@@ -19,6 +19,9 @@ class User(Base):
     created_at   = Column(DateTime, default=datetime.utcnow)
     is_active    = Column(Boolean, default=True)
     tg_chat_id   = Column(String, nullable=True)
+    tg_link_code = Column(String, nullable=True)
+    reset_code   = Column(String, nullable=True)
+    reset_expires= Column(Integer, nullable=True)
 
 class Trade(Base):
     __tablename__ = "trades"

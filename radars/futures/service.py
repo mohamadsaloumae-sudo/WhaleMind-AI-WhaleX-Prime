@@ -385,8 +385,7 @@ async def orchestrate_approved(
 
             LAST_SIGNALS[sig.symbol] = {"ts": now, "rank": _rank}
 
-            # حفظ في DB
-            await save_signal(sig)
+            # حفظ الظل للتعلم فقط — عرض الميني آب انتقل بعد الفلاتر
             await shadow_record(sig)
 
             # Claude Approval — معطّلة مؤقتاً (لا استدعاء API حتى يستقرّ النظام).
@@ -401,11 +400,7 @@ async def orchestrate_approved(
             # معتمدة - توزيع شامل (المدير يُستدعى داخل _broadcast بعد نجاح كل الفلاتر)
             asyncio.create_task(_broadcast_telegram(sig, broadcast_fn, position_manager_fn))
 
-            try:
-                from services.auto_trade_engine import on_signal_approved
-                asyncio.create_task(on_signal_approved(sig))
-            except Exception as e:
-                log.debug("auto_trade error: %s", e)
+            # التنفيذ الحقيقي انتقل إلى _broadcast_telegram (بعد كل الفلاتر)
 
             approved_queue.task_done()
         except asyncio.TimeoutError:
@@ -506,6 +501,15 @@ async def _broadcast_telegram(sig: Signal, broadcast_fn, position_manager_fn=Non
 
         sig_dict["claude_approved"] = True
         await TG.broadcast_signal(sig_dict)
+        # Push للهاتف — إشارات A/S فقط (نفس فلتر القناة)
+        try:
+            from routers.push import send_push_to_all
+            _arrow = "🟢" if sig.direction == "LONG" else "🔴"
+            _radar_name = {"futures": "Predator", "explosion": "Peak Hunter"}.get(sig.radar_type, "Radar")
+            _push_body = f"{_arrow} {sig.direction} {sig.symbol} · {_radar_name} · دخول {sig.entry:.6g}"
+            await send_push_to_all(f"إشارة {sig.grade} جديدة", _push_body)
+        except Exception as _pe:
+            log.debug("signal push error: %s", _pe)
         # WebSocket broadcast للـ Mini App
         if broadcast_fn:
             await broadcast_fn({"event": "signal", "data": sig_dict})
@@ -537,10 +541,20 @@ async def _broadcast_telegram(sig: Signal, broadcast_fn, position_manager_fn=Non
         except Exception as _e:
             log.debug("ob entry %s: %s", sig.symbol, _e)
 
+        # ✅ الحفظ للميني آب — فقط بعد اجتياز كل الفلاتر (ما يُعرض = ما يُفتح)
+        await save_signal(sig)
+
         # ✅ المدير يُفتح فقط بعد نجاح كل الفلاتر (Hawk + Profile + Claude + الجدار)
         if position_manager_fn:
             asyncio.create_task(position_manager_fn(sig))
             log.info("📈 Position manager notified: %s %s (اجتاز كل الفلاتر)", sig.symbol, sig.direction)
+
+        # ✅ التنفيذ الحقيقي (Binance) — بعد كل الفلاتر أيضاً، من نفس النقطة
+        try:
+            from services.auto_trade_engine import on_signal_approved
+            asyncio.create_task(on_signal_approved(sig))
+        except Exception as e:
+            log.error("auto_trade error: %s", e, exc_info=True)
     except Exception as e:
         log.error("Telegram broadcast error: %s", e)
 

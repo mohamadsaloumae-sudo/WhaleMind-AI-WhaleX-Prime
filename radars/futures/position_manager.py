@@ -78,6 +78,10 @@ class Position:
     last_warned: int = 0
     # Force Close Lock — لا AI بعد قرار المستخدم
     force_close_lock: bool = False
+    # ─ صفقة حقيقية على Binance (المدير ينفّذ قراراته فعلياً) ─
+    is_real: bool = False
+    binance_user_id: str = ""
+    binance_sl_order_id: str = ""
     # FVG zone من الإشارة
     fvg_zone: Optional[float] = None
     # نوع الرادار (futures للرئيسي وبيك هنتر، يُميَّز بـ tier)
@@ -185,7 +189,25 @@ def _pos_db_init():
     conn.close()
 
 
+LIVE_POS: dict = {}   # id -> Position (مراجع الصفقات الحيّة)
+
+def mark_position_real(symbol: str, direction: str, user_id: str) -> bool:
+    """يربط أحدث صفقة ورقية مفتوحة مطابقة بالتنفيذ الحقيقي (سجل واحد)."""
+    try:
+        _c = [p for p in LIVE_POS.values() if p.symbol==symbol
+              and p.direction==direction and p.status=="open" and not p.is_real]
+        if not _c: return False
+        p = max(_c, key=lambda x: x.opened_at)
+        p.is_real = True; p.binance_user_id = user_id
+        _pos_save(p)
+        log.info("🔗 ربط حقيقي: %s %s ← id=%s", symbol, direction, p.id)
+        return True
+    except Exception as e:
+        log.error("mark_position_real: %s", e); return False
+
+
 def _pos_save(pos):
+    LIVE_POS[pos.id] = pos
     """Save/update a position in DB."""
     try:
         conn = _sqlite.connect(POS_DB)
@@ -203,6 +225,7 @@ def _pos_delete(pos_id):
     """Delete a position from DB."""
     try:
         conn = _sqlite.connect(POS_DB)
+        LIVE_POS.pop(pos_id, None)
         conn.execute("DELETE FROM active_positions WHERE id=?", (pos_id,))
         conn.commit()
         conn.close()
@@ -222,7 +245,9 @@ def _pos_load_all():
         for (data,) in rows:
             d = _json.loads(data)
             d = {k: v for k, v in d.items() if k in valid}
-            out.append(Position(**d))
+            _rp = Position(**d)
+            LIVE_POS[_rp.id] = _rp
+            out.append(_rp)
         return out
     except Exception as e:
         log.error("pos_load_all error: %s", e)
@@ -236,6 +261,19 @@ async def add_position(pos: Position):
     log.info("Position opened: %s %s @%.6f lev=%.0fx", pos.symbol, pos.direction, pos.entry, pos.leverage)
     src = "Peak Hunter" if pos.radar_type == "futures" and getattr(pos, "tier", "") == "PH" else "Radar"
     msg = (
+        f"🟢 <b>فتح صفقة</b> · {pos.direction} · {pos.leverage:.0f}x\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"<code>{pos.symbol}</code>\n\n"
+        f"الدخول   <code>{pos.entry:.6g}</code>\n"
+        f"الوقف    <code>{pos.sl:.6g}</code>\n"
+        f"الهدف 1  <code>{pos.tp1:.6g}</code>\n"
+        f"الهدف 2  <code>{pos.tp2:.6g}</code>\n"
+        f"الهدف 3  <code>{pos.tp3:.6g}</code>\n\n"
+        f"الدرجة <b>{pos.grade}</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"📡 المراقبة جارية · إدارة تلقائية"
+    )
+    msg_en = (
         f"🟢 <b>POSITION OPENED</b> · {pos.direction} · {pos.leverage:.0f}x\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"<code>{pos.symbol}</code>\n\n"
@@ -252,7 +290,7 @@ async def add_position(pos: Position):
     is_peak_hunter = (pos.radar_type == "futures" and getattr(pos, "tier", "") == "PH")
     if not is_peak_hunter:
         try:
-            await notify(pos.user_id, msg)
+            await notify(pos.user_id, msg, msg_en=msg_en)
         except Exception as e:
             log.debug("open notify error: %s", e)
 
@@ -324,7 +362,12 @@ async def check_pyramiding(pos: Position, price: float) -> bool:
     التعزيز الهرمي:
     TP1 مُصاب + موافقة Guardian → رفع الرافعة
     يعيد True إذا تم التعزيز
+
+    ⚠️ مُعطّل للشفافية: رفع الرافعة الورقي لا يمكن تطبيقه في Binance
+    (تغيير رافعة صفقة مفتوحة = تلاعب). الرافعة تبقى ثابتة من الفتح للإغلاق.
     """
+    return False  # ← إيقاف رفع الرافعة (شفافية)
+
     if pos.pyramid_level >= 3 or pos.force_close_lock:
         return False
 
@@ -342,13 +385,22 @@ async def check_pyramiding(pos: Position, price: float) -> bool:
             pos.leverage = min(new_lev, 25.0)
             pos.pyramid_level = 2
             await notify(pos.user_id,
-                f"📈 <b>PYRAMIDING · Level 2</b>\n"
+                f"📈 <b>تعزيز هرمي · المستوى 2</b>\n"
                 f"━━━━━━━━━━━━━━━━━━━\n"
                 f"<code>{pos.symbol}</code> · {pos.direction}\n\n"
-                f"TP1 secured ✅\n"
-                f"Leverage raised → <b>{pos.leverage:.0f}x</b>\n"
-                f"OBI {imbalance:+.2f} · momentum positive")
+                f"الهدف 1 محقّق ✅\n"
+                f"الرافعة رُفعت → <b>{pos.leverage:.0f}x</b>\n"
+                f"اختلال الدفتر {imbalance:+.2f} · زخم إيجابي",
+                msg_en=(
+                    f"📈 <b>PYRAMIDING · Level 2</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━\n"
+                    f"<code>{pos.symbol}</code> · {pos.direction}\n\n"
+                    f"TP1 secured ✅\n"
+                    f"Leverage raised → <b>{pos.leverage:.0f}x</b>\n"
+                    f"OBI {imbalance:+.2f} · momentum positive"
+                ))
             log.info("Pyramid L2: %s lev=%.0fx", pos.symbol, pos.leverage)
+            _pos_save(pos)
             return True
 
     # شرط الانتقال للمستوى 3 (5x → 10x)
@@ -357,10 +409,16 @@ async def check_pyramiding(pos: Position, price: float) -> bool:
         pos.leverage = min(new_lev, 50.0)
         pos.pyramid_level = 3
         await notify(pos.user_id,
-            f"💥 <b>Pyramiding Level 3 — EXPLOSION MODE</b>\n"
-            f"{pos.symbol} | رافعة → <b>{pos.leverage:.0f}x</b>\n"
-            f"⚡ الانفجار مؤكد — الكل مع الحوت!")
+            f"💥 <b>تعزيز هرمي · المستوى 3 — وضع الانفجار</b>\n"
+            f"{pos.symbol} | الرافعة → <b>{pos.leverage:.0f}x</b>\n"
+            f"⚡ الانفجار مؤكد — الكل مع الحوت!",
+            msg_en=(
+                f"💥 <b>Pyramiding · Level 3 — EXPLOSION MODE</b>\n"
+                f"{pos.symbol} | Leverage → <b>{pos.leverage:.0f}x</b>\n"
+                f"⚡ Explosion confirmed — all in with the whale!"
+            ))
         log.info("Pyramid L3: %s lev=%.0fx", pos.symbol, pos.leverage)
+        _pos_save(pos)
         return True
 
     return False
@@ -453,6 +511,22 @@ async def is_real_reversal(symbol: str, is_long: bool, opened_at: float = 0) -> 
         _a = await analyze_order_book(symbol, check_spoofing=True)
         if _a is not None:
             _ps = getattr(_a, "pressure_score", 0.0)
+            _pdir = getattr(_a, "pressure_direction", "NEUTRAL")
+            _spf = getattr(_a, "spoofing_side", "")
+            # ─ تلاعب معاكس للصفقة (بالاتجاه الصحيح) → انقلاب فوري ─
+            #   SHORT: جدار شراء وهمي (spoof=bid) = تلاعب لرفعنا → اخرج
+            #   LONG:  جدار بيع وهمي  (spoof=ask) = تلاعب لخفضنا → اخرج
+            if (not is_long) and _spf == "bid":
+                return True, f"تلاعب شراء وهمي (spoof=bid) ضد الشورت — انقلاب"
+            if is_long and _spf == "ask":
+                return True, f"تلاعب بيع وهمي (spoof=ask) ضد اللونغ — انقلاب"
+            # ─ الحكم الكامل للأوردر بوك معاكس (بالاتجاه الصحيح) ─
+            #   SHORT: الحكم LONG (مشترون سيطروا) → انقلاب
+            #   LONG:  الحكم SHORT (بائعون سيطروا) → انقلاب
+            if (not is_long) and _pdir == "LONG":
+                return True, f"حكم OB انقلب للشراء ضد الشورت — مشترون سيطروا"
+            if is_long and _pdir == "SHORT":
+                return True, f"حكم OB انقلب للبيع ضد اللونغ — بائعون سيطروا"
 
             # الموقع: range_pos من القمة/القاع التاريخي (30 يوم)
             _range_pos = 0.5
@@ -662,7 +736,7 @@ def calc_pnl(pos: Position, price: float) -> float:
     else:
         return (pos.entry - price) / pos.entry * 100 * pos.leverage
 
-async def notify(user_id: str, msg: str, event_type: str = "alert", data: dict = None, to_channel: bool = True):
+async def notify(user_id: str, msg: str, event_type: str = "alert", data: dict = None, to_channel: bool = True, msg_en: str = None):
     """إرسال إشعار: للقناة + للمستخدم + WebSocket"""
     if to_channel:
         try:
@@ -680,6 +754,36 @@ async def notify(user_id: str, msg: str, event_type: str = "alert", data: dict =
             await TG.send_message(user_id, msg)
     except Exception as e:
         log.debug("notify user error: %s", e)
+    try:
+        import sqlite3, time as _t
+        _classified = event_type
+        if event_type == "alert":
+            if "🎯" in msg:
+                _classified = "tp1_hit"
+            elif "🚀" in msg:
+                _classified = "tp2_hit"
+            elif "🏆" in msg or "🔴" in msg:
+                _classified = "position_closed"
+            elif "📈" in msg or "💥" in msg:
+                _classified = "pyramiding"
+            elif "⚠️" in msg:
+                _classified = "sl_warning"
+            elif "🔒" in msg:
+                _classified = "trailing_active"
+            elif "🤖" in msg:
+                _classified = "ai_alert"
+        import re as _re
+        _clean_msg = _re.sub(r"<[^>]+>", "", msg).strip()
+        _clean_msg_en = _re.sub(r"<[^>]+>", "", msg_en).strip() if msg_en else None
+        _c = sqlite3.connect("/opt/whalex/db/whalex.db")
+        _c.execute(
+            "INSERT INTO notifications (event, message, message_en, created_at) VALUES (?,?,?,?)",
+            (_classified, _clean_msg, _clean_msg_en, int(_t.time()))
+        )
+        _c.commit()
+        _c.close()
+    except Exception as _e:
+        log.debug("notify db save error: %s", _e)
     try:
         from routers.ws import registry
         await registry.broadcast({"event": event_type, "user_id": user_id, "message": msg, "data": data or {}})
@@ -759,7 +863,13 @@ async def monitor_position(pos: Position):
                 f"⚠️ <b>{pos.symbol} {pos.direction} — السعر يقترب من الوقف</b>\n"
                 f"البوت يراقب لحظياً. إن رصد تذبذباً مؤقّتاً (لا انعكاساً), سيستمرّ في الصفقة.\n"
                 f"📌 <b>استعدّ: ارفع وقف الخسارة أو ألغِه إن أردت متابعة البوت.</b>\n"
-                f"<i>نُغلق فوراً عند تأكّد انقلاب حقيقيّ.</i>")
+                f"<i>نُغلق فوراً عند تأكّد انقلاب حقيقيّ.</i>",
+                msg_en=(
+                    f"⚠️ <b>{pos.symbol} {pos.direction} — Price approaching stop</b>\n"
+                    f"The bot is watching live. If it detects a temporary wobble (not a reversal), it stays in the trade.\n"
+                    f"📌 <b>Get ready: raise your stop-loss or cancel it if you want to follow the bot.</b>\n"
+                    f"<i>We close immediately once a real reversal is confirmed.</i>"
+                ))
 
     # ─ شبكة أمان مطلقة: أرضية pnl صلبة (كل دورة، قبل أي منطق وقف) ─
     if pnl_pct <= PNL_HARD_FLOOR:
@@ -787,6 +897,24 @@ async def monitor_position(pos: Position):
             await _close_position(pos, price, ExitReason.SL_HIT, pnl_pct)
             return
 
+    # ─ الوقف المتحرك اللاحق: يلاحق السعر مع الربح (يُرفع تلقائياً) ─
+    #   بعد TP1، الوقف يتبع أفضل سعر بمسافة TRAIL_GAP، فيحمي الربح المتراكم.
+    #   SHORT: يتبع القاع لأسفل. LONG: يتبع القمة لأعلى. لا ينزل/يصعد عكسياً أبداً.
+    if pos.tp1_hit:
+        TRAIL_GAP = 0.03  # 3% مسافة الملاحقة من أفضل سعر
+        if is_long:
+            _new_trail = pos.peak_price * (1 - TRAIL_GAP)
+            if _new_trail > pos.sl:
+                pos.sl = _new_trail
+                pos.trailing_sl = _new_trail
+                await _binance_update_sl(pos, pos.sl)
+        else:
+            _new_trail = pos.peak_price * (1 + TRAIL_GAP)
+            if _new_trail < pos.sl or pos.sl == 0:
+                pos.sl = _new_trail
+                pos.trailing_sl = _new_trail
+                await _binance_update_sl(pos, pos.sl)
+
     # ─ SL / Trailing Stop ─
     sl_hit = (is_long and price <= pos.sl) or (not is_long and price >= pos.sl)
     if sl_hit:
@@ -794,11 +922,18 @@ async def monitor_position(pos: Position):
         if pos.tp1_hit and pnl_pct > 0:
             # Trailing Stop بعد TP1 = إغلاق رابح، يُؤخذ فوراً بلا تنفّس
             await notify(pos.user_id,
-                f"🔒 <b>Trailing Stop — ربح محمي</b>\n"
+                f"🔒 <b>الوقف المتحرك — ربح محمي</b>\n"
                 f"{pos.symbol} {pos.direction}\n"
                 f"💰 الربح المُحقق: <b>+{pnl_pct:.2f}%</b>\n"
-                f"✅ تم تأمين الأرباح بعد TP1\n"
-                f"<i>Trailing Stop يحمي مكاسبك</i>")
+                f"✅ تم تأمين الأرباح بعد الهدف 1\n"
+                f"<i>الوقف المتحرك يحمي مكاسبك</i>",
+                msg_en=(
+                    f"🔒 <b>Trailing Stop — Profit Protected</b>\n"
+                    f"{pos.symbol} {pos.direction}\n"
+                    f"💰 Realized profit: <b>+{pnl_pct:.2f}%</b>\n"
+                    f"✅ Profits secured after TP1\n"
+                    f"<i>Trailing Stop protects your gains</i>"
+                ))
             await _close_position(pos, price, ExitReason.TP1_HIT, pnl_pct)
             return
         # SL خسارة: العيون تقرّر — انقلاب مؤكد نغلق، فخ مكشوف نتنفّس
@@ -810,6 +945,25 @@ async def monitor_position(pos: Position):
             await _close_position(pos, price, ExitReason.SL_HIT, pnl_pct)
             return
 
+
+    # تامين ربح Predator المبكر (قبل TP1)
+    is_predator = (pos.radar_type == "futures" and getattr(pos, "tier", "") != "PH")
+    if is_predator and not pos.trailing_active and pnl_pct >= 2.0:
+        pos.trailing_active = True
+        pos.sl = pos.entry * (1.001 if is_long else 0.999)
+        pos.trailing_sl = pos.sl
+        await notify(pos.user_id,
+            f"🛡 <b>ربح مؤمن — Predator</b>\n"
+            f"{pos.symbol} {pos.direction}\n"
+            f"الربح الحالي: <b>+{pnl_pct:.2f}%</b>\n"
+            f"الوقف على نقطة التعادل — لا خسارة بعد الان",
+            msg_en=(
+                f"🛡 <b>Profit Secured — Predator</b>\n"
+                f"{pos.symbol} {pos.direction}\n"
+                f"Current profit: <b>+{pnl_pct:.2f}%</b>\n"
+                f"Stop at breakeven — no loss from here"
+            ))
+        log.info("Predator breakeven %s pnl=%.2f", pos.symbol, pnl_pct)
     # ─ TP1 ─
     tp1_hit = (is_long and price >= pos.tp1) or (not is_long and price <= pos.tp1)
     if tp1_hit and not pos.tp1_hit:
@@ -818,44 +972,73 @@ async def monitor_position(pos: Position):
         # تحريك SL إلى نقطة التعادل
         pos.sl = pos.entry * (1.001 if is_long else 0.999)
         pos.trailing_sl = pos.sl
+        await _binance_update_sl(pos, pos.sl)
 
         profit = abs((price - pos.tp1) / pos.entry * 100)
         await notify(pos.user_id,
-            f"🎯 <b>TARGET 1 HIT</b> · +{profit:.2f}%\n"
+            f"🎯 <b>الهدف 1 محقّق</b> · +{profit:.2f}%\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"<code>{pos.symbol}</code> · {pos.direction}\n\n"
-            f"Profit secured  <b>+{profit:.2f}%</b>\n"
-            f"Stop moved to   breakeven 🛡️\n"
+            f"ربح مؤمّن  <b>+{profit:.2f}%</b>\n"
+            f"الوقف نُقل إلى  نقطة التعادل 🛡️\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"▶ Holding for TP2 · capital protected")
+            f"▶ نستمر نحو الهدف 2 · رأس المال محمي",
+            msg_en=(
+                f"🎯 <b>TARGET 1 HIT</b> · +{profit:.2f}%\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"<code>{pos.symbol}</code> · {pos.direction}\n\n"
+                f"Profit secured  <b>+{profit:.2f}%</b>\n"
+                f"Stop moved to   breakeven 🛡️\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"▶ Holding for TP2 · capital protected"
+            ))
 
         # Pyramiding check
         await check_pyramiding(pos, price)
+        _pos_save(pos)
 
     # ─ TP2 ─
     tp2_hit = (is_long and price >= pos.tp2) or (not is_long and price <= pos.tp2)
     if tp2_hit and not pos.tp2_hit and pos.tp1_hit:
         pos.tp2_hit = True
         pos.explosion_mode = True
+        # رفع الوقف إلى الهدف 1 (حماية ربح الهدف 1)
+        pos.sl = pos.tp1
+        pos.trailing_sl = pos.tp1
+        await _binance_update_sl(pos, pos.sl)
 
         await notify(pos.user_id,
-            f"🚀 <b>TARGET 2 HIT</b> · Explosion Mode\n"
+            f"🚀 <b>الهدف 2 محقّق</b> · وضع الانفجار\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"<code>{pos.symbol}</code> · {pos.direction}\n\n"
-            f"💥 Breakout confirmed\n"
-            f"⬆️ Next target: TP3")
+            f"💥 الاختراق مؤكّد\n"
+            f"⬆️ الهدف التالي: الهدف 3",
+            msg_en=(
+                f"🚀 <b>TARGET 2 HIT</b> · Explosion Mode\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"<code>{pos.symbol}</code> · {pos.direction}\n\n"
+                f"💥 Breakout confirmed\n"
+                f"⬆️ Next target: TP3"
+            ))
 
         await check_pyramiding(pos, price)
+        _pos_save(pos)
 
     # ─ TP3 ─
     tp3_hit = (is_long and price >= pos.tp3) or (not is_long and price <= pos.tp3)
     if tp3_hit and pos.tp2_hit:
         profit = abs(pnl_pct)
         await notify(pos.user_id,
-            f"🏆 <b>TP3 مصاب</b> — {pos.symbol}\n"
+            f"🏆 <b>الهدف 3 محقّق</b> — {pos.symbol}\n"
             f"💰 الربح الكامل: <b>+{profit:.2f}%</b>\n"
             f"✅ تم إغلاق الصفقة بالكامل\n"
-            f"🎊 <i>إشارة WhaleMind Prime ناجحة!</i>")
+            f"🎊 <i>إشارة WhaleMind Prime ناجحة!</i>",
+            msg_en=(
+                f"🏆 <b>TP3 HIT</b> — {pos.symbol}\n"
+                f"💰 Full profit: <b>+{profit:.2f}%</b>\n"
+                f"✅ Position fully closed\n"
+                f"🎊 <i>Successful WhaleMind Prime signal!</i>"
+            ))
         await _close_position(pos, price, ExitReason.TP3_HIT, pnl_pct)
         return
 
@@ -874,6 +1057,7 @@ async def monitor_position(pos: Position):
             if new_sl < pos.trailing_sl or pos.trailing_sl == 0:
                 pos.trailing_sl = new_sl
                 pos.sl = new_sl
+        _pos_save(pos)
 
     # ─ Claude AI Emergency ─
     now = int(time.time())
@@ -890,11 +1074,18 @@ async def monitor_position(pos: Position):
         if ai_reply:
             # إرسال تحليل Claude للمستخدم
             await notify(pos.user_id,
-                f"🤖 <b>Claude AI تحليل طارئ</b> — {pos.symbol}\n"
-                f"{'📈' if is_long else '📉'} {pos.direction} | PnL: {pnl_pct:+.2f}%\n"
+                f"🤖 <b>تحليل طارئ من Claude AI</b> — {pos.symbol}\n"
+                f"{'📈' if is_long else '📉'} {pos.direction} | الربح/الخسارة: {pnl_pct:+.2f}%\n"
                 f"⚠️ {alert_reason}\n"
                 f"{'─' * 20}\n"
-                f"<i>{ai_reply}</i>")
+                f"<i>{ai_reply}</i>",
+                msg_en=(
+                    f"🤖 <b>Claude AI Emergency Analysis</b> — {pos.symbol}\n"
+                    f"{'📈' if is_long else '📉'} {pos.direction} | PnL: {pnl_pct:+.2f}%\n"
+                    f"⚠️ {alert_reason}\n"
+                    f"{'─' * 20}\n"
+                    f"<i>{ai_reply}</i>"
+                ))
 
             # إذا قرر Claude B (هروب) → تنفيذ تكتيكي
             if ai_reply.upper().startswith("B") and pnl_pct > -1.0:
@@ -924,8 +1115,65 @@ async def monitor_position(pos: Position):
 # ─── POSITION CLOSE ─────────────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
+async def _binance_update_sl(pos: "Position", new_sl: float):
+    """يحدّث أمر SL الحقيقي على Binance (يلغي القديم، يضع الجديد)."""
+    if not pos.is_real:
+        return
+    try:
+        from services.binance_trader import get_client, _fmt_price
+        client = get_client(pos.binance_user_id)
+        if not client:
+            log.warning("real SL: client None لـ %s", pos.symbol)
+            return
+        # إلغاء أوامر STOP القديمة للعملة
+        try:
+            for o in client.futures_get_open_orders(symbol=pos.symbol):
+                if o.get("type") == "STOP_MARKET":
+                    client.futures_cancel_order(symbol=pos.symbol, orderId=o["orderId"])
+        except Exception as _ce:
+            log.debug("cancel old SL %s: %s", pos.symbol, _ce)
+        # وضع SL الجديد
+        sl_side = "SELL" if pos.direction == "LONG" else "BUY"
+        o = client.futures_create_order(
+            symbol=pos.symbol, side=sl_side, type="STOP_MARKET",
+            stopPrice=_fmt_price(client, pos.symbol, new_sl),
+            closePosition=True,
+        )
+        pos.binance_sl_order_id = str(o.get("orderId", ""))
+        log.info("🔧 SL حقيقي حُدّث: %s → %.6g (order %s)", pos.symbol, new_sl, pos.binance_sl_order_id)
+    except Exception as e:
+        log.error("binance_update_sl %s: %s", pos.symbol, e)
+
+
+async def _binance_close_position(pos: "Position"):
+    """يغلق المركز الحقيقي على Binance (أمر معاكس reduceOnly) ويلغي أوامره."""
+    if not pos.is_real:
+        return
+    try:
+        from services.binance_trader import get_client, _fmt_qty
+        client = get_client(pos.binance_user_id)
+        if not client:
+            log.warning("real close: client None لـ %s", pos.symbol)
+            return
+        close_side = "SELL" if pos.direction == "LONG" else "BUY"
+        client.futures_create_order(
+            symbol=pos.symbol, side=close_side, type="MARKET",
+            quantity=_fmt_qty(client, pos.symbol, pos.amount),
+            reduceOnly=True,
+        )
+        try:
+            client.futures_cancel_all_open_orders(symbol=pos.symbol)
+        except Exception:
+            pass
+        log.info("🔒 مركز حقيقي أُغلق على Binance: %s %s qty=%s", pos.symbol, pos.direction, pos.amount)
+    except Exception as e:
+        log.error("binance_close %s: %s", pos.symbol, e)
+
+
 async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_pct: float):
     """إغلاق الصفقة وإرسال الإشعار"""
+    # ─ الصفقة الحقيقية: تنفيذ الإغلاق على Binance أولاً (أمر معاكس + إلغاء المعلّق) ─
+    await _binance_close_position(pos)
     pos.status = "closed"
     await remove_position(pos.id)
     update_stats(reason, pnl_pct)
@@ -951,7 +1199,7 @@ async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_p
 
     is_profit = pnl_pct >= 0
     head_emoji = "✅" if is_profit else "🔴"
-    head_word = "POSITION CLOSED" if is_profit else "POSITION CLOSED"
+    head_word = "POSITION CLOSED"
     side_word = "PROFIT" if is_profit else "LOSS"
     reason_en = {
         ExitReason.SL_HIT: "Stop loss hit",
@@ -963,8 +1211,32 @@ async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_p
         ExitReason.FORCE_CLOSE: "Force close",
         ExitReason.KILL_SWITCH: "Kill switch",
     }.get(reason, reason.value.replace('_', ' '))
+    head_word_ar = "أُغلقت الصفقة"
+    side_word_ar = "ربح" if is_profit else "خسارة"
+    reason_ar = {
+        ExitReason.SL_HIT: "ضرب وقف الخسارة",
+        ExitReason.TP1_HIT: "تحقيق الهدف 1",
+        ExitReason.TP2_HIT: "تحقيق الهدف 2",
+        ExitReason.TP3_HIT: "الهدف 3 — الهدف الكامل",
+        ExitReason.EXPLOSION: "خروج وضع الانفجار",
+        ExitReason.TACTICAL: "خروج تكتيكي",
+        ExitReason.FORCE_CLOSE: "إغلاق قسري",
+        ExitReason.KILL_SWITCH: "مفتاح الإيقاف",
+    }.get(reason, reason.value.replace('_', ' '))
 
     msg = (
+        f"{head_emoji} <b>{head_word_ar}</b> · {side_word_ar}\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"<code>{pos.symbol}</code> · {pos.direction}\n\n"
+        f"الدخول   <code>{pos.entry:.6g}</code>\n"
+        f"الخروج   <code>{price:.6g}</code>\n"
+        f"<b>الربح/الخسارة  {pnl_pct:+.2f}%</b>\n\n"
+        f"السبب  {reason_ar}\n"
+        f"رافعة {pos.leverage:.0f}x · مستوى {pos.pyramid_level}\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"{'🎊 صفقة ناجحة' if is_profit else '📊 سُجّلت لتدريب النموذج'}"
+    )
+    msg_en = (
         f"{head_emoji} <b>{head_word}</b> · {side_word}\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"<code>{pos.symbol}</code> · {pos.direction}\n\n"
@@ -977,7 +1249,7 @@ async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_p
         f"{'🎊 Successful trade' if is_profit else '📊 Logged for model training'}"
     )
 
-    await notify(pos.user_id, msg)
+    await notify(pos.user_id, msg, msg_en=msg_en)
 
     # حفظ في DB
     try:
@@ -1024,11 +1296,18 @@ async def force_close(pos_id: str, user_id: str) -> dict:
     pnl_pct = calc_pnl(pos, price)
 
     await notify(pos.user_id,
-        f"🛑 <b>Force Close تم بنجاح</b>\n"
+        f"🛑 <b>إغلاق قسري تم بنجاح</b>\n"
         f"{pos.symbol} {pos.direction}\n"
         f"سعر الخروج: {price:.4f}\n"
-        f"PnL: <b>{pnl_pct:+.2f}%</b>\n"
-        f"تم إغلاق الصفقة بسعر السوق فوراً ✅")
+        f"الربح/الخسارة: <b>{pnl_pct:+.2f}%</b>\n"
+        f"تم إغلاق الصفقة بسعر السوق فوراً ✅",
+        msg_en=(
+            f"🛑 <b>Force Close Successful</b>\n"
+            f"{pos.symbol} {pos.direction}\n"
+            f"Exit price: {price:.4f}\n"
+            f"PnL: <b>{pnl_pct:+.2f}%</b>\n"
+            f"Position closed at market immediately ✅"
+        ))
 
     await _close_position(pos, price, ExitReason.FORCE_CLOSE, pnl_pct)
 
@@ -1048,6 +1327,12 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
     """
     يفتح صفقة من إشارة الرادار - فقط Grade A و S
     """
+    # منع الازدواج: صفقة واحدة لكل عملة (من أي رادار وأي اتجاه)
+    _dup = [p for p in LIVE_POS.values() if p.symbol == sig.symbol and p.status == "open"]
+    if _dup:
+        log.info("🚫 %s %s — صفقة مفتوحة مسبقاً على العملة (id=%s) — لا ازدواج",
+                 sig.symbol, sig.direction, _dup[0].id)
+        return None
     # ═══ شرط 1: Grade A أو S فقط ═══
     if sig.grade not in ("A", "S"):
         log.debug("Position skip: %s grade=%s (only A/S open positions)", sig.symbol, sig.grade)

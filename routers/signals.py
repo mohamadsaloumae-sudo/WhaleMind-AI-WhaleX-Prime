@@ -18,7 +18,7 @@ def _fmt(sigs):
 def futures_signals():
     db = get_session()
     try:
-        sigs = db.query(Signal).filter(Signal.radar_type=="futures", Signal.is_active==True).order_by(Signal.created_at.desc()).limit(10).all()
+        sigs = db.query(Signal).filter(Signal.radar_type=="futures", Signal.is_active==True, Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
         return {"signals": _fmt(sigs)}
     finally:
         db.close()
@@ -27,7 +27,7 @@ def futures_signals():
 def spot_signals():
     db = get_session()
     try:
-        sigs = db.query(Signal).filter(Signal.radar_type=="spot", Signal.is_active==True).order_by(Signal.created_at.desc()).limit(10).all()
+        sigs = db.query(Signal).filter(Signal.radar_type=="spot", Signal.is_active==True, Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
         return {"signals": _fmt(sigs)}
     finally:
         db.close()
@@ -36,7 +36,7 @@ def spot_signals():
 def meme_signals():
     db = get_session()
     try:
-        sigs = db.query(Signal).filter(Signal.radar_type=="meme", Signal.is_active==True).order_by(Signal.created_at.desc()).limit(10).all()
+        sigs = db.query(Signal).filter(Signal.radar_type=="meme", Signal.is_active==True, Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
         return {"signals": _fmt(sigs)}
     finally:
         db.close()
@@ -45,7 +45,7 @@ def meme_signals():
 def all_signals():
     db = get_session()
     try:
-        sigs = db.query(Signal).filter(Signal.is_active==True).order_by(Signal.created_at.desc()).limit(20).all()
+        sigs = db.query(Signal).filter(Signal.is_active==True, Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
         return {"signals": _fmt(sigs)}
     finally:
         db.close()

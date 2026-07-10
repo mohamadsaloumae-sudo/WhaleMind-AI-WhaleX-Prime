@@ -47,12 +47,16 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const target = '/notifications';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const c of list) {
-        if ('focus' in c) return c.focus();
+        if ('focus' in c && 'navigate' in c) {
+          c.navigate(target);
+          return c.focus();
+        }
       }
-      if (clients.openWindow) return clients.openWindow('/');
+      if (clients.openWindow) return clients.openWindow(target);
     })
   );
 });

@@ -167,7 +167,11 @@ async def detect_rebound(symbol: str, candles) -> dict:
         if not _sw.endswith("USDT"): _sw+="USDT"
         if any(x["side"]=="ask" for x in get_signals(_sw).get("spoof",[])): _ns=False
     except Exception: pass
-    rebound = in_uptrend_dip and radar_ok and ob_safe_long and rsi_ok and _ns
+    # 🌊 وعي الترند الحي: لا ضغط شراء عام ولا تآكل بائعين = البائعون أحياء → ارتداد وهمي لا انعكاس
+    _sellers_alive = ("ضغط_شراء_عام" not in signals) and ("تآكل_البائعين" not in signals)
+    if _sellers_alive and radar_ok:
+        log.info("🌊 %s: البائعون أحياء (لا ضغط شراء + لا تآكل) — ارتداد وهمي في هبوط حي، لا لونغ", symbol)
+    rebound = in_uptrend_dip and radar_ok and ob_safe_long and rsi_ok and _ns and not _sellers_alive
 
     return {
         "rebound": rebound, "signals": signals, "rsi": r,
@@ -239,7 +243,7 @@ async def _send_long_and_open(symbol, price, candles, bottom, res, position_mana
     f_ero = _filter_line("Seller Erosion", "yes" if "تآكل_البائعين" in sigs else "no", "تآكل_البائعين" in sigs)
     f_rsi = _filter_line("RSI", f"{res['rsi']:.0f}", res['rsi'] < 40)
     msg = (
-        f"📈 <b>PEAK HUNTER</b> — LONG\n"
+        f"📈 <b>WhaleX Long</b> — LONG\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"⚡ <code>{symbol}</code>   ▲ {rise:.0f}% from bottom\n\n"
         f"Entry   <code>{sig.entry:.6g}</code>\n"

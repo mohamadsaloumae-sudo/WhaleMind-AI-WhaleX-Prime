@@ -113,6 +113,9 @@ def _send_all_sync(title: str, body: str):
 
 async def send_push_to_all(title: str, body: str):
     """تُستدعى من مدير الصفقات والإشارات — إرسال Push لكل الأجهزة."""
+    import re as _re
+    title = _re.sub(r"<[^>]+>", "", title or "").strip()
+    body = _re.sub(r"<[^>]+>", "", body or "").strip()
     try:
         await asyncio.get_event_loop().run_in_executor(None, _send_all_sync, title, body)
     except Exception as e:

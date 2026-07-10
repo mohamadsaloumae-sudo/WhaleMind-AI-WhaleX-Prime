@@ -141,10 +141,18 @@ def signal_msg(s: dict) -> str:
     else:
         dir_line = "🔴 <b>SHORT</b>"
 
+    # ─ اسم الرادار المُصدِر ─
+    _rtype = s.get("radar_type", "futures")
+    if _rtype == "explosion":
+        radar_name = "WhaleX Long" if dir_ == "LONG" else "WhaleX Short"
+    else:
+        radar_name = "WhaleX Predator"
+
     # ─ Strategies top 4 ─
     strat_text = " • ".join([s.strip() for s in strats[:4]])
 
     msg = f"""🐋 <b>WhaleX Prime</b>  •  {stars}
+📡 <b>{radar_name}</b>
 ━━━━━━━━━━━━━━━━━━━━━
 💎 <b><code>{sym}</code></b>
 {dir_line}  •  ⚡ Cross <b>{lev:.0f}x</b>
@@ -192,6 +200,32 @@ class TelegramService:
         if not text or not chat_id:
             return
         if text.startswith("/start"):
+            # رابط عميق: /start WX-XXXXXX → ربط تلقائي
+            _parts = text.split()
+            if len(_parts) > 1 and _parts[1].upper().startswith("WX-"):
+                _code = _parts[1].strip().upper()
+                try:
+                    from db.database import get_session, User
+                    _db = get_session()
+                    try:
+                        _u = _db.query(User).filter(User.tg_link_code == _code).first()
+                        if _u:
+                            _u.tg_chat_id = str(chat_id)
+                            _u.tg_link_code = None
+                            _db.commit()
+                            await send_message(chat_id,
+                                f"✅ <b>تم ربط حسابك بنجاح!</b>\n\n"
+                                f"الحساب: <b>{_u.username}</b>\n"
+                                f"يمكنك الآن العودة للتطبيق والضغط على «تحققت من الربط».\n\n"
+                                f"🔐 سيصلك رمز استرجاع كلمة السر هنا عند الحاجة.")
+                        else:
+                            await send_message(chat_id, "❌ رمز غير صالح أو منتهي. أعد المحاولة من التطبيق.")
+                    finally:
+                        _db.close()
+                except Exception as _e:
+                    await send_message(chat_id, "⚠️ خطأ في الربط، حاول لاحقاً.")
+                    log.error("deeplink error: %s", _e)
+                return
             await send_message(chat_id,
                 f"👋 <b>اهلاً {name}!</b>\n\n"
                 "🐋 <b>WhaleX Prime</b>\n"
@@ -212,6 +246,29 @@ class TelegramService:
                 "🟣 Meme Radar: <b>نشط</b>\n"
                 "🤖 AI Assistant: <b>نشط</b>",
                 reply_markup=_kb())
+        elif text.startswith("/link"):
+            parts = text.split()
+            if len(parts) < 2:
+                await send_message(chat_id, "⚠️ استخدم: /link WX-XXXXXX\nاحصل على الرمز من التطبيق (الإعدادات).")
+            else:
+                code = parts[1].strip().upper()
+                try:
+                    from db.database import get_session, User
+                    _db = get_session()
+                    try:
+                        _u = _db.query(User).filter(User.tg_link_code == code).first()
+                        if _u:
+                            _u.tg_chat_id = str(chat_id)
+                            _u.tg_link_code = None
+                            _db.commit()
+                            await send_message(chat_id, f"✅ تم ربط حسابك <b>{_u.username}</b> بنجاح!\nيمكنك الآن استرجاع كلمة السر عبر تيليجرام.")
+                        else:
+                            await send_message(chat_id, "❌ رمز غير صالح أو منتهي. أعد توليده من التطبيق.")
+                    finally:
+                        _db.close()
+                except Exception as _e:
+                    await send_message(chat_id, "⚠️ خطأ في الربط، حاول لاحقاً.")
+                    log.error("link error: %s", _e)
         elif text.startswith("/help"):
             await send_message(chat_id,
                 "/start - رسالة الترحيب\n"

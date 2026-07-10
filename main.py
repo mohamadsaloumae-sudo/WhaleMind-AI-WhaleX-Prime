@@ -36,6 +36,18 @@ async def lifespan(app: FastAPI):
     from radars.futures.position_manager import run_position_manager, open_from_signal
     from routers.ws import registry
     async def _broadcast(data):
+        try:
+            if isinstance(data, dict) and data.get("message"):
+                import sqlite3, time
+                _c = sqlite3.connect("/opt/whalex/db/whalex.db")
+                _c.execute(
+                    "INSERT INTO notifications (event, message, created_at) VALUES (?,?,?)",
+                    (data.get("event", "alert"), data.get("message"), int(time.time()))
+                )
+                _c.commit()
+                _c.close()
+        except Exception as _e:
+            log.debug("notif save error: %s", _e)
         await registry.broadcast(data)
     asyncio.create_task(start_all_services(broadcast_fn=_broadcast, position_manager_fn=open_from_signal))
     asyncio.create_task(run_position_manager())

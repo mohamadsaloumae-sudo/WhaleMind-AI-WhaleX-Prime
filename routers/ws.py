@@ -177,6 +177,23 @@ class ClientRegistry:
 registry = ClientRegistry()
 
 
+@router.get("/api/notifications")
+async def get_notifications(limit: int = 50):
+    """يرجع آخر الإشعارات المخزّنة (للجرس عند فتح الصفحة)"""
+    import sqlite3
+    conn = sqlite3.connect("/opt/whalex/db/whalex.db")
+    rows = conn.execute(
+        "SELECT id, event, message, message_en, created_at FROM notifications ORDER BY id DESC LIMIT ?",
+        (limit,)
+    ).fetchall()
+    conn.close()
+    return {
+        "notifications": [
+            {"id": r[0], "event": r[1], "message": r[2], "message_en": r[3], "created_at": r[4]}
+            for r in rows
+        ]
+    }
+
 @router.get("/api/test-bell")
 async def test_bell():
     """مسار اختبار مؤقّت — يبثّ إشعاراً تجريبياً للجرس"""

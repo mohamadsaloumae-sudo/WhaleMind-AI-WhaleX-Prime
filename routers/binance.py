@@ -54,9 +54,10 @@ class ConnectBody(BaseModel):
 
 class AutoTradeBody(BaseModel):
     enabled: Optional[bool] = None
-    trade_amount_usdt: Optional[float] = Field(None, ge=10, le=10000)
+    trade_amount_usdt: Optional[float] = Field(None, ge=1, le=10000)
     max_open_positions: Optional[int] = Field(None, ge=1, le=10)
     allowed_grades: Optional[str] = Field(None, pattern="^[ASB,]+$")
+    leverage: Optional[int] = Field(None, ge=1, le=125)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -135,6 +136,7 @@ async def status(user=Depends(get_current_user)):
         "trade_amount_usdt": creds["trade_amount_usdt"],
         "max_open_positions": creds["max_open_positions"],
         "allowed_grades": creds["allowed_grades"],
+        "leverage": creds.get("leverage"),
     }
 
 
@@ -173,7 +175,8 @@ async def auto_trade(body: AutoTradeBody, user=Depends(get_current_user)):
         enabled=body.enabled,
         trade_amount=body.trade_amount_usdt,
         max_positions=body.max_open_positions,
-        allowed_grades=body.allowed_grades
+        allowed_grades=body.allowed_grades,
+        leverage=body.leverage
     )
     if not ok:
         raise HTTPException(status_code=500, detail="update_failed")
@@ -186,6 +189,7 @@ async def auto_trade(body: AutoTradeBody, user=Depends(get_current_user)):
         "trade_amount_usdt": creds["trade_amount_usdt"],
         "max_open_positions": creds["max_open_positions"],
         "allowed_grades": creds["allowed_grades"],
+        "leverage": creds.get("leverage"),
     }
 
 
@@ -203,4 +207,5 @@ async def settings(user=Depends(get_current_user)):
         "trade_amount_usdt": creds["trade_amount_usdt"],
         "max_open_positions": creds["max_open_positions"],
         "allowed_grades": creds["allowed_grades"],
+        "leverage": creds.get("leverage"),
     }

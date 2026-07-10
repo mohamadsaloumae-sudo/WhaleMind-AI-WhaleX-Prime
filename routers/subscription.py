@@ -9,8 +9,8 @@ router = APIRouter(prefix="/api/subscription", tags=["Subscription"])
 
 # ─── الخطط والأسعار (USDT) ───
 PLANS = {
-    "month":   {"price": 100.0, "days": 30,  "label": "شهر"},
-    "quarter": {"price": 270.0, "days": 90,  "label": "3 أشهر"},
+    "month":   {"price": 100.0, "days": 30,  "label": "شهر",    "label_en": "1 Month"},
+    "quarter": {"price": 270.0, "days": 90,  "label": "3 أشهر", "label_en": "3 Months"},
 }
 
 
@@ -25,7 +25,7 @@ def get_plans():
     import os
     return {
         "plans": [
-            {"id": k, "price": v["price"], "days": v["days"], "label": v["label"]}
+            {"id": k, "price": v["price"], "days": v["days"], "label": v["label"], "label_en": v["label_en"]}
             for k, v in PLANS.items()
         ],
         "wallet_address": os.getenv("WALLET_ADDRESS", ""),

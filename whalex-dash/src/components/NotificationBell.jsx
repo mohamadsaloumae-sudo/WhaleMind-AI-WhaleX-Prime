@@ -1,14 +1,34 @@
 // جرس الإشعارات — يجمع رسائل مدير الصفقات والإشارات عبر WebSocket
 import { useEffect, useRef, useState } from "react";
 import { Bell, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useLang } from "../context/LangContext.jsx";
 
 export default function NotificationBell() {
   const { t, lang } = useLang();
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const wsRef = useRef(null);
+
+  useEffect(() => {
+    fetch("/api/notifications?limit=50")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d && Array.isArray(d.notifications)) {
+          setItems(
+            d.notifications.map((n) => ({
+              id: n.id,
+              event: n.event,
+              message: n.message,
+              time: new Date(n.created_at * 1000),
+            }))
+          );
+        }
+      })
+      .catch(() => { /* تجاهل فشل التحميل الأولي */ });
+  }, []);
 
   useEffect(() => {
     const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -63,7 +83,16 @@ export default function NotificationBell() {
                 <div className="bell-empty">{t("noNotifications")}</div>
               ) : (
                 items.map((it) => (
-                  <div key={it.id} className="bell-item">
+                  <div
+                    key={it.id}
+                    className="bell-item"
+                    onClick={() => {
+                      setOpen(false);
+                      const _pmEvents = ["tp1_hit", "tp2_hit", "position_closed", "pyramiding", "sl_warning", "trailing_active", "ai_alert"];
+                      navigate(_pmEvents.includes(it.event) ? "/live" : "/signals");
+                    }}
+                    style={{ cursor: "pointer" }}
+                  >
                     <div className="bell-item-msg">{it.message}</div>
                     <div className="bell-item-time">
                       {it.time.toLocaleTimeString(lang === "ar" ? "ar-AE" : "en-US", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Dubai" })}

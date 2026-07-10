@@ -74,11 +74,15 @@ export default function Dashboard() {
         <div className="card">
           <div className="card-title"><Radio size={14} style={{ verticalAlign: "middle", marginInlineEnd: 6 }} /> {t("radarsStatus")}</div>
           <div className="toggle-row">
-            <span>Peak Hunter — SHORT/LONG</span>
+            <span>📈 WhaleX Long</span>
             <span className="badge grade">{t("working")}</span>
           </div>
           <div className="toggle-row">
-            <span>Predator</span>
+            <span>🎯 WhaleX Short</span>
+            <span className="badge grade">{t("working")}</span>
+          </div>
+          <div className="toggle-row">
+            <span>⚡ WhaleX Predator</span>
             <span className="badge grade">{t("working")}</span>
           </div>
         </div>
@@ -92,7 +96,7 @@ export default function Dashboard() {
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "var(--bg-2)", borderRadius: "var(--radius-sm)", fontSize: 13 }}>
                   <span style={{ fontWeight: 700 }}>{x.symbol}</span>
                   <span className={`badge ${x.direction === "LONG" ? "long" : "short"}`} style={{ fontSize: 11 }}>{x.direction}</span>
-                  <span style={{ fontSize: 11, color: "var(--txt-3)" }}>{x.radar_type === "explosion" ? "🎯" : "⚡"} {x.grade}</span>
+                  <span style={{ fontSize: 11, color: "var(--txt-3)" }}>{x.radar_type === "explosion" ? (x.direction === "LONG" ? "📈 WhaleX Long" : "🎯 WhaleX Short") : "⚡ WhaleX Predator"} · {x.grade}</span>
                 </div>
               ))}
             </div>

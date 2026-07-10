@@ -109,7 +109,7 @@ export default function Subscription() {
                 color: "var(--txt-1)", textAlign: "center",
               }}
             >
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{p.label}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{lang === "ar" ? p.label : (p.label_en || p.label)}</div>
               <div style={{ fontSize: 24, fontWeight: 800, color: "var(--brand)" }}>{p.price}$</div>
               <div style={{ fontSize: 11, color: "var(--txt-3)" }}>{p.days} {t("days")}</div>
             </button>

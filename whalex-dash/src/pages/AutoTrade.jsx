@@ -21,6 +21,7 @@ export default function AutoTrade() {
   const [amount, setAmount] = useState(20);
   const [maxPos, setMaxPos] = useState(3);
   const [grades, setGrades] = useState("AS");
+  const [leverage, setLeverage] = useState(20);
 
   async function loadStatus() {
     try {
@@ -32,6 +33,7 @@ export default function AutoTrade() {
         if (s.trade_amount_usdt) setAmount(s.trade_amount_usdt);
         if (s.max_open_positions) setMaxPos(s.max_open_positions);
         if (s.allowed_grades) setGrades(s.allowed_grades);
+        if (s.leverage) setLeverage(s.leverage);
         try { setBalance(await binance.balance()); } catch { /* */ }
       }
     } catch { setStatus({ connected: false }); }
@@ -76,6 +78,7 @@ export default function AutoTrade() {
         trade_amount_usdt: Number(amount),
         max_open_positions: Number(maxPos),
         allowed_grades: grades,
+        leverage: Number(leverage),
       });
       setSettings(r);
       setMsg({ type: "success", text: t("save") + " ✓" });
@@ -180,6 +183,18 @@ export default function AutoTrade() {
                 <option value="S">S {t("only")}</option>
                 <option value="AS">A + S</option>
                 <option value="ASB">A + S + B</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>{t("leverage") || "الرافعة المالية"}</label>
+              <select value={leverage} onChange={(e) => setLeverage(e.target.value)}>
+                <option value="3">3x</option>
+                <option value="5">5x</option>
+                <option value="10">10x</option>
+                <option value="20">20x</option>
+                <option value="50">50x</option>
+                <option value="75">75x</option>
+                <option value="100">100x</option>
               </select>
             </div>
             <button className="btn btn-primary btn-block" onClick={() => saveSettings()} disabled={busy}>
