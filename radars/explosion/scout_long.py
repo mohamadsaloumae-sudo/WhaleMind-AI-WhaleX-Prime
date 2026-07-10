@@ -271,8 +271,23 @@ async def _send_long_and_open(symbol, price, candles, bottom, res, position_mana
 
     if position_manager_fn:
         try:
-            await position_manager_fn(sig)
-            log.info("🔭📈 Peak Hunter LONG → manager: %s LONG (opened)", symbol)
+            _res = await position_manager_fn(sig)
+            if _res is not None:
+                log.info("🔭📈 Peak Hunter LONG → manager: %s LONG (opened)", symbol)
+                # ✅ حفظ للميني آب — نفس مصدر الواجهة (ما يُعرض = ما فُتح)
+                try:
+                    from radars.explosion.scout import _save_to_signals_table
+                    _save_to_signals_table(sig, "\n".join(sigs))
+                except Exception as _se:
+                    log.debug("Long save_signals: %s", _se)
+                # ✅ التنفيذ الحقيقي (Binance) — نفس نقطة الفتح الورقي
+                try:
+                    from services.auto_trade_engine import on_signal_approved
+                    asyncio.create_task(on_signal_approved(sig))
+                except Exception as _ae:
+                    log.error("auto_trade (PH-LONG) error: %s", _ae)
+            else:
+                log.info("🔭📈 %s LONG — المدير رفض الفتح (حارس/ازدواج)", symbol)
         except Exception as _e:
             log.error("Long open error %s: %s", symbol, _e)
 
