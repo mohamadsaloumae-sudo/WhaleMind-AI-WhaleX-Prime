@@ -956,6 +956,7 @@ async def monitor_position(pos: Position):
         pos.trailing_active = True
         pos.sl = pos.entry * (1.001 if is_long else 0.999)
         pos.trailing_sl = pos.sl
+        await _binance_update_sl(pos, pos.sl)
         await notify(pos.user_id,
             f"🛡 <b>ربح مؤمن — Predator</b>\n"
             f"{pos.symbol} {pos.direction}\n"
@@ -1056,11 +1057,13 @@ async def monitor_position(pos: Position):
             if new_sl > pos.trailing_sl:
                 pos.trailing_sl = new_sl
                 pos.sl = new_sl
+                await _binance_update_sl(pos, pos.sl)
         else:
             new_sl = price + (pos.entry - pos.tp1) * TRAIL_MULT
             if new_sl < pos.trailing_sl or pos.trailing_sl == 0:
                 pos.trailing_sl = new_sl
                 pos.sl = new_sl
+                await _binance_update_sl(pos, pos.sl)
         _pos_save(pos)
 
     # ─ Claude AI Emergency ─
