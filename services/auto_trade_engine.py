@@ -127,7 +127,9 @@ async def execute_for_user_tracked(user_id: str, signal: dict) -> dict:
                 from radars.futures.position_manager import mark_position_real
                 _linked = False
                 for _i in range(4):
-                    if mark_position_real(signal["symbol"], signal["direction"], user_id):
+                    if mark_position_real(signal["symbol"], signal["direction"], user_id,
+                                          qty=result.get("quantity") or 0,
+                                          lev=result.get("leverage") or 0):
                         _linked = True
                         break
                     await _aio.sleep(1)

@@ -191,14 +191,18 @@ def _pos_db_init():
 
 LIVE_POS: dict = {}   # id -> Position (مراجع الصفقات الحيّة)
 
-def mark_position_real(symbol: str, direction: str, user_id: str) -> bool:
-    """يربط أحدث صفقة ورقية مفتوحة مطابقة بالتنفيذ الحقيقي (سجل واحد)."""
+def mark_position_real(symbol: str, direction: str, user_id: str,
+                       qty: float = 0, lev: float = 0) -> bool:
+    """يربط أحدث صفقة ورقية مفتوحة مطابقة بالتنفيذ الحقيقي (سجل واحد).
+    qty/lev: الكمية والرافعة الفعليتان من أمر Binance — حتى يُغلق المدير الكمية الصحيحة."""
     try:
         _c = [p for p in LIVE_POS.values() if p.symbol==symbol
               and p.direction==direction and p.status=="open" and not p.is_real]
         if not _c: return False
         p = max(_c, key=lambda x: x.opened_at)
         p.is_real = True; p.binance_user_id = user_id
+        if qty and float(qty) > 0: p.amount = float(qty)
+        if lev and float(lev) > 0: p.leverage = float(lev)
         _pos_save(p)
         log.info("🔗 ربط حقيقي: %s %s ← id=%s", symbol, direction, p.id)
         return True
