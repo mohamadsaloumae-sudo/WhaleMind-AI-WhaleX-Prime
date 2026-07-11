@@ -198,6 +198,7 @@ def _build_long_signal(symbol: str, price: float, candles: list, bottom: float,
     conf = min(92.0, 72.0 + len(ob_signals) * 5.0)
     strats = ["🔭 Explosion Long — ارتداد OB"] + ob_signals + [f"ارتداد من القاع: +{rise:.1f}%"]
     return Signal(
+        source_radar="PH_LONG",
         symbol=symbol, direction="LONG", grade="A",
         score=round(6.5 + len(ob_signals) * 0.3, 2),
         confidence=round(conf, 1), entry=price,

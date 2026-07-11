@@ -82,6 +82,7 @@ class Position:
     is_real: bool = False
     binance_user_id: str = ""
     binance_sl_order_id: str = ""
+    source_radar: str = ""           # رادار المصدر — المدير يدير كل صفقة بسياسة رادارها
     # FVG zone من الإشارة
     fvg_zone: Optional[float] = None
     # نوع الرادار (futures للرئيسي وبيك هنتر، يُميَّز بـ tier)
@@ -1378,6 +1379,7 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
     pos = Position(
         id=pos_id,
         user_id=user_id,
+        source_radar=getattr(sig, "source_radar", "PREDATOR"),
         symbol=sig.symbol,
         direction=sig.direction,
         entry=sig.entry,

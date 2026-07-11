@@ -322,6 +322,7 @@ def _build_signal(symbol: str, price: float, candles: list, peak: float,
     conf = min(92.0, 72.0 + len(ob_signals) * 5.0)
     strats = ["🔭 Explosion Scout — انهيار OB"] + ob_signals + [f"هبوط من الذروة: -{drop:.1f}%"]
     return Signal(
+        source_radar="PH_SHORT",
         symbol=symbol, direction="SHORT", grade="A",
         score=round(6.5 + len(ob_signals) * 0.3, 2),
         confidence=round(conf, 1), entry=price,

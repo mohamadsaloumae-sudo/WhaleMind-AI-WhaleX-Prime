@@ -173,6 +173,7 @@ async def build_signal_from_ob(reversal: OBReversalSignal):
         _ob_funding, _ob_oi = 0.0, 0.0
 
     sig = Signal(
+        source_radar="OB_REV",
         symbol=reversal.symbol,
         direction=reversal.direction,
         grade=reversal.grade,

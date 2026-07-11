@@ -83,6 +83,7 @@ class Signal:
     regime: str = ""
     range_pos: float = 0.0
     rsi: float = 0.0
+    source_radar: str = "PREDATOR"   # المصدر: PREDATOR / PH_SHORT / PH_LONG / OB_REV
 
 @dataclass
 class ShadowTrade:
