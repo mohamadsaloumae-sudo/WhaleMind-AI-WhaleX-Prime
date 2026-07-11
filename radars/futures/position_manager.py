@@ -202,6 +202,7 @@ RADAR_POLICY = {
 }
 
 _BTC_PULSE = {"ts": 0.0, "chg": 0.0}
+_SL_TOUCH: dict = {}   # pos.id -> وقت أول لمسة للوقف (مضاد الانخداع بالوميض)
 
 async def _btc_pulse() -> float:
     """تغيّر BTC ٪ آخر 5 دقائق — cache مشترك 30ث (استدعاء واحد لكل الصفقات معاً)."""
@@ -974,6 +975,20 @@ async def monitor_position(pos: Position):
 
     # ─ SL / Trailing Stop ─
     sl_hit = (is_long and price <= pos.sl) or (not is_long and price >= pos.sl)
+    # 🛡️ مضاد السبايك: وميض لحظي واحد لا يُغلق — يلزم بقاء السعر خلف الوقف
+    #   لقراءتين متتاليتين (≥8 ثوانٍ). درس EVAA: wick لمس الوقف ثوانيَ فأغلق صفقة رابحة.
+    if sl_hit:
+        _t0 = _SL_TOUCH.get(pos.id, 0.0)
+        _nowt = time.time()
+        if _t0 == 0.0:
+            _SL_TOUCH[pos.id] = _nowt
+            log.info("⚡ %s لمس الوقف (%.6g) — انتظار تأكيد، لا انخداع بالوميض",
+                     pos.symbol, price)
+            sl_hit = False
+        elif _nowt - _t0 < 8:
+            sl_hit = False
+    else:
+        _SL_TOUCH.pop(pos.id, None)
     if sl_hit:
         # Trailing رابح (جني فوري) أم SL خسارة (استشر العيون)؟
         if pos.tp1_hit and pnl_pct > 0:
@@ -1205,18 +1220,18 @@ async def _binance_update_sl(pos: "Position", new_sl: float):
         log.error("binance_update_sl %s: %s", pos.symbol, e)
 
 
-async def _binance_close_position(pos: "Position"):
-    """يغلق المركز الحقيقي على Binance (أمر معاكس reduceOnly) ويلغي أوامره."""
+async def _binance_close_position(pos: "Position") -> float:
+    """يغلق المركز الحقيقي على Binance ويعيد سعر التنفيذ الفعلي (0 إن ورقي/فشل)."""
     if not pos.is_real:
-        return
+        return 0.0
     try:
         from services.binance_trader import get_client, _fmt_qty
         client = get_client(pos.binance_user_id)
         if not client:
             log.warning("real close: client None لـ %s", pos.symbol)
-            return
+            return 0.0
         close_side = "SELL" if pos.direction == "LONG" else "BUY"
-        client.futures_create_order(
+        _o = client.futures_create_order(
             symbol=pos.symbol, side=close_side, type="MARKET",
             quantity=_fmt_qty(client, pos.symbol, pos.amount),
             reduceOnly=True,
@@ -1225,15 +1240,31 @@ async def _binance_close_position(pos: "Position"):
             client.futures_cancel_all_open_orders(symbol=pos.symbol)
         except Exception:
             pass
-        log.info("🔒 مركز حقيقي أُغلق على Binance: %s %s qty=%s", pos.symbol, pos.direction, pos.amount)
+        _avg = 0.0
+        try:
+            _od = client.futures_get_order(symbol=pos.symbol, orderId=_o["orderId"])
+            _avg = float(_od.get("avgPrice") or 0)
+        except Exception:
+            pass
+        log.info("🔒 مركز حقيقي أُغلق على Binance: %s %s qty=%s @%.6g",
+                 pos.symbol, pos.direction, pos.amount, _avg)
+        return _avg
     except Exception as e:
         log.error("binance_close %s: %s", pos.symbol, e)
+    return 0.0
 
 
 async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_pct: float):
     """إغلاق الصفقة وإرسال الإشعار"""
-    # ─ الصفقة الحقيقية: تنفيذ الإغلاق على Binance أولاً (أمر معاكس + إلغاء المعلّق) ─
-    await _binance_close_position(pos)
+    # ─ الصفقة الحقيقية: الإغلاق على Binance أولاً + اعتماد سعر التنفيذ الفعلي ─
+    #   (درس EVAA: التقرير حُسب من سعر لحظي مخادع فأعلن -18% بينما Binance ربحت)
+    _real_exit = await _binance_close_position(pos)
+    if _real_exit and _real_exit > 0:
+        _dirmul = 1 if pos.direction == "LONG" else -1
+        pnl_pct = (_real_exit - pos.entry) / pos.entry * 100 * _dirmul * pos.leverage
+        price = _real_exit
+        log.info("💹 %s: سعر الخروج الحقيقي %.6g → pnl فعلي %+.2f%%",
+                 pos.symbol, _real_exit, pnl_pct)
     pos.status = "closed"
     await remove_position(pos.id)
     update_stats(reason, pnl_pct)
