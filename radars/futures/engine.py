@@ -1410,6 +1410,30 @@ async def predator_agent(
         rsi=rsi_v,
     )
 
+    # ═══ Quant Gate — دمج المحرك الكمّي قبل الطابور ═══
+    # 1) Delta المتقدم (CVD أُطر متعددة + Smart Money + امتصاص/استنزاف)
+    try:
+        from quant_engine.delta_engine import validate_signal_with_delta
+        _dok, _dwhy, _ = await validate_signal_with_delta(symbol, direction)
+        if not _dok:
+            log.info("📊 Delta gate: %s %s مرفوض — %s", symbol, direction, _dwhy)
+            return
+        log.info("📊 Delta gate: %s %s — %s", symbol, direction, _dwhy)
+    except Exception as _de:
+        log.debug("delta gate %s: %s", symbol, _de)
+
+    # 2) توافق 6 أُطر زمنية (MTF) — فشل التحليل نفسه لا يقتل الإشارة (fail-open)
+    try:
+        from quant_engine.mtf_confluence import validate_signal_with_mtf
+        _mok, _mwhy, _ = await validate_signal_with_mtf(symbol, direction)
+        if not _mok and "فشل MTF" not in _mwhy:
+            log.info("🧭 MTF gate: %s %s مرفوض — %s", symbol, direction, _mwhy)
+            return
+        if _mok:
+            log.info("🧭 MTF gate: %s %s — %s", symbol, direction, _mwhy)
+    except Exception as _me:
+        log.debug("mtf gate %s: %s", symbol, _me)
+
     await signal_queue.put(sig)
     log.info("Predator V3 → Queue: %s %s [%s] score=%.1f conf=%.0f%% grade=%s pos=%.0f%% lev=%.0fx",
              symbol, direction, regime, score, conf, grade, range_pos * 100, lev)
