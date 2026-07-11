@@ -853,6 +853,23 @@ async def _should_breathe(pos: "Position", price: float, pnl_pct: float) -> tupl
     """True = تنفّس (لا تغلق هذه الدورة). False = أغلق. السبب للّوج."""
     if pnl_pct <= PNL_HARD_FLOOR:
         return False, f"أرضية صلبة {pnl_pct:.1f}% <= {PNL_HARD_FLOOR:.0f}%"
+    # 📉 رقيب الاتجاه: هبوط تدريجي حقيقي ضدنا عبر 10 شموع (5m) = اتجاه صامت → أغلق
+    #   (يكمّل الخروج التكتيكي: ذاك للانقلاب الحاد، هذا للتآكل البطيء الذي لا يصرخ)
+    try:
+        from radars.futures.engine import fetch_klines_async as _fkt
+        _is_long = pos.direction == "LONG"
+        _kl = await _fkt(pos.symbol, "5m", 10)
+        if _kl and len(_kl) >= 10:
+            _closes = [k.close for k in _kl]
+            _drift = (_closes[-1] - _closes[0]) / _closes[0] * 100 if _closes[0] else 0
+            _against = (_drift <= -1.5) if _is_long else (_drift >= 1.5)
+            # اتّساق: أغلب الشموع في اتجاه الضرر (ميل حقيقي لا شمعة واحدة)
+            _steps = sum(1 for i in range(1, len(_closes))
+                         if (_closes[i] < _closes[i-1]) == _is_long)
+            if _against and _steps >= 6:
+                return False, f"📉 رقيب الاتجاه: تآكل تدريجي {_drift:+.1f}%/50د ({_steps}/9 ضدنا)"
+    except Exception:
+        pass
     import time as _t
     _now = _t.time()
     _c = _REV_CACHE.get(pos.id)
