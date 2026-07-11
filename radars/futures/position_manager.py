@@ -553,18 +553,9 @@ async def is_real_reversal(symbol: str, is_long: bool, opened_at: float = 0) -> 
             _spf = getattr(_a, "spoofing_side", "")
             # ─ تلاعب معاكس للصفقة (بالاتجاه الصحيح) → انقلاب فوري ─
             #   SHORT: جدار شراء وهمي (spoof=bid) = تلاعب لرفعنا → اخرج
-            #   LONG:  جدار بيع وهمي  (spoof=ask) = تلاعب لخفضنا → اخرج
-            if (not is_long) and _spf == "bid":
-                return True, f"تلاعب شراء وهمي (spoof=bid) ضد الشورت — انقلاب"
-            if is_long and _spf == "ask":
-                return True, f"تلاعب بيع وهمي (spoof=ask) ضد اللونغ — انقلاب"
-            # ─ الحكم الكامل للأوردر بوك معاكس (بالاتجاه الصحيح) ─
-            #   SHORT: الحكم LONG (مشترون سيطروا) → انقلاب
-            #   LONG:  الحكم SHORT (بائعون سيطروا) → انقلاب
-            if (not is_long) and _pdir == "LONG":
-                return True, f"حكم OB انقلب للشراء ضد الشورت — مشترون سيطروا"
-            if is_long and _pdir == "SHORT":
-                return True, f"حكم OB انقلب للبيع ضد اللونغ — بائعون سيطروا"
+            #   جدار وهمي (spoof) = خداع حوت لإخراجنا — لا نخرج على الوهمي، بل ننتظر
+            #   تأكيد القراءتين + حركة السعر الحقيقية أدناه (السعر لا يكذب، الأوردر بوك يُزيَّف).
+            #   [أُزيلت 4 بوابات خروج فوري كانت تخرج على لقطة واحدة — درس IOTA]
 
             # الموقع: range_pos من القمة/القاع التاريخي (30 يوم)
             _range_pos = 0.5
@@ -606,12 +597,28 @@ async def is_real_reversal(symbol: str, is_long: bool, opened_at: float = 0) -> 
             _wkey = f"{symbol}_{'L' if is_long else 'S'}"
             if _against:
                 if _reversal_warn.get(_wkey):
-                    _reversal_warn.pop(_wkey, None)
-                    _side_txt = "بائعون مسيطرون" if is_long else "مشترون مسيطرون"
-                    return True, f"انقلاب مؤكّد ({_side_txt} {_ps:+.2f} @ موقع {_range_pos:.0%}, صمد قراءتين)"
+                    # ✅ صمد قراءتين — الآن التحقّق الأصدق: هل السعر تحرّك ضدنا فعلاً؟
+                    #   (رؤية Mohamad: الحوت يزيّف الأوردر بوك، لا يزيّف السعر المتحقّق)
+                    _price_confirms = True
+                    try:
+                        _kk = await _fk_eye(symbol, "1m", 4)
+                        if _kk and len(_kk) >= 4:
+                            _p_now, _p_ago = _kk[-1].close, _kk[-4].close
+                            _moved = (_p_now - _p_ago) / _p_ago * 100 if _p_ago else 0
+                            # LONG يخرج فقط إن هبط السعر فعلاً؛ SHORT إن صعد فعلاً (≥0.15%)
+                            _price_confirms = (_moved <= -0.15) if is_long else (_moved >= 0.15)
+                            if not _price_confirms:
+                                log.info("🐋 %s: أوردر بوك ينقلب لكن السعر لم يتحرك ضدنا (%+.2f%%/3د) — تلاعب حوت، نبقى",
+                                         symbol, _moved)
+                    except Exception:
+                        pass
+                    if _price_confirms:
+                        _reversal_warn.pop(_wkey, None)
+                        _side_txt = "بائعون مسيطرون" if is_long else "مشترون مسيطرون"
+                        return True, f"انقلاب مؤكّد ({_side_txt} {_ps:+.2f} @ موقع {_range_pos:.0%}, صمد قراءتين + السعر)"
                 else:
                     _reversal_warn[_wkey] = True
-                    log.debug("إنذار انقلاب %s: ضغط %+.2f @ موقع %.0f%% — بانتظار تأكيد القراءة التالية",
+                    log.debug("إنذار انقلاب %s: ضغط %+.2f @ موقع %.0f%% — بانتظار القراءة التالية",
                               _wkey, _ps, _range_pos*100)
             else:
                 _reversal_warn.pop(_wkey, None)
