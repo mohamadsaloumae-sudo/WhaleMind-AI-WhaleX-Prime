@@ -132,15 +132,12 @@ async def detect_rebound(symbol: str, candles) -> dict:
     # ارتفاع من القاع (كم ارتدّ)
     dist_from_bottom = (cur - lo_4h) / lo_4h * 100 if lo_4h > 0 else 0
 
-    # تصحيح في اتجاه صاعد (لا قاع هابط): العملة صاعدة، نزلت من قمتها 5-18% (تصحيح صحي)،
-    # لكن ما زالت في النصف العلوي (pos>0.35 = الاتجاه الصاعد سليم، ليست منهارة).
     dist_from_peak = (peak_4h - cur) / peak_4h * 100 if peak_4h > 0 else 0
-    # ─── منطق جديد: عرضية عند القاع (لا صاعدة في تصحيح) ───
-    # عرض النطاق الكلّي: ضيّق = عملة هادئة متجمّعة (ليست منفجرة ولا منهارة)
-    rng_width_pct = (peak_4h - lo_4h) / lo_4h * 100 if lo_4h > 0 else 999
-    is_sideways = rng_width_pct <= 12.0       # نطاق ضيّق ≤12% = عرضية هادئة
-    at_bottom_half = pos_in_range < 0.45      # النصف السفلي = عند القاع لا مرتفعة
-    in_uptrend_dip = is_sideways and at_bottom_half
+    # ─── صيد الموجة الحيّة (تصميم Mohamad): منفجرة في تصحيح صحّي — لا هادئة عند قاع ───
+    #   تصحيح 5–15% من القمة + ما زالت في النصف العلوي = الموجة مستمرة والمشترون يعودون
+    healthy_dip = 5.0 <= dist_from_peak <= 15.0
+    upper_half  = pos_in_range > 0.50
+    in_uptrend_dip = healthy_dip and upper_half
 
     # ارتداد لحظي مؤكّد من الأوردر بوك الاحترافي (safe_for_long) — لا سكين.
     ob_safe_long = True
@@ -152,12 +149,12 @@ async def detect_rebound(symbol: str, candles) -> dict:
     except Exception:
         ob_safe_long = True
 
-    # الرادار: جدار شراء ضخم + علامة شراء ثانية (مشترون يدخلون عند التصحيح).
-    has_buy_wall = "جدار_شراء_ضخم" in signals
-    radar_ok = has_buy_wall and len(signals) >= 4  # الأربعة كلها: imbalance+pressure+wall+erosion (نظافة الدخول)
+    # الرادار: اختلال شراء قرب السعر + علامة ثانية — نفس فلسفة WhaleX Short الناجح (2 من 4).
+    has_buy_imb = "اختلال_شراء_قرب_السعر" in signals
+    radar_ok = has_buy_imb and len(signals) >= 2
 
-    # RSI في منطقة وسطى (تصحيح صحي 40-60، لا oversold=سكين، لا overbought=قمة).
-    rsi_ok = 38 <= r <= 60
+    # RSI أوسع للموجات القوية (35–65): تصحيح داخل زخم — لا سكين ولا قمة محترقة.
+    rsi_ok = 35 <= r <= 65
 
     at_real_bottom = in_uptrend_dip  # توافق مع باقي الكود
     _ns=True
