@@ -58,6 +58,15 @@ def _iceberg(book):
 def get_signals(symbol):
     return _signals.get(symbol.upper(), {"spoof":[],"iceberg":[],"ts":0})
 
+def get_price(symbol):
+    """السعر اللحظي (mid) من آخر snapshot — بلا REST. None إن لا بثّ للعملة."""
+    sym = symbol.upper().replace("/","").replace("-","")
+    if not sym.endswith("USDT"): sym += "USDT"
+    bk = _books.get(sym.lower())
+    if bk and len(bk):
+        return bk[-1].mid_price
+    return None
+
 async def run(symbols, refresh=2.0):
     url = WS + "/".join(f"{s.lower()}@depth20@100ms" for s in symbols)
     while True:

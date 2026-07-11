@@ -353,6 +353,14 @@ async def force_close_all(reason: str = "kill_switch"):
 # ═══════════════════════════════════════════════════════════════
 
 async def get_price(symbol: str) -> Optional[float]:
+    # 🌊 أولاً من WebSocket اللحظي (بلا REST، فوري) — fallback لـREST عند غياب البثّ
+    try:
+        from quant_engine.ob_stream import get_price as _ws_price
+        _wp = _ws_price(symbol)
+        if _wp and _wp > 0:
+            return _wp
+    except Exception:
+        pass
     try:
         import httpx
         sym = symbol.replace("/", "").replace("-", "")
