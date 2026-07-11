@@ -190,6 +190,38 @@ def _pos_db_init():
     conn.close()
 
 
+# ═══ سياسات الرادارات — المدير يفهم مصدر كل صفقة ويديرها بمنطق رادارها ═══
+BTC_GUARD_L1 = 1.2   # % حركة BTC خلال 5 دقائق ضد الاتجاه → وقف للتعادل (إن رابحة)
+BTC_GUARD_L2 = 2.2   # % حركة عنيفة → إغلاق تكتيكي فوري
+
+RADAR_POLICY = {
+    "PREDATOR": {"btc_guard": True},   # عملات تتبع BTC → الحارس فعّال
+    "OB_REV":   {"btc_guard": True},
+    "PH_SHORT": {"btc_guard": False},  # المنفجرات خارج جاذبية BTC لحظتها
+    "PH_LONG":  {"btc_guard": False},
+}
+
+_BTC_PULSE = {"ts": 0.0, "chg": 0.0}
+
+async def _btc_pulse() -> float:
+    """تغيّر BTC ٪ آخر 5 دقائق — cache مشترك 30ث (استدعاء واحد لكل الصفقات معاً)."""
+    now = time.time()
+    if now - _BTC_PULSE["ts"] < 30:
+        return _BTC_PULSE["chg"]
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=6) as cl:
+            r = await cl.get("https://fapi.binance.com/fapi/v1/klines",
+                             params={"symbol": "BTCUSDT", "interval": "1m", "limit": 6})
+            k = r.json()
+            a, b = float(k[0][4]), float(k[-1][4])
+            _BTC_PULSE["chg"] = (b - a) / a * 100 if a else 0.0
+    except Exception:
+        _BTC_PULSE["chg"] = 0.0
+    _BTC_PULSE["ts"] = now
+    return _BTC_PULSE["chg"]
+
+
 LIVE_POS: dict = {}   # id -> Position (مراجع الصفقات الحيّة)
 
 def mark_position_real(symbol: str, direction: str, user_id: str,
@@ -875,6 +907,26 @@ async def monitor_position(pos: Position):
                     f"📌 <b>Get ready: raise your stop-loss or cancel it if you want to follow the bot.</b>\n"
                     f"<i>We close immediately once a real reversal is confirmed.</i>"
                 ))
+
+    # ─ ₿🛡️ حارس BTC — لصفقات الرادارات التابعة لBTC فقط (سياسة المصدر) ─
+    if RADAR_POLICY.get(pos.source_radar or "PREDATOR", {}).get("btc_guard"):
+        try:
+            _m = await _btc_pulse()
+            _against = (_m <= -BTC_GUARD_L1) if is_long else (_m >= BTC_GUARD_L1)
+            if _against:
+                if abs(_m) >= BTC_GUARD_L2:
+                    log.warning("₿🛡️ %s: BTC انقلب بعنف (%+.2f%%/5د) ضد %s — إغلاق فوري",
+                                pos.symbol, _m, pos.direction)
+                    await _close_position(pos, price, ExitReason.TACTICAL, pnl_pct)
+                    return
+                _be = pos.entry * (1.001 if is_long else 0.999)
+                if pnl_pct > 0 and ((is_long and pos.sl < _be) or (not is_long and pos.sl > _be)):
+                    pos.sl = _be; pos.trailing_sl = _be
+                    await _binance_update_sl(pos, pos.sl)
+                    log.info("₿🛡️ %s: BTC ضدنا (%+.2f%%/5د) — الوقف للتعادل حمايةً",
+                             pos.symbol, _m)
+        except Exception as _bg:
+            log.debug("btc_guard: %s", _bg)
 
     # ─ شبكة أمان مطلقة: أرضية pnl صلبة (كل دورة، قبل أي منطق وقف) ─
     if pnl_pct <= PNL_HARD_FLOOR:
