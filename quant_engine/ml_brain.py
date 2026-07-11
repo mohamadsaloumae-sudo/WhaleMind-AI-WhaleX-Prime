@@ -119,8 +119,10 @@ def predict_signal(sig) -> tuple[float, str]:
     m = _load()
     if not m:
         return 0.5, "لا نموذج بعد"
-    row = {name: getattr(sig, name, None) for name in FEATURES}
-    row["timestamp"] = getattr(sig, "timestamp", int(time.time()))
+    _get = (sig.get if isinstance(sig, dict)
+            else lambda k, d=None: getattr(sig, k, d))
+    row = {name: _get(name) for name in FEATURES}
+    row["timestamp"] = _get("timestamp", int(time.time()))
     feats = _extract(row)
     z = m["prior"]; contribs = []
     for name, val in feats.items():

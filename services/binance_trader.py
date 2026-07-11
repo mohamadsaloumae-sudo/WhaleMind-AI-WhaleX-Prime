@@ -369,6 +369,10 @@ def get_open_positions(user_id: str) -> list:
 # ─── TRADE EXECUTION (سيُستخدم لاحقاً) ─────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
+# ═══ 🧮 الرافعة الذكية — موازنة مخاطرة الوقف بجودة الإشارة ═══
+SMART_LEV_BASE_RISK = 20.0   # % من الهامش يُسمح بخسارتها عند ضرب الوقف (الأساس)
+SMART_LEV_MIN = 1            # أدنى رافعة
+
 _SYMBOL_FILTERS: dict = {}
 
 def _get_symbol_filters(client, symbol: str) -> dict:
@@ -447,6 +451,31 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
     # الرافعة: اختيار المستخدم إن وُجد، وإلا رافعة الإشارة (أوتو)
     _user_lev = creds.get("leverage")
     leverage = int(_user_lev) if _user_lev else 20
+
+    # ═══ 🧮 الرافعة الذكية: الرافعة الفعلية = min(اختيارك، موازنة÷بُعد الوقف) ═══
+    #   الموازنة نفسها ذكية: 20% أساس × عامل جودة من توقّع العقل (0.75→1.5)
+    #   درس EVAA: وقف 9.3% برافعة 10x = تعريض 93% — الآن مستحيل.
+    try:
+        _entry = float(signal.get("entry") or 0)
+        _sl = float(signal.get("sl") or 0)
+        _sl_dist = abs(_entry - _sl) / _entry * 100 if _entry > 0 else 0
+        if _sl_dist > 0.3:
+            _prob = 0.5
+            try:
+                from quant_engine.ml_brain import predict_signal as _mlps
+                _prob, _ = _mlps(signal)
+            except Exception:
+                pass
+            _q = (0.75 if _prob < 0.45 else 1.0 if _prob < 0.55
+                  else 1.25 if _prob < 0.65 else 1.5)
+            _budget = SMART_LEV_BASE_RISK * _q
+            _smart = max(SMART_LEV_MIN, int(_budget / _sl_dist + 0.5))
+            if _smart < leverage:
+                log.info("🧮 رافعة ذكية %s: وقف %.1f%% | 🧠%.0f%% → موازنة %.0f%% → %dx (بدل %dx)",
+                         symbol, _sl_dist, _prob * 100, _budget, _smart, leverage)
+                leverage = _smart
+    except Exception as _sle:
+        log.debug("smart_lev: %s", _sle)
 
     try:
         # 1. فحص أقصى رافعة مسموحة للعملة، وتقييد اختيار المستخدم ضمنها
