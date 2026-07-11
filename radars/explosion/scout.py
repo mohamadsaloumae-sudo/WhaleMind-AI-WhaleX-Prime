@@ -439,6 +439,18 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
             log.error("scout → manager error: %s", e)
 
     if opened_ok:
+        # 🧠 توقّع النموذج المتعلّم (مراقبة)
+        try:
+            from quant_engine.ml_brain import predict_signal, ML_VETO_THRESHOLD
+            _mlp, _mlf = predict_signal(sig)
+            log.info("🧠 ML: %s %s — نجاح متوقّع %.0f%% | %s",
+                     sig.symbol, sig.direction, _mlp * 100, _mlf)
+            if ML_VETO_THRESHOLD > 0 and _mlp < ML_VETO_THRESHOLD:
+                log.info("🧠 ML veto: %s — %.0f%% < %.0f%%",
+                         sig.symbol, _mlp * 100, ML_VETO_THRESHOLD * 100)
+                return
+        except Exception as _mle:
+            log.debug("ml predict: %s", _mle)
         # ✅ التنفيذ الحقيقي (Binance) — نفس نقطة الفتح الورقي
         try:
             from services.auto_trade_engine import on_signal_approved

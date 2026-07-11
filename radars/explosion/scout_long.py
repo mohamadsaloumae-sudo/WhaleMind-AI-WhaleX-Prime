@@ -272,6 +272,18 @@ async def _send_long_and_open(symbol, price, candles, bottom, res, position_mana
             _res = await position_manager_fn(sig)
             if _res is not None:
                 log.info("🔭📈 Peak Hunter LONG → manager: %s LONG (opened)", symbol)
+                # 🧠 توقّع النموذج المتعلّم (مراقبة)
+                try:
+                    from quant_engine.ml_brain import predict_signal, ML_VETO_THRESHOLD
+                    _mlp, _mlf = predict_signal(sig)
+                    log.info("🧠 ML: %s %s — نجاح متوقّع %.0f%% | %s",
+                             sig.symbol, sig.direction, _mlp * 100, _mlf)
+                    if ML_VETO_THRESHOLD > 0 and _mlp < ML_VETO_THRESHOLD:
+                        log.info("🧠 ML veto: %s — %.0f%% < %.0f%%",
+                                 sig.symbol, _mlp * 100, ML_VETO_THRESHOLD * 100)
+                        return
+                except Exception as _mle:
+                    log.debug("ml predict: %s", _mle)
                 # ✅ حفظ للميني آب — نفس مصدر الواجهة (ما يُعرض = ما فُتح)
                 try:
                     from radars.explosion.scout import _save_to_signals_table

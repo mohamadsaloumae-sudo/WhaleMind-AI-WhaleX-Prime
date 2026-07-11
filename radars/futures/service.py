@@ -544,6 +544,19 @@ async def _broadcast_telegram(sig: Signal, broadcast_fn, position_manager_fn=Non
         # ✅ الحفظ للميني آب — فقط بعد اجتياز كل الفلاتر (ما يُعرض = ما يُفتح)
         await save_signal(sig)
 
+        # 🧠 توقّع النموذج المتعلّم (مراقبة — لا فيتو حتى تُرفع العتبة)
+        try:
+            from quant_engine.ml_brain import predict_signal, ML_VETO_THRESHOLD
+            _mlp, _mlf = predict_signal(sig)
+            log.info("🧠 ML: %s %s — نجاح متوقّع %.0f%% | %s",
+                     sig.symbol, sig.direction, _mlp * 100, _mlf)
+            if ML_VETO_THRESHOLD > 0 and _mlp < ML_VETO_THRESHOLD:
+                log.info("🧠 ML veto: %s — %.0f%% < %.0f%%",
+                         sig.symbol, _mlp * 100, ML_VETO_THRESHOLD * 100)
+                return
+        except Exception as _mle:
+            log.debug("ml predict: %s", _mle)
+
         # ✅ المدير يُفتح فقط بعد نجاح كل الفلاتر (Hawk + Profile + Claude + الجدار)
         if position_manager_fn:
             asyncio.create_task(position_manager_fn(sig))
@@ -777,6 +790,7 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
     from shadow_tracker import shadow_loop
     from radars.explosion.scout_long import scout_long_loop  # مُفعّل: تصحيح صاعد (لا هابطة)
     from quant_engine.ob_stream import run as ob_stream_run
+    from quant_engine.ml_brain import retrain_loop as ml_retrain_loop
     # تشغيل كل الوكلاء بالتوازي
     await asyncio.gather(
         oracle.run_loop(),
@@ -791,5 +805,6 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
         shadow_loop(),
         scout_long_loop(position_manager_fn=position_manager_fn),
         ob_stream_run([t.symbol for t in ALL_SYMBOLS]),
+        ml_retrain_loop(),  # 🧠 إعادة تدريب العقل يومياً
         return_exceptions=True
     )
