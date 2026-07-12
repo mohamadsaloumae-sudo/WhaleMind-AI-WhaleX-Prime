@@ -136,6 +136,9 @@ async def run(symbols, refresh=2.0):
                         for s,bk in _books.items():
                             _signals[s.upper()]={"spoof":_spoof(bk),"iceberg":_iceberg(bk),"ts":time.time()}
                         last=time.time()
+                        try:
+                            from quant_engine.watchdog import beat as _wbeat; _wbeat("ob_stream")
+                        except Exception: pass
         except Exception:
             await asyncio.sleep(2)
 

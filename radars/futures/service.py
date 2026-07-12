@@ -791,6 +791,7 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
     from radars.explosion.scout_long import scout_long_loop  # مُفعّل: تصحيح صاعد (لا هابطة)
     from quant_engine.ob_stream import run as ob_stream_run
     from quant_engine.ml_brain import retrain_loop as ml_retrain_loop
+    from quant_engine.watchdog import watchdog_loop
     # تشغيل كل الوكلاء بالتوازي
     await asyncio.gather(
         oracle.run_loop(),
@@ -806,5 +807,6 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
         scout_long_loop(position_manager_fn=position_manager_fn),
         ob_stream_run([t.symbol for t in ALL_SYMBOLS]),
         ml_retrain_loop(),  # 🧠 إعادة تدريب العقل يومياً
+        watchdog_loop(),   # 🚨 حارس الحلقات
         return_exceptions=True
     )
