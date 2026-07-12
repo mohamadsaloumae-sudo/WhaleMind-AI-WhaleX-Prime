@@ -878,6 +878,23 @@ async def _should_breathe(pos: "Position", price: float, pnl_pct: float) -> tupl
                 return False, f"📉 رقيب الاتجاه: تآكل تدريجي {_drift:+.1f}%/50د ({_steps}/9 ضدنا)"
     except Exception:
         pass
+    # 🎯 مخرج تنبّؤي: إن رابحة والزخم يُستنزف (exhaustion) → جنِ الربح قبل الانقلاب لا بعده
+    if pnl_pct > 0.6:
+        try:
+            from radars.futures.engine import fetch_klines_async as _fkp
+            from quant_engine.delta_engine import calculate_cvd as _cvd, detect_exhaustion as _exh
+            _kl = await _fkp(pos.symbol, "5m", 30)
+            if _kl and len(_kl) >= 20:
+                _raw = [[int(k.time)*1000, k.open, k.high, k.low, k.close,
+                         k.volume, 0, k.volume, 0, k.buy_volume, k.buy_volume] for k in _kl]
+                _, _cum = _cvd(_raw)
+                _ex, _kind = _exh(_raw, _cum)
+                _lng = pos.direction == "LONG"
+                # LONG+bullish (شراء يضعف بالقمة) أو SHORT+bearish (بيع يضعف بالقاع) = انقلاب وشيك
+                if _ex and ((_lng and _kind == "bullish") or (not _lng and _kind == "bearish")):
+                    return False, f"🎯 مخرج تنبّؤي: استنزاف الزخم ({_kind}) والصفقة رابحة {pnl_pct:+.1f}% — جني قبل الانقلاب"
+        except Exception:
+            pass
     import time as _t
     _now = _t.time()
     _c = _REV_CACHE.get(pos.id)
