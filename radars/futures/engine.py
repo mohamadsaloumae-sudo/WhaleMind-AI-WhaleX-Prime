@@ -1373,6 +1373,22 @@ async def predator_agent(
     except Exception as _obe:
         log.debug("ob_stream check %s: %s", symbol, _obe)
 
+    # 🎯 الضغط المركّب (Funding + OI): ازدحام جانب = وقود انعكاس للجانب الآخر
+    #   funding سالب حاد + OI صاعد = شورتات مزدحمة → صعود محتمل (يعزّز LONG)
+    #   funding موجب حاد + OI صاعد = لونغات مزدحمة → هبوط محتمل (يعزّز SHORT)
+    _sq = ""
+    if funding < -0.02 and oi_change > 2.0:
+        _sq = "short_squeeze"
+    elif funding > 0.02 and oi_change > 2.0:
+        _sq = "long_crowded"
+    if _sq:
+        _supports = ((_sq == "short_squeeze" and direction == "LONG") or
+                     (_sq == "long_crowded" and direction == "SHORT"))
+        if _supports:
+            conf = min(99.0, conf + 5.0)
+            log.info("🎯 Squeeze يعزّز %s %s (funding=%.3f%% oi=%+.1f%%) conf→%.0f%%",
+                     symbol, direction, funding, oi_change, conf)
+
     # ═══ Grade + Leverage ═══
     grade = calc_grade(score, conf, strat_count, key_strats)
 
