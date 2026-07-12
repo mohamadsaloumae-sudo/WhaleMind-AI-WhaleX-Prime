@@ -201,7 +201,17 @@ async def get_oi_change(symbol: str) -> float:
 # ═══════════════════════════════════════════════════════════════
 
 async def fetch_klines_async(symbol: str, interval: str, limit: int = 50) -> list[Candle]:
-    """جلب شموع من Binance"""
+    """شموع من WebSocket (ob_stream) أولاً — fallback لـREST عند نقص البثّ."""
+    # 🌊 محاولة الستريم: صفر REST، لحظي
+    try:
+        from quant_engine.ob_stream import get_klines as _ws_kl
+        _rows = _ws_kl(symbol, interval, limit)
+        if _rows:
+            return [Candle(time=r["t"], open=r["o"], high=r["h"], low=r["l"],
+                           close=r["c"], volume=r["v"], buy_volume=r.get("bv", 0.0))
+                    for r in _rows]
+    except Exception:
+        pass
     try:
         async with httpx.AsyncClient(timeout=10) as c:
             r = await c.get(f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}")
