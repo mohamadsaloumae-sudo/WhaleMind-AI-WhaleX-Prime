@@ -613,4 +613,7 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
         except Exception as e:
             log.error("scout_loop error: %s", e)
 
+        try:
+            from quant_engine.watchdog import beat as _wb; _wb("scout")
+        except Exception: pass
         await asyncio.sleep(MONITOR_INTERVAL)  # مراقبة كل 10s (صرامة)

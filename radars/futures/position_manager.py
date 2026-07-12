@@ -1551,6 +1551,9 @@ async def run_position_manager():
             if positions:
                 await asyncio.gather(*[monitor_one(p) for p in positions], return_exceptions=True)
                 # ⏱️ إيقاع متكيّف: يقظة 3s لو صفقة حقيقية أو قرب خطر (SL/انقلاب)؛ وإلا 10s
+                try:
+                    from quant_engine.watchdog import beat as _wb; _wb("manager")
+                except Exception: pass
                 _fast = any(_p.is_real for _p in positions)  # حقيقية = يقظة 3s
                 await asyncio.sleep(3 if _fast else 10)
                 continue

@@ -614,6 +614,9 @@ async def futures_scan_loop(oracle: OracleAgent, signal_queue: asyncio.Queue):
             await asyncio.gather(*tasks, return_exceptions=True)
 
             elapsed = time.time() - start
+            try:
+                from quant_engine.watchdog import beat as _wb; _wb("predator")
+            except Exception: pass
             log.info("Scan #%d done — %d symbols in %.1fs — next in 60s",
                      _scan_count, len(ALL_SYMBOLS), elapsed)
 

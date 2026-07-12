@@ -340,6 +340,9 @@ async def scout_long_loop(broadcast_fn=None, position_manager_fn=None):
                     log.debug("long watch %s: %s", symbol, _e)
                 await asyncio.sleep(0.2)
 
+            try:
+                from quant_engine.watchdog import beat as _wb; _wb("scout_long")
+            except Exception: pass
             await asyncio.sleep(WATCH_INTERVAL)
         except Exception as e:
             log.error("scout_long_loop: %s", e)
