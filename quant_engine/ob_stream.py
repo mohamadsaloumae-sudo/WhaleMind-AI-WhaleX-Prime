@@ -55,41 +55,24 @@ def _iceberg(book):
         if r>=2: out.append({"side":"ask","price":p,"refills":r})
     return out
 
-_klines = defaultdict(lambda: deque(maxlen=200))   # sym(lower) -> deque شموع 1m مغلقة
+# الأطر المبثوثة مباشرة (bootstrap تاريخي + تحديث WS). النادرة (1d) تبقى REST.
+STREAM_TFS = ["5m", "15m", "1h", "4h"]
+# مخزن منفصل لكل (sym_lower, tf) → deque شموع مغلقة
+_klines = defaultdict(lambda: deque(maxlen=250))
 
-_TF_SEC = {"1m":60,"3m":180,"5m":300,"15m":900,"30m":1800,"1h":3600,"4h":14400}
-
-def _agg(base, tf_sec):
-    """تجميع شموع 1m إلى إطار أكبر (buckets بحدود زمنية)."""
-    if tf_sec <= 60:
-        return list(base)
-    out, cur, cs = [], None, 0
-    for k in base:
-        b = (k["t"] // tf_sec) * tf_sec
-        if cur is None or b != cs:
-            if cur: out.append(cur)
-            cur = {"t": b, "o": k["o"], "h": k["h"], "l": k["l"], "c": k["c"],
-                   "v": k["v"], "bv": k["bv"]}
-            cs = b
-        else:
-            cur["h"] = max(cur["h"], k["h"]); cur["l"] = min(cur["l"], k["l"])
-            cur["c"] = k["c"]; cur["v"] += k["v"]; cur["bv"] += k["bv"]
-    if cur: out.append(cur)
-    return out
+def _kkey(sym_lower, tf):
+    return f"{sym_lower}|{tf}"
 
 def get_klines(symbol, interval="1m", limit=50):
-    """شموع من الستريم (1m مباشرة أو مجمّعة). None إن لا بثّ كافٍ → المستهلك يسقط لـREST."""
+    """شموع من مخزن الإطار المطلوب. None إن غير مبثوث/غير جاهز → المستهلك يسقط لـREST."""
+    if interval not in STREAM_TFS:
+        return None
     sym = symbol.upper().replace("/","").replace("-","")
     if not sym.endswith("USDT"): sym += "USDT"
-    base = _klines.get(sym.lower())
-    if not base or len(base) < 5:
+    dq = _klines.get(_kkey(sym.lower(), interval))
+    if not dq or len(dq) < 20:
         return None
-    tf = _TF_SEC.get(interval, 60)
-    rows = _agg(base, tf)
-    need = limit if tf <= 60 else max(limit, 20)
-    if len(rows) < min(need, 20):
-        return None
-    return rows[-limit:]
+    return list(dq)[-limit:]
 
 def get_signals(symbol):
     return _signals.get(symbol.upper(), {"spoof":[],"iceberg":[],"ts":0})
@@ -103,25 +86,49 @@ def get_price(symbol):
         return bk[-1].mid_price
     return None
 
+async def _bootstrap(symbols):
+    """ملء المخزون تاريخياً مرة واحدة (REST مُباعد) — بعده التحديث من WS فقط."""
+    import httpx
+    async with httpx.AsyncClient(timeout=10) as cl:
+        for tf in STREAM_TFS:
+            for s in symbols:
+                sl = s.lower()
+                try:
+                    r = await cl.get("https://fapi.binance.com/fapi/v1/klines",
+                                     params={"symbol": s.upper(), "interval": tf, "limit": 150})
+                    dq = _klines[_kkey(sl, tf)]
+                    for k in r.json():
+                        dq.append({"t":int(k[0])//1000,"o":float(k[1]),"h":float(k[2]),
+                                   "l":float(k[3]),"c":float(k[4]),"v":float(k[5]),
+                                   "bv":float(k[9])})
+                except Exception:
+                    pass
+                await asyncio.sleep(0.05)   # تباعد لتفادي حظر لحظي
+    log.info("🌊 Bootstrap done: %d رمز × %d أطر", len(symbols), len(STREAM_TFS))
+
 async def run(symbols, refresh=2.0):
-    _streams = ([f"{s.lower()}@depth20@100ms" for s in symbols]
-                + [f"{s.lower()}@kline_1m" for s in symbols])
+    asyncio.create_task(_bootstrap(symbols))   # لا يحجب اتصال الأوردر بوك
+    _kl = [f"{s.lower()}@kline_{tf}" for s in symbols for tf in STREAM_TFS]
+    _streams = [f"{s.lower()}@depth20@100ms" for s in symbols] + _kl
     url = WS + "/".join(_streams)
     while True:
         try:
-            async with websockets.connect(url, open_timeout=15, max_size=2**22) as ws:
-                log.info("🌊 OB-Stream connected: %d symbols", len(symbols))
+            async with websockets.connect(url, open_timeout=20, max_size=2**23) as ws:
+                log.info("🌊 OB-Stream connected: %d رمز (depth + %d أطر kline)",
+                         len(symbols), len(STREAM_TFS))
                 last=time.time()
                 async for raw in ws:
                     m=json.loads(raw); _st=m.get("stream",""); sym=_st.split("@")[0]
                     if "@kline" in _st:
+                        _tf=_st.split("kline_")[-1]
                         k=m.get("data",{}).get("k",{})
-                        if k.get("x"):   # شمعة مغلقة فقط
-                            dq=_klines[sym]
+                        if k.get("x") and _tf in STREAM_TFS:
+                            dq=_klines[_kkey(sym,_tf)]
                             row={"t":int(k["t"])//1000,"o":float(k["o"]),"h":float(k["h"]),
                                  "l":float(k["l"]),"c":float(k["c"]),"v":float(k["v"]),
                                  "bv":float(k.get("V",0))}
                             if not dq or dq[-1]["t"]!=row["t"]: dq.append(row)
+                            elif dq: dq[-1]=row
                         continue
                     snap=_build(sym, m.get("data",{}))
                     if snap: _books[sym].append(snap)
