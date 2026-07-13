@@ -16,8 +16,8 @@ _THRESHOLDS = {
     "ob_stream": 120,
     "predator":  180,
     "manager":   90,
-    "scout":     180,
-    "scout_long": 300,
+    "scout":     400,
+    "scout_long": 500,
 }
 
 async def watchdog_loop(interval: int = 60):
@@ -27,7 +27,7 @@ async def watchdog_loop(interval: int = 60):
     log.info("🚨 Watchdog يعمل — يراقب %d حلقات", len(_THRESHOLDS))
     while True:
         try:
-            ch = get_settings().telegram_channel_futures
+            ch = get_settings().telegram_admin_chat_id
             now = time.time()
             for name, thr in _THRESHOLDS.items():
                 last = _HB.get(name, 0)
