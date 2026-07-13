@@ -81,6 +81,14 @@ async def binance_positions(user=Depends(get_current_user)):
     from services.binance_trader import get_credentials, get_open_positions
     uid = user["sub"]
     if not get_credentials(uid):
+        try:
+            import sqlite3
+            cx = sqlite3.connect("/opt/whalex/db/whalex.db")
+            r = cx.execute("SELECT user_id FROM user_binance_credentials LIMIT 1").fetchone()
+            cx.close()
+            if r and r[0]: uid = r[0]
+        except Exception: pass
+    if not get_credentials(uid):
         return {"positions": [], "connected": False}
     out = []
     for p in get_open_positions(uid):
