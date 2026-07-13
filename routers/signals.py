@@ -18,7 +18,7 @@ def _fmt(sigs):
 def futures_signals():
     db = get_session()
     try:
-        sigs = db.query(Signal).filter(Signal.radar_type=="futures", Signal.is_active==True, Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
+        sigs = db.query(Signal).filter(Signal.radar_type.in_(["futures","explosion"]), Signal.is_active==True, Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
         return {"signals": _fmt(sigs)}
     finally:
         db.close()

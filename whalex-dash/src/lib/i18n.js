@@ -128,6 +128,8 @@ export const TRANSLATIONS = {
     current: "الحالي",
     leverage: "الرافعة",
     pnl: "الربح/الخسارة",
+    liveRadarTitle: "صفقات الرادارات",
+    liveRadarSub: "مشاهدة حيّة · الربح والخسارة مباشرة",
     tradesFetchFail: "تعذّر جلب الصفقات",
     requiresBinance: "يتطلّب ربط Binance",
 
@@ -285,6 +287,8 @@ export const TRANSLATIONS = {
     current: "Current",
     leverage: "Leverage",
     pnl: "PnL",
+    liveRadarTitle: "Radar Positions",
+    liveRadarSub: "Live view · real-time PnL",
     tradesFetchFail: "Failed to fetch trades",
     requiresBinance: "Requires Binance connection",
 
