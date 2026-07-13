@@ -792,6 +792,23 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
 
     from shadow_tracker import shadow_loop
     from radars.explosion.scout_long import scout_long_loop  # مُفعّل: تصحيح صاعد (لا هابطة)
+
+def _open_position_syms():
+    try:
+        import sqlite3, json
+        cx = sqlite3.connect("/opt/whalex/positions.db")
+        rows = cx.execute("SELECT data FROM active_positions WHERE status='open'").fetchall()
+        cx.close()
+        out = []
+        for (d,) in rows:
+            try:
+                s = json.loads(d).get("symbol", "")
+                if s: out.append(s if s.endswith("USDT") else s + "USDT")
+            except Exception: pass
+        return out
+    except Exception:
+        return []
+
     from quant_engine.ob_stream import run as ob_stream_run
     from quant_engine.ml_brain import retrain_loop as ml_retrain_loop
     from quant_engine.watchdog import watchdog_loop
@@ -808,7 +825,7 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
         mc_refresh_loop(),
         shadow_loop(),
         scout_long_loop(position_manager_fn=position_manager_fn),
-        ob_stream_run([t.symbol for t in ALL_SYMBOLS]),
+        ob_stream_run(list(dict.fromkeys([t.symbol for t in ALL_SYMBOLS] + _open_position_syms()))),
         ml_retrain_loop(),  # 🧠 إعادة تدريب العقل يومياً
         watchdog_loop(),   # 🚨 حارس الحلقات
         return_exceptions=True
