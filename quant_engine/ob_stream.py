@@ -72,7 +72,14 @@ def get_klines(symbol, interval="1m", limit=50):
     dq = _klines.get(_kkey(sym.lower(), interval))
     if not dq or len(dq) < 20:
         return None
-    return list(dq)[-limit:]
+    rows = list(dq)[-limit:]
+    # 🧊 فحص الطزاجة: بثّ معلّق لعملة = شموع مجمّدة تُعاد للأبد (rsi/سعر ثابت).
+    # إن آخر شمعة أقدم من ضعف الإطار → البثّ علق → None → المستهلك يسقط لـREST الطازج.
+    _iv = {"1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400}.get(interval, 60)
+    import time as _t
+    if rows and (_t.time() - rows[-1]["t"]) > _iv * 2:
+        return None
+    return rows
 
 def get_signals(symbol):
     return _signals.get(symbol.upper(), {"spoof":[],"iceberg":[],"ts":0})
