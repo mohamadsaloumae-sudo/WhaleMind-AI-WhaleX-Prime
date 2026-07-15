@@ -12,7 +12,7 @@ log = logging.getLogger("ml_brain")
 DB_PATH = "/opt/whalex/ml_training.db"
 MODEL_PATH = "/opt/whalex/ml_model.json"
 MIN_SAMPLES = 15          # قيمة بعينات أقل → وزن صفر (لا ثقة إحصائية)
-ML_VETO_THRESHOLD = 0.0   # 0 = مراقبة فقط. مثال تفعيل: 0.35 → رفض ما دون 35%
+ML_VETO_THRESHOLD = 0.38  # فيتو مفعّل: يرفض الإشارات دون 38% نجاح متوقّع (+8pts مثبتة)
 
 # ─── تحويل الحقول الخام إلى فئات (bins) ───────────────────────
 def _bin(name: str, v) -> Optional[str]:
