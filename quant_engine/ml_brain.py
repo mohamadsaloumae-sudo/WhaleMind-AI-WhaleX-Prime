@@ -18,7 +18,7 @@ ML_VETO_THRESHOLD = 0.38  # فيتو مفعّل: يرفض الإشارات دو�
 def _bin(name: str, v) -> Optional[str]:
     try:
         if v is None: return None
-        if name in ("direction","grade","tier","regime","btc_trend","hawk_phase"):
+        if name in ("direction","grade","tier","regime","btc_trend","hawk_phase","cvd_flow"):
             s = str(v).strip()
             return s if s else None
         x = float(v)
@@ -45,13 +45,44 @@ def _bin(name: str, v) -> Optional[str]:
         if name == "hour_utc":
             h = int(x)
             return "00-06" if h < 6 else "06-12" if h < 12 else "12-18" if h < 18 else "18-24"
+        if name == "ob_pressure":
+            return "sell" if x < -0.15 else "buy" if x > 0.15 else "neutral"
     except Exception:
         return None
     return None
 
 FEATURES = ["direction","grade","tier","regime","btc_trend","hawk_phase",
             "confidence","score","rsi","range_pos","funding","oi_change",
-            "hawk_modifier","volume_ratio","key_strat_count","hour_utc"]
+            "hawk_modifier","volume_ratio","key_strat_count","hour_utc",
+            "ob_pressure","cvd_flow"]
+
+def live_context(symbol: str) -> dict:
+    """سياق حي لحظة القرار (sync، صفر REST): ضغط العمق + اتجاه التدفق المنفَّذ.
+    يُستدعى عند التوقّع وعند تسجيل صفقة التدريب — نفس العينين للنموذج والواقع."""
+    out = {"ob_pressure": None, "cvd_flow": None}
+    try:
+        from quant_engine.ob_stream import _books, get_klines
+        sym = symbol.upper().replace("/", "").replace("-", "")
+        if not sym.endswith("USDT"): sym += "USDT"
+        bk = _books.get(sym.lower())
+        if bk:
+            s = bk[-1]
+            bid_v = sum(q for _, q in s.bids[:10]); ask_v = sum(q for _, q in s.asks[:10])
+            tot = bid_v + ask_v
+            if tot > 0:
+                out["ob_pressure"] = (bid_v - ask_v) / tot   # -1 بائعون → +1 مشترون
+        kl = get_klines(sym, "5m", 12)
+        if kl and len(kl) >= 8:
+            deltas = [(2 * r.get("bv", 0.0) - r.get("v", 0.0)) for r in kl[-8:]]
+            cum = 0.0; series = []
+            for d in deltas: cum += d; series.append(cum)
+            slope = series[-1] - series[0]
+            avg_v = sum(r.get("v", 0.0) for r in kl[-8:]) / 8 or 1.0
+            if abs(slope) < 0.05 * avg_v * 8: out["cvd_flow"] = "flat"
+            else: out["cvd_flow"] = "up" if slope > 0 else "down"
+    except Exception:
+        pass
+    return out
 
 def _extract(row: dict) -> dict:
     f = {}
@@ -122,6 +153,10 @@ def predict_signal(sig) -> tuple[float, str]:
     _get = (sig.get if isinstance(sig, dict)
             else lambda k, d=None: getattr(sig, k, d))
     row = {name: _get(name) for name in FEATURES}
+    if row.get("ob_pressure") is None or row.get("cvd_flow") is None:
+        _lc = live_context(getattr(sig, "symbol", "") or "")
+        if row.get("ob_pressure") is None: row["ob_pressure"] = _lc["ob_pressure"]
+        if row.get("cvd_flow") is None: row["cvd_flow"] = _lc["cvd_flow"]
     row["timestamp"] = _get("timestamp", int(time.time()))
     feats = _extract(row)
     z = m["prior"]; contribs = []
