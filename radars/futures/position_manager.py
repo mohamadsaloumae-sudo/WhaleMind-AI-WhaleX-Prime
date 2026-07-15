@@ -839,7 +839,7 @@ async def notify(user_id: str, msg: str, event_type: str = "alert", data: dict =
         log.debug("notify db save error: %s", _e)
     try:
         from routers.ws import registry
-        await registry.broadcast({"event": event_type, "user_id": user_id, "message": msg, "data": data or {}})
+        await registry.broadcast({"event": event_type, "user_id": user_id, "message": msg, "message_en": msg_en, "data": data or {}})
     except Exception as e:
         log.debug("notify ws error: %s", e)
     try:

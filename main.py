@@ -37,15 +37,8 @@ async def lifespan(app: FastAPI):
     from routers.ws import registry
     async def _broadcast(data):
         try:
-            if isinstance(data, dict) and data.get("message"):
-                import sqlite3, time
-                _c = sqlite3.connect("/opt/whalex/db/whalex.db")
-                _c.execute(
-                    "INSERT INTO notifications (event, message, created_at) VALUES (?,?,?)",
-                    (data.get("event", "alert"), data.get("message"), int(time.time()))
-                )
-                _c.commit()
-                _c.close()
+            # (أُزيل الإدراج المزدوج: المصدر — notify في المدير — يحفظ بالعربية والإنجليزية معاً)
+            pass
         except Exception as _e:
             log.debug("notif save error: %s", _e)
         await registry.broadcast(data)
