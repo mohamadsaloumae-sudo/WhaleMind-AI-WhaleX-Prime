@@ -388,6 +388,10 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
                                  col: dict, position_manager_fn):
     """Full systematic SHORT signal + open in manager."""
     sig = _build_signal(symbol, price, candles, peak, col["signals"], col["rsi"])
+    try:
+        from quant_engine.ml_brain import smart_leverage as _sml
+        sig.leverage = _sml(sig)
+    except Exception: pass
     # تسجيل الإشارة في ml_training (يكمل الحلقة: عند الإغلاق update_result_by_match يجدها)
     try:
         from ml_recorder import record_signal

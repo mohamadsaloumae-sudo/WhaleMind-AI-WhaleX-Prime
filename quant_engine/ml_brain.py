@@ -175,3 +175,26 @@ if __name__ == "__main__":
         train(); print(report())
     elif cmd == "report":
         print(report())
+
+
+def smart_leverage(sig, cap: int = 10) -> int:
+    """رافعة ذكية موحّدة تُحسب عند ولادة الإشارة (تظهر بالرسالة والبطاقة).
+    المعادلة = معادلة التنفيذ نفسها: ميزانية مخاطرة 20% ÷ مسافة الوقف × جودة التوقّع."""
+    try:
+        entry = float(getattr(sig, "entry", 0) or 0)
+        sl = float(getattr(sig, "sl", 0) or 0)
+        fallback = int(float(getattr(sig, "leverage", 3) or 3))
+        if entry <= 0 or sl <= 0:
+            return fallback
+        sl_dist = abs(entry - sl) / entry * 100
+        if sl_dist < 0.3:
+            return fallback
+        try:
+            p_win, _ = predict_signal(sig)
+        except Exception:
+            p_win = 0.5
+        q = 0.75 if p_win < 0.45 else (1.0 if p_win < 0.55 else (1.25 if p_win < 0.65 else 1.5))
+        lev = int(20.0 * q / sl_dist + 0.5)
+        return max(1, min(cap, lev))
+    except Exception:
+        return 3

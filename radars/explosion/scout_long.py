@@ -221,6 +221,10 @@ async def _send_long_and_open(symbol, price, candles, bottom, res, position_mana
         log.debug("active check %s: %s", symbol, _e)
     sigs = res["signals"]
     sig = _build_long_signal(symbol, price, candles, bottom, sigs, res["rsi"], res.get("pos", 0.0))
+    try:
+        from quant_engine.ml_brain import smart_leverage as _sml
+        sig.leverage = _sml(sig)
+    except Exception: pass
 
     # تسجيل في ml_training (يكمل حلقة التعلّم)
     try:
