@@ -147,6 +147,19 @@ async def execute_for_user_tracked(user_id: str, signal: dict) -> dict:
                 signal["direction"],
                 result.get("error"),
             )
+            # 🔎 شفافية: ورقية فُتحت والحقيقية فشلت → إشعار فوري للخاص بالسبب
+            try:
+                from services.telegram import send_message
+                from core.config import get_settings
+                _adm = get_settings().telegram_admin_chat_id
+                if _adm:
+                    await send_message(_adm,
+                        f"⚠️ <b>افتراق ورقي/حقيقي</b>\n"
+                        f"{signal['symbol']} {signal['direction']} فُتحت ورقياً "
+                        f"لكن التنفيذ الحقيقي <b>فشل</b>:\n"
+                        f"<code>{result.get('error')}</code>")
+            except Exception:
+                pass
         return result
     except Exception as e:
         elapsed_ms = int((time.time() - start) * 1000)
