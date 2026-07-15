@@ -861,6 +861,40 @@ async def _should_breathe(pos: "Position", price: float, pnl_pct: float) -> tupl
     """True = تنفّس (لا تغلق هذه الدورة). False = أغلق. السبب للّوج."""
     if pnl_pct <= PNL_HARD_FLOOR:
         return False, f"أرضية صلبة {pnl_pct:.1f}% <= {PNL_HARD_FLOOR:.0f}%"
+    # ⚖️ سلّم عبء الإثبات: كلما تعمّقت الخسارة قلّ احتمال الخداع → تقلّ الأدلة المطلوبة للإغلاق.
+    #   0→-4%: تنفس كامل (المنطق أدناه كما هو). -4→-8%: يكفي شاهدان (عمق OB ضدنا + CVD ضدنا).
+    #   أعمق من -8%: ينقلب العبء — نغلق ما لم يوجد دليل إيجابي للبقاء (spoofing ضدنا أو CVD معنا).
+    if pnl_pct <= -4.0:
+        try:
+            from quant_engine.order_book_analyzer import analyze_order_book as _aob
+            from quant_engine.delta_engine import calculate_cvd as _cvd_l
+            from radars.futures.engine import fetch_klines_async as _fk_l
+            _lng = pos.direction == "LONG"
+            _a = await _aob(pos.symbol, check_spoofing=True)
+            _ps = getattr(_a, "pressure_score", 0.0) if _a else 0.0
+            _spf = getattr(_a, "spoofing_side", "") if _a else ""
+            _depth_against = (_ps <= -0.15) if _lng else (_ps >= 0.15)
+            _kl5 = await _fk_l(pos.symbol, "5m", 30)
+            _flow_against = False; _flow_for = False
+            if _kl5 and len(_kl5) >= 20:
+                _raw5 = [[int(k.time)*1000, k.open, k.high, k.low, k.close,
+                          k.volume, 0, k.volume, 0, k.buy_volume, k.buy_volume] for k in _kl5]
+                _, _cum5 = _cvd_l(_raw5)
+                if len(_cum5) >= 6:
+                    _dslope = _cum5[-1] - _cum5[-6]
+                    _flow_against = (_dslope < 0) if _lng else (_dslope > 0)
+                    _flow_for = (_dslope > 0) if _lng else (_dslope < 0)
+            if pnl_pct <= -8.0:
+                # عبء الإثبات مقلوب: سبب للبقاء = spoofing ضدنا (خداع لإخراجنا) أو تدفق منفَّذ لصالحنا
+                _spoof_trap = (_spf == "ask") if _lng else (_spf == "bid")
+                if not (_spoof_trap or _flow_for):
+                    return False, f"⚖️ سلّم عميق {pnl_pct:.1f}%: لا دليل بقاء (ضغط {_ps:+.2f}, تدفق ضدنا) — إغلاق"
+            else:
+                # -4→-8%: شاهدان متفقان = إغلاق (العمق نوايا، التدفق أموال منفَّذة)
+                if _depth_against and _flow_against:
+                    return False, f"⚖️ سلّم {pnl_pct:.1f}%: عمق OB ضدنا ({_ps:+.2f}) + CVD ضدنا — شاهدان → إغلاق"
+        except Exception:
+            pass
     # 📉 رقيب الاتجاه: هبوط تدريجي حقيقي ضدنا عبر 10 شموع (5m) = اتجاه صامت → أغلق
     #   (يكمّل الخروج التكتيكي: ذاك للانقلاب الحاد، هذا للتآكل البطيء الذي لا يصرخ)
     try:
