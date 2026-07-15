@@ -330,6 +330,11 @@ async def scout_long_loop(broadcast_fn=None, position_manager_fn=None):
                     if not candles or len(candles) < 20:
                         continue
                     price = candles[-1].close
+                    try:
+                        from quant_engine.ob_stream import get_price as _wp
+                        _lp = _wp(symbol)
+                        if _lp and _lp > 0: price = _lp
+                    except Exception: pass
                     res = await detect_rebound(symbol, candles)
                     if res["rebound"]:
                         await _send_long_and_open(symbol, price, candles,
