@@ -1103,7 +1103,8 @@ async def monitor_position(pos: Position):
 
     # تامين ربح Predator المبكر (قبل TP1)
     is_predator = (pos.radar_type == "futures" and getattr(pos, "tier", "") != "PH")
-    if is_predator and not pos.trailing_active and pnl_pct >= 2.0:
+    _be_th = 2.0 if is_predator else 5.0   # ⚖️ تأمين مبكر لكل الرادارات (WhaleX عند +5%)
+    if not pos.trailing_active and pnl_pct >= _be_th:
         pos.trailing_active = True
         pos.sl = pos.entry * (1.001 if is_long else 0.999)
         pos.trailing_sl = pos.sl
@@ -1125,8 +1126,8 @@ async def monitor_position(pos: Position):
     if tp1_hit and not pos.tp1_hit:
         pos.tp1_hit = True
         pos.trailing_active = True
-        # تحريك SL إلى نقطة التعادل
-        pos.sl = pos.entry * (1.001 if is_long else 0.999)
+        # قفل ربح +2% سعري (لا مجرد تعادل) — TP1 بلغ فالربح يُحفظ لا يُعاد
+        pos.sl = max(pos.sl, pos.entry * 1.02) if is_long else min(pos.sl, pos.entry * 0.98)
         pos.trailing_sl = pos.sl
         await _binance_update_sl(pos, pos.sl)
 
