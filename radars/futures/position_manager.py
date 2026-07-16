@@ -1513,6 +1513,17 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
         log.debug("Position skip: %s grade=%s (only A/S open positions)", sig.symbol, sig.grade)
         return None
     
+    # 🛡 صمام الانحراف: إشارة دخولها بعيد عن السعر الحي = بيانات فاسدة → رفض
+    try:
+        _live = await get_price(sig.symbol)
+        if _live and _live > 0 and sig.entry > 0:
+            _drift = abs(sig.entry - _live) / _live * 100
+            if _drift > 2.0:
+                log.warning("🛡 رفض %s %s: دخول %.6g ينحرف %.1f%% عن الحي %.6g — بيانات قديمة",
+                            sig.symbol, sig.direction, sig.entry, _drift, _live)
+                return None
+    except Exception:
+        pass
     # ═══ شرط 2: Kill Switch ═══
     from .service import is_kill_switch_active
     if is_kill_switch_active():

@@ -75,10 +75,10 @@ def get_klines(symbol, interval="1m", limit=50):
     rows = list(dq)[-limit:]
     # 🧊 فحص الطزاجة: بثّ معلّق لعملة = شموع مجمّدة تُعاد للأبد (rsi/سعر ثابت).
     # إن آخر شمعة أقدم من ضعف الإطار → البثّ علق → None → المستهلك يسقط لـREST الطازج.
-    _iv = {"1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400}.get(interval, 60)
     import time as _t
-    if rows and (_t.time() - rows[-1]["t"]) > _iv * 2:
-        return None
+    _last_u = rows[-1].get("u", rows[-1]["t"])
+    if rows and (_t.time() - _last_u) > 120:
+        return None   # لا تحديث منذ دقيقتين = بثّ العملة معلّق → REST
     return rows
 
 def get_signals(symbol):
@@ -129,13 +129,13 @@ async def run(symbols, refresh=2.0):
                     if "@kline" in _st:
                         _tf=_st.split("kline_")[-1]
                         k=m.get("data",{}).get("k",{})
-                        if k.get("x") and _tf in STREAM_TFS:
+                        if _tf in STREAM_TFS:
                             dq=_klines[_kkey(sym,_tf)]
                             row={"t":int(k["t"])//1000,"o":float(k["o"]),"h":float(k["h"]),
                                  "l":float(k["l"]),"c":float(k["c"]),"v":float(k["v"]),
-                                 "bv":float(k.get("V",0))}
+                                 "bv":float(k.get("V",0)),"u":time.time()}
                             if not dq or dq[-1]["t"]!=row["t"]: dq.append(row)
-                            elif dq: dq[-1]=row
+                            else: dq[-1]=row
                         continue
                     snap=_build(sym, m.get("data",{}))
                     if snap: _books[sym].append(snap)
