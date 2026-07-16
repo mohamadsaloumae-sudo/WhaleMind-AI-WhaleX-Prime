@@ -528,7 +528,7 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
             """).fetchall()
             conn.close()
 
-            for symbol, peak, alert_sent, signal_sent, last_check, status, gain_pct in rows:
+            async def _scan_one(symbol, peak, alert_sent, signal_sent, last_check, status, gain_pct):
                 try:
                     # ─ إخراج الجثث (فحص رخيص قبل أي مرحلة): ─
                     #   عملة استهلكت هبوطها معظم صعودها (≥85% من gain) = انتهت موجتها.
@@ -544,14 +544,14 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
                                 conn.commit(); conn.close()
                                 log.info("🪦 %s خرجت من المراقبة: هبطت %.1f%% من قمتها (صعودها كان %.1f%%) — موجتها انتهت",
                                          symbol, _dr, gain_pct)
-                                continue
+                                return
                     except Exception as _ev:
                         log.debug("evict check %s: %s", symbol, _ev)
 
                     # العملة في cooldown بعد إشارة؟ (لا تموت — تعود بعد 10د)
                     if status == "signaled":
                         if now - (last_check or 0) < SIGNAL_COOLDOWN:
-                            continue  # ما زالت في الراحة القصيرة
+                            return  # ما زالت في الراحة القصيرة
                         # 🔭 كسر الحلقة: إن خسرت آخر صفقة خلال ساعتين، لا تُعاد بعد (INX خسرت 3 مرّات متتالية صاعدة)
                         try:
                             _cc = sqlite3.connect("/opt/whalex/ml_training.db")
@@ -562,7 +562,7 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
                             _cc.close()
                             if _last and _last[0] is not None and _last[0] <= 0 and _last[1] and (now - int(_last[1])) < 7200:
                                 log.info("🔭 %s: خسرت آخر صفقة (%.2f%%) قبل <ساعتين — كسر الحلقة، لا إعادة اصطياد", symbol, _last[0])
-                                continue
+                                return
                         except Exception as _e:
                             log.debug("loop-break check %s: %s", symbol, _e)
                         # انتهى cooldown + لم تخسر حديثاً → تعود للمراقبة (تُحيا)
@@ -581,7 +581,7 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
                             conn.execute("UPDATE watchlist SET alert_sent=1, last_check=? WHERE symbol=?", (int(now), symbol))
                             conn.commit()
                             conn.close()
-                        continue
+                        return
 
                     # مرحلة 2: نُبِّه → مراقبة OB صارمة للانهيار
                     candles = await fetch_klines_async(symbol, "15m", 50)
@@ -599,7 +599,7 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
                                 conn.execute("DELETE FROM watchlist WHERE symbol=?", (symbol,))
                                 conn.commit()
                                 conn.close()
-                                continue
+                                return
                         except Exception as _ve:
                             log.debug("liquidity recheck %s: %s", symbol, _ve)
                         price = candles[-1].close
@@ -612,7 +612,12 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
                         log.info("🔭 %s: انهيار OB → إشارة (ثم cooldown 10د)", symbol)
                 except Exception as e:
                     log.debug("scout monitor %s: %s", symbol, e)
-                await asyncio.sleep(0.2)  # فاصل صغير بين العملات (تخفيف API)
+            _sem = asyncio.Semaphore(8)
+            async def _g(_r):
+                async with _sem:
+                    try: await _scan_one(*_r) if isinstance(_r, tuple) else await _scan_one(_r)
+                    except Exception as _e: log.debug("par %s: %s", _r, _e)
+            await asyncio.gather(*[_g(_r) for _r in rows], return_exceptions=True)
 
         except Exception as e:
             log.error("scout_loop error: %s", e)

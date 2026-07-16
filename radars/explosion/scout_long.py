@@ -325,14 +325,14 @@ async def scout_long_loop(broadcast_fn=None, position_manager_fn=None):
                     log.info("🔭🔼 [فرز LONG] %d عملة هادئة عند القاع", len(gainers[:25]))
 
             # مراقبة كل عملة
-            for symbol in list(watchlist.keys()):
+            async def _one_long(symbol):
                 # cooldown
                 if symbol in COOLDOWN and now - COOLDOWN[symbol] < COOLDOWN_SEC:
-                    continue
+                    return
                 try:
                     candles = await fetch_klines_async(symbol, "4h", 50)
                     if not candles or len(candles) < 20:
-                        continue
+                        return
                     price = candles[-1].close
                     try:
                         from quant_engine.ob_stream import get_price as _wp
@@ -347,7 +347,12 @@ async def scout_long_loop(broadcast_fn=None, position_manager_fn=None):
                         log.info("🔭🔼 %s: ارتداد OB → إشارة LONG (cooldown 10د)", symbol)
                 except Exception as _e:
                     log.debug("long watch %s: %s", symbol, _e)
-                await asyncio.sleep(0.2)
+            _sem = asyncio.Semaphore(8)
+            async def _g(_r):
+                async with _sem:
+                    try: await _one_long(*_r) if isinstance(_r, tuple) else await _one_long(_r)
+                    except Exception as _e: log.debug("par %s: %s", _r, _e)
+            await asyncio.gather(*[_g(_r) for _r in list(watchlist.keys())], return_exceptions=True)
 
             try:
                 from quant_engine.watchdog import beat as _wb; _wb("scout_long")
