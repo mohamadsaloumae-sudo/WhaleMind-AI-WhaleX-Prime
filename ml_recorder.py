@@ -7,6 +7,15 @@ log = logging.getLogger("ml_recorder")
 DB_PATH = "/opt/whalex/ml_training.db"
 
 
+def _ensure_cols():
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        for col, typ in (("ob_pressure", "REAL"), ("cvd_flow", "TEXT")):
+            try: conn.execute(f"ALTER TABLE training_signals ADD COLUMN {col} {typ}")
+            except Exception: pass
+        conn.commit(); conn.close()
+    except Exception: pass
+
 def _init_db():
     conn = sqlite3.connect(DB_PATH)
     conn.execute("""
@@ -31,6 +40,12 @@ def _init_db():
 def record_signal(trade) -> Optional[int]:
     try:
         _init_db()
+        _ensure_cols()
+        try:
+            from quant_engine.ml_brain import live_context
+            _lc = live_context(trade.symbol)
+        except Exception:
+            _lc = {"ob_pressure": None, "cvd_flow": None}
         conn = sqlite3.connect(DB_PATH)
         cur = conn.execute("""
             INSERT INTO training_signals (
@@ -38,8 +53,8 @@ def record_signal(trade) -> Optional[int]:
                 score, confidence, grade, tier, strategies,
                 regime, range_pos, rsi, stoch_k, stoch_d, macd_hist,
                 funding, oi_change, btc_trend, hawk_phase, hawk_modifier,
-                volume_ratio, key_strat_count
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                volume_ratio, key_strat_count, ob_pressure, cvd_flow
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             getattr(trade, "timestamp", int(time.time())),
             trade.symbol, trade.direction, trade.entry, trade.sl, trade.tp1,
@@ -52,6 +67,7 @@ def record_signal(trade) -> Optional[int]:
             getattr(trade, "btc_trend", ""), getattr(trade, "hawk_phase", ""),
             getattr(trade, "hawk_modifier", 1.0), getattr(trade, "volume_ratio", 0.0),
             getattr(trade, "key_strat_count", 0),
+            _lc["ob_pressure"], _lc["cvd_flow"],
         ))
         conn.commit()
         row_id = cur.lastrowid
