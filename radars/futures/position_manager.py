@@ -115,6 +115,8 @@ def update_stats(reason: ExitReason, pnl_pct: float):
         STATS["tactical"] += 1
         if pnl_pct > 0:
             STATS["wins"] += 1
+        else:
+            STATS["losses"] += 1
     else:
         STATS["wins"] += 1
         if reason == ExitReason.TP1_HIT:
@@ -562,7 +564,17 @@ C) انتظار — ضع SL أقرب
 # ─── TACTICAL EXIT ANALYZER ─────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
+_IRR_CACHE: dict = {}   # (symbol,is_long) -> (ts, verdict, reason) — يمنع إغراق REST مع دورة 3s
 async def is_real_reversal(symbol: str, is_long: bool, opened_at: float = 0) -> tuple[bool, str]:
+    _k = (symbol, is_long)
+    _cc = _IRR_CACHE.get(_k)
+    if _cc and time.time() - _cc[0] < 12:
+        return _cc[1], _cc[2]
+    _v, _r = await _is_real_reversal_raw(symbol, is_long, opened_at)
+    _IRR_CACHE[_k] = (time.time(), _v, _r)
+    return _v, _r
+
+async def _is_real_reversal_raw(symbol: str, is_long: bool, opened_at: float = 0) -> tuple[bool, str]:
     """تمييز الانقلاب الحقيقي من الزبزبة — قراءة عمق OB (depth=100).
     فلسفة: القمة عند الانهيار = معركة شرسة (تذبذب طبيعي).
     لا نخرج للزبزبة. نخرج فقط عند انقلاب بنيوي مؤكّد:
@@ -879,6 +891,47 @@ async def notify(user_id: str, msg: str, event_type: str = "alert", data: dict =
 # ═══════════════════════════════════════════════════════════
 PNL_HARD_FLOOR = -15.0   # أرضية الخسارة المطلقة (pnl مُرفّع)
 _REV_CACHE: dict = {}    # pos.id -> (ts, breathe, reason)
+_LADDER_TS: dict = {}    # pos.id -> آخر فحص سلّم دوري
+TUNE = {"strict": 1.0}   # 🧭 عامل الصرامة الذاتي (1.0 قياسي، أقل = دفاع أشد بعد يوم خاسر)
+
+async def _ladder_verdict(pos: "Position", pnl_pct: float):
+    """⚖️ سلّم عبء الإثبات — يعيد سبب الإغلاق (str) أو None للبقاء.
+    -4..-8%: شاهدان (عمق+تدفق ضدنا) = إغلاق. أعمق من -8%: البقاء يحتاج دليلاً إيجابياً.
+    العتبات تُضرب بعامل الصرامة الذاتي TUNE["strict"]."""
+    _t4 = -4.0 * TUNE["strict"]; _t8 = -8.0 * TUNE["strict"]
+    if pnl_pct > _t4:
+        return None
+    try:
+        from quant_engine.order_book_analyzer import analyze_order_book as _aob
+        from quant_engine.delta_engine import calculate_cvd as _cvd_l
+        from radars.futures.engine import fetch_klines_async as _fk_l
+        _lng = pos.direction == "LONG"
+        _a = await _aob(pos.symbol, check_spoofing=True)
+        _ps = getattr(_a, "pressure_score", 0.0) if _a else 0.0
+        _spf = getattr(_a, "spoofing_side", "") if _a else ""
+        _depth_against = (_ps <= -0.15) if _lng else (_ps >= 0.15)
+        _kl5 = await _fk_l(pos.symbol, "5m", 30)
+        _flow_against = False; _flow_for = False
+        if _kl5 and len(_kl5) >= 20:
+            _raw5 = [[int(k.time)*1000, k.open, k.high, k.low, k.close,
+                      k.volume, 0, k.volume, 0, k.buy_volume, k.buy_volume] for k in _kl5]
+            _, _cum5 = _cvd_l(_raw5)
+            if len(_cum5) >= 6:
+                _dslope = _cum5[-1] - _cum5[-6]
+                _flow_against = (_dslope < 0) if _lng else (_dslope > 0)
+                _flow_for = (_dslope > 0) if _lng else (_dslope < 0)
+        if pnl_pct <= _t8:
+            _spoof_trap = (_spf == "ask") if _lng else (_spf == "bid")
+            if not (_spoof_trap or _flow_for):
+                return f"⚖️ سلّم عميق {pnl_pct:.1f}%: لا دليل بقاء (ضغط {_ps:+.2f}, تدفق ضدنا) — إغلاق"
+        else:
+            if _depth_against and _flow_against:
+                return f"⚖️ سلّم {pnl_pct:.1f}%: عمق OB ضدنا ({_ps:+.2f}) + CVD ضدنا — شاهدان → إغلاق"
+    except Exception as _lad_e:
+        log.warning("⚖️ سلّم %s: تعذّر جمع الأدلة (%s) عند pnl=%.1f%%", pos.symbol, _lad_e, pnl_pct)
+        if pnl_pct <= _t8:
+            return f"⚖️ سلّم عميق {pnl_pct:.1f}%: تعذّر التحقق من دليل بقاء — إغلاق احترازي"
+    return None
 
 async def _should_breathe(pos: "Position", price: float, pnl_pct: float) -> tuple:
     """True = تنفّس (لا تغلق هذه الدورة). False = أغلق. السبب للّوج."""
@@ -887,41 +940,9 @@ async def _should_breathe(pos: "Position", price: float, pnl_pct: float) -> tupl
     # ⚖️ سلّم عبء الإثبات: كلما تعمّقت الخسارة قلّ احتمال الخداع → تقلّ الأدلة المطلوبة للإغلاق.
     #   0→-4%: تنفس كامل (المنطق أدناه كما هو). -4→-8%: يكفي شاهدان (عمق OB ضدنا + CVD ضدنا).
     #   أعمق من -8%: ينقلب العبء — نغلق ما لم يوجد دليل إيجابي للبقاء (spoofing ضدنا أو CVD معنا).
-    if pnl_pct <= -4.0:
-        try:
-            from quant_engine.order_book_analyzer import analyze_order_book as _aob
-            from quant_engine.delta_engine import calculate_cvd as _cvd_l
-            from radars.futures.engine import fetch_klines_async as _fk_l
-            _lng = pos.direction == "LONG"
-            _a = await _aob(pos.symbol, check_spoofing=True)
-            _ps = getattr(_a, "pressure_score", 0.0) if _a else 0.0
-            _spf = getattr(_a, "spoofing_side", "") if _a else ""
-            _depth_against = (_ps <= -0.15) if _lng else (_ps >= 0.15)
-            _kl5 = await _fk_l(pos.symbol, "5m", 30)
-            _flow_against = False; _flow_for = False
-            if _kl5 and len(_kl5) >= 20:
-                _raw5 = [[int(k.time)*1000, k.open, k.high, k.low, k.close,
-                          k.volume, 0, k.volume, 0, k.buy_volume, k.buy_volume] for k in _kl5]
-                _, _cum5 = _cvd_l(_raw5)
-                if len(_cum5) >= 6:
-                    _dslope = _cum5[-1] - _cum5[-6]
-                    _flow_against = (_dslope < 0) if _lng else (_dslope > 0)
-                    _flow_for = (_dslope > 0) if _lng else (_dslope < 0)
-            if pnl_pct <= -8.0:
-                # عبء الإثبات مقلوب: سبب للبقاء = spoofing ضدنا (خداع لإخراجنا) أو تدفق منفَّذ لصالحنا
-                _spoof_trap = (_spf == "ask") if _lng else (_spf == "bid")
-                if not (_spoof_trap or _flow_for):
-                    return False, f"⚖️ سلّم عميق {pnl_pct:.1f}%: لا دليل بقاء (ضغط {_ps:+.2f}, تدفق ضدنا) — إغلاق"
-            else:
-                # -4→-8%: شاهدان متفقان = إغلاق (العمق نوايا، التدفق أموال منفَّذة)
-                if _depth_against and _flow_against:
-                    return False, f"⚖️ سلّم {pnl_pct:.1f}%: عمق OB ضدنا ({_ps:+.2f}) + CVD ضدنا — شاهدان → إغلاق"
-        except Exception as _lad_e:
-            # 🚨 فشل جمع الأدلة ≠ إذن بالبقاء. في العمق الخطر الافتراض الآمن هو الإغلاق.
-            log.warning("⚖️ سلّم %s: تعذّر جمع الأدلة (%s) عند pnl=%.1f%%",
-                        pos.symbol, _lad_e, pnl_pct)
-            if pnl_pct <= -8.0:
-                return False, f"⚖️ سلّم عميق {pnl_pct:.1f}%: تعذّر التحقق من دليل بقاء — إغلاق احترازي"
+    _lv = await _ladder_verdict(pos, pnl_pct)
+    if _lv:
+        return False, _lv
     # 📉 رقيب الاتجاه: هبوط تدريجي حقيقي ضدنا عبر 10 شموع (5m) = اتجاه صامت → أغلق
     #   (يكمّل الخروج التكتيكي: ذاك للانقلاب الحاد، هذا للتآكل البطيء الذي لا يصرخ)
     try:
@@ -977,6 +998,8 @@ async def monitor_position(pos: Position):
     المراقبة الحية لصفقة واحدة:
     SL/TP → Trailing → Pyramiding → Claude AI → Tactical Exit
     """
+    if getattr(pos, "status", "") != "open":
+        return
     price = await get_price(pos.symbol)
     if not price:
         return
@@ -1045,6 +1068,17 @@ async def monitor_position(pos: Position):
                     pos.symbol, pos.direction, pnl_pct)
         await _close_position(pos, price, ExitReason.SL_HIT, pnl_pct)
         return
+
+    # ⚖️ بوابة السلّم الدورية — تعمل في نطاقها كل دورة (كانت ميتة خلف بوابتي SL/HARD_STOP)
+    if pnl_pct <= -4.0 * TUNE["strict"]:
+        _lts = _LADDER_TS.get(pos.id, 0.0)
+        if time.time() - _lts >= 15:
+            _LADDER_TS[pos.id] = time.time()
+            _lv = await _ladder_verdict(pos, pnl_pct)
+            if _lv:
+                log.warning("%s | %s %s", _lv, pos.symbol, pos.direction)
+                await _close_position(pos, price, ExitReason.SL_HIT, pnl_pct)
+                return
 
     # ─ حد أقصى صلب للخسارة (شبكة أمان مطلقة — يمنع كوارث -34%) ─
     #   مهما كان SL المحسوب (ATR قد يكون واسعاً)، لا نسمح بخسارة > 8%
@@ -1130,7 +1164,7 @@ async def monitor_position(pos: Position):
 
     # تامين ربح Predator المبكر (قبل TP1)
     is_predator = (pos.radar_type == "futures" and getattr(pos, "tier", "") != "PH")
-    _be_th = 2.0 if is_predator else 5.0   # ⚖️ تأمين مبكر لكل الرادارات (WhaleX عند +5%)
+    _be_th = (2.0 if is_predator else 5.0) * TUNE["strict"]   # ⚖️ تأمين مبكر — يبكّر أكثر بعد يوم خاسر
     if not pos.trailing_active and pnl_pct >= _be_th:
         pos.trailing_active = True
         pos.sl = pos.entry * (1.001 if is_long else 0.999)
@@ -1283,6 +1317,7 @@ async def monitor_position(pos: Position):
     #   الحلقة الضائعة كانت 300ث (نوم 5 دقائق) — الانقلاب يضرب الستوب قبل الفحص.
     _tac_interval = 20 if pos.tp1_hit else 45
     if now - pos.last_warned > _tac_interval:
+        pos.last_warned = now  # ⏱️ خنق حقيقي: يُحدَّث عند كل فحص لا عند النجاح فقط
         tactical, reason = await should_tactical_exit(pos, price, ob, ls_change)
         if tactical:
             pos.last_warned = now
@@ -1305,6 +1340,9 @@ async def _binance_update_sl(pos: "Position", new_sl: float):
     """يحدّث أمر SL الحقيقي على Binance (يلغي القديم، يضع الجديد)."""
     if not pos.is_real:
         return
+    _last = getattr(pos, "_last_sl_sent", 0.0)
+    if _last and abs(new_sl - _last) / _last * 100 < 0.15:
+        return  # 🔇 تغيير أدق من 0.15% — لا نغرق Binance بأوامر إلغاء/إنشاء
     try:
         from services.binance_trader import get_client, _fmt_price
         client = get_client(pos.binance_user_id)
@@ -1326,6 +1364,7 @@ async def _binance_update_sl(pos: "Position", new_sl: float):
             closePosition=True,
         )
         pos.binance_sl_order_id = str(o.get("orderId", ""))
+        pos._last_sl_sent = new_sl
         log.info("🔧 SL حقيقي حُدّث: %s → %.6g (order %s)", pos.symbol, new_sl, pos.binance_sl_order_id)
     except Exception as e:
         log.error("binance_update_sl %s: %s", pos.symbol, e)
@@ -1367,6 +1406,9 @@ async def _binance_close_position(pos: "Position") -> float:
 
 async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_pct: float):
     """إغلاق الصفقة وإرسال الإشعار"""
+    if getattr(pos, "status", "") != "open":
+        return  # 🔒 حارس ذري: مسار آخر أغلقها/يغلقها الآن — لا إغلاق مزدوج
+    pos.status = "closing"
     # ─ الصفقة الحقيقية: الإغلاق على Binance أولاً + اعتماد سعر التنفيذ الفعلي ─
     #   (درس EVAA: التقرير حُسب من سعر لحظي مخادع فأعلن -18% بينما Binance ربحت)
     _real_exit = await _binance_close_position(pos)
@@ -1605,6 +1647,66 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
 
 
 # ═══════════════════════════════════════════════════════════════
+# ─── 🧭 DAILY SELF-REVIEW — يقيس نتائجه ويكيّف صرامته ─────────────
+# ═══════════════════════════════════════════════════════════════
+_REVIEW_F = "/opt/whalex/.pm_review"
+
+async def _self_review_loop():
+    """كل 24 ساعة: يقرأ نتائجه الفعلية. يوم خاسر → يشدّد الدفاع (سلّم وتأمين أبكر).
+    يوم رابح → يعود تدريجياً للقياسي. دفاعي بحت — لا رفع مخاطرة أبداً (لا Martingale)."""
+    while True:
+        try:
+            import os, sqlite3 as _sq
+            _last = 0.0
+            try:
+                _last = float(open(_REVIEW_F).read().strip() or 0)
+            except Exception:
+                pass
+            _now = time.time()
+            if _now - _last >= 86400:
+                _tot = _win = 0; _net = 0.0
+                try:
+                    cx = _sq.connect("/opt/whalex/ml_training.db")
+                    _cols = {r[1] for r in cx.execute("PRAGMA table_info(training_signals)")}
+                    _pc = "pnl_pct" if "pnl_pct" in _cols else ("result_pnl" if "result_pnl" in _cols else None)
+                    q = f"SELECT COUNT(*), COALESCE(SUM(CASE WHEN outcome=1 THEN 1 ELSE 0 END),0), COALESCE(SUM({_pc}),0)" if _pc else                         "SELECT COUNT(*), COALESCE(SUM(CASE WHEN outcome=1 THEN 1 ELSE 0 END),0), 0"
+                    r = cx.execute(q + " FROM training_signals WHERE outcome IS NOT NULL AND timestamp >= ?",
+                                   (_now - 86400,)).fetchone()
+                    cx.close()
+                    if r: _tot, _win, _net = int(r[0] or 0), int(r[1] or 0), float(r[2] or 0.0)
+                except Exception as _qe:
+                    log.debug("self_review query: %s", _qe)
+                if _tot >= 3:
+                    _old = TUNE["strict"]
+                    if _net < 0:
+                        TUNE["strict"] = max(0.7, round(TUNE["strict"] - 0.1, 2))
+                        _mode = "🛡️ تشديد دفاعي — يوم خاسر: السلّم والتأمين أبكر"
+                    else:
+                        TUNE["strict"] = min(1.0, round(TUNE["strict"] + 0.1, 2))
+                        _mode = "✅ أداء رابح — عودة تدريجية للوضع القياسي"
+                    try:
+                        from services.telegram import send_message
+                        from core.config import get_settings
+                        _adm = get_settings().telegram_admin_chat_id
+                        if _adm:
+                            await send_message(_adm,
+                                f"🧭 <b>مراجعة المدير الذاتية · 24 ساعة</b>\n"
+                                f"صفقات: <b>{_tot}</b> · رابحة: <b>{_win}</b> · خاسرة: <b>{_tot-_win}</b>\n"
+                                f"الصافي: <b>{_net:+.1f}%</b>\n"
+                                f"عامل الصرامة: {_old:.2f} → <b>{TUNE['strict']:.2f}</b>\n{_mode}")
+                    except Exception:
+                        pass
+                    log.info("🧭 مراجعة ذاتية: %d صفقة، صافي %+.1f%%، صرامة %.2f", _tot, _net, TUNE["strict"])
+                try:
+                    open(_REVIEW_F, "w").write(str(_now))
+                except Exception:
+                    pass
+        except Exception as _e:
+            log.debug("self_review: %s", _e)
+        await asyncio.sleep(3600)
+
+
+# ═══════════════════════════════════════════════════════════════
 # ─── MAIN MONITOR LOOP ──────────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
@@ -1630,6 +1732,10 @@ async def run_position_manager():
                     pass
     except Exception as _e:
         log.error("restore positions error: %s", _e)
+    try:
+        asyncio.create_task(_self_review_loop())  # 🧭 المراجعة اليومية الذاتية
+    except Exception:
+        pass
     sem = asyncio.Semaphore(10)
 
     async def monitor_one(pos: Position):
