@@ -3,8 +3,19 @@ import { useEffect, useState } from "react";
 import { livePositions } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
 
+function fmtAge(openedAt, lang) {
+  if (!openedAt) return "";
+  const s = Math.max(0, Math.floor(Date.now() / 1000 - openedAt));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  const age = lang === "ar"
+    ? (h > 0 ? `${h}س ${m}د` : `${m}د`)
+    : (h > 0 ? `${h}h ${m}m` : `${m}m`);
+  const tm = new Date(openedAt * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return lang === "ar" ? `⏱ منذ ${age} · فُتحت ${tm}` : `⏱ ${age} ago · opened ${tm}`;
+}
+
 export default function LivePositions() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [radar, setRadar] = useState([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -53,6 +64,11 @@ export default function LivePositions() {
           <span>{t("current") || "حالياً"}: {p.current}</span>
           <span style={{ fontSize: 16 }}>{isProfit ? "🟢" : "🔴"}</span>
         </div>
+        {p.opened_at ? (
+          <div style={{ marginTop: 6, fontSize: 11, color: "var(--txt-3)" }}>
+            {fmtAge(p.opened_at, lang)}
+          </div>
+        ) : null}
       </div>
     );
   }
