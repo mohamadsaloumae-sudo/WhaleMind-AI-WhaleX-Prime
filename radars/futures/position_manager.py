@@ -916,8 +916,12 @@ async def _should_breathe(pos: "Position", price: float, pnl_pct: float) -> tupl
                 # -4→-8%: شاهدان متفقان = إغلاق (العمق نوايا، التدفق أموال منفَّذة)
                 if _depth_against and _flow_against:
                     return False, f"⚖️ سلّم {pnl_pct:.1f}%: عمق OB ضدنا ({_ps:+.2f}) + CVD ضدنا — شاهدان → إغلاق"
-        except Exception:
-            pass
+        except Exception as _lad_e:
+            # 🚨 فشل جمع الأدلة ≠ إذن بالبقاء. في العمق الخطر الافتراض الآمن هو الإغلاق.
+            log.warning("⚖️ سلّم %s: تعذّر جمع الأدلة (%s) عند pnl=%.1f%%",
+                        pos.symbol, _lad_e, pnl_pct)
+            if pnl_pct <= -8.0:
+                return False, f"⚖️ سلّم عميق {pnl_pct:.1f}%: تعذّر التحقق من دليل بقاء — إغلاق احترازي"
     # 📉 رقيب الاتجاه: هبوط تدريجي حقيقي ضدنا عبر 10 شموع (5m) = اتجاه صامت → أغلق
     #   (يكمّل الخروج التكتيكي: ذاك للانقلاب الحاد، هذا للتآكل البطيء الذي لا يصرخ)
     try:
