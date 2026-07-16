@@ -1436,10 +1436,7 @@ async def predator_agent(
         range_pos=range_pos,
         rsi=rsi_v,
     )
-    try:
-        from quant_engine.ml_brain import smart_leverage as _sml
-        sig.leverage = _sml(sig)
-    except Exception: pass
+
 
     # ═══ Quant Gate — دمج المحرك الكمّي قبل الطابور ═══
     # 1) Delta المتقدم (CVD أُطر متعددة + Smart Money + امتصاص/استنزاف)
@@ -1535,10 +1532,7 @@ async def sleeping_giants_radar(
         strategy_count=len(strats),
         btc_trend=BTC_TREND.get("trend", "NEUTRAL"),
     )
-    try:
-        from quant_engine.ml_brain import smart_leverage as _sml
-        sig.leverage = _sml(sig)
-    except Exception: pass
+
 
     await signal_queue.put(sig)
     log.info("SleepingGiant → Queue: %s score=%.1f conf=%.1f%%", symbol, sg_score, conf)
