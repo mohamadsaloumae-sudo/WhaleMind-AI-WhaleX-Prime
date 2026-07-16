@@ -297,6 +297,10 @@ async def add_position(pos: Position):
     ACTIVE[pos.id] = pos
     _pos_save(pos)
     log.info("Position opened: %s %s @%.6f lev=%.0fx", pos.symbol, pos.direction, pos.entry, pos.leverage)
+    try:
+        asyncio.create_task(monitor_position(pos))  # ⚡ قراءة أولى فورية — تغلق فجوة الثواني الأولى
+    except Exception:
+        pass
     src = "Peak Hunter" if pos.radar_type == "futures" and getattr(pos, "tier", "") == "PH" else "Radar"
     msg = (
         f"🟢 <b>فتح صفقة</b> · {pos.direction} · {pos.leverage:.0f}x\n"
@@ -372,23 +376,42 @@ async def get_price(symbol: str) -> Optional[float]:
     except:
         return None
 
+_OB_CACHE: dict = {}
 async def get_order_book(symbol: str) -> dict:
     try:
-        import httpx
+        import httpx, time as _t
         sym = symbol.replace("/", "").replace("-", "")
         if not sym.endswith("USDT"):
             sym += "USDT"
+        # 🌊 الستريم أولاً: صفر REST للعملات المبثوثة (كل الصفقات المفتوحة مبثوثة)
+        try:
+            from quant_engine.ob_stream import _books
+            bk = _books.get(sym.lower())
+            if bk:
+                s = bk[-1]
+                bids = sum(q for _, q in s.bids[:10]); asks = sum(q for _, q in s.asks[:10])
+                if bids + asks > 0:
+                    return {"bids": bids, "asks": asks,
+                            "imbalance": (bids - asks) / (bids + asks),
+                            "spread": s.asks[0][0] - s.bids[0][0]}
+        except Exception:
+            pass
+        _cc = _OB_CACHE.get(sym)
+        if _cc and _t.time() - _cc[0] < 3.0:
+            return _cc[1]
         async with httpx.AsyncClient(timeout=5) as c:
             r = await c.get(f"https://fapi.binance.com/fapi/v1/depth?symbol={sym}&limit=20")
             d = r.json()
             bids = sum(float(b[1]) for b in d.get("bids", [])[:10])
             asks = sum(float(a[1]) for a in d.get("asks", [])[:10])
-            return {
+            _res = {
                 "bids": bids,
                 "asks": asks,
                 "imbalance": (bids - asks) / (bids + asks) if (bids + asks) > 0 else 0,
                 "spread": float(d["asks"][0][0]) - float(d["bids"][0][0]) if d.get("asks") and d.get("bids") else 0,
             }
+            _OB_CACHE[sym] = (_t.time(), _res)
+            return _res
     except:
         return {}
 
@@ -1617,8 +1640,7 @@ async def run_position_manager():
                 try:
                     from quant_engine.watchdog import beat as _wb; _wb("manager")
                 except Exception: pass
-                _fast = any(_p.is_real for _p in positions)  # حقيقية = يقظة 3s
-                await asyncio.sleep(3 if _fast else 10)
+                await asyncio.sleep(3)  # ⚡ دورة موحّدة ورقي+حقيقي (العمق من الستريم = صفر REST)
                 continue
             else:
                 await asyncio.sleep(10)
