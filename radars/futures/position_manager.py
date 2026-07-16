@@ -900,6 +900,8 @@ async def _ladder_verdict(pos: "Position", pnl_pct: float):
     العتبات تُضرب بعامل الصرامة الذاتي TUNE["strict"]."""
     _t4 = -4.0 * TUNE["strict"]; _t8 = -8.0 * TUNE["strict"]
     if pnl_pct > _t4:
+        if getattr(pos, "_deep_grace_ts", 0.0):
+            pos._deep_grace_ts = 0.0  # تعافى — تُمنح مهلة جديدة مستقبلاً فقط بعد تعافٍ حقيقي
         return None
     try:
         from quant_engine.order_book_analyzer import analyze_order_book as _aob
@@ -920,10 +922,22 @@ async def _ladder_verdict(pos: "Position", pnl_pct: float):
                 _dslope = _cum5[-1] - _cum5[-6]
                 _flow_against = (_dslope < 0) if _lng else (_dslope > 0)
                 _flow_for = (_dslope > 0) if _lng else (_dslope < 0)
+        if pnl_pct <= -10.0:
+            return f"⚖️ حد صلب {pnl_pct:.1f}% ≤ -10%: إغلاق غير مشروط — لا دليل يعلو عليه"
         if pnl_pct <= _t8:
             _spoof_trap = (_spf == "ask") if _lng else (_spf == "bid")
-            if not (_spoof_trap or _flow_for):
-                return f"⚖️ سلّم عميق {pnl_pct:.1f}%: لا دليل بقاء (ضغط {_ps:+.2f}, تدفق ضدنا) — إغلاق"
+            if _spoof_trap:
+                return None  # خداع صريح لإخراجنا — البقاء مبرَّر
+            if _flow_for:
+                # ⏳ مهلة تعافٍ واحدة فقط (60s) — لا تتجدد مع كل تصحيح صغير
+                _g = getattr(pos, "_deep_grace_ts", 0.0)
+                if not _g:
+                    pos._deep_grace_ts = time.time()
+                    return None
+                if time.time() - _g < 60:
+                    return None
+                return f"⚖️ سلّم عميق {pnl_pct:.1f}%: انتهت مهلة التعافي (60s) والتدفق لم ينقذ — إغلاق"
+            return f"⚖️ سلّم عميق {pnl_pct:.1f}%: لا دليل بقاء (ضغط {_ps:+.2f}, تدفق ضدنا) — إغلاق"
         else:
             if _depth_against and _flow_against:
                 return f"⚖️ سلّم {pnl_pct:.1f}%: عمق OB ضدنا ({_ps:+.2f}) + CVD ضدنا — شاهدان → إغلاق"
