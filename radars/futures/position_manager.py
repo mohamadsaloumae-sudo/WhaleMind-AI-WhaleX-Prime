@@ -1623,6 +1623,11 @@ async def run_position_manager():
             ACTIVE[_p.id] = _p
         if restored:
             log.info("🔄 Restored %d open position(s) from DB", len(restored))
+            for _p in restored:
+                try:
+                    asyncio.create_task(monitor_position(_p))  # ⚡ فحص فوري بعد الاستعادة — لا فجوة عمياء بعد restart
+                except Exception:
+                    pass
     except Exception as _e:
         log.error("restore positions error: %s", _e)
     sem = asyncio.Semaphore(10)
