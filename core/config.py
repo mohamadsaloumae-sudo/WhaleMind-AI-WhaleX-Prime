@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     telegram_channel_spot: str = Field(default="", alias="TELEGRAM_CHANNEL_SPOT")
     telegram_channel_meme: str = Field(default="", alias="TELEGRAM_CHANNEL_MEME")
     telegram_admin_chat_id: str = Field(default="", alias="TELEGRAM_ADMIN_CHAT_ID")
+    telegram_spot_channel_id: str = Field(default="-1003936494458", alias="TELEGRAM_SPOT_CHANNEL_ID")
     telegram_mini_app_url: str = Field(default="", alias="TELEGRAM_MINI_APP_URL")
     binance_api_key: str = Field(default="", alias="BINANCE_API_KEY")
     binance_secret: str = Field(default="", alias="BINANCE_SECRET_KEY")
