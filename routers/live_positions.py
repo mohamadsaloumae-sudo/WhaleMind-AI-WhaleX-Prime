@@ -20,18 +20,28 @@ _price_ts = {}
 
 async def _get_price(symbol: str) -> float:
     """سعر حيّ من Binance Futures (عام، بلا مفاتيح) — كاش ثانية واحدة."""
+    # 🌊 الستريم أولاً — صفر REST للعملات المبثوثة (كل الصفقات المفتوحة مبثوثة)
+    try:
+        from quant_engine.ob_stream import get_price as _wsp
+        _wp = _wsp(symbol)
+        if _wp and _wp > 0:
+            _price_cache[symbol] = _wp; _price_ts[symbol] = time.time()
+            return _wp
+    except Exception:
+        pass
     now = time.time()
-    if symbol in _price_cache and (now - _price_ts.get(symbol, 0)) < 1.0:
+    if symbol in _price_cache and (now - _price_ts.get(symbol, 0)) < 30.0:
         return _price_cache[symbol]
     try:
         async with httpx.AsyncClient(timeout=5) as c:
             r = await c.get(f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={symbol}")
             price = float(r.json().get("price", 0))
-        _price_cache[symbol] = price
-        _price_ts[symbol] = now
-        return price
+        if price > 0:
+            _price_cache[symbol] = price; _price_ts[symbol] = now
+            return price
     except Exception:
-        return _price_cache.get(symbol, 0.0)
+        pass
+    return _price_cache.get(symbol, 0.0)  # آخر سعر معروف — لا صفر أبداً
 
 
 @router.get("/radar-positions")
