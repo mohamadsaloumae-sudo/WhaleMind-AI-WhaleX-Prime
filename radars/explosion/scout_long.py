@@ -279,7 +279,7 @@ async def _send_long_and_open(symbol, price, candles, bottom, res, position_mana
                 # ✅ حفظ للميني آب فوراً — ما فُتح يُعرض، والفشل يصرخ لا يصمت
                 try:
                     from radars.explosion.scout import _save_to_signals_table
-                    _save_to_signals_table(sig, "\n".join(sigs))
+                    _save_to_signals_table(sig, "📈 Peak Hunter LONG\n" + "\n".join(sigs))
                 except Exception as _se:
                     log.error("❌ Long save_signals FAILED %s: %s", symbol, _se)
                 # 🧠 الفيتو يحكم التنفيذ الحقيقي فقط (لا الظهور)

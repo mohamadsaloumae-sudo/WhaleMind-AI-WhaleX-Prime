@@ -1,5 +1,5 @@
-// ترجمة أسماء الاستراتيجيات (تُحفظ عربية في القاعدة)
-const EXACT = {
+// ترجمة أسطر الاستراتيجيات — ثنائية الاتجاه (المخزون مختلط عربي/إنجليزي)
+const AR2EN = {
   "اختلال_شراء_قرب_السعر": "Buy imbalance near price",
   "اختلال_قرب_السعر": "Imbalance near price",
   "تآكل_البائعين": "Seller erosion",
@@ -18,19 +18,40 @@ const EXACT = {
   "قاع النطاق + RSI منخفض": "Range bottom + low RSI",
   "قمة النطاق + RSI مرتفع": "Range top + high RSI",
 };
-const PATTERNS = [
+const AR2EN_P = [
   [/^RSI مرتفع \(([\d.]+)\) — ارتداد ناضج$/, (m) => `High RSI (${m[1]}) — mature rebound`],
   [/^💥 قمة انفجار \(([^)]+)\)$/, (m) => `💥 Explosion peak (${m[1]})`],
   [/^📊 ضغط بيع OB \(([-\d.]+)\)$/, (m) => `📊 OB sell pressure (${m[1]})`],
   [/^📍 قمة ارتداد \(([^)]+)\)$/, (m) => `📍 Rebound peak (${m[1]})`],
 ];
+const EN2AR = {
+  "🎯 Peak Hunter SHORT": "🎯 صائد القمم — شورت",
+  "📈 Peak Hunter LONG": "📈 صائد القيعان — لونغ",
+  "BB Upper Touch": "لمس الحد العلوي BB",
+  "BB Lower Touch": "لمس الحد السفلي BB",
+  "MACD Bullish": "MACD صاعد",
+  "MACD Bearish": "MACD هابط",
+  "FVG Bullish Zone": "منطقة FVG صاعدة",
+  "FVG Bearish Zone": "منطقة FVG هابطة",
+  "⚡ Imminent Explosion": "⚡ انفجار وشيك",
+  "🎯 Stop Hunt LONG": "🎯 صيد وقف — لونغ",
+  "🎯 Stop Hunt SHORT": "🎯 صيد وقف — شورت",
+  "💥 Liquidation Cascade → LONG": "💥 شلال تصفيات → لونغ",
+  "💥 Liquidation Cascade → SHORT": "💥 شلال تصفيات → شورت",
+};
+const EN2AR_P = [
+  [/^⚡ Delta Reversal \(([^)]+)\)$/, (m) => `⚡ انعكاس دلتا (${m[1]})`],
+  [/^CVD Divergence \(([^)]+)\)$/, (m) => `انحراف CVD (${m[1]})`],
+  [/^📊 Volume Spike \(([^)]+)\)$/, (m) => `📊 قفزة حجم (${m[1]})`],
+];
+function _map(k, exact, pats) {
+  if (exact[k]) return exact[k];
+  for (const [re, fn] of pats) { const m = k.match(re); if (m) return fn(m); }
+  return null;
+}
 export function trStrat(s, lang) {
-  if (lang === "ar" || !s) return s;
+  if (!s) return s;
   const k = s.trim();
-  if (EXACT[k]) return EXACT[k];
-  for (const [re, fn] of PATTERNS) {
-    const m = k.match(re);
-    if (m) return fn(m);
-  }
-  return s; // إنجليزي أصلاً أو غير معروف
+  if (lang === "ar") return _map(k, EN2AR, EN2AR_P) || s;   // عربي: عرّب الإنجليزي
+  return _map(k, AR2EN, AR2EN_P) || s;                       // إنجليزي: ترجم العربي
 }
