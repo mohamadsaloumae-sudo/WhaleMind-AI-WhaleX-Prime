@@ -893,7 +893,7 @@ PNL_HARD_FLOOR = -15.0   # أرضية الخسارة المطلقة (pnl مُر�
 _REV_CACHE: dict = {}    # pos.id -> (ts, breathe, reason)
 _LADDER_TS: dict = {}    # pos.id -> آخر فحص سلّم دوري
 _LOSS_CD: dict = {}      # symbol -> وقت آخر إغلاق خاسر (تهدئة 30 دقيقة)
-TUNE = {"strict": 1.0}   # 🧭 عامل الصرامة الذاتي (1.0 قياسي، أقل = دفاع أشد بعد يوم خاسر)
+TUNE = {"strict": 1.0, "harvest": 1.0}   # 🧭 strict=عمق الدفاع · harvest=سرعة قفل الأرباح (أقل = أبكر)
 
 async def _ladder_verdict(pos: "Position", pnl_pct: float):
     """⚖️ سلّم عبء الإثبات — يعيد سبب الإغلاق (str) أو None للبقاء.
@@ -1182,14 +1182,14 @@ async def monitor_position(pos: Position):
     # 🔒 قفل نصف الذروة: ربح لامس +8% لا يرتد خسارة — الوقف يتبع نصف القمة
     _pkp = pos.peak_price or pos.entry
     _pk_pnl = ((_pkp - pos.entry) / pos.entry if is_long else (pos.entry - _pkp) / pos.entry) * 100 * pos.leverage
-    if _pk_pnl >= 8.0:
+    if _pk_pnl >= 8.0 * TUNE["harvest"]:
         _lock = _pk_pnl / 2.0
         _ls = pos.entry * (1 + _lock / (100 * pos.leverage)) if is_long else pos.entry * (1 - _lock / (100 * pos.leverage))
         _new = max(pos.sl, _ls) if is_long else min(pos.sl, _ls)
         if _new != pos.sl:
             pos.sl = _new
             await _binance_update_sl(pos, pos.sl)
-    _be_th = (2.0 if is_predator else 5.0) * TUNE["strict"]   # ⚖️ تأمين مبكر — يبكّر أكثر بعد يوم خاسر
+    _be_th = (2.0 if is_predator else 5.0) * TUNE["harvest"]   # ⚖️ تأمين مبكر — يتبع حالة النظام
     if not pos.trailing_active and pnl_pct >= _be_th:
         pos.trailing_active = True
         pos.sl = pos.entry * (1.001 if is_long else 0.999)
@@ -1683,55 +1683,66 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
 _REVIEW_F = "/opt/whalex/.pm_review"
 
 async def _self_review_loop():
-    """كل 24 ساعة: يقرأ نتائجه الفعلية. يوم خاسر → يشدّد الدفاع (سلّم وتأمين أبكر).
-    يوم رابح → يعود تدريجياً للقياسي. دفاعي بحت — لا رفع مخاطرة أبداً (لا Martingale)."""
+    """🧭 وعي ذاتي: كل ساعة يقرأ نافذة 24h ويضبط موازينه بفلسفة محمد —
+    رابح = حذر يقفل مكاسبه أبكر · خاسر = انتقاء أصرم (فيتو أعلى) + حصاد أسرع + عمق أشد.
+    لا رفع مخاطرة أبداً. تقرير يومي للخاص يفصّل كل اتجاه (يكشف الجانب النازف بالأرقام)."""
     while True:
         try:
-            import os, sqlite3 as _sq
+            import sqlite3 as _sq
+            _now = time.time()
+            _tot = _win = 0; _net = 0.0; _dir = {"LONG": 0.0, "SHORT": 0.0}
+            try:
+                cx = _sq.connect("/opt/whalex/ml_training.db")
+                _cols = {r[1] for r in cx.execute("PRAGMA table_info(training_signals)")}
+                _pc = "pnl_pct" if "pnl_pct" in _cols else ("result_pnl" if "result_pnl" in _cols else None)
+                if _pc:
+                    for d, n, w, s in cx.execute(
+                        f"SELECT direction, COUNT(*), SUM(CASE WHEN outcome=1 THEN 1 ELSE 0 END), COALESCE(SUM({_pc}),0) "
+                        "FROM training_signals WHERE outcome IS NOT NULL AND timestamp >= ? GROUP BY direction",
+                        (_now - 86400,)):
+                        _tot += int(n or 0); _win += int(w or 0); _net += float(s or 0.0)
+                        if d in _dir: _dir[d] = float(s or 0.0)
+                cx.close()
+            except Exception as _qe:
+                log.debug("self_review query: %s", _qe)
+
+            if _tot >= 3:
+                try:
+                    from quant_engine import ml_brain as _mlb
+                    if _net < 0:
+                        TUNE["strict"] = 0.8; TUNE["harvest"] = 0.8; _mlb.ML_VETO_THRESHOLD = 0.44
+                        _mode = "🛡️ خاسر → تكثيف: انتقاء أصرم (فيتو 44%) + حصاد أبكر + عمق أشد"
+                    else:
+                        TUNE["strict"] = 1.0; TUNE["harvest"] = 0.9; _mlb.ML_VETO_THRESHOLD = 0.38
+                        _mode = "✅ رابح → حذر: قفل مبكر للمكاسب، عتبات قياسية"
+                except Exception as _te:
+                    log.debug("tune set: %s", _te)
+
+            # تقرير يومي (ختم ملف) — يفصّل الاتجاهين
             _last = 0.0
             try:
                 _last = float(open(_REVIEW_F).read().strip() or 0)
             except Exception:
                 pass
-            _now = time.time()
-            if _now - _last >= 86400:
-                _tot = _win = 0; _net = 0.0
+            if _now - _last >= 86400 and _tot >= 3:
                 try:
-                    cx = _sq.connect("/opt/whalex/ml_training.db")
-                    _cols = {r[1] for r in cx.execute("PRAGMA table_info(training_signals)")}
-                    _pc = "pnl_pct" if "pnl_pct" in _cols else ("result_pnl" if "result_pnl" in _cols else None)
-                    q = f"SELECT COUNT(*), COALESCE(SUM(CASE WHEN outcome=1 THEN 1 ELSE 0 END),0), COALESCE(SUM({_pc}),0)" if _pc else                         "SELECT COUNT(*), COALESCE(SUM(CASE WHEN outcome=1 THEN 1 ELSE 0 END),0), 0"
-                    r = cx.execute(q + " FROM training_signals WHERE outcome IS NOT NULL AND timestamp >= ?",
-                                   (_now - 86400,)).fetchone()
-                    cx.close()
-                    if r: _tot, _win, _net = int(r[0] or 0), int(r[1] or 0), float(r[2] or 0.0)
-                except Exception as _qe:
-                    log.debug("self_review query: %s", _qe)
-                if _tot >= 3:
-                    _old = TUNE["strict"]
-                    if _net < 0:
-                        TUNE["strict"] = max(0.7, round(TUNE["strict"] - 0.1, 2))
-                        _mode = "🛡️ تشديد دفاعي — يوم خاسر: السلّم والتأمين أبكر"
-                    else:
-                        TUNE["strict"] = min(1.0, round(TUNE["strict"] + 0.1, 2))
-                        _mode = "✅ أداء رابح — عودة تدريجية للوضع القياسي"
-                    try:
-                        from services.telegram import send_message
-                        from core.config import get_settings
-                        _adm = get_settings().telegram_admin_chat_id
-                        if _adm:
-                            await send_message(_adm,
-                                f"🧭 <b>مراجعة المدير الذاتية · 24 ساعة</b>\n"
-                                f"صفقات: <b>{_tot}</b> · رابحة: <b>{_win}</b> · خاسرة: <b>{_tot-_win}</b>\n"
-                                f"الصافي: <b>{_net:+.1f}%</b>\n"
-                                f"عامل الصرامة: {_old:.2f} → <b>{TUNE['strict']:.2f}</b>\n{_mode}")
-                    except Exception:
-                        pass
-                    log.info("🧭 مراجعة ذاتية: %d صفقة، صافي %+.1f%%، صرامة %.2f", _tot, _net, TUNE["strict"])
+                    from services.telegram import send_message
+                    from core.config import get_settings
+                    _adm = get_settings().telegram_admin_chat_id
+                    if _adm:
+                        await send_message(_adm,
+                            f"🧭 <b>مراجعة المدير الذاتية · 24 ساعة</b>\n"
+                            f"صفقات: <b>{_tot}</b> · رابحة: <b>{_win}</b> · خاسرة: <b>{_tot-_win}</b>\n"
+                            f"الصافي: <b>{_net:+.1f}%</b>\n"
+                            f"📈 LONG: <b>{_dir['LONG']:+.1f}%</b> · 📉 SHORT: <b>{_dir['SHORT']:+.1f}%</b>\n"
+                            f"الموازين: صرامة {TUNE['strict']:.2f} · حصاد {TUNE['harvest']:.2f}\n{_mode}")
+                except Exception:
+                    pass
                 try:
                     open(_REVIEW_F, "w").write(str(_now))
                 except Exception:
                     pass
+                log.info("🧭 مراجعة: %d صفقة، صافي %+.1f%% (L %+.1f / S %+.1f)", _tot, _net, _dir["LONG"], _dir["SHORT"])
         except Exception as _e:
             log.debug("self_review: %s", _e)
         await asyncio.sleep(3600)
