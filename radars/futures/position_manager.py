@@ -1178,6 +1178,16 @@ async def monitor_position(pos: Position):
 
     # تامين ربح Predator المبكر (قبل TP1)
     is_predator = (pos.radar_type == "futures" and getattr(pos, "tier", "") != "PH")
+    # 🔒 قفل نصف الذروة: ربح لامس +8% لا يرتد خسارة — الوقف يتبع نصف القمة
+    _pkp = pos.peak_price or pos.entry
+    _pk_pnl = ((_pkp - pos.entry) / pos.entry if is_long else (pos.entry - _pkp) / pos.entry) * 100 * pos.leverage
+    if _pk_pnl >= 8.0:
+        _lock = _pk_pnl / 2.0
+        _ls = pos.entry * (1 + _lock / (100 * pos.leverage)) if is_long else pos.entry * (1 - _lock / (100 * pos.leverage))
+        _new = max(pos.sl, _ls) if is_long else min(pos.sl, _ls)
+        if _new != pos.sl:
+            pos.sl = _new
+            await _binance_update_sl(pos, pos.sl)
     _be_th = (2.0 if is_predator else 5.0) * TUNE["strict"]   # ⚖️ تأمين مبكر — يبكّر أكثر بعد يوم خاسر
     if not pos.trailing_active and pnl_pct >= _be_th:
         pos.trailing_active = True
