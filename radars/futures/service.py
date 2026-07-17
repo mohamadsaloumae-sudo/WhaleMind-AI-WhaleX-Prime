@@ -768,6 +768,22 @@ async def mc_refresh_loop():
         await asyncio.sleep(6 * 3600)  # كل 6 ساعات
 
 
+def _open_position_syms():
+    try:
+        import sqlite3, json
+        cx = sqlite3.connect("/opt/whalex/positions.db")
+        rows = cx.execute("SELECT data FROM active_positions WHERE status='open'").fetchall()
+        cx.close()
+        out = []
+        for (d,) in rows:
+            try:
+                s = json.loads(d).get("symbol", "")
+                if s: out.append(s if s.endswith("USDT") else s + "USDT")
+            except Exception: pass
+        return out
+    except Exception:
+        return []
+
 async def start_all_services(broadcast_fn=None, position_manager_fn=None):
     """
     نقطة التشغيل الرئيسية — تشغيل كل الوكلاء معاً بدون اختناق
@@ -792,22 +808,6 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
 
     from shadow_tracker import shadow_loop
     from radars.explosion.scout_long import scout_long_loop  # مُفعّل: تصحيح صاعد (لا هابطة)
-
-def _open_position_syms():
-    try:
-        import sqlite3, json
-        cx = sqlite3.connect("/opt/whalex/positions.db")
-        rows = cx.execute("SELECT data FROM active_positions WHERE status='open'").fetchall()
-        cx.close()
-        out = []
-        for (d,) in rows:
-            try:
-                s = json.loads(d).get("symbol", "")
-                if s: out.append(s if s.endswith("USDT") else s + "USDT")
-            except Exception: pass
-        return out
-    except Exception:
-        return []
 
     from quant_engine.ob_stream import run as ob_stream_run
     from quant_engine.ml_brain import retrain_loop as ml_retrain_loop
