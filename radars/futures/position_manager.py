@@ -899,7 +899,7 @@ async def _ladder_verdict(pos: "Position", pnl_pct: float):
     """⚖️ سلّم عبء الإثبات — يعيد سبب الإغلاق (str) أو None للبقاء.
     -4..-8%: شاهدان (عمق+تدفق ضدنا) = إغلاق. أعمق من -8%: البقاء يحتاج دليلاً إيجابياً.
     العتبات تُضرب بعامل الصرامة الذاتي TUNE["strict"]."""
-    _t4 = -4.0; _t8 = -8.0 * TUNE["strict"]   # البوابة ثابتة؛ الصرامة تشدّد العمق فقط
+    _t4 = -4.0; _t8 = -6.0 * TUNE["strict"]   # العمق يبدأ -6: الخسارة النموذجية أصغر من الربح المقفول
     if pnl_pct > _t4:
         if getattr(pos, "_deep_grace_ts", 0.0):
             pos._deep_grace_ts = 0.0  # تعافى — تُمنح مهلة جديدة مستقبلاً فقط بعد تعافٍ حقيقي
@@ -1091,7 +1091,7 @@ async def monitor_position(pos: Position):
         await _close_position(pos, price, ExitReason.SL_HIT, pnl_pct)
         return
 
-    if pnl_pct <= -4.0 and (time.time() - getattr(pos, "opened_at", 0)) >= 600:
+    if pnl_pct <= -4.0 and (time.time() - getattr(pos, "opened_at", 0)) >= 180:
         _lts = _LADDER_TS.get(pos.id, 0.0)
         if time.time() - _lts >= 15:
             _LADDER_TS[pos.id] = time.time()
@@ -1716,10 +1716,10 @@ async def _self_review_loop():
                 try:
                     from quant_engine import ml_brain as _mlb
                     if _net < 0:
-                        TUNE["strict"] = 0.8; TUNE["harvest"] = 0.8; _mlb.ML_VETO_THRESHOLD = 0.44
+                        TUNE["strict"] = 0.8; TUNE["harvest"] = 0.8; _mlb.ML_VETO_THRESHOLD = 0.46
                         _mode = "🛡️ خاسر → تكثيف: انتقاء أصرم (فيتو 44%) + حصاد أبكر + عمق أشد"
                     else:
-                        TUNE["strict"] = 1.0; TUNE["harvest"] = 0.9; _mlb.ML_VETO_THRESHOLD = 0.38
+                        TUNE["strict"] = 1.0; TUNE["harvest"] = 0.9; _mlb.ML_VETO_THRESHOLD = 0.42
                         _mode = "✅ رابح → حذر: قفل مبكر للمكاسب، عتبات قياسية"
                 except Exception as _te:
                     log.debug("tune set: %s", _te)
