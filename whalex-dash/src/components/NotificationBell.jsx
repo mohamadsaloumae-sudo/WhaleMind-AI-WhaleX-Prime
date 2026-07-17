@@ -22,6 +22,7 @@ export default function NotificationBell() {
               id: n.id,
               event: n.event,
               message: n.message,
+              message_en: n.message_en,
               time: new Date(n.created_at * 1000),
             }))
           );
@@ -46,6 +47,7 @@ export default function NotificationBell() {
             id: Date.now() + Math.random(),
             event: d.event || "alert",
             message: d.message,
+            message_en: d.message_en,
             time: new Date(),
           }, ...prev].slice(0, 50));
           setUnread((u) => u + 1);
@@ -93,7 +95,7 @@ export default function NotificationBell() {
                     }}
                     style={{ cursor: "pointer" }}
                   >
-                    <div className="bell-item-msg">{it.message}</div>
+                    <div className="bell-item-msg">{lang === "ar" ? it.message : (it.message_en || it.message)}</div>
                     <div className="bell-item-time">
                       {it.time.toLocaleTimeString(lang === "ar" ? "ar-AE" : "en-US", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Dubai" })}
                     </div>
