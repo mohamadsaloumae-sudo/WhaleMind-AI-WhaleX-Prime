@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import { livePositions } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
 
+const fmtPx = (v) =>
+  (v === 0 || v) ? String(Number(Number(v).toPrecision(6))) : "";
+
 function fmtAge(openedAt, lang) {
   if (!openedAt) return "";
   const s = Math.max(0, Math.floor(Date.now() / 1000 - openedAt));
@@ -60,8 +63,8 @@ export default function LivePositions() {
           </span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, fontSize: 12, color: "var(--txt-3)" }}>
-          <span>{t("entry") || "دخول"}: {p.entry}</span>
-          <span>{t("current") || "حالياً"}: {p.current}</span>
+          <span>{t("entry") || "دخول"}: {fmtPx(p.entry)}</span>
+          <span>{t("current") || "حالياً"}: {fmtPx(p.current)}</span>
           <span style={{ fontSize: 16 }}>{isProfit ? "🟢" : "🔴"}</span>
         </div>
         {p.opened_at ? (
