@@ -140,9 +140,103 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
         log.error("spot channel send: %s", _te)
 
 
+_prices: dict = {}          # كاش أسعار السبوت (يحدّثه المتتبع كل دقيقة — تقرؤه الواجهة)
+_track: dict = {}           # sig_id -> stage (0 لم يلمس، 1/2 بعد TP1/TP2)
+_TRACK_STARTED = False
+
+
+def _ensure_results_table():
+    try:
+        import sqlite3
+        cx = sqlite3.connect("/opt/whalex/db/whalex.db")
+        cx.execute("""CREATE TABLE IF NOT EXISTS spot_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, symbol TEXT, entry REAL,
+            exit_price REAL, pnl_pct REAL, outcome INTEGER, reason TEXT, ts INTEGER)""")
+        cx.commit(); cx.close()
+    except Exception as _e:
+        log.debug("results table: %s", _e)
+
+
+async def tracker_loop():
+    """📡 متتبع مصير الإشارات: TP متدرج، SL صادق، تنظيف 72 ساعة."""
+    log.info("🪙📡 Spot tracker starting")
+    _ensure_results_table()
+    from db.database import get_session, Signal
+    from core.config import get_settings
+    from services.telegram import send_message
+    ch = get_settings().telegram_spot_channel_id
+    async with httpx.AsyncClient() as c:
+        while True:
+            try:
+                r = await c.get(f"{SPOT}/api/v3/ticker/price", timeout=15)
+                for row in r.json():
+                    _prices[row["symbol"]] = float(row["price"])
+
+                db = get_session()
+                try:
+                    sigs = db.query(Signal).filter(Signal.radar_type == "spot",
+                                                   Signal.is_active == True).all()
+                    now = time.time()
+                    for s in sigs:
+                        px = _prices.get(s.symbol)
+                        if not px:
+                            continue
+                        st = _track.get(s.id)
+                        if st is None:  # أول رؤية (أو بعد restart): هيّئ الطور بصمت
+                            st = 2 if px >= s.tp2 else (1 if px >= s.tp1 else 0)
+                            _track[s.id] = st
+                        age = now - (s.created_at.timestamp() if s.created_at else now)
+                        pnl = (px - s.entry) / s.entry * 100 if s.entry else 0.0
+
+                        async def _announce(txt):
+                            if ch:
+                                try: await send_message(ch, txt)
+                                except Exception as _te: log.debug("spot ann: %s", _te)
+
+                        def _log_result(outcome, reason):
+                            try:
+                                import sqlite3
+                                cx = sqlite3.connect("/opt/whalex/db/whalex.db")
+                                cx.execute("INSERT INTO spot_results(symbol,entry,exit_price,pnl_pct,outcome,reason,ts) VALUES(?,?,?,?,?,?,?)",
+                                           (s.symbol, s.entry, px, round(pnl, 2), outcome, reason, int(now)))
+                                cx.commit(); cx.close()
+                            except Exception as _re:
+                                log.debug("spot result: %s", _re)
+
+                        if px <= s.sl:
+                            s.is_active = False; db.commit()
+                            _log_result(0, "sl")
+                            await _announce(f"🔴 <b>{s.symbol}</b> — ضرب الوقف\nالنتيجة: <b>{pnl:+.1f}%</b>\n🪙 <i>WhaleMind Spot</i>")
+                            log.info("🪙🔴 %s SL %.1f%%", s.symbol, pnl)
+                        elif px >= s.tp3:
+                            s.is_active = False; db.commit()
+                            _log_result(1, "tp3")
+                            await _announce(f"🏆 <b>{s.symbol}</b> — الهدف الثالث!\nالنتيجة: <b>{pnl:+.1f}%</b> 🎉\n🪙 <i>WhaleMind Spot</i>")
+                            log.info("🪙🏆 %s TP3 %.1f%%", s.symbol, pnl)
+                        elif px >= s.tp2 and st < 2:
+                            _track[s.id] = 2
+                            await _announce(f"🎯 <b>{s.symbol}</b> — الهدف الثاني (+12%)\nنواصل نحو الثالث 🚀")
+                        elif px >= s.tp1 and st < 1:
+                            _track[s.id] = 1
+                            await _announce(f"✅ <b>{s.symbol}</b> — الهدف الأول (+6%)\nربح مؤمّن، نواصل 📈")
+                        elif age > 72 * 3600 and st == 0:
+                            s.is_active = False; db.commit()
+                            _log_result(0, "expired")
+                            log.info("🪙⌛ %s expired %.1f%%", s.symbol, pnl)
+                finally:
+                    db.close()
+            except Exception as e:
+                log.error("spot tracker: %s", e)
+            await asyncio.sleep(60)
+
+
 async def spot_loop():
     """حلقة العقل — قائمة بذاتها، أخطاؤها لا تغادرها."""
     log.info("🪙 Spot brain v1 starting")
+    global _TRACK_STARTED
+    if not _TRACK_STARTED:
+        _TRACK_STARTED = True
+        asyncio.create_task(tracker_loop())
     async with httpx.AsyncClient() as c:
         while True:
             try:

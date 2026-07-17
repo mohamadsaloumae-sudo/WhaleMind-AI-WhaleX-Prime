@@ -50,7 +50,7 @@ export default function LivePositions() {
               background: isLong ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
               color: isLong ? "#22c55e" : "#ef4444",
             }}>
-              {isLong ? "LONG" : "SHORT"} {Math.round(p.leverage)}x
+              {isLong ? "LONG" : "SHORT"} {p.leverage > 1 ? `${Math.round(p.leverage)}x` : ""}
             </span>
             <span style={{
               fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,

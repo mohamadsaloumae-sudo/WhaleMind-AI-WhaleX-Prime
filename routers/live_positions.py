@@ -47,7 +47,26 @@ async def _get_price(symbol: str) -> float:
 @router.get("/radar-positions")
 async def radar_positions(market: str = "futures"):
     if market == "spot":
-        return {"positions": []}  # المرحلة 2: مدير سبوت منفصل
+        try:
+            from db.database import get_session, Signal
+            from radars.spot.scout_spot import _prices
+            db = get_session()
+            try:
+                sigs = db.query(Signal).filter(Signal.radar_type == "spot",
+                                               Signal.is_active == True).order_by(Signal.created_at.desc()).all()
+                out = []
+                for s in sigs:
+                    px = _prices.get(s.symbol) or s.entry or 0
+                    pnl = (px - s.entry) / s.entry * 100 if s.entry else 0.0
+                    out.append({"symbol": s.symbol, "direction": "LONG", "leverage": 1,
+                                "radar": "WhaleX Spot 🪙", "entry": s.entry, "current": px,
+                                "pnl_pct": round(pnl, 2),
+                                "opened_at": int(s.created_at.timestamp()) if s.created_at else 0})
+                return {"positions": out}
+            finally:
+                db.close()
+        except Exception:
+            return {"positions": []}
     """صفقات الرادارات المفتوحة — للمشاهدة فقط."""
     out = []
     try:
