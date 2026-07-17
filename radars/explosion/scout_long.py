@@ -236,70 +236,71 @@ async def _send_long_and_open(symbol, price, candles, bottom, res, position_mana
     log.info("🔭🔼 PEAK HUNTER LONG SIGNAL: %s LONG @%.6g grade=%s [%s]",
              symbol, price, sig.grade, "+".join(sigs))
 
-    # ─── نشر بطاقة LONG (📈 أخضر، أرقام قابلة للنسخ) ───
-    rise = (price - bottom) / bottom * 100 if bottom > 0 else 0
-    n_trig = len(sigs)
-    f_imb = _filter_line("Buy Imbalance", "yes" if "اختلال_شراء_قرب_السعر" in sigs else "no", "اختلال_شراء_قرب_السعر" in sigs)
-    f_prs = _filter_line("Buy Pressure", "yes" if "ضغط_شراء_عام" in sigs else "no", "ضغط_شراء_عام" in sigs)
-    f_wal = _filter_line("Buy Wall", "yes" if "جدار_شراء_ضخم" in sigs else "no", "جدار_شراء_ضخم" in sigs)
-    f_ero = _filter_line("Seller Erosion", "yes" if "تآكل_البائعين" in sigs else "no", "تآكل_البائعين" in sigs)
-    f_rsi = _filter_line("RSI", f"{res['rsi']:.0f}", res['rsi'] < 40)
-    msg = (
-        f"📈 <b>WhaleX Long</b> — LONG\n"
-        f"━━━━━━━━━━━━━━━━━━━\n"
-        f"⚡ <code>{symbol}</code>   ▲ {rise:.0f}% from bottom\n\n"
-        f"Entry   <code>{sig.entry:.6g}</code>\n"
-        f"Stop    <code>{sig.sl:.6g}</code>\n"
-        f"TP1     <code>{sig.tp1:.6g}</code>\n"
-        f"TP2     <code>{sig.tp2:.6g}</code>\n"
-        f"TP3     <code>{sig.tp3:.6g}</code>\n\n"
-        f"Grade <b>{sig.grade}</b>  ·  Conf <b>{sig.confidence:.0f}%</b>  ·  Lev <b>{sig.leverage:.0f}x</b>\n"
-        f"R:R   {sig.rr_tp1} / {sig.rr_tp2} / {sig.rr_tp3}\n"
-        f"━━━━━━━━━━━━━━━━━━━\n"
-        f"🎯 <b>DETECTION FILTERS</b>   {n_trig}/5\n"
-        f"{f_imb}\n{f_prs}\n{f_wal}\n{f_ero}\n{f_rsi}\n"
-        f"━━━━━━━━━━━━━━━━━━━\n"
-        f"📈 Rebound confirmed — entering rise\n"
-        f"🐋 <i>WhaleMind Prime</i>"
-    )
-    try:
-        from services.telegram import send_message
-        from core.config import get_settings
-        ch = get_settings().telegram_channel_futures
-        if ch:
-            await send_message(ch, msg)
-    except Exception as _e:
-        log.error("Long signal broadcast error: %s", _e)
 
     if position_manager_fn:
         try:
             _res = await position_manager_fn(sig)
             if _res is not None:
                 log.info("🔭📈 Peak Hunter LONG → manager: %s LONG (opened)", symbol)
-                # 🧠 توقّع النموذج المتعلّم (مراقبة)
+                # ─── نشر بطاقة LONG (📈 أخضر، أرقام قابلة للنسخ) ───
+                rise = (price - bottom) / bottom * 100 if bottom > 0 else 0
+                n_trig = len(sigs)
+                f_imb = _filter_line("Buy Imbalance", "yes" if "اختلال_شراء_قرب_السعر" in sigs else "no", "اختلال_شراء_قرب_السعر" in sigs)
+                f_prs = _filter_line("Buy Pressure", "yes" if "ضغط_شراء_عام" in sigs else "no", "ضغط_شراء_عام" in sigs)
+                f_wal = _filter_line("Buy Wall", "yes" if "جدار_شراء_ضخم" in sigs else "no", "جدار_شراء_ضخم" in sigs)
+                f_ero = _filter_line("Seller Erosion", "yes" if "تآكل_البائعين" in sigs else "no", "تآكل_البائعين" in sigs)
+                f_rsi = _filter_line("RSI", f"{res['rsi']:.0f}", res['rsi'] < 40)
+                msg = (
+                    f"📈 <b>WhaleX Long</b> — LONG\n"
+                    f"━━━━━━━━━━━━━━━━━━━\n"
+                    f"⚡ <code>{symbol}</code>   ▲ {rise:.0f}% from bottom\n\n"
+                    f"Entry   <code>{sig.entry:.6g}</code>\n"
+                    f"Stop    <code>{sig.sl:.6g}</code>\n"
+                    f"TP1     <code>{sig.tp1:.6g}</code>\n"
+                    f"TP2     <code>{sig.tp2:.6g}</code>\n"
+                    f"TP3     <code>{sig.tp3:.6g}</code>\n\n"
+                    f"Grade <b>{sig.grade}</b>  ·  Conf <b>{sig.confidence:.0f}%</b>  ·  Lev <b>{sig.leverage:.0f}x</b>\n"
+                    f"R:R   {sig.rr_tp1} / {sig.rr_tp2} / {sig.rr_tp3}\n"
+                    f"━━━━━━━━━━━━━━━━━━━\n"
+                    f"🎯 <b>DETECTION FILTERS</b>   {n_trig}/5\n"
+                    f"{f_imb}\n{f_prs}\n{f_wal}\n{f_ero}\n{f_rsi}\n"
+                    f"━━━━━━━━━━━━━━━━━━━\n"
+                    f"📈 Rebound confirmed — entering rise\n"
+                    f"🐋 <i>WhaleMind Prime</i>"
+                )
+                try:
+                    from services.telegram import send_message
+                    from core.config import get_settings
+                    ch = get_settings().telegram_channel_futures
+                    if ch:
+                        await send_message(ch, msg)
+                except Exception as _e:
+                    log.error("Long signal broadcast error: %s", _e)
+                # ✅ حفظ للميني آب فوراً — ما فُتح يُعرض، والفشل يصرخ لا يصمت
+                try:
+                    from radars.explosion.scout import _save_to_signals_table
+                    _save_to_signals_table(sig, "\n".join(sigs))
+                except Exception as _se:
+                    log.error("❌ Long save_signals FAILED %s: %s", symbol, _se)
+                # 🧠 الفيتو يحكم التنفيذ الحقيقي فقط (لا الظهور)
+                _veto = False
                 try:
                     from quant_engine.ml_brain import predict_signal, ML_VETO_THRESHOLD
                     _mlp, _mlf = predict_signal(sig)
                     log.info("🧠 ML: %s %s — نجاح متوقّع %.0f%% | %s",
                              sig.symbol, sig.direction, _mlp * 100, _mlf)
                     if ML_VETO_THRESHOLD > 0 and _mlp < ML_VETO_THRESHOLD:
-                        log.info("🧠 ML veto: %s — %.0f%% < %.0f%%",
+                        _veto = True
+                        log.info("🧠 ML veto (أوتو فقط): %s — %.0f%% < %.0f%%",
                                  sig.symbol, _mlp * 100, ML_VETO_THRESHOLD * 100)
-                        return
                 except Exception as _mle:
                     log.debug("ml predict: %s", _mle)
-                # ✅ حفظ للميني آب — نفس مصدر الواجهة (ما يُعرض = ما فُتح)
-                try:
-                    from radars.explosion.scout import _save_to_signals_table
-                    _save_to_signals_table(sig, "\n".join(sigs))
-                except Exception as _se:
-                    log.debug("Long save_signals: %s", _se)
-                # ✅ التنفيذ الحقيقي (Binance) — نفس نقطة الفتح الورقي
-                try:
-                    from services.auto_trade_engine import on_signal_approved
-                    asyncio.create_task(on_signal_approved(sig))
-                except Exception as _ae:
-                    log.error("auto_trade (PH-LONG) error: %s", _ae)
+                if not _veto:
+                    try:
+                        from services.auto_trade_engine import on_signal_approved
+                        asyncio.create_task(on_signal_approved(sig))
+                    except Exception as _ae:
+                        log.error("auto_trade (PH-LONG) error: %s", _ae)
             else:
                 log.info("🔭📈 %s LONG — المدير رفض الفتح (حارس/ازدواج)", symbol)
         except Exception as _e:
