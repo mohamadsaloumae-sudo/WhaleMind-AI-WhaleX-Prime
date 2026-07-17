@@ -4,6 +4,19 @@ import { api } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
 import Paywall from "../components/Paywall.jsx";
 
+const STRAT_EN = {
+  "اختلال_شراء_قرب_السعر": "Buy imbalance near price",
+  "اختلال_قرب_السعر": "Imbalance near price",
+  "تآكل_البائعين": "Seller erosion",
+  "تآكل_المشترين": "Buyer erosion",
+  "جدار_بيع_ضخم": "Huge sell wall",
+  "جدار_شراء_ضخم": "Huge buy wall",
+  "ضغط_بيع_عام": "Broad sell pressure",
+  "ضغط_شراء_عام": "Broad buy pressure",
+  "جبل_ثلجي": "Iceberg",
+};
+const trStrat = (s, lang) => (lang === "ar" ? s : (STRAT_EN[s.trim()] || s));
+
 export default function Signals() {
   const { t, lang } = useLang();
   const [signals, setSignals] = useState([]);
@@ -51,7 +64,7 @@ export default function Signals() {
                 {s.strategies && (
                   <div style={{ display: "grid", gap: 4, marginTop: 6, marginBottom: 6 }}>
                     {s.strategies.split("\n").filter(Boolean).map((line, k) => (
-                      <div key={k} style={{ fontSize: 12.5, color: "var(--txt-1)", background: "var(--bg-2)", padding: "5px 9px", borderRadius: 7 }}>{line}</div>
+                      <div key={k} style={{ fontSize: 12.5, color: "var(--txt-1)", background: "var(--bg-2)", padding: "5px 9px", borderRadius: 7 }}>{trStrat(line, lang)}</div>
                     ))}
                   </div>
                 )}
