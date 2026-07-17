@@ -18,7 +18,21 @@ async def scan(symbol: str = Query(...)):
         from quant_engine.ml_brain import live_context, predict_signal, smart_leverage
         from quant_engine.ob_stream import get_price as _wsp
 
-        k = await fetch_klines_async(sym, "4h", 60)
+        k = await fetch_klines_async(sym, "4h", 50)
+        if not k or len(k) < 25:
+            # 🌍 fapi محظور على السيرفر (النظام يعيش على WS) — سبوت يفحص أي عملة
+            try:
+                import httpx
+                from types import SimpleNamespace as _NS
+                async with httpx.AsyncClient(timeout=8) as _c:
+                    _r = await _c.get(f"https://api.binance.com/api/v3/klines?symbol={sym}&interval=4h&limit=60")
+                    _rows = _r.json()
+                if isinstance(_rows, list):
+                    k = [_NS(time=int(x[0]) // 1000, open=float(x[1]), high=float(x[2]),
+                             low=float(x[3]), close=float(x[4]), volume=float(x[5]),
+                             buy_volume=float(x[9])) for x in _rows]
+            except Exception as _fe:
+                log.debug("spot fallback %s: %s", sym, _fe)
         if not k or len(k) < 25:
             out["error"] = "no_data"
             return out
