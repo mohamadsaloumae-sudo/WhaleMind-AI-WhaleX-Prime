@@ -892,13 +892,14 @@ async def notify(user_id: str, msg: str, event_type: str = "alert", data: dict =
 PNL_HARD_FLOOR = -15.0   # أرضية الخسارة المطلقة (pnl مُرفّع)
 _REV_CACHE: dict = {}    # pos.id -> (ts, breathe, reason)
 _LADDER_TS: dict = {}    # pos.id -> آخر فحص سلّم دوري
+_LOSS_CD: dict = {}      # symbol -> وقت آخر إغلاق خاسر (تهدئة 30 دقيقة)
 TUNE = {"strict": 1.0}   # 🧭 عامل الصرامة الذاتي (1.0 قياسي، أقل = دفاع أشد بعد يوم خاسر)
 
 async def _ladder_verdict(pos: "Position", pnl_pct: float):
     """⚖️ سلّم عبء الإثبات — يعيد سبب الإغلاق (str) أو None للبقاء.
     -4..-8%: شاهدان (عمق+تدفق ضدنا) = إغلاق. أعمق من -8%: البقاء يحتاج دليلاً إيجابياً.
     العتبات تُضرب بعامل الصرامة الذاتي TUNE["strict"]."""
-    _t4 = -4.0 * TUNE["strict"]; _t8 = -8.0 * TUNE["strict"]
+    _t4 = -4.0; _t8 = -8.0 * TUNE["strict"]   # البوابة ثابتة؛ الصرامة تشدّد العمق فقط
     if pnl_pct > _t4:
         if getattr(pos, "_deep_grace_ts", 0.0):
             pos._deep_grace_ts = 0.0  # تعافى — تُمنح مهلة جديدة مستقبلاً فقط بعد تعافٍ حقيقي
@@ -1084,7 +1085,7 @@ async def monitor_position(pos: Position):
         return
 
     # ⚖️ بوابة السلّم الدورية — تعمل في نطاقها كل دورة (كانت ميتة خلف بوابتي SL/HARD_STOP)
-    if pnl_pct <= -4.0 * TUNE["strict"]:
+    if pnl_pct <= -4.0 and (time.time() - getattr(pos, "opened_at", 0)) >= 600:
         _lts = _LADDER_TS.get(pos.id, 0.0)
         if time.time() - _lts >= 15:
             _LADDER_TS[pos.id] = time.time()
@@ -1433,6 +1434,8 @@ async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_p
     if getattr(pos, "status", "") != "open":
         return  # 🔒 حارس ذري: مسار آخر أغلقها/يغلقها الآن — لا إغلاق مزدوج
     pos.status = "closing"
+    if pnl_pct < 0:
+        _LOSS_CD[pos.symbol] = time.time()   # 🧊 تهدئة إعادة الفتح بعد خسارة
     # ─ الصفقة الحقيقية: الإغلاق على Binance أولاً + اعتماد سعر التنفيذ الفعلي ─
     #   (درس EVAA: التقرير حُسب من سعر لحظي مخادع فأعلن -18% بينما Binance ربحت)
     _real_exit = await _binance_close_position(pos)
@@ -1596,6 +1599,10 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
     يفتح صفقة من إشارة الرادار - فقط Grade A و S
     """
     # منع الازدواج: صفقة واحدة لكل عملة (من أي رادار وأي اتجاه)
+    _cd = _LOSS_CD.get(sig.symbol, 0.0)
+    if _cd and time.time() - _cd < 1800:
+        log.info("🧊 تهدئة %s: أُغلق خاسراً قبل %.0f دقيقة — لا إعادة فتح", sig.symbol, (time.time()-_cd)/60)
+        return None
     _dup = [p for p in LIVE_POS.values() if p.symbol == sig.symbol and p.status == "open"]
     if _dup:
         log.info("🚫 %s %s — صفقة مفتوحة مسبقاً على العملة (id=%s) — لا ازدواج",
@@ -1655,7 +1662,7 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
         direction=sig.direction,
         entry=sig.entry,
         amount=amount,
-        leverage=sig.leverage,
+        leverage=float(max(1, round(float(sig.leverage or 3)))),
         sl=sig.sl,
         tp1=sig.tp1,
         tp2=sig.tp2,
