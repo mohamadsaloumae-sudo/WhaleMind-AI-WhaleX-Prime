@@ -17,8 +17,11 @@ const AR2EN = {
   "ارتداد من منطقة دعم": "Rebound from support zone",
   "قاع النطاق + RSI منخفض": "Range bottom + low RSI",
   "قمة النطاق + RSI مرتفع": "Range top + high RSI",
+  "قاع_نطاق_صامد": "Holding range bottom",
+  "تجميع_هادئ_بالقاع": "Quiet accumulation at bottom",
 };
 const AR2EN_P = [
+  [/^RSI مضغوط \(([\d.]+)\)$/, (m) => `Compressed RSI (${m[1]})`],
   [/^RSI مرتفع \(([\d.]+)\) — ارتداد ناضج$/, (m) => `High RSI (${m[1]}) — mature rebound`],
   [/^💥 قمة انفجار \(([^)]+)\)$/, (m) => `💥 Explosion peak (${m[1]})`],
   [/^📊 ضغط بيع OB \(([-\d.]+)\)$/, (m) => `📊 OB sell pressure (${m[1]})`],
@@ -26,6 +29,7 @@ const AR2EN_P = [
 ];
 const EN2AR = {
   "🎯 Peak Hunter SHORT": "🎯 صائد القمم — شورت",
+  "🪙 Spot Accumulation": "🪙 تجميع سبوت",
   "📈 Peak Hunter LONG": "📈 صائد القيعان — لونغ",
   "BB Upper Touch": "لمس الحد العلوي BB",
   "BB Lower Touch": "لمس الحد السفلي BB",

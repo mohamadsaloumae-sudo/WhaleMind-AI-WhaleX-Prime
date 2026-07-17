@@ -784,6 +784,18 @@ def _open_position_syms():
     except Exception:
         return []
 
+async def _spot_guard():
+    """حارس عزل السبوت: أي فشل (حتى الاستيراد) يبقى داخله ولا يمسّ الفيوتشر."""
+    while True:
+        try:
+            from radars.spot.scout_spot import spot_loop
+            await spot_loop()
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("spot_scout").error("spot guard: %s — retry in 60s", _e)
+        await asyncio.sleep(60)
+
+
 async def start_all_services(broadcast_fn=None, position_manager_fn=None):
     """
     نقطة التشغيل الرئيسية — تشغيل كل الوكلاء معاً بدون اختناق
@@ -823,6 +835,7 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
         mlops_loop(),
         btc_macro_loop(),
         mc_refresh_loop(),
+        _spot_guard(),  # 🪙 عقل السبوت — معزول كلياً
         shadow_loop(),
         scout_long_loop(position_manager_fn=position_manager_fn),
         ob_stream_run(list(dict.fromkeys([t.symbol for t in ALL_SYMBOLS] + _open_position_syms()))),
