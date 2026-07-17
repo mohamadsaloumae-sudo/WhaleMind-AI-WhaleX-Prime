@@ -3,8 +3,14 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
 import { trStrat } from "../lib/strats.js";
+import { getMarket } from "../hooks/useMarket.js";
 import Paywall from "../components/Paywall.jsx";
 
+
+function useLangSpotMsg() {
+  const ar = (localStorage.getItem("wx_lang") || document.documentElement.lang || "ar") !== "en";
+  return ar ? "رادار السبوت قيد الإطلاق — المرحلة الثانية 🚧" : "Spot radar launching — phase 2 🚧";
+}
 
 export default function Signals() {
   const { t, lang } = useLang();
@@ -14,7 +20,7 @@ export default function Signals() {
 
   async function load() {
     try {
-      const data = await api.get("/api/signals/all");
+      const data = await api.get(`/api/signals/all?market=${getMarket()}`);
       setSignals(Array.isArray(data) ? data : data?.signals || []);
     } catch (e) { setErr(e.message); }
     finally { setLoading(false); }
@@ -31,7 +37,11 @@ export default function Signals() {
     <Paywall>
     <>
       {err && <div className="alert info">{t("signalsFetchFail")}: {err}</div>}
-      {signals.length === 0 ? (
+      {getMarket() === "spot" && signals.length === 0 ? (
+        <div style={{ textAlign: "center", padding: 40, color: "var(--txt-2)" }}>
+          🪙 {"" }{useLangSpotMsg()}
+        </div>
+      ) : signals.length === 0 ? (
         <div className="card"><div className="empty">{t("noSignals")}</div></div>
       ) : (
         <div className="grid grid-3">

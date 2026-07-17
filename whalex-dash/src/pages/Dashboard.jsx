@@ -2,10 +2,11 @@
 import { useEffect, useState } from "react";
 import { Activity, Radio } from "lucide-react";
 import { useLang } from "../context/LangContext.jsx";
+import { getMarket, setMarket } from "../hooks/useMarket.js";
 import { signals } from "../lib/api.js";
 
 export default function Dashboard() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [live, setLive] = useState(false);
   const [day, setDay] = useState({ trades: 0, profit: 0, winRate: 0 });
   const [recent, setRecent] = useState([]);
@@ -47,8 +48,22 @@ export default function Dashboard() {
     return () => { alive = false; clearTimeout(retry); try { ws && ws.close(); } catch { /* */ } };
   }, []);
 
+  const mkt = getMarket();
+  const MB = ({ id, ar, en }) => (
+    <button onClick={() => mkt !== id && setMarket(id)}
+      style={{ flex: 1, padding: "12px 0", borderRadius: 12, border: "1px solid var(--bg-2)",
+               fontWeight: 800, fontSize: 15, cursor: "pointer",
+               background: mkt === id ? "var(--brand)" : "var(--bg-1)",
+               color: mkt === id ? "#04211c" : "var(--txt-1)" }}>
+      {lang === "ar" ? ar : en}
+    </button>
+  );
   return (
     <>
+      <div style={{ display: "flex", gap: 10, padding: "12px 16px 4px" }}>
+        <MB id="futures" ar="⚡ فيوتشر" en="⚡ Futures" />
+        <MB id="spot" ar="🪙 سبوت" en="🪙 Spot" />
+      </div>
       <div className="grid grid-4" style={{ marginBottom: 24 }}>
         <div className="card stat">
           <span className="label">{t("status")}</span>

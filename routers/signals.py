@@ -43,10 +43,12 @@ def meme_signals():
         db.close()
 
 @router.get("/all", )
-def all_signals():
+def all_signals(market: str = "futures"):
     db = get_session()
     try:
-        sigs = db.query(Signal).filter(Signal.is_active==True, Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
+        _rt = ["spot"] if market == "spot" else ["futures", "explosion"]
+        sigs = db.query(Signal).filter(Signal.radar_type.in_(_rt), Signal.is_active==True, Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
+        _seen=set(); sigs=[s for s in sigs if not (s.symbol in _seen or _seen.add(s.symbol))]
         return {"signals": _fmt(sigs)}
     finally:
         db.close()

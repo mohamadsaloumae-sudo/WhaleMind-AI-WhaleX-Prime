@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { livePositions } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
+import { getMarket } from "../hooks/useMarket.js";
 
 const fmtPx = (v) =>
   (v === 0 || v) ? String(Number(Number(v).toPrecision(6))) : "";
@@ -24,7 +25,7 @@ export default function LivePositions() {
 
   async function loadRadar() {
     try {
-      const r = await livePositions.radar();
+      const r = await fetch(`/api/live/radar-positions?market=${getMarket()}`, { headers: { Authorization: `Bearer ${localStorage.getItem("wx_token") || ""}` } }).then((x) => x.json());
       setRadar(r?.positions || []);
     } catch { /* */ }
     finally { setLoaded(true); }

@@ -1085,6 +1085,12 @@ async def monitor_position(pos: Position):
         return
 
     # ⚖️ بوابة السلّم الدورية — تعمل في نطاقها كل دورة (كانت ميتة خلف بوابتي SL/HARD_STOP)
+    # 🧱 الحد الصلب المطلق -10% — لا يحجبه عمر ولا كاش ولا دليل (سُدّ ثقب مهلة الولادة)
+    if pnl_pct <= -10.0:
+        log.warning("🧱 حد صلب %s %s pnl=%.1f%% — إغلاق غير مشروط", pos.symbol, pos.direction, pnl_pct)
+        await _close_position(pos, price, ExitReason.SL_HIT, pnl_pct)
+        return
+
     if pnl_pct <= -4.0 and (time.time() - getattr(pos, "opened_at", 0)) >= 600:
         _lts = _LADDER_TS.get(pos.id, 0.0)
         if time.time() - _lts >= 15:

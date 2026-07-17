@@ -45,7 +45,9 @@ async def _get_price(symbol: str) -> float:
 
 
 @router.get("/radar-positions")
-async def radar_positions():
+async def radar_positions(market: str = "futures"):
+    if market == "spot":
+        return {"positions": []}  # المرحلة 2: مدير سبوت منفصل
     """صفقات الرادارات المفتوحة — للمشاهدة فقط."""
     out = []
     try:
