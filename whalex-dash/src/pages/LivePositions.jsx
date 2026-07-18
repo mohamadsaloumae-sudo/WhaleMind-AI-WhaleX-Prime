@@ -57,7 +57,7 @@ export default function LivePositions() {
               fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
               background: "rgba(99,102,241,0.15)", color: "var(--accent)",
             }}>
-              {p.tier === "PH" ? (isLong ? "📈 WhaleX Long" : "🎯 WhaleX Short") : "⚡ WhaleX Predator"}
+              {p.radar ? p.radar : p.tier === "PH" ? (isLong ? "📈 WhaleX Long" : "🎯 WhaleX Short") : "⚡ WhaleX Predator"}
             </span>
           </div>
           <span style={{ fontSize: 17, fontWeight: 800, color: isProfit ? "#22c55e" : "#ef4444" }}>
