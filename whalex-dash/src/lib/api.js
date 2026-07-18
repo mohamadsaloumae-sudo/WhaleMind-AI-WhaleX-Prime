@@ -80,7 +80,7 @@ export const livePositions = {
 export const signals = {
   all:     () => api.get("/api/signals/all"),
   history:   (m = "futures") => api.get(`/api/signals/history?market=${m}`),
-  monthly: () => api.get("/api/signals/monthly"),
+  monthly:   (m = "futures") => api.get(`/api/signals/monthly?market=${m}`),
 };
 
 export const subscription = {

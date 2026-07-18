@@ -101,9 +101,26 @@ def signals_history(market: str = "futures"):
 
 
 @router.get("/monthly")
-def signals_monthly():
+def signals_monthly(market: str = "futures"):
     """ملخّص الشهر (من تاريخ 1 بتوقيت دبي): رابحة/خاسرة + المجاميع"""
     import sqlite3
+    if market == "spot":
+        try:
+            con = sqlite3.connect("/opt/whalex/db/whalex.db"); con.row_factory = sqlite3.Row
+            rows = con.execute("""
+                SELECT pnl_pct, outcome FROM spot_results
+                WHERE pnl_pct IS NOT NULL
+                  AND ts > (strftime('%s', date('now','+4 hours','start of month')) - 14400)
+            """).fetchall()
+            con.close()
+            _w = [r for r in rows if r["outcome"]]; _l = [r for r in rows if not r["outcome"]]
+            _tp = sum(r["pnl_pct"] for r in _w); _tl = sum(abs(r["pnl_pct"]) for r in _l)
+            return {"wins_count": len(_w), "losses_count": len(_l),
+                    "total_profit_pct": round(_tp, 2), "total_loss_pct": round(_tl, 2),
+                    "net_pct": round(_tp - _tl, 2), "total_trades": len(rows)}
+        except Exception:
+            return {"wins_count": 0, "losses_count": 0, "total_profit_pct": 0,
+                    "total_loss_pct": 0, "net_pct": 0, "total_trades": 0}
     try:
         con = sqlite3.connect("/opt/whalex/ml_training.db")
         con.row_factory = sqlite3.Row

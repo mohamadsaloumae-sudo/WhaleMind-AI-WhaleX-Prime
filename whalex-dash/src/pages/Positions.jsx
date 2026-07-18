@@ -16,7 +16,7 @@ export default function Positions() {
     try {
       const h = await signals.history(getMarket());
       setHistory(h?.history || []);
-      const m = await signals.monthly();
+      const m = await signals.monthly(getMarket());
       setMonthly(m);
     } catch { /* */ }
     finally { setLoading(false); }
