@@ -112,7 +112,7 @@ export default function Dashboard() {
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "var(--bg-2)", borderRadius: "var(--radius-sm)", fontSize: 13 }}>
                   <span style={{ fontWeight: 700 }}>{x.symbol}</span>
                   <span className={`badge ${x.direction === "LONG" ? "long" : "short"}`} style={{ fontSize: 11 }}>{x.direction}</span>
-                  <span style={{ fontSize: 11, color: "var(--txt-3)" }}>{x.radar_type === "explosion" ? (x.direction === "LONG" ? "📈 WhaleX Long" : "🎯 WhaleX Short") : "⚡ WhaleX Predator"} · {x.grade}</span>
+                  <span style={{ fontSize: 11, color: "var(--txt-3)" }}>{x.radar_type === "spot" ? "🪙 WhaleX Spot" : x.radar_type === "explosion" ? (x.direction === "LONG" ? "📈 WhaleX Long" : "🎯 WhaleX Short") : "⚡ WhaleX Predator"} · {x.grade}</span>
                 </div>
               ))}
             </div>
