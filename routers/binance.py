@@ -58,6 +58,7 @@ class AutoTradeBody(BaseModel):
     max_open_positions: Optional[int] = Field(None, ge=1, le=10)
     allowed_grades: Optional[str] = Field(None, pattern="^[ASB,]+$")
     leverage: Optional[int] = Field(None, ge=1, le=125)
+    spot_enabled: bool | None = None
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -133,6 +134,7 @@ async def status(user=Depends(get_current_user)):
         "is_testnet": creds["is_testnet"],
         "account_type": creds["account_type"],
         "auto_trade_enabled": creds["auto_trade_enabled"],
+        "spot_auto_enabled": creds.get("spot_auto_enabled", 0),
         "trade_amount_usdt": creds["trade_amount_usdt"],
         "max_open_positions": creds["max_open_positions"],
         "allowed_grades": creds["allowed_grades"],
@@ -176,7 +178,8 @@ async def auto_trade(body: AutoTradeBody, user=Depends(get_current_user)):
         trade_amount=body.trade_amount_usdt,
         max_positions=body.max_open_positions,
         allowed_grades=body.allowed_grades,
-        leverage=body.leverage
+        leverage=body.leverage,
+        spot_enabled=body.spot_enabled
     )
     if not ok:
         raise HTTPException(status_code=500, detail="update_failed")
@@ -186,6 +189,7 @@ async def auto_trade(body: AutoTradeBody, user=Depends(get_current_user)):
     return {
         "success": True,
         "auto_trade_enabled": creds["auto_trade_enabled"],
+        "spot_auto_enabled": creds.get("spot_auto_enabled", 0),
         "trade_amount_usdt": creds["trade_amount_usdt"],
         "max_open_positions": creds["max_open_positions"],
         "allowed_grades": creds["allowed_grades"],
@@ -204,6 +208,7 @@ async def settings(user=Depends(get_current_user)):
         "connected": True,
         "is_testnet": creds["is_testnet"],
         "auto_trade_enabled": creds["auto_trade_enabled"],
+        "spot_auto_enabled": creds.get("spot_auto_enabled", 0),
         "trade_amount_usdt": creds["trade_amount_usdt"],
         "max_open_positions": creds["max_open_positions"],
         "allowed_grades": creds["allowed_grades"],

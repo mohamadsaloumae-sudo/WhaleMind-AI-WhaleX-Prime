@@ -94,6 +94,10 @@ export const TRANSLATIONS = {
 
     // التداول
     autoTrade: "تداول آليّ",
+    autoFutures: "أوتو فيوتشر ⚡",
+    autoSpot: "أوتو سبوت",
+    autoSpotState: "تنفيذ إشارات السبوت آلياً",
+    autoSpotNote: "المفتاح جاهز — التنفيذ الحقيقي للسبوت يُفعَّل قريباً، وإشارات السبوت تعمل الآن بالقناة والميني آب.",
     manualTrade: "تداول يدويّ",
     binanceStatus: "حالة Binance",
     connected: "مربوط",
@@ -254,6 +258,10 @@ export const TRANSLATIONS = {
     signalsFetchFail: "Failed to fetch signals",
 
     autoTrade: "Auto Trade",
+    autoFutures: "Auto Futures ⚡",
+    autoSpot: "Auto Spot",
+    autoSpotState: "Execute spot signals automatically",
+    autoSpotNote: "Switch is ready — real spot execution activates soon; spot signals already run on channel + mini-app.",
     manualTrade: "Manual Trade",
     binanceStatus: "Binance Status",
     connected: "Connected",

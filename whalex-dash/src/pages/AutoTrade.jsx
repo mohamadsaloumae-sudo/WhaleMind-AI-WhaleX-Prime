@@ -10,6 +10,15 @@ export default function AutoTrade() {
   const [status, setStatus] = useState(null);
   const [settings, setSettings] = useState(null);
   const [mode, setMode] = useState("auto");
+  const [spotBusy, setSpotBusy] = useState(false);
+  async function toggleSpot() {
+    if (spotBusy) return; setSpotBusy(true);
+    try {
+      const r = await binance.autoTrade({ spot_enabled: !settings?.spot_auto_enabled });
+      if (r?.success) setSettings((s) => ({ ...s, spot_auto_enabled: r.spot_auto_enabled }));
+    } catch (e) { setMsg({ type: "error", text: e.message }); }
+    finally { setSpotBusy(false); }
+  }
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [testnet, setTestnet] = useState(true);
@@ -96,10 +105,10 @@ export default function AutoTrade() {
 
       <div className="mode-switch">
         <button className={`mode-btn ${mode === "auto" ? "active" : ""}`} onClick={() => setMode("auto")}>
-          <Bot size={22} /> {t("autoTrade")}
+          <Bot size={22} /> {t("autoFutures")}
         </button>
-        <button className={`mode-btn ${mode === "manual" ? "active" : ""}`} onClick={() => setMode("manual")}>
-          <Hand size={22} /> {t("manualTrade")}
+        <button className={`mode-btn ${mode === "spot" ? "active" : ""}`} onClick={() => setMode("spot")}>
+          🪙 {t("autoSpot")}
         </button>
       </div>
 
@@ -204,8 +213,20 @@ export default function AutoTrade() {
         </>
       )}
 
-      {connected && mode === "manual" && (
-        <div className="card"><div className="empty">{t("manualHint")}</div></div>
+      {mode === "spot" && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-title">🪙 {t("autoSpot")}</div>
+          <div className="toggle-row" style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>{settings?.spot_auto_enabled ? "✅ " : "⭕ "}{t("autoSpotState")}</span>
+            <button className="btn" onClick={toggleSpot} disabled={spotBusy}
+              style={{ padding: "8px 16px", borderRadius: 10, border: 0, fontWeight: 700,
+                       background: settings?.spot_auto_enabled ? "var(--red)" : "var(--brand)",
+                       color: settings?.spot_auto_enabled ? "#fff" : "#04211c" }}>
+              {settings?.spot_auto_enabled ? t("disable") : t("enable")}
+            </button>
+          </div>
+          <div style={{ color: "var(--txt-3)", fontSize: 12, marginTop: 10 }}>{t("autoSpotNote")}</div>
+        </div>
       )}
     </div>
     </Paywall>

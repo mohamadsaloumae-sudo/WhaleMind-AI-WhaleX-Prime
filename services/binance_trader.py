@@ -86,6 +86,7 @@ def init_db():
             api_secret_encrypted TEXT NOT NULL,
             is_testnet INTEGER DEFAULT 1,
             auto_trade_enabled INTEGER DEFAULT 0,
+            spot_auto_enabled INTEGER DEFAULT 0,
             trade_amount_usdt REAL DEFAULT 100,
             max_open_positions INTEGER DEFAULT 3,
             allowed_grades TEXT DEFAULT 'A,S',
@@ -187,13 +188,19 @@ def update_auto_trade_settings(
     trade_amount: Optional[float] = None,
     max_positions: Optional[int] = None,
     allowed_grades: Optional[str] = None,
-    leverage: Optional[int] = None
+    leverage: Optional[int] = None,
+    spot_enabled: Optional[bool] = None
 ) -> bool:
     """يُحدّث إعدادات Auto-Trade"""
     try:
         conn = sqlite3.connect(DB_PATH)
+        try: conn.execute("ALTER TABLE user_binance_credentials ADD COLUMN spot_auto_enabled INTEGER DEFAULT 0")
+        except Exception: pass
         fields = []
         values = []
+        if spot_enabled is not None:
+            fields.append("spot_auto_enabled=?")
+            values.append(int(spot_enabled))
         if enabled is not None:
             fields.append("auto_trade_enabled=?")
             values.append(int(enabled))
