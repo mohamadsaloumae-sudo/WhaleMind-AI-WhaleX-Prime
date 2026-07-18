@@ -14,11 +14,11 @@ export default function Dashboard() {
   useEffect(() => {
     async function load() {
       try {
-        const h = await signals.history();
+        const h = await signals.history(getMarket());
         const list = h?.history || [];
         const wins = list.filter((x) => x.is_win).length;
         const profit = list.reduce((a, x) => a + Number(x.pnl_pct || 0), 0);
-        const all = await signals.all();
+        const all = await signals.all(getMarket());
         setRecent((all?.signals || []).slice(0, 4));
         setDay({
           trades: list.length,
@@ -64,27 +64,6 @@ export default function Dashboard() {
         <MB id="futures" ar="⚡ فيوتشر" en="⚡ Futures" />
         <MB id="spot" ar="🪙 سبوت" en="🪙 Spot" />
       </div>
-      {mkt === "spot" ? (
-        <div style={{ padding: 16 }}>
-          <div style={{ background: "linear-gradient(135deg, var(--bg-1), var(--bg-2))", border: "1px solid var(--bg-2)", borderRadius: 16, padding: 18, textAlign: "center" }}>
-            <div style={{ fontSize: 34 }}>🪙</div>
-            <div style={{ fontWeight: 800, fontSize: 17, margin: "6px 0" }}>
-              {lang === "ar" ? "وضع السبوت" : "Spot Mode"}
-            </div>
-            <div style={{ color: "var(--txt-2)", fontSize: 13, lineHeight: 1.8 }}>
-              {lang === "ar"
-                ? "نظام منفصل بالكامل: رادار قيعان التجميع، إشارات شراء بأهداف، وقناة خاصة. المرحلة الثانية قيد البناء 🚧"
-                : "Fully isolated system: accumulation-bottom radar, buy signals with targets, dedicated channel. Phase 2 in progress 🚧"}
-            </div>
-          </div>
-          <div style={{ marginTop: 14, background: "var(--bg-1)", border: "1px solid var(--bg-2)", borderRadius: 14, padding: 14 }}>
-            <b>🦅 {lang === "ar" ? "متاح الآن" : "Available now"}</b>
-            <div style={{ color: "var(--txt-2)", fontSize: 12.5, marginTop: 4 }}>
-              {lang === "ar" ? "عين الصقر تفحص أي عملة سبوت فوراً — من تبويب التداول" : "Hawk-Eye scans any spot coin instantly — Trading tab"}
-            </div>
-          </div>
-        </div>
-      ) : (
       <>
       <div className="grid grid-4" style={{ marginBottom: 24 }}>
         <div className="card stat">
@@ -141,7 +120,6 @@ export default function Dashboard() {
         </div>
       </div>
       </>
-      )}
     </>
   );
 }
