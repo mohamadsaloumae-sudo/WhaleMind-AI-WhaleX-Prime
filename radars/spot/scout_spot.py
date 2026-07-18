@@ -151,6 +151,24 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
     except Exception as _te:
         log.error("spot channel send: %s", _te)
 
+    # ── تنفيذ حقيقي على Binance Spot (لمن فعّل المفتاح ولديه رصيد Spot) ──
+    try:
+        from services.binance_trader import get_active_spot_traders, execute_spot_buy
+        for _uid in get_active_spot_traders():
+            _rr = await execute_spot_buy(_uid, {"symbol": sym, "entry": entry})
+            if not _rr.get("success"):
+                log.info("🪙⚠️ Spot buy skip %s: %s", sym, _rr.get("error"))
+                try:
+                    from services.telegram import send_message
+                    from core.config import get_settings as _gs
+                    _adm = _gs().telegram_admin_chat_id
+                    if _adm:
+                        await send_message(_adm, f"🪙⚠️ <b>سبوت</b> {sym}: تعذّر التنفيذ الحقيقي\n<code>{_rr.get('error')}</code>")
+                except Exception:
+                    pass
+    except Exception as _ee:
+        log.error("spot auto-exec: %s", _ee)
+
 
 _prices: dict = {}          # كاش أسعار السبوت (يحدّثه المتتبع كل دقيقة — تقرؤه الواجهة)
 _track: dict = {}           # sig_id -> stage (0 لم يلمس، 1/2 بعد TP1/TP2)
@@ -218,11 +236,19 @@ async def tracker_loop():
                         if px <= s.sl:
                             s.is_active = False; db.commit()
                             _log_result(0, "sl")
+                            try:
+                                from services.binance_trader import close_spot_all
+                                await close_spot_all(s.symbol, "sl")
+                            except Exception: pass
                             await _announce(f"🔴 <b>{s.symbol}</b> — ضرب الوقف\nالنتيجة: <b>{pnl:+.1f}%</b>\n🪙 <i>WhaleMind Spot</i>")
                             log.info("🪙🔴 %s SL %.1f%%", s.symbol, pnl)
                         elif px >= s.tp3:
                             s.is_active = False; db.commit()
                             _log_result(1, "tp3")
+                            try:
+                                from services.binance_trader import close_spot_all
+                                await close_spot_all(s.symbol, "tp3")
+                            except Exception: pass
                             await _announce(f"🏆 <b>{s.symbol}</b> — الهدف الثالث!\nالنتيجة: <b>{pnl:+.1f}%</b> 🎉\n🪙 <i>WhaleMind Spot</i>")
                             log.info("🪙🏆 %s TP3 %.1f%%", s.symbol, pnl)
                         elif px >= s.tp2 and st < 2:

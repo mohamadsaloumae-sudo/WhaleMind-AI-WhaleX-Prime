@@ -569,6 +569,110 @@ def get_active_auto_traders() -> list:
         return []
 
 
+def get_active_spot_traders() -> list:
+    """مستخدمو تداول السبوت الآلي (مفتاح منفصل تماماً عن الفيوتشر)."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        try: conn.execute("ALTER TABLE user_binance_credentials ADD COLUMN spot_auto_enabled INTEGER DEFAULT 0")
+        except Exception: pass
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT user_id FROM user_binance_credentials WHERE spot_auto_enabled=1").fetchall()
+        conn.close()
+        return [r["user_id"] for r in rows]
+    except Exception:
+        return []
+
+
+def _spot_pos_table():
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("""CREATE TABLE IF NOT EXISTS spot_positions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, symbol TEXT,
+            qty REAL, entry REAL, order_id TEXT, status TEXT, ts INTEGER)""")
+        conn.commit(); conn.close()
+    except Exception as e:
+        log.debug("spot_pos table: %s", e)
+
+
+def _fmt_spot_qty(client, symbol: str, qty: float) -> float:
+    """تنسيق الكمية على خطوة LOT_SIZE للسبوت."""
+    try:
+        info = client.get_symbol_info(symbol)
+        for f in info.get("filters", []):
+            if f.get("filterType") == "LOT_SIZE":
+                step = float(f.get("stepSize", 0))
+                if step > 0:
+                    import math
+                    return math.floor(qty / step) * step
+    except Exception as e:
+        log.debug("spot qty fmt %s: %s", symbol, e)
+    return round(qty, 6)
+
+
+async def execute_spot_buy(user_id: str, signal: dict) -> dict:
+    """شراء سبوت حقيقي بمبلغ USDT محدّد (quoteOrderQty). لا رافعة."""
+    _spot_pos_table()
+    client = get_client(user_id)
+    if not client:
+        return {"success": False, "error": "no client"}
+    creds = get_credentials(user_id) or {}
+    amount = float(creds.get("trade_amount_usdt") or 5)
+    sym = signal["symbol"]
+    try:
+        _b = client.get_asset_balance(asset="USDT")
+        bal = float(_b["free"]) if _b else 0.0
+    except Exception as e:
+        return {"success": False, "error": f"تعذّر قراءة رصيد Spot: {e}"}
+    spend = min(amount, bal)
+    if spend < 5:
+        return {"success": False, "error": f"رصيد Spot غير كافٍ ({bal:.2f}$، الأدنى 5$)"}
+    try:
+        order = client.order_market_buy(symbol=sym, quoteOrderQty=round(spend, 2))
+        qty = float(order.get("executedQty", 0) or 0)
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("INSERT INTO spot_positions(user_id,symbol,qty,entry,order_id,status,ts) VALUES(?,?,?,?,?,?,?)",
+                     (user_id, sym, qty, float(signal.get("entry", 0) or 0),
+                      str(order.get("orderId", "")), "open", int(time.time())))
+        conn.commit(); conn.close()
+        log.info("🪙✅ Spot BUY %s qty=%s spend=%.2f$ (user %s)", sym, qty, spend, user_id)
+        return {"success": True, "qty": qty, "order_id": str(order.get("orderId", ""))}
+    except Exception as e:
+        log.error("🪙❌ Spot buy %s: %s", sym, e)
+        return {"success": False, "error": str(e)}
+
+
+async def close_spot_all(symbol: str, reason: str = "close"):
+    """يبيع كل مراكز السبوت المفتوحة على رمزٍ ما (عند TP3/SL)."""
+    _spot_pos_table()
+    try:
+        conn = sqlite3.connect(DB_PATH); conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT DISTINCT user_id FROM spot_positions WHERE symbol=? AND status='open'", (symbol,)).fetchall()
+        conn.close()
+    except Exception:
+        return
+    for r in rows:
+        uid = r["user_id"]
+        client = get_client(uid)
+        if not client:
+            continue
+        asset = symbol.replace("USDT", "")
+        try:
+            _b = client.get_asset_balance(asset=asset)
+            free = float(_b["free"]) if _b else 0.0
+            q = _fmt_spot_qty(client, symbol, free)
+            if q > 0:
+                client.order_market_sell(symbol=symbol, quantity=q)
+                log.info("🪙💰 Spot SELL %s qty=%s (user %s, %s)", symbol, q, uid, reason)
+        except Exception as e:
+            log.error("🪙❌ Spot sell %s: %s", symbol, e)
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            conn.execute("UPDATE spot_positions SET status='closed' WHERE user_id=? AND symbol=? AND status='open'", (uid, symbol))
+            conn.commit(); conn.close()
+        except Exception:
+            pass
+
+
 # ═══════════════════════════════════════════════════════════════
 # ─── INIT ON IMPORT ──────────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════

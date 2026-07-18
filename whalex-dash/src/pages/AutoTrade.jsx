@@ -108,7 +108,7 @@ export default function AutoTrade() {
           <Bot size={22} /> {t("autoFutures")}
         </button>
         <button className={`mode-btn ${mode === "spot" ? "active" : ""}`} onClick={() => setMode("spot")}>
-          🪙 {t("autoSpot")}
+          <Bot size={22} /> {t("autoSpot")}
         </button>
       </div>
 
