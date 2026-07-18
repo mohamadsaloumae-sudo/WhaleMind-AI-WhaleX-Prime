@@ -50,6 +50,18 @@ async def _universe_refresh(c: httpx.AsyncClient):
 async def _scan_one(c: httpx.AsyncClient, sym: str):
     if time.time() - _last_sig.get(sym, 0) < COOLDOWN:
         return
+    try:  # حارس ضد التكرار: عملة لها إشارة سبوت نشطة لا تُعاد
+        from db.database import get_session, Signal
+        _db = get_session()
+        try:
+            if _db.query(Signal).filter(Signal.radar_type == "spot",
+                                        Signal.symbol == sym, Signal.is_active == True).first():
+                _last_sig[sym] = time.time()
+                return
+        finally:
+            _db.close()
+    except Exception:
+        pass
     r = await c.get(f"{SPOT}/api/v3/klines?symbol={sym}&interval=4h&limit=60", timeout=10)
     k = r.json()
     if not isinstance(k, list) or len(k) < 50:
