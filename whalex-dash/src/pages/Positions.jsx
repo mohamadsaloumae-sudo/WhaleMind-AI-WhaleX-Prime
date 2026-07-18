@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { signals } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
+import { getMarket } from "../hooks/useMarket.js";
+import Paywall from "../components/Paywall.jsx";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
 export default function Positions() {
@@ -12,7 +14,7 @@ export default function Positions() {
 
   async function load() {
     try {
-      const h = await signals.history();
+      const h = await signals.history(getMarket());
       setHistory(h?.history || []);
       const m = await signals.monthly();
       setMonthly(m);
@@ -36,6 +38,7 @@ export default function Positions() {
   if (loading) return <div className="loading">{t("loading")}</div>;
 
   return (
+    <Paywall>
     <>
       {/* ملخّص الشهر */}
       {monthly && (
@@ -123,5 +126,6 @@ export default function Positions() {
         )}
       </div>
     </>
+    </Paywall>
   );
 }

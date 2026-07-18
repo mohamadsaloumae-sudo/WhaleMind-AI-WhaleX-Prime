@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { livePositions } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
 import { getMarket } from "../hooks/useMarket.js";
+import Paywall from "../components/Paywall.jsx";
 
 const fmtPx = (v) =>
   (v === 0 || v) ? String(Number(Number(v).toPrecision(6))) : "";
@@ -78,6 +79,7 @@ export default function LivePositions() {
   }
 
   return (
+    <Paywall>
     <>
       <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{t("liveRadarTitle") || "صفقات الرادارات"}</h2>
       <p style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 16 }}>{t("liveRadarSub") || "مشاهدة حيّة · الربح والخسارة مباشرة"}</p>
@@ -92,5 +94,6 @@ export default function LivePositions() {
         radar.map((p, i) => <Card key={`r-${i}`} p={p} />)
       )}
     </>
+    </Paywall>
   );
 }

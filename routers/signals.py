@@ -55,7 +55,21 @@ def all_signals(market: str = "futures"):
 
 
 @router.get("/history")
-def signals_history():
+def signals_history(market: str = "futures"):
+    if market == "spot":
+        import sqlite3 as _sq
+        try:
+            con = _sq.connect("/opt/whalex/db/whalex.db"); con.row_factory = _sq.Row
+            rows = con.execute("SELECT symbol, entry, exit_price, pnl_pct, outcome, reason, ts FROM spot_results ORDER BY ts DESC LIMIT 300").fetchall()
+            con.close()
+            return {"history": [{"symbol": r["symbol"], "direction": "LONG", "entry": r["entry"],
+                                 "exit_price": r["exit_price"], "pnl_pct": r["pnl_pct"],
+                                 "is_win": bool(r["outcome"]), "outcome": r["outcome"],
+                                 "closed_at": r["ts"], "grade": "A", "tier": "SPOT",
+                                 "strategies": "🪙 Spot Accumulation"} for r in rows]}
+        except Exception:
+            return {"history": []}
+
     """آخر الصفقات المغلقة بنتائجها (رابح/خاسر + النسبة) من ml_training.db"""
     import sqlite3
     try:
