@@ -156,6 +156,7 @@ def get_credentials(user_id: str) -> Optional[dict]:
             "api_secret": decrypt(row["api_secret_encrypted"]),
             "is_testnet": bool(row["is_testnet"]),
             "auto_trade_enabled": bool(row["auto_trade_enabled"]),
+            "spot_auto_enabled": bool(row["spot_auto_enabled"]) if "spot_auto_enabled" in row.keys() else False,
             "trade_amount_usdt": row["trade_amount_usdt"],
             "max_open_positions": row["max_open_positions"],
             "allowed_grades": (row["allowed_grades"] or "A,S"),
