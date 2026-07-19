@@ -359,6 +359,13 @@ def get_balance(user_id: str) -> dict:
         fut = client.futures_account()
         try: result["usdt_free"] = result.get("usdt_free", 0) + float(fut.get("availableBalance", 0) or 0)
         except Exception: pass
+        try:
+            _cx = sqlite3.connect(DB_PATH)
+            _inv = _cx.execute("SELECT COALESCE(SUM(entry*qty),0) FROM spot_positions WHERE user_id=? AND status='open'", (user_id,)).fetchone()[0]
+            _cx.close()
+            result["usdt_total_spot"] = result.get("usdt_free", 0) + float(_inv or 0)
+        except Exception:
+            result["usdt_total_spot"] = result.get("usdt_free", 0)
         result["futures"] = {
             "total_wallet_balance": float(fut.get("totalWalletBalance", 0)),
             "available_balance": float(fut.get("availableBalance", 0)),
