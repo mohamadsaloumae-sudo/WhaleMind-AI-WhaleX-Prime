@@ -87,6 +87,8 @@ def init_db():
             is_testnet INTEGER DEFAULT 1,
             auto_trade_enabled INTEGER DEFAULT 0,
             spot_auto_enabled INTEGER DEFAULT 0,
+            spot_trade_amount REAL DEFAULT 5,
+            spot_max_positions INTEGER DEFAULT 0,
             trade_amount_usdt REAL DEFAULT 100,
             max_open_positions INTEGER DEFAULT 3,
             allowed_grades TEXT DEFAULT 'A,S',
@@ -157,6 +159,8 @@ def get_credentials(user_id: str) -> Optional[dict]:
             "is_testnet": bool(row["is_testnet"]),
             "auto_trade_enabled": bool(row["auto_trade_enabled"]),
             "spot_auto_enabled": bool(row["spot_auto_enabled"]) if "spot_auto_enabled" in row.keys() else False,
+            "spot_trade_amount": row["spot_trade_amount"] if "spot_trade_amount" in row.keys() else 5,
+            "spot_max_positions": row["spot_max_positions"] if "spot_max_positions" in row.keys() else 0,
             "trade_amount_usdt": row["trade_amount_usdt"],
             "max_open_positions": row["max_open_positions"],
             "allowed_grades": (row["allowed_grades"] or "A,S"),
@@ -190,18 +194,29 @@ def update_auto_trade_settings(
     max_positions: Optional[int] = None,
     allowed_grades: Optional[str] = None,
     leverage: Optional[int] = None,
-    spot_enabled: Optional[bool] = None
+    spot_enabled: Optional[bool] = None,
+    spot_trade_amount: Optional[float] = None,
+    spot_max_positions: Optional[int] = None
 ) -> bool:
     """يُحدّث إعدادات Auto-Trade"""
     try:
         conn = sqlite3.connect(DB_PATH)
         try: conn.execute("ALTER TABLE user_binance_credentials ADD COLUMN spot_auto_enabled INTEGER DEFAULT 0")
         except Exception: pass
+        for _col, _def in (("spot_trade_amount", "REAL DEFAULT 5"), ("spot_max_positions", "INTEGER DEFAULT 0")):
+            try: conn.execute(f"ALTER TABLE user_binance_credentials ADD COLUMN {_col} {_def}")
+            except Exception: pass
         fields = []
         values = []
         if spot_enabled is not None:
             fields.append("spot_auto_enabled=?")
             values.append(int(spot_enabled))
+        if spot_trade_amount is not None:
+            fields.append("spot_trade_amount=?")
+            values.append(float(spot_trade_amount))
+        if spot_max_positions is not None:
+            fields.append("spot_max_positions=?")
+            values.append(int(spot_max_positions))
         if enabled is not None:
             fields.append("auto_trade_enabled=?")
             values.append(int(enabled))
@@ -576,6 +591,9 @@ def get_active_spot_traders() -> list:
         conn = sqlite3.connect(DB_PATH)
         try: conn.execute("ALTER TABLE user_binance_credentials ADD COLUMN spot_auto_enabled INTEGER DEFAULT 0")
         except Exception: pass
+        for _col, _def in (("spot_trade_amount", "REAL DEFAULT 5"), ("spot_max_positions", "INTEGER DEFAULT 0")):
+            try: conn.execute(f"ALTER TABLE user_binance_credentials ADD COLUMN {_col} {_def}")
+            except Exception: pass
         conn.row_factory = sqlite3.Row
         rows = conn.execute("SELECT user_id FROM user_binance_credentials WHERE spot_auto_enabled=1").fetchall()
         conn.close()
@@ -617,8 +635,17 @@ async def execute_spot_buy(user_id: str, signal: dict) -> dict:
     if not client:
         return {"success": False, "error": "no client"}
     creds = get_credentials(user_id) or {}
-    amount = float(creds.get("trade_amount_usdt") or 5)
+    amount = float(creds.get("spot_trade_amount") or 5)
+    _maxp = int(creds.get("spot_max_positions") or 0)
     sym = signal["symbol"]
+    if _maxp > 0:
+        try:
+            _cc = sqlite3.connect(DB_PATH)
+            _op = _cc.execute("SELECT COUNT(*) FROM spot_positions WHERE user_id=? AND status='open'", (user_id,)).fetchone()[0]
+            _cc.close()
+            if _op >= _maxp:
+                return {"success": False, "error": f"بلغت حد الصفقات ({_maxp})"}
+        except Exception: pass
     try:
         _b = client.get_asset_balance(asset="USDT")
         bal = float(_b["free"]) if _b else 0.0
