@@ -343,7 +343,11 @@ def get_balance(user_id: str) -> dict:
         result["spot"] = balances
         try:
             _uu = client.get_asset_balance(asset="USDT")
-            result["usdt_free"] = float(_uu["free"]) if _uu else 0.0
+            _tot = float(_uu["free"]) if _uu else 0.0
+            for _a, _v in balances.items():
+                if _a == "LDUSDT" or (_a.startswith("LD") and _a.endswith("USDT")):
+                    _tot += _v["total"]
+            result["usdt_free"] = _tot
         except Exception:
             result["usdt_free"] = 0.0
     except Exception as e:
