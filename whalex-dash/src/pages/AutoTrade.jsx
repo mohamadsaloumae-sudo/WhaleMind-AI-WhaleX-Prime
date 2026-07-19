@@ -246,32 +246,24 @@ export default function AutoTrade() {
           <input type="number" min="5" defaultValue={settings?.spot_trade_amount || 5}
             onBlur={(e) => saveSpot({ spot_trade_amount: parseFloat(e.target.value) || 5 })}
             style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--bg-2)", background: "var(--bg-1)", color: "var(--txt-0)", boxSizing: "border-box" }} />
-          <div style={{ fontSize: 13, color: "var(--txt-2)", margin: "14px 0 6px" }}>{lang === "ar" ? "عدد الصفقات" : "Number of trades"}</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {[10, 20, 0].map((nn) => (
-              <button key={nn} onClick={() => saveSpot({ spot_max_positions: nn })}
-                style={{ flex: 1, padding: "10px", borderRadius: 10, border: 0, fontWeight: 700, cursor: "pointer",
-                         background: (settings?.spot_max_positions ?? 0) === nn ? "var(--brand)" : "var(--bg-2)",
-                         color: (settings?.spot_max_positions ?? 0) === nn ? "#04211c" : "var(--txt-1)" }}>
-                {nn === 0 ? (lang === "ar" ? "أوتو" : "Auto") : nn}
-              </button>
-            ))}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "14px 0 6px" }}>
+            <span style={{ fontSize: 13, color: "var(--txt-2)" }}>{lang === "ar" ? "أوتو (كل الصفقات)" : "Auto (all signals)"}</span>
+            <div onClick={() => saveSpot({ spot_max_positions: (settings?.spot_max_positions ?? 0) === 0 ? 5 : 0 })}
+              style={{ width: 52, height: 28, borderRadius: 14, cursor: "pointer", flexShrink: 0,
+                       background: (settings?.spot_max_positions ?? 0) === 0 ? "var(--brand)" : "#3a3a3a",
+                       position: "relative", transition: "background .2s" }}>
+              <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#fff",
+                            position: "absolute", top: 3, left: (settings?.spot_max_positions ?? 0) === 0 ? 27 : 3, transition: "left .2s" }} />
+            </div>
           </div>
-          <div style={{ fontSize: 13, color: "var(--txt-2)", margin: "14px 0 6px" }}>{lang === "ar" ? "مبلغ كل صفقة (USDT)" : "Amount per trade (USDT)"}</div>
-          <input type="number" min="5" defaultValue={settings?.spot_trade_amount || 5}
-            onBlur={(e) => saveSpot({ spot_trade_amount: parseFloat(e.target.value) || 5 })}
-            style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--bg-2)", background: "var(--bg-1)", color: "var(--txt-0)", boxSizing: "border-box" }} />
-          <div style={{ fontSize: 13, color: "var(--txt-2)", margin: "14px 0 6px" }}>{lang === "ar" ? "عدد الصفقات" : "Number of trades"}</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {[10, 20, 0].map((nn) => (
-              <button key={nn} onClick={() => saveSpot({ spot_max_positions: nn })}
-                style={{ flex: 1, padding: "10px", borderRadius: 10, border: 0, fontWeight: 700, cursor: "pointer",
-                         background: (settings?.spot_max_positions ?? 0) === nn ? "var(--brand)" : "var(--bg-2)",
-                         color: (settings?.spot_max_positions ?? 0) === nn ? "#04211c" : "var(--txt-1)" }}>
-                {nn === 0 ? (lang === "ar" ? "أوتو" : "Auto") : nn}
-              </button>
-            ))}
-          </div>
+          {(settings?.spot_max_positions ?? 0) !== 0 && (
+            <>
+              <div style={{ fontSize: 13, color: "var(--txt-2)", margin: "8px 0 6px" }}>{lang === "ar" ? "عدد الصفقات" : "Number of trades"}</div>
+              <input type="number" min="1" defaultValue={settings?.spot_max_positions || 1}
+                onBlur={(e) => saveSpot({ spot_max_positions: Math.max(1, parseInt(e.target.value) || 1) })}
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--bg-2)", background: "var(--bg-1)", color: "var(--txt-0)", boxSizing: "border-box" }} />
+            </>
+          )}
         </div>
       )}
     </div>
