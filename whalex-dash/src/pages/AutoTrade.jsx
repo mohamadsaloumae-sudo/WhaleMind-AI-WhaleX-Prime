@@ -19,6 +19,10 @@ export default function AutoTrade() {
     } catch (e) { setMsg({ type: "error", text: e.message }); }
     finally { setSpotBusy(false); }
   }
+  async function saveSpot(patch) {
+    try { const r = await binance.autoTrade(patch); if (r?.success) setSettings((s) => ({ ...s, ...patch })); }
+    catch { /* */ }
+  }
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [testnet, setTestnet] = useState(true);
@@ -233,6 +237,21 @@ export default function AutoTrade() {
                             position: "absolute", top: 3, left: settings?.spot_auto_enabled ? 27 : 3,
                             transition: "left .2s" }} />
             </div>
+          </div>
+          <div style={{ fontSize: 13, color: "var(--txt-2)", margin: "14px 0 6px" }}>{lang === "ar" ? "مبلغ كل صفقة (USDT)" : "Amount per trade (USDT)"}</div>
+          <input type="number" min="5" defaultValue={settings?.spot_trade_amount || 5}
+            onBlur={(e) => saveSpot({ spot_trade_amount: parseFloat(e.target.value) || 5 })}
+            style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--bg-2)", background: "var(--bg-1)", color: "var(--txt-0)", boxSizing: "border-box" }} />
+          <div style={{ fontSize: 13, color: "var(--txt-2)", margin: "14px 0 6px" }}>{lang === "ar" ? "عدد الصفقات" : "Number of trades"}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {[10, 20, 0].map((nn) => (
+              <button key={nn} onClick={() => saveSpot({ spot_max_positions: nn })}
+                style={{ flex: 1, padding: "10px", borderRadius: 10, border: 0, fontWeight: 700, cursor: "pointer",
+                         background: (settings?.spot_max_positions ?? 0) === nn ? "var(--brand)" : "var(--bg-2)",
+                         color: (settings?.spot_max_positions ?? 0) === nn ? "#04211c" : "var(--txt-1)" }}>
+                {nn === 0 ? (lang === "ar" ? "أوتو" : "Auto") : nn}
+              </button>
+            ))}
           </div>
         </div>
       )}
