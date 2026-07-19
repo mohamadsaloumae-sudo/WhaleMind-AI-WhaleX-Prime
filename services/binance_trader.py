@@ -357,6 +357,8 @@ def get_balance(user_id: str) -> dict:
     # Futures
     try:
         fut = client.futures_account()
+        try: result["usdt_free"] = result.get("usdt_free", 0) + float(fut.get("availableBalance", 0) or 0)
+        except Exception: pass
         result["futures"] = {
             "total_wallet_balance": float(fut.get("totalWalletBalance", 0)),
             "available_balance": float(fut.get("availableBalance", 0)),
