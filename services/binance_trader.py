@@ -353,6 +353,18 @@ def get_balance(user_id: str) -> dict:
             result["usdt_free"] = _tot
         except Exception:
             result["usdt_free"] = 0.0
+        try:
+            _tk = {t["symbol"]: float(t["price"]) for t in client.get_all_tickers()}
+            _usd = 0.0
+            for _a, _v in balances.items():
+                _b = _a[2:] if _a.startswith("LD") else _a
+                if _b in ("USDT", "USDC", "BUSD", "FDUSD", "TUSD"):
+                    _usd += _v["total"]
+                elif _b + "USDT" in _tk:
+                    _usd += _v["total"] * _tk[_b + "USDT"]
+            result["usdt_total_spot"] = _usd
+        except Exception:
+            result["usdt_total_spot"] = result.get("usdt_free", 0)
     except Exception as e:
         log.debug("Spot balance %s: %s", user_id, e)
         result["spot_error"] = str(e)
