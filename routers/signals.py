@@ -46,8 +46,10 @@ def meme_signals():
 def all_signals(market: str = "futures"):
     db = get_session()
     try:
-        _rt = ["spot"] if market == "spot" else ["futures", "explosion"]
-        sigs = db.query(Signal).filter(Signal.radar_type.in_(_rt), Signal.is_active==True, Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
+        if market == "spot":
+            sigs = db.query(Signal).filter(Signal.radar_type=="spot", Signal.is_active==True).order_by(Signal.created_at.desc()).limit(100).all()
+        else:
+            sigs = db.query(Signal).filter(Signal.radar_type.in_(["futures","explosion"]), Signal.is_active==True, Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
         _seen=set(); sigs=[s for s in sigs if not (s.symbol in _seen or _seen.add(s.symbol))]
         return {"signals": _fmt(sigs)}
     finally:
