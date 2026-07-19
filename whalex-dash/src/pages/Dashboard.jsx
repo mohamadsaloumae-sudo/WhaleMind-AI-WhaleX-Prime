@@ -63,6 +63,7 @@ export default function Dashboard() {
       <div style={{ display: "flex", gap: 10, padding: "12px 16px 4px" }}>
         <MB id="futures" ar="⚡ فيوتشر" en="⚡ Futures" />
         <MB id="spot" ar="🪙 سبوت" en="🪙 Spot" />
+        <MB id="meme" ar="🐸 ميم" en="🐸 Meme" />
       </div>
       <>
       <div className="grid grid-4" style={{ marginBottom: 24 }}>
@@ -89,7 +90,12 @@ export default function Dashboard() {
       <div className="grid grid-2">
         <div className="card">
           <div className="card-title"><Radio size={14} style={{ verticalAlign: "middle", marginInlineEnd: 6 }} /> {t("radarsStatus")}</div>
-          {mkt === "spot" ? (
+          {mkt === "meme" ? (
+            <div className="toggle-row">
+              <span>🐸 WhaleX Meme</span>
+              <span className="badge grade">{t("working")}</span>
+            </div>
+          ) : mkt === "spot" ? (
             <div className="toggle-row">
               <span>🪙 WhaleX Spot</span>
               <span className="badge grade">{t("working")}</span>
@@ -120,8 +126,12 @@ export default function Dashboard() {
               {recent.map((x, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "var(--bg-2)", borderRadius: "var(--radius-sm)", fontSize: 13 }}>
                   <span style={{ fontWeight: 700 }}>{x.symbol}</span>
-                  <span className={`badge ${x.direction === "LONG" ? "long" : "short"}`} style={{ fontSize: 11 }}>{x.direction}</span>
-                  <span style={{ fontSize: 11, color: "var(--txt-3)" }}>{x.radar_type === "spot" ? "🪙 WhaleX Spot" : x.radar_type === "explosion" ? (x.direction === "LONG" ? "📈 WhaleX Long" : "🎯 WhaleX Short") : "⚡ WhaleX Predator"} · {x.grade}</span>
+                  {x.radar_type === "meme" ? (
+                    <span className="badge" style={{ fontSize: 11, background: "rgba(74,222,128,0.15)", color: "var(--brand)" }}>{x.score}/100</span>
+                  ) : (
+                    <span className={`badge ${x.direction === "LONG" ? "long" : "short"}`} style={{ fontSize: 11 }}>{x.direction}</span>
+                  )}
+                  <span style={{ fontSize: 11, color: "var(--txt-3)" }}>{x.radar_type === "meme" ? ("🐸 " + (x.chain || "")) : x.radar_type === "spot" ? "🪙 WhaleX Spot" : x.radar_type === "explosion" ? (x.direction === "LONG" ? "📈 WhaleX Long" : "🎯 WhaleX Short") : "⚡ WhaleX Predator"}{x.radar_type === "meme" ? "" : (" · " + x.grade)}</span>
                 </div>
               ))}
             </div>

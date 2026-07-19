@@ -46,6 +46,22 @@ def meme_signals():
 def all_signals(market: str = "futures"):
     db = get_session()
     try:
+        if market == "meme":
+            import sqlite3 as _sq, os as _os, datetime as _dt
+            _mdb = _os.path.join(_os.path.dirname(__file__), "..", "db", "memecoin.db")
+            try:
+                _mc = _sq.connect(_mdb); _mc.row_factory = _sq.Row
+                _rows = _mc.execute("SELECT symbol,address,chain,score,liq,vol,url,ts FROM meme_signals WHERE active=1 ORDER BY ts DESC LIMIT 50").fetchall()
+                _mc.close()
+                _out = []
+                for _r in _rows:
+                    _d = dict(_r)
+                    _d["direction"] = "MEME"; _d["radar_type"] = "meme"; _d["grade"] = "-"
+                    _d["created_at"] = _dt.datetime.utcfromtimestamp(_d["ts"]).strftime("%Y-%m-%d %H:%M:%S")
+                    _out.append(_d)
+                return {"signals": _out}
+            except Exception:
+                return {"signals": []}
         if market == "spot":
             sigs = db.query(Signal).filter(Signal.radar_type=="spot", Signal.is_active==True).order_by(Signal.created_at.desc()).limit(100).all()
         else:
