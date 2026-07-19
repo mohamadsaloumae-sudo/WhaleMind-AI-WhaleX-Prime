@@ -449,9 +449,9 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
             _mlp, _mlf = predict_signal(sig)
             log.info("🧠 ML: %s %s — نجاح متوقّع %.0f%% | %s",
                      sig.symbol, sig.direction, _mlp * 100, _mlf)
-            if ML_VETO_THRESHOLD > 0 and _mlp < ML_VETO_THRESHOLD:
-                log.info("🧠 ML veto: %s — %.0f%% < %.0f%%",
-                         sig.symbol, _mlp * 100, ML_VETO_THRESHOLD * 100)
+            _short_thr = min(ML_VETO_THRESHOLD, 0.36)  # SHORT يربح بحجم رابحاته لا نسبتها — عتبة أخفف تعيد صفقاته
+            if _short_thr > 0 and _mlp < _short_thr:
+                log.info("🧠 ML veto: %s — %.0f%% < %.0f%%", sig.symbol, _mlp*100, _short_thr*100)
                 return
         except Exception as _mle:
             log.debug("ml predict: %s", _mle)
