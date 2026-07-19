@@ -124,6 +124,8 @@ def signals_history(market: str = "futures"):
 def signals_monthly(market: str = "futures"):
     """ملخّص الشهر (من تاريخ 1 بتوقيت دبي): رابحة/خاسرة + المجاميع"""
     import sqlite3
+    if market == "meme":
+        return {"total": 0, "wins": 0, "losses": 0, "win_rate": 0, "total_pnl": 0}
     if market == "spot":
         try:
             con = sqlite3.connect("/opt/whalex/db/whalex.db"); con.row_factory = sqlite3.Row
