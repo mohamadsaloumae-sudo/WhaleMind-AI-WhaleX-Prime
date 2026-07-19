@@ -318,6 +318,9 @@ async def test_connection(api_key: str, api_secret: str, is_testnet: bool = True
         return {"success": False, "error": str(e)}
 
 
+_spot_total_cache = {}
+
+
 def get_balance(user_id: str) -> dict:
     """يجلب رصيد المستخدم (Spot + Futures)"""
     client = get_client(user_id)
@@ -372,8 +375,9 @@ def get_balance(user_id: str) -> dict:
             _inv = _cx.execute("SELECT COALESCE(SUM(entry*qty),0) FROM spot_positions WHERE user_id=? AND status='open'", (user_id,)).fetchone()[0]
             _cx.close()
             result["usdt_total_spot"] = _usd + float(_inv or 0)
+            _spot_total_cache[user_id] = result["usdt_total_spot"]
         except Exception:
-            result["usdt_total_spot"] = result.get("usdt_free", 0)
+            result["usdt_total_spot"] = _spot_total_cache.get(user_id, result.get("usdt_free", 0))
         result["futures"] = {
             "total_wallet_balance": float(fut.get("totalWalletBalance", 0)),
             "available_balance": float(fut.get("availableBalance", 0)),
