@@ -6,6 +6,8 @@ import asyncio
 import time
 import logging
 import httpx
+import sqlite3
+import os
 
 log = logging.getLogger("meme_scout")
 
@@ -156,6 +158,81 @@ async def scan():
 
         res = await asyncio.gather(*[_check(ch, a) for ch, a in cands])
         return [r for r in res if r]
+
+
+MEME_DB = os.path.join(os.path.dirname(__file__), "..", "..", "db", "memecoin.db")
+MEME_CHANNEL = "-1003918596088"
+SIGNAL_THRESHOLD = 60
+
+
+def _init_meme_db():
+    os.makedirs(os.path.dirname(MEME_DB), exist_ok=True)
+    conn = sqlite3.connect(MEME_DB)
+    conn.execute("CREATE TABLE IF NOT EXISTS meme_signals(id INTEGER PRIMARY KEY, symbol TEXT, address TEXT UNIQUE, chain TEXT, score INTEGER, liq REAL, vol REAL, url TEXT, ts INTEGER, active INTEGER DEFAULT 1)")
+    conn.commit(); conn.close()
+
+
+def _meme_seen(addr):
+    try:
+        conn = sqlite3.connect(MEME_DB)
+        r = conn.execute("SELECT 1 FROM meme_signals WHERE address=?", (addr,)).fetchone()
+        conn.close(); return bool(r)
+    except Exception:
+        return False
+
+
+def _meme_save(p, sc):
+    b = p.get("baseToken") or {}
+    try:
+        conn = sqlite3.connect(MEME_DB)
+        conn.execute("INSERT OR IGNORE INTO meme_signals(symbol,address,chain,score,liq,vol,url,ts) VALUES(?,?,?,?,?,?,?,?)",
+                     (b.get("symbol", "?"), b.get("address", ""), p.get("chainId"), sc,
+                      (p.get("liquidity") or {}).get("usd", 0), (p.get("volume") or {}).get("h24", 0),
+                      p.get("url", ""), int(time.time())))
+        conn.commit(); conn.close()
+    except Exception as e:
+        log.warning("meme save: %s", e)
+
+
+async def _meme_broadcast(p, sc):
+    b = p.get("baseToken") or {}
+    liq = (p.get("liquidity") or {}).get("usd", 0)
+    vol = (p.get("volume") or {}).get("h24", 0)
+    msg = ("\U0001F438 <b>\u0625\u0634\u0627\u0631\u0629 \u0645\u064a\u0645 \u0643\u0648\u064a\u0646</b>\n\n"
+           f"<b>{b.get('symbol','?')}</b>  ({p.get('chainId')})\n"
+           f"\U0001F4A7 \u0627\u0644\u0633\u064a\u0648\u0644\u0629: ${liq:,.0f}\n"
+           f"\U0001F4CA \u0627\u0644\u062d\u062c\u0645 24\u0633: ${vol:,.0f}\n"
+           f"\U0001F3AF \u0627\u0644\u0646\u0642\u0627\u0637: <b>{sc}/100</b>\n"
+           "\u2705 \u0627\u062c\u062a\u0627\u0632 \u0643\u0644 \u0627\u0644\u0641\u064a\u062a\u0648\u0647\u0627\u062a\n"
+           f"\U0001F517 {p.get('url','')}\n\n"
+           "\U0001F40B <i>WhaleMind Meme Radar</i>")
+    try:
+        from services.telegram import send_message
+        await send_message(MEME_CHANNEL, msg)
+    except Exception as e:
+        log.warning("meme broadcast: %s", e)
+
+
+async def meme_loop():
+    _init_meme_db()
+    log.info("\U0001F438 Meme radar loop started")
+    while True:
+        try:
+            survivors = await scan()
+            for p in survivors:
+                sc = _score(p)
+                if sc < SIGNAL_THRESHOLD:
+                    continue
+                addr = (p.get("baseToken") or {}).get("address") or ""
+                if not addr or _meme_seen(addr):
+                    continue
+                _meme_save(p, sc)
+                await _meme_broadcast(p, sc)
+                log.info("\U0001F438 signal: %s (%s) score %d",
+                         (p.get("baseToken") or {}).get("symbol", "?"), p.get("chainId"), sc)
+        except Exception as e:
+            log.warning("meme loop: %s", e)
+        await asyncio.sleep(180)
 
 
 if __name__ == "__main__":

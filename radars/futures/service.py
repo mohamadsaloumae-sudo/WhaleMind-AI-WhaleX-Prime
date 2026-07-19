@@ -796,6 +796,17 @@ async def _spot_guard():
         await asyncio.sleep(60)
 
 
+async def _meme_guard():
+    while True:
+        try:
+            from radars.memecoin.scout_meme import meme_loop
+            await meme_loop()
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("meme_scout").error("meme guard: %s", _e)
+        await asyncio.sleep(60)
+
+
 async def start_all_services(broadcast_fn=None, position_manager_fn=None):
     """
     نقطة التشغيل الرئيسية — تشغيل كل الوكلاء معاً بدون اختناق
@@ -836,6 +847,7 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
         btc_macro_loop(),
         mc_refresh_loop(),
         _spot_guard(),  # 🪙 عقل السبوت — معزول كلياً
+        _meme_guard(),
         shadow_loop(),
         scout_long_loop(position_manager_fn=position_manager_fn),
         ob_stream_run(list(dict.fromkeys([t.symbol for t in ALL_SYMBOLS] + _open_position_syms()))),
