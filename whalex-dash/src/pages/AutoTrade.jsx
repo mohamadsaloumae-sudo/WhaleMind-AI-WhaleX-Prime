@@ -6,7 +6,7 @@ import { Bot, Hand, Link2, Unlink, Save } from "lucide-react";
 import Paywall from "../components/Paywall.jsx";
 
 export default function AutoTrade() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [status, setStatus] = useState(null);
   const [settings, setSettings] = useState(null);
   const [mode, setMode] = useState("auto");
@@ -216,14 +216,19 @@ export default function AutoTrade() {
       {mode === "spot" && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title">🪙 {t("autoSpot")}</div>
-          <div className="toggle-row" style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 13, color: "var(--txt-2)", margin: "6px 0 12px" }}>
+            {lang === "ar" ? "رصيد السبوت المتاح" : "Available spot balance"}: <b style={{ color: "var(--txt-0)" }}>{(balance?.spot?.USDT?.free ?? 0).toFixed(2)} USDT</b>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
             <span>{settings?.spot_auto_enabled ? "✅ " : "⭕ "}{t("autoSpotState")}</span>
-            <button className="btn" onClick={toggleSpot} disabled={spotBusy}
-              style={{ padding: "8px 16px", borderRadius: 10, border: 0, fontWeight: 700,
-                       background: settings?.spot_auto_enabled ? "var(--red)" : "var(--brand)",
-                       color: settings?.spot_auto_enabled ? "#fff" : "#04211c" }}>
-              {settings?.spot_auto_enabled ? t("disable") : t("enable")}
-            </button>
+            <div onClick={() => !spotBusy && toggleSpot()}
+              style={{ width: 52, height: 28, borderRadius: 14, cursor: "pointer", flexShrink: 0,
+                       background: settings?.spot_auto_enabled ? "var(--brand)" : "#3a3a3a",
+                       position: "relative", transition: "background .2s", opacity: spotBusy ? 0.5 : 1 }}>
+              <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#fff",
+                            position: "absolute", top: 3, left: settings?.spot_auto_enabled ? 27 : 3,
+                            transition: "left .2s" }} />
+            </div>
           </div>
         </div>
       )}
