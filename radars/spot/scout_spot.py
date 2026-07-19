@@ -181,6 +181,7 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
 
 _prices: dict = {}          # كاش أسعار السبوت (يحدّثه المتتبع كل دقيقة — تقرؤه الواجهة)
 _track: dict = {}           # sig_id -> stage (0 لم يلمس، 1/2 بعد TP1/TP2)
+_peak: dict = {}            # sig_id -> أعلى سعر بلغته الصفقة (للقفل المتحرك وكشف الانعكاس)
 _TRACK_STARTED = False
 
 
@@ -242,7 +243,47 @@ async def tracker_loop():
                             except Exception as _re:
                                 log.debug("spot result: %s", _re)
 
-                        if px <= s.sl:
+                        # 🔒 تتبّع القمة + رفع الوقف عند كل هدف (قفل الربح)
+                        _pk = _peak.get(s.id, s.entry)
+                        if px > _pk:
+                            _pk = px; _peak[s.id] = px
+                        _locked_sl = s.sl
+                        if px >= s.tp2:
+                            _locked_sl = max(_locked_sl, s.entry * 1.06)   # قفل +6%
+                        elif px >= s.tp1:
+                            _locked_sl = max(_locked_sl, s.entry)          # تعادل
+                        # 🧠 كشف انعكاس ذكي: في ربح، وارتد ≥1.5% عن القمة بزخم أحمر → إغلاق فوري
+                        _peak_pnl = (_pk - s.entry) / s.entry * 100 if s.entry else 0
+                        _drop = (_pk - px) / _pk * 100 if _pk else 0
+                        _smart_rev = (pnl >= 2.0 and _peak_pnl >= 4.0 and _drop >= 1.5)
+
+                        if _smart_rev:
+                            s.is_active = False; db.commit()
+                            _log_result(1 if pnl > 0 else 0, "reversal")
+                            try:
+                                from services.binance_trader import close_spot_all
+                                await close_spot_all(s.symbol, "reversal")
+                            except Exception: pass
+                            try:
+                                from quant_engine.spot_brain import record_spot_outcome
+                                record_spot_outcome(s.symbol, 1 if pnl > 0 else 0, pnl)
+                            except Exception: pass
+                            await _announce(f"🧠 <b>{s.symbol}</b> — انعكاس مُكتشف، أغلقنا لحفظ الربح\nالنتيجة: <b>{pnl:+.1f}%</b> (القمة كانت {_peak_pnl:+.0f}%)\n🪙 <i>WhaleMind Spot</i>")
+                            log.info("🪙🧠 %s reversal-exit %.1f%% (peak %.0f%%)", s.symbol, pnl, _peak_pnl)
+                        elif px <= _locked_sl and _locked_sl > s.sl:
+                            s.is_active = False; db.commit()
+                            _log_result(1 if pnl > 0 else 0, "locked")
+                            try:
+                                from services.binance_trader import close_spot_all
+                                await close_spot_all(s.symbol, "locked")
+                            except Exception: pass
+                            try:
+                                from quant_engine.spot_brain import record_spot_outcome
+                                record_spot_outcome(s.symbol, 1 if pnl > 0 else 0, pnl)
+                            except Exception: pass
+                            await _announce(f"🔒 <b>{s.symbol}</b> — قفل الربح عند الارتداد\nالنتيجة: <b>{pnl:+.1f}%</b>\n🪙 <i>WhaleMind Spot</i>")
+                            log.info("🪙🔒 %s locked %.1f%%", s.symbol, pnl)
+                        elif px <= s.sl:
                             s.is_active = False; db.commit()
                             _log_result(0, "sl")
                             try:
