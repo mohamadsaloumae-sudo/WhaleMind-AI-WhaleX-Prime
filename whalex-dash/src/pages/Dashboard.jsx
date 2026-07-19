@@ -89,18 +89,27 @@ export default function Dashboard() {
       <div className="grid grid-2">
         <div className="card">
           <div className="card-title"><Radio size={14} style={{ verticalAlign: "middle", marginInlineEnd: 6 }} /> {t("radarsStatus")}</div>
-          <div className="toggle-row">
-            <span>📈 WhaleX Long</span>
-            <span className="badge grade">{t("working")}</span>
-          </div>
-          <div className="toggle-row">
-            <span>🎯 WhaleX Short</span>
-            <span className="badge grade">{t("working")}</span>
-          </div>
-          <div className="toggle-row">
-            <span>⚡ WhaleX Predator</span>
-            <span className="badge grade">{t("working")}</span>
-          </div>
+          {mkt === "spot" ? (
+            <div className="toggle-row">
+              <span>🪙 WhaleX Spot</span>
+              <span className="badge grade">{t("working")}</span>
+            </div>
+          ) : (
+            <>
+              <div className="toggle-row">
+                <span>📈 WhaleX Long</span>
+                <span className="badge grade">{t("working")}</span>
+              </div>
+              <div className="toggle-row">
+                <span>🎯 WhaleX Short</span>
+                <span className="badge grade">{t("working")}</span>
+              </div>
+              <div className="toggle-row">
+                <span>⚡ WhaleX Predator</span>
+                <span className="badge grade">{t("working")}</span>
+              </div>
+            </>
+          )}
         </div>
         <div className="card">
           <div className="card-title"><Activity size={14} style={{ verticalAlign: "middle", marginInlineEnd: 6 }} /> {t("recentActivity")}</div>
