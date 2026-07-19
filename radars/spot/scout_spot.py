@@ -284,6 +284,8 @@ async def tracker_loop():
                             _locked_sl = max(_locked_sl, s.entry)          # تعادل
                         # 🧠 كشف انعكاس ذكي: في ربح، وارتد ≥1.5% عن القمة بزخم أحمر → إغلاق فوري
                         _peak_pnl = (_pk - s.entry) / s.entry * 100 if s.entry else 0
+                        if _peak_pnl >= 2.0:
+                            _locked_sl = max(_locked_sl, s.entry * 1.02)   # 🔒 قفل ربح +2% فور بلوغه
                         _drop = (_pk - px) / _pk * 100 if _pk else 0
                         _smart_rev = (pnl >= 2.0 and _peak_pnl >= 4.0 and _drop >= 1.5)
 
