@@ -360,10 +360,18 @@ def get_balance(user_id: str) -> dict:
         try: result["usdt_free"] = result.get("usdt_free", 0) + float(fut.get("availableBalance", 0) or 0)
         except Exception: pass
         try:
+            _tk = {t["symbol"]: float(t["price"]) for t in client.get_all_tickers()}
+            _usd = 0.0
+            for _as, _inf in balances.items():
+                _bs = _as[2:] if _as.startswith("LD") else _as
+                if _bs in ("USDT", "USDC", "BUSD", "FDUSD", "TUSD"):
+                    _usd += _inf["total"]
+                elif _bs + "USDT" in _tk:
+                    _usd += _inf["total"] * _tk[_bs + "USDT"]
             _cx = sqlite3.connect(DB_PATH)
             _inv = _cx.execute("SELECT COALESCE(SUM(entry*qty),0) FROM spot_positions WHERE user_id=? AND status='open'", (user_id,)).fetchone()[0]
             _cx.close()
-            result["usdt_total_spot"] = result.get("usdt_free", 0) + float(_inv or 0)
+            result["usdt_total_spot"] = _usd + float(_inv or 0)
         except Exception:
             result["usdt_total_spot"] = result.get("usdt_free", 0)
         result["futures"] = {
