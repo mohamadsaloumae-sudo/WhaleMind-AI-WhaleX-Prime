@@ -19,13 +19,12 @@ export default function AutoTrade() {
     } catch (e) { setMsg({ type: "error", text: e.message }); }
     finally { setSpotBusy(false); }
   }
+  const [spotSaved, setSpotSaved] = useState(false);
   async function saveSpot(patch) {
-    try { const r = await binance.autoTrade(patch); if (r?.success) setSettings((s) => ({ ...s, ...patch })); }
-    catch { /* */ }
-  }
-  async function saveSpot(patch) {
-    try { const r = await binance.autoTrade(patch); if (r?.success) setSettings((s) => ({ ...s, ...patch })); }
-    catch { /* */ }
+    try {
+      const r = await binance.autoTrade(patch);
+      if (r?.success) { setSettings((s) => ({ ...s, ...patch })); setSpotSaved(true); setTimeout(() => setSpotSaved(false), 1800); }
+    } catch { /* */ }
   }
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
@@ -230,7 +229,10 @@ export default function AutoTrade() {
 
       {mode === "spot" && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-title">🪙 {t("autoSpot")}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="card-title">🪙 {t("autoSpot")}</div>
+            {spotSaved && <span style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)" }}>✓ {lang === "ar" ? "حُفظ" : "Saved"}</span>}
+          </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
             <span>{settings?.spot_auto_enabled ? "✅ " : "⭕ "}{t("autoSpotState")}</span>
             <div onClick={() => !spotBusy && toggleSpot()}
