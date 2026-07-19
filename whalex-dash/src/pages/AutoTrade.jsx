@@ -159,8 +159,9 @@ export default function AutoTrade() {
           <div className="card-title">{t("balance")}</div>
           {mode === "spot" ? (
             <div>
-              <div style={{ fontSize: 13, color: "var(--txt-2)" }}>{lang === "ar" ? "رصيد السبوت المتاح" : "Available spot balance"}</div>
+              <div style={{ fontSize: 13, color: "var(--txt-2)" }}>{lang === "ar" ? "رصيد السبوت الكلي" : "Total spot balance"}</div>
               <div style={{ fontSize: 26, fontWeight: 800, color: "var(--brand)" }}>{((balance?.usdt_total_spot ?? balance?.usdt_free) ?? 0).toFixed(2)} USDT</div>
+              <div style={{ fontSize: 12, color: "var(--txt-3)", marginTop: 2 }}>{lang === "ar" ? "المتاح للشراء" : "Available"}: {(balance?.usdt_free ?? 0).toFixed(2)} USDT</div>
             </div>
           ) : (
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
