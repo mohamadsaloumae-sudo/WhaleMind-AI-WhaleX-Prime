@@ -160,7 +160,7 @@ export default function AutoTrade() {
           {mode === "spot" ? (
             <div>
               <div style={{ fontSize: 13, color: "var(--txt-2)" }}>{lang === "ar" ? "رصيد السبوت المتاح" : "Available spot balance"}</div>
-              <div style={{ fontSize: 26, fontWeight: 800, color: "var(--brand)" }}>{(balance?.spot?.USDT?.free ?? 0).toFixed(2)} USDT</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: "var(--brand)" }}>{(balance?.usdt_free ?? 0).toFixed(2)} USDT</div>
             </div>
           ) : (
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -249,7 +249,7 @@ export default function AutoTrade() {
           <div style={{ fontSize: 13, color: "var(--txt-2)", margin: "14px 0 6px" }}>{lang === "ar" ? "مبلغ كل صفقة (USDT)" : "Amount per trade (USDT)"}</div>
           <input type="number" min="5" defaultValue={settings?.spot_trade_amount || 5}
             onBlur={(e) => {
-              const bal = balance?.spot?.USDT?.free ?? 0;
+              const bal = balance?.usdt_free ?? 0;
               const amt = parseFloat(e.target.value) || 5;
               if (amt > bal) { setSpotErr(lang === "ar" ? `رصيدك ${bal.toFixed(2)}$ لا يكفي — أعد الشحن` : `Balance ${bal.toFixed(2)}$ insufficient — top up`); e.target.value = settings?.spot_trade_amount || 5; return; }
               setSpotErr("");
@@ -263,12 +263,12 @@ export default function AutoTrade() {
             <div style={{ fontSize: 12, color: "var(--red)", marginTop: 6 }}>⚠️ {spotErr}</div>
           ) : (
             <div style={{ fontSize: 12, color: "var(--txt-3)", marginTop: 6 }}>
-              {lang === "ar" ? `رصيدك يكفي ` : `Balance covers `}<b>{Math.max(0, Math.floor((balance?.spot?.USDT?.free ?? 0) / (settings?.spot_trade_amount || 5)))}</b>{lang === "ar" ? ` صفقة` : ` trades`}
+              {lang === "ar" ? `رصيدك يكفي ` : `Balance covers `}<b>{Math.max(0, Math.floor((balance?.usdt_free ?? 0) / (settings?.spot_trade_amount || 5)))}</b>{lang === "ar" ? ` صفقة` : ` trades`}
             </div>
           )}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "14px 0 6px" }}>
             <span style={{ fontSize: 13, color: "var(--txt-2)" }}>{lang === "ar" ? "أوتو (كل الصفقات)" : "Auto (all signals)"}</span>
-            <div onClick={() => saveSpot({ spot_max_positions: (settings?.spot_max_positions ?? 0) === 0 ? Math.max(1, Math.floor((balance?.spot?.USDT?.free ?? 0) / (settings?.spot_trade_amount || 5))) : 0 })}
+            <div onClick={() => saveSpot({ spot_max_positions: (settings?.spot_max_positions ?? 0) === 0 ? Math.max(1, Math.floor((balance?.usdt_free ?? 0) / (settings?.spot_trade_amount || 5))) : 0 })}
               style={{ width: 52, height: 28, borderRadius: 14, cursor: "pointer", flexShrink: 0,
                        background: (settings?.spot_max_positions ?? 0) === 0 ? "var(--brand)" : "#3a3a3a",
                        position: "relative", transition: "background .2s" }}>
@@ -281,14 +281,14 @@ export default function AutoTrade() {
               <div style={{ fontSize: 13, color: "var(--txt-2)", margin: "8px 0 6px" }}>{lang === "ar" ? "عدد الصفقات" : "Number of trades"}</div>
               <input type="number" min="1" value={settings?.spot_max_positions || 1}
                 onChange={(e) => {
-                  const bal = balance?.spot?.USDT?.free ?? 0;
+                  const bal = balance?.usdt_free ?? 0;
                   const maxT = Math.max(1, Math.floor(bal / (settings?.spot_trade_amount || 5)));
                   const v = Math.min(Math.max(1, parseInt(e.target.value) || 1), maxT);
                   saveSpot({ spot_max_positions: v });
                 }}
                 style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--bg-2)", background: "var(--bg-1)", color: "var(--txt-0)", boxSizing: "border-box" }} />
               <div style={{ fontSize: 11, color: "var(--txt-3)", marginTop: 4 }}>
-                {lang === "ar" ? `الحد الأقصى بحسب رصيدك: ` : `Max by your balance: `}<b>{Math.max(1, Math.floor((balance?.spot?.USDT?.free ?? 0) / (settings?.spot_trade_amount || 5)))}</b>
+                {lang === "ar" ? `الحد الأقصى بحسب رصيدك: ` : `Max by your balance: `}<b>{Math.max(1, Math.floor((balance?.usdt_free ?? 0) / (settings?.spot_trade_amount || 5)))}</b>
               </div>
             </>
           )}

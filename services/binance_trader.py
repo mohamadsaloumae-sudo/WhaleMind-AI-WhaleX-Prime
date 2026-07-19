@@ -341,6 +341,11 @@ def get_balance(user_id: str) -> dict:
                     "total": total,
                 }
         result["spot"] = balances
+        try:
+            _uu = client.get_asset_balance(asset="USDT")
+            result["usdt_free"] = float(_uu["free"]) if _uu else 0.0
+        except Exception:
+            result["usdt_free"] = 0.0
     except Exception as e:
         log.debug("Spot balance %s: %s", user_id, e)
         result["spot_error"] = str(e)
