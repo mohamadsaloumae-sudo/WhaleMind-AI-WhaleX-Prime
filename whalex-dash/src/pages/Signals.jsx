@@ -12,6 +12,8 @@ function useLangSpotMsg() {
   return ar ? "رادار السبوت قيد الإطلاق — المرحلة الثانية 🚧" : "Spot radar launching — phase 2 🚧";
 }
 
+const fmtPx = (n) => { const v = Number(n) || 0; return v >= 100 ? v.toFixed(2) : v >= 1 ? v.toFixed(3) : v >= 0.01 ? v.toFixed(4) : v.toFixed(6); };
+
 export default function Signals() {
   const { t, lang } = useLang();
   const [signals, setSignals] = useState([]);
@@ -52,11 +54,11 @@ export default function Signals() {
                 <span className={`badge ${s.direction === "LONG" ? "long" : "short"}`}>{s.direction}</span>
               </div>
               <div style={{ fontSize: 13, color: "var(--txt-2)", display: "grid", gap: 6 }}>
-                <div>{t("entry")}: <b style={{ color: "var(--txt-1)" }}>{s.entry}</b></div>
+                <div>{t("entry")}: <b style={{ color: "var(--txt-1)" }}>{fmtPx(s.entry)}</b></div>
                 <div>{t("stopLoss")}: {s.sl}</div>
-                <div>{t("target")} 1: <b style={{ color: "var(--green)" }}>{s.tp1}</b></div>
-                <div>{t("target")} 2: <b style={{ color: "var(--green)" }}>{s.tp2}</b></div>
-                <div>{t("target")} 3: <b style={{ color: "var(--green)" }}>{s.tp3}</b></div>
+                <div>{t("target")} 1: <b style={{ color: "var(--green)" }}>{fmtPx(s.tp1)}</b></div>
+                <div>{t("target")} 2: <b style={{ color: "var(--green)" }}>{fmtPx(s.tp2)}</b></div>
+                <div>{t("target")} 3: <b style={{ color: "var(--green)" }}>{fmtPx(s.tp3)}</b></div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
                   <span className="badge" style={{ background: "rgba(99,102,241,0.15)", color: "var(--accent)" }}>{s.radar_type === "spot" ? "🪙 WhaleX Spot" : s.radar_type === "explosion" ? (s.direction === "SHORT" ? "🎯 WhaleX Short" : "📈 WhaleX Long") : "⚡ WhaleX Predator"}</span>
                 </div>
