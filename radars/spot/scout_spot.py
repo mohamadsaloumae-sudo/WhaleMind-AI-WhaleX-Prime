@@ -115,6 +115,13 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
 
     log.info("🪙🎯 SPOT SIGNAL: %s BUY @%.6g grade=%s taker=%.0f%% vol=%.2fx rsi=%.0f",
              sym, entry, grade, taker * 100, v_infl, rsi_v)
+    try:
+        from quant_engine.spot_brain import record_spot_signal, predict_spot
+        _pp, _note = predict_spot(taker, v_infl, rsi_v, range_pos)
+        log.info("🪙🧠 توقّع النموذج: %s نجاح %.0f%% | %s", sym, _pp * 100, _note)
+        record_spot_signal(sym, taker, v_infl, rsi_v, range_pos)
+    except Exception as _be:
+        log.debug("spot brain: %s", _be)
 
     # ── حفظ للميني آب (معزول: radar_type='spot') ──
     try:
@@ -242,6 +249,10 @@ async def tracker_loop():
                                 from services.binance_trader import close_spot_all
                                 await close_spot_all(s.symbol, "sl")
                             except Exception: pass
+                            try:
+                                from quant_engine.spot_brain import record_spot_outcome
+                                record_spot_outcome(s.symbol, 0, pnl)
+                            except Exception: pass
                             await _announce(f"🔴 <b>{s.symbol}</b> — ضرب الوقف\nالنتيجة: <b>{pnl:+.1f}%</b>\n🪙 <i>WhaleMind Spot</i>")
                             log.info("🪙🔴 %s SL %.1f%%", s.symbol, pnl)
                         elif px >= s.tp3:
@@ -250,6 +261,10 @@ async def tracker_loop():
                             try:
                                 from services.binance_trader import close_spot_all
                                 await close_spot_all(s.symbol, "tp3")
+                            except Exception: pass
+                            try:
+                                from quant_engine.spot_brain import record_spot_outcome
+                                record_spot_outcome(s.symbol, 1, pnl)
                             except Exception: pass
                             await _announce(f"🏆 <b>{s.symbol}</b> — الهدف الثالث!\nالنتيجة: <b>{pnl:+.1f}%</b> 🎉\n🪙 <i>WhaleMind Spot</i>")
                             log.info("🪙🏆 %s TP3 %.1f%%", s.symbol, pnl)
