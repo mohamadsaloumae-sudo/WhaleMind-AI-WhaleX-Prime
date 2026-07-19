@@ -59,6 +59,8 @@ class AutoTradeBody(BaseModel):
     allowed_grades: Optional[str] = Field(None, pattern="^[ASB,]+$")
     leverage: Optional[int] = Field(None, ge=1, le=125)
     spot_enabled: bool | None = None
+    spot_trade_amount: float | None = None
+    spot_max_positions: int | None = None
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -135,6 +137,8 @@ async def status(user=Depends(get_current_user)):
         "account_type": creds["account_type"],
         "auto_trade_enabled": creds["auto_trade_enabled"],
         "spot_auto_enabled": creds.get("spot_auto_enabled", 0),
+        "spot_trade_amount": creds.get("spot_trade_amount", 5),
+        "spot_max_positions": creds.get("spot_max_positions", 0),
         "trade_amount_usdt": creds["trade_amount_usdt"],
         "max_open_positions": creds["max_open_positions"],
         "allowed_grades": creds["allowed_grades"],
@@ -179,7 +183,9 @@ async def auto_trade(body: AutoTradeBody, user=Depends(get_current_user)):
         max_positions=body.max_open_positions,
         allowed_grades=body.allowed_grades,
         leverage=body.leverage,
-        spot_enabled=body.spot_enabled
+        spot_enabled=body.spot_enabled,
+        spot_trade_amount=body.spot_trade_amount,
+        spot_max_positions=body.spot_max_positions
     )
     if not ok:
         raise HTTPException(status_code=500, detail="update_failed")
@@ -190,6 +196,8 @@ async def auto_trade(body: AutoTradeBody, user=Depends(get_current_user)):
         "success": True,
         "auto_trade_enabled": creds["auto_trade_enabled"],
         "spot_auto_enabled": creds.get("spot_auto_enabled", 0),
+        "spot_trade_amount": creds.get("spot_trade_amount", 5),
+        "spot_max_positions": creds.get("spot_max_positions", 0),
         "trade_amount_usdt": creds["trade_amount_usdt"],
         "max_open_positions": creds["max_open_positions"],
         "allowed_grades": creds["allowed_grades"],
@@ -209,6 +217,8 @@ async def settings(user=Depends(get_current_user)):
         "is_testnet": creds["is_testnet"],
         "auto_trade_enabled": creds["auto_trade_enabled"],
         "spot_auto_enabled": creds.get("spot_auto_enabled", 0),
+        "spot_trade_amount": creds.get("spot_trade_amount", 5),
+        "spot_max_positions": creds.get("spot_max_positions", 0),
         "trade_amount_usdt": creds["trade_amount_usdt"],
         "max_open_positions": creds["max_open_positions"],
         "allowed_grades": creds["allowed_grades"],
