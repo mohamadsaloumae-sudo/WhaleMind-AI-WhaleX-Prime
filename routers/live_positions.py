@@ -46,6 +46,8 @@ async def _get_price(symbol: str) -> float:
 
 @router.get("/radar-positions")
 async def radar_positions(market: str = "futures"):
+    if market == "meme":
+        return {"positions": []}
     if market == "spot":
         try:
             from db.database import get_session, Signal

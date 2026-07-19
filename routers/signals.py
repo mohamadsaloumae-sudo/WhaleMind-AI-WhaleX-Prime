@@ -74,6 +74,8 @@ def all_signals(market: str = "futures"):
 
 @router.get("/history")
 def signals_history(market: str = "futures"):
+    if market == "meme":
+        return {"history": []}
     if market == "spot":
         import sqlite3 as _sq
         try:
