@@ -55,7 +55,7 @@ export default function Signals() {
               </div>
               <div style={{ fontSize: 13, color: "var(--txt-2)", display: "grid", gap: 6 }}>
                 <div>{t("entry")}: <b style={{ color: "var(--txt-1)" }}>{fmtPx(s.entry)}</b></div>
-                <div>{t("stopLoss")}: {s.sl}</div>
+                <div>{t("stopLoss")}: {fmtPx(s.sl)}</div>
                 <div>{t("target")} 1: <b style={{ color: "var(--green)" }}>{fmtPx(s.tp1)}</b></div>
                 <div>{t("target")} 2: <b style={{ color: "var(--green)" }}>{fmtPx(s.tp2)}</b></div>
                 <div>{t("target")} 3: <b style={{ color: "var(--green)" }}>{fmtPx(s.tp3)}</b></div>

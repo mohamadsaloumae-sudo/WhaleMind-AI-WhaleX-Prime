@@ -19,6 +19,10 @@ _uni_ts = 0.0
 _EXCLUDE = ("UP", "DOWN", "BULL", "BEAR")   # روافع سبوت المغلفة
 
 
+def _fmt_px(p):
+    return f"{p:.2f}" if p>=100 else f"{p:.3f}" if p>=1 else f"{p:.4f}" if p>=0.01 else f"{p:.6f}"
+
+
 def _rsi(closes, period=14):
     if len(closes) < period + 1:
         return 50.0
@@ -149,11 +153,11 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
             await send_message(ch,
                 f"🪙 <b>WhaleX Spot — BUY</b>\n"
                 f"⚡ <b>{sym}</b>  ·  قاع تجميع مؤكّد\n\n"
-                f"Entry  <b>{entry:.6g}</b>\n"
-                f"Stop   {sl:.6g}\n"
-                f"TP1    {tp1:.6g}  (+6%)\n"
-                f"TP2    {tp2:.6g}  (+12%)\n"
-                f"TP3    {tp3:.6g}  (+20%)\n\n"
+                f"Entry  <b>{_fmt_px(entry)}</b>\n"
+                f"Stop   {_fmt_px(sl)}\n"
+                f"TP1    {_fmt_px(tp1)}  (+6%)\n"
+                f"TP2    {_fmt_px(tp2)}  (+12%)\n"
+                f"TP3    {_fmt_px(tp3)}  (+20%)\n\n"
                 f"Grade <b>{grade}</b> · Conf <b>{conf:.0f}%</b> · RSI {rsi_v:.0f}\n"
                 f"Taker-Buy <b>{taker*100:.0f}%</b> · Volume <b>{v_infl:.2f}x</b>\n"
                 f"🐋 <i>WhaleMind Spot</i>")
