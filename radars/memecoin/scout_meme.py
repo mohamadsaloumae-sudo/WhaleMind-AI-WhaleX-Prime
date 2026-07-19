@@ -109,6 +109,30 @@ async def _gate1(c, chain, addr):
     return await _gate1_evm(c, addr, chain)
 
 
+def _score(p):
+    # البوابة 3: تنقيط 0-100 من بيانات DexScreener (بلا API إضافي)
+    pts = 0.0
+    t = (p.get("txns") or {}).get("h24") or {}
+    buys = t.get("buys", 0) or 0
+    sells = t.get("sells", 0) or 0
+    tot = buys + sells
+    if tot > 0:
+        pts += min(30.0, (buys / tot) * 45)        # زخم الشراء (حتى 30)
+    liq = (p.get("liquidity") or {}).get("usd", 0) or 0
+    pts += min(25.0, liq / 20000 * 25)             # عمق السيولة (حتى 25)
+    vol = (p.get("volume") or {}).get("h24", 0) or 0
+    if liq > 0:
+        pts += min(25.0, (vol / liq) * 8)          # نشاط الحجم/السيولة (حتى 25)
+    mc = p.get("marketCap") or p.get("fdv") or 0
+    if liq > 0 and mc > 0:
+        ml = mc / liq                              # نسبة القيمة/السيولة (منخفض أأمن)
+        if ml < 10:
+            pts += 20
+        elif ml < 30:
+            pts += 10
+    return round(pts)
+
+
 async def scan():
     """يرصد العملات الجديدة، يمرّرها على البوابة 0 (متوازياً)، يرجع الناجين."""
     async with httpx.AsyncClient() as c:
@@ -141,6 +165,6 @@ if __name__ == "__main__":
     for p in survivors:
         b = p.get("baseToken") or {}
         liq = (p.get("liquidity") or {}).get("usd", 0)
-        vol = (p.get("volume") or {}).get("h24", 0)
-        t = (p.get("txns") or {}).get("h24") or {}
-        print(f"  {b.get('symbol','?'):10} | {p.get('chainId'):8} | سيولة ${liq:>12,.0f} | حجم ${vol:>12,.0f} | شراء {t.get('buys',0)}/بيع {t.get('sells',0)}")
+        sc = _score(p)
+        flag = "✅ إشارة (≥60)" if sc >= 60 else "دون العتبة"
+        print(f"  {b.get('symbol','?'):10} | {p.get('chainId'):8} | سيولة ${liq:>11,.0f} | نقاط {sc:>3}/100 | {flag}")
