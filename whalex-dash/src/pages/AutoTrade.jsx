@@ -145,19 +145,26 @@ export default function AutoTrade() {
         )}
       </div>
 
-      {connected && balance?.futures && (
+      {connected && (balance?.futures || balance?.spot) && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title">{t("balance")}</div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          {mode === "spot" ? (
             <div>
-              <div style={{ fontSize: 13, color: "var(--txt-2)" }}>{t("availableBalance")}</div>
-              <div style={{ fontSize: 26, fontWeight: 800, color: "var(--brand)" }}>{Number(balance.futures?.available_balance || 0).toFixed(2)} USDT</div>
+              <div style={{ fontSize: 13, color: "var(--txt-2)" }}>{lang === "ar" ? "رصيد السبوت المتاح" : "Available spot balance"}</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: "var(--brand)" }}>{(balance?.spot?.USDT?.free ?? 0).toFixed(2)} USDT</div>
             </div>
-            <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 13, color: "var(--txt-2)" }}>{t("totalBalance")}</div>
-              <div style={{ fontSize: 18, fontWeight: 700 }}>{Number(balance.futures?.total_wallet_balance || 0).toFixed(2)}</div>
+          ) : (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 13, color: "var(--txt-2)" }}>{t("availableBalance")}</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: "var(--brand)" }}>{Number(balance.futures?.available_balance || 0).toFixed(2)} USDT</div>
+              </div>
+              <div style={{ textAlign: "left" }}>
+                <div style={{ fontSize: 13, color: "var(--txt-2)" }}>{t("totalBalance")}</div>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>{Number(balance.futures?.total_wallet_balance || 0).toFixed(2)}</div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -216,9 +223,6 @@ export default function AutoTrade() {
       {mode === "spot" && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title">🪙 {t("autoSpot")}</div>
-          <div style={{ fontSize: 13, color: "var(--txt-2)", margin: "6px 0 12px" }}>
-            {lang === "ar" ? "رصيد السبوت المتاح" : "Available spot balance"}: <b style={{ color: "var(--txt-0)" }}>{(balance?.spot?.USDT?.free ?? 0).toFixed(2)} USDT</b>
-          </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
             <span>{settings?.spot_auto_enabled ? "✅ " : "⭕ "}{t("autoSpotState")}</span>
             <div onClick={() => !spotBusy && toggleSpot()}
