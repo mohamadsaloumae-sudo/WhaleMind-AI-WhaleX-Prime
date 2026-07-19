@@ -242,7 +242,7 @@ async def fetch_all_symbols() -> list[MarketTier]:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             "SELECT symbol, tier, avg_daily_volume FROM coin_profiles "
-            "WHERE safe_to_trade=1 AND tier <= 3 "
+            "WHERE tier <= 3 AND (safe_to_trade=1 OR tier <= 2) "
             "ORDER BY tier ASC, avg_daily_volume DESC"
         ).fetchall()
         conn.close()
