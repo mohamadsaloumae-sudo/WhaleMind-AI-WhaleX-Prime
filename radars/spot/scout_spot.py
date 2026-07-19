@@ -201,6 +201,26 @@ def _ensure_results_table():
         log.debug("results table: %s", _e)
 
 
+async def _ws_price_feed():
+    # تيار أسعار حي عبر WebSocket لكل عملات السبوت
+    import json
+    url = "wss://stream.binance.com:9443/ws/!ticker@arr"
+    while True:
+        try:
+            import websockets
+            async with websockets.connect(url, ping_interval=20, close_timeout=5) as ws:
+                log.info("🪙🔌 Spot WS connected")
+                async for msg in ws:
+                    try:
+                        for t in json.loads(msg):
+                            s = t.get("s"); pr = t.get("c")
+                            if s and pr: _prices[s] = float(pr)
+                    except Exception: pass
+        except Exception as e:
+            log.warning("🪙🔌 Spot WS drop: %s", e)
+            await asyncio.sleep(10)
+
+
 async def tracker_loop():
     """📡 متتبع مصير الإشارات: TP متدرج، SL صادق، تنظيف 72 ساعة."""
     log.info("🪙📡 Spot tracker starting")
@@ -209,12 +229,18 @@ async def tracker_loop():
     from core.config import get_settings
     from services.telegram import send_message
     ch = get_settings().telegram_spot_channel_id
+    asyncio.create_task(_ws_price_feed())
+    _last_rest = 0.0
     async with httpx.AsyncClient() as c:
         while True:
             try:
-                r = await c.get(f"{SPOT}/api/v3/ticker/price", timeout=15)
-                for row in r.json():
-                    _prices[row["symbol"]] = float(row["price"])
+                if time.time() - _last_rest > 60:
+                    _last_rest = time.time()
+                    try:
+                        r = await c.get(f"{SPOT}/api/v3/ticker/price", timeout=15)
+                        for row in r.json():
+                            _prices.setdefault(row["symbol"], float(row["price"]))
+                    except Exception: pass
 
                 db = get_session()
                 try:
@@ -327,7 +353,7 @@ async def tracker_loop():
                     db.close()
             except Exception as e:
                 log.error("spot tracker: %s", e)
-            await asyncio.sleep(60)
+            await asyncio.sleep(3)
 
 
 async def spot_loop():
