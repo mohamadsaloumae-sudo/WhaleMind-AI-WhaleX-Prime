@@ -225,7 +225,6 @@ export default function AutoTrade() {
               {settings?.spot_auto_enabled ? t("disable") : t("enable")}
             </button>
           </div>
-          <div style={{ color: "var(--txt-3)", fontSize: 12, marginTop: 10 }}>{t("autoSpotNote")}</div>
         </div>
       )}
     </div>
