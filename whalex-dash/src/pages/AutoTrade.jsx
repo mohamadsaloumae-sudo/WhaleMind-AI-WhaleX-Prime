@@ -9,7 +9,8 @@ export default function AutoTrade() {
   const { t, lang } = useLang();
   const [status, setStatus] = useState(null);
   const [settings, setSettings] = useState(null);
-  const [mode, setMode] = useState("auto");
+  const [mode, setMode] = useState(localStorage.getItem("wx_auto_mode") || "auto");
+  useEffect(() => { localStorage.setItem("wx_auto_mode", mode); }, [mode]);
   const [spotBusy, setSpotBusy] = useState(false);
   async function toggleSpot() {
     if (spotBusy) return; setSpotBusy(true);
