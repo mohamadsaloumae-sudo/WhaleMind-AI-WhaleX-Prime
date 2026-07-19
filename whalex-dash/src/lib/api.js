@@ -78,7 +78,7 @@ export const livePositions = {
 };
 
 export const signals = {
-  all:     () => api.get("/api/signals/all"),
+  all:       (m = "futures") => api.get(`/api/signals/all?market=${m}`),
   history:   (m = "futures") => api.get(`/api/signals/history?market=${m}`),
   monthly:   (m = "futures") => api.get(`/api/signals/monthly?market=${m}`),
 };
