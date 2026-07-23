@@ -207,13 +207,10 @@ def calc_adx(highs: List[float], lows: List[float], closes: List[float], period:
 
 async def fetch_klines(symbol: str, interval: str, limit: int = 100) -> Optional[List[list]]:
     try:
-        async with httpx.AsyncClient(timeout=8) as c:
-            r = await c.get(
-                f"{BINANCE_FAPI}/klines",
-                params={"symbol": symbol, "interval": interval, "limit": limit}
-            )
-            if r.status_code == 200:
-                return r.json()
+        from radars.futures.engine import fapi_get
+        data = await fapi_get(f"{BINANCE_FAPI}/klines?symbol={symbol}&interval={interval}&limit={limit}", 45)
+        if isinstance(data, list):
+            return data
     except Exception as e:
         log.warning("fetch_klines %s %s: %s", symbol, interval, e)
     return None

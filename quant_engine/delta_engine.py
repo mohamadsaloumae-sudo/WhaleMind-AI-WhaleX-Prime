@@ -107,13 +107,10 @@ class DeltaResult:
 
 async def fetch_klines(symbol: str, interval: str, limit: int = 50) -> Optional[List[list]]:
     try:
-        async with httpx.AsyncClient(timeout=8) as c:
-            r = await c.get(
-                f"{BINANCE_FAPI}/klines",
-                params={"symbol": symbol, "interval": interval, "limit": limit}
-            )
-            if r.status_code == 200:
-                return r.json()
+        from radars.futures.engine import fapi_get
+        data = await fapi_get(f"{BINANCE_FAPI}/klines?symbol={symbol}&interval={interval}&limit={limit}", 45)
+        if isinstance(data, list):
+            return data
     except Exception as e:
         log.warning("fetch_klines %s %s: %s", symbol, interval, e)
     return None
@@ -122,13 +119,10 @@ async def fetch_klines(symbol: str, interval: str, limit: int = 50) -> Optional[
 async def fetch_aggregated_trades(symbol: str, limit: int = 1000) -> Optional[List[dict]]:
     """يجلب آخر 1000 صفقة مجمعة (للـ Smart Money detection)"""
     try:
-        async with httpx.AsyncClient(timeout=8) as c:
-            r = await c.get(
-                f"{BINANCE_FAPI}/aggTrades",
-                params={"symbol": symbol, "limit": limit}
-            )
-            if r.status_code == 200:
-                return r.json()
+        from radars.futures.engine import fapi_get
+        data = await fapi_get(f"{BINANCE_FAPI}/aggTrades?symbol={symbol}&limit={limit}", 15)
+        if isinstance(data, list):
+            return data
     except Exception as e:
         log.warning("fetch_aggTrades %s: %s", symbol, e)
     return None
