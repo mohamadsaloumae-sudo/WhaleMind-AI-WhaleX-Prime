@@ -77,6 +77,9 @@ async def fetch_top_gainers() -> list[dict]:
         async with httpx.AsyncClient(timeout=10) as c:
             r = await c.get("https://fapi.binance.com/fapi/v1/ticker/24hr")
             data = r.json()
+        if not isinstance(data, list):
+            log.error("fetch_top_gainers: رد غير متوقع %s: %s", type(data).__name__, str(data)[:150])
+            return []
         out = []
         for d in data:
             if not d["symbol"].endswith("USDT"):
