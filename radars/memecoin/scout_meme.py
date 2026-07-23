@@ -169,6 +169,10 @@ def _init_meme_db():
     os.makedirs(os.path.dirname(MEME_DB), exist_ok=True)
     conn = sqlite3.connect(MEME_DB)
     conn.execute("CREATE TABLE IF NOT EXISTS meme_signals(id INTEGER PRIMARY KEY, symbol TEXT, address TEXT UNIQUE, chain TEXT, score INTEGER, liq REAL, vol REAL, url TEXT, ts INTEGER, active INTEGER DEFAULT 1)")
+    for _col, _def in (("entry_price", "REAL"), ("status", "TEXT DEFAULT 'open'"), ("exit_price", "REAL"),
+                       ("pnl_pct", "REAL"), ("peak_price", "REAL"), ("closed_ts", "INTEGER"), ("buys_ratio", "REAL")):
+        try: conn.execute(f"ALTER TABLE meme_signals ADD COLUMN {_col} {_def}")
+        except Exception: pass
     conn.commit(); conn.close()
 
 
@@ -185,10 +189,14 @@ def _meme_save(p, sc):
     b = p.get("baseToken") or {}
     try:
         conn = sqlite3.connect(MEME_DB)
-        conn.execute("INSERT OR IGNORE INTO meme_signals(symbol,address,chain,score,liq,vol,url,ts) VALUES(?,?,?,?,?,?,?,?)",
+        _t = (p.get("txns") or {}).get("h24") or {}
+        _tt = (_t.get("buys", 0) or 0) + (_t.get("sells", 0) or 0)
+        _ratio = ((_t.get("buys", 0) or 0) / _tt) if _tt else 0
+        _px = float(p.get("priceUsd") or 0)
+        conn.execute("INSERT OR IGNORE INTO meme_signals(symbol,address,chain,score,liq,vol,url,ts,entry_price,status,peak_price,buys_ratio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                      (b.get("symbol", "?"), b.get("address", ""), p.get("chainId"), sc,
                       (p.get("liquidity") or {}).get("usd", 0), (p.get("volume") or {}).get("h24", 0),
-                      p.get("url", ""), int(time.time())))
+                      p.get("url", ""), int(time.time()), _px, "open", _px, _ratio))
         conn.commit(); conn.close()
     except Exception as e:
         log.warning("meme save: %s", e)
@@ -213,8 +221,92 @@ async def _meme_broadcast(p, sc):
         log.warning("meme broadcast: %s", e)
 
 
+def _meme_close(sid, px, pnl):
+    try:
+        conn = sqlite3.connect(MEME_DB)
+        conn.execute("UPDATE meme_signals SET status='closed', active=0, exit_price=?, pnl_pct=?, closed_ts=? WHERE id=?",
+                     (px, pnl, int(time.time()), sid))
+        conn.commit(); conn.close()
+    except Exception as e:
+        log.warning("meme close: %s", e)
+
+
+def _meme_peak(sid, peak):
+    try:
+        conn = sqlite3.connect(MEME_DB)
+        conn.execute("UPDATE meme_signals SET peak_price=? WHERE id=?", (peak, sid))
+        conn.commit(); conn.close()
+    except Exception:
+        pass
+
+
+async def _meme_close_broadcast(r, px, pnl, reason):
+    emoji = "\u2705" if pnl >= 0 else "\u274C"
+    msg = (f"{emoji} <b>\u0625\u063a\u0644\u0627\u0642 \u0635\u0641\u0642\u0629 \u0645\u064a\u0645</b>\n\n"
+           f"<b>{r.get('symbol','?')}</b>  ({r.get('chain')})\n"
+           f"\u0627\u0644\u0646\u062a\u064a\u062c\u0629: <b>{pnl:+.1f}%</b>\n"
+           f"\u0627\u0644\u0633\u0628\u0628: {reason}\n\n"
+           "\U0001F40B <i>WhaleMind Meme Radar</i>")
+    try:
+        from services.telegram import send_message
+        await send_message(MEME_CHANNEL, msg)
+    except Exception as e:
+        log.warning("meme close bc: %s", e)
+
+
+async def _meme_track_one(cc, r):
+    pairs = await _fetch_pairs(cc, r["address"])
+    if not pairs:
+        return
+    best = max(pairs, key=lambda x: (x.get("liquidity") or {}).get("usd", 0) or 0)
+    px = float(best.get("priceUsd") or 0)
+    entry = float(r.get("entry_price") or 0)
+    if px <= 0 or entry <= 0:
+        return
+    pnl = (px - entry) / entry * 100
+    peak = max(float(r.get("peak_price") or entry), px)
+    if peak > float(r.get("peak_price") or 0):
+        _meme_peak(r["id"], peak)
+    peak_pnl = (peak - entry) / entry * 100
+    reason = None
+    if pnl >= 50:
+        reason = "\U0001F3AF \u0627\u0644\u0647\u062f\u0641 +50%"
+    elif pnl <= -25:
+        reason = "\U0001F6D1 \u0627\u0644\u0648\u0642\u0641 -25%"
+    elif peak_pnl >= 35 and pnl <= 20:
+        reason = "\U0001F512 \u0642\u0641\u0644 \u0631\u0628\u062d +20%"
+    elif peak_pnl >= 20 and pnl <= 10:
+        reason = "\U0001F512 \u0642\u0641\u0644 \u0631\u0628\u062d +10%"
+    elif time.time() - (r.get("ts") or 0) > 24 * 3600:
+        reason = "\u23F1 \u0627\u0646\u062a\u0647\u0627\u0621 24\u0633"
+    if reason:
+        _meme_close(r["id"], px, pnl)
+        await _meme_close_broadcast(r, px, pnl, reason)
+        log.info("\U0001F438 closed %s %+.1f%% (%s)", r.get("symbol"), pnl, reason)
+
+
+async def meme_tracker_loop():
+    log.info("\U0001F438\U0001F4E1 Meme paper-tracker started")
+    while True:
+        try:
+            conn = sqlite3.connect(MEME_DB); conn.row_factory = sqlite3.Row
+            rows = [dict(x) for x in conn.execute("SELECT * FROM meme_signals WHERE status='open' AND entry_price > 0").fetchall()]
+            conn.close()
+            if rows:
+                async with httpx.AsyncClient() as cc:
+                    for r in rows:
+                        try:
+                            await _meme_track_one(cc, r)
+                        except Exception as _e:
+                            log.debug("track one: %s", _e)
+        except Exception as e:
+            log.warning("meme tracker: %s", e)
+        await asyncio.sleep(60)
+
+
 async def meme_loop():
     _init_meme_db()
+    asyncio.create_task(meme_tracker_loop())
     log.info("\U0001F438 Meme radar loop started")
     while True:
         try:
