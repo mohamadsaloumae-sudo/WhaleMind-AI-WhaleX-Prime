@@ -18,9 +18,10 @@ import httpx
 async def fetch_ob_deep(symbol: str) -> dict:
     """تحليل Order Book العميق (مستقلّ عن scout)."""
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get(f"https://fapi.binance.com/fapi/v1/depth?symbol={symbol}&limit=500")
-            d = r.json()
+        from radars.futures.engine import fapi_get
+        d = await fapi_get(f"https://fapi.binance.com/fapi/v1/depth?symbol={symbol}&limit=100", 8)
+        if not isinstance(d, dict):
+            return {"valid": False}
         bids_raw = [(float(b[0]), float(b[1])) for b in d.get("bids", [])]
         asks_raw = [(float(a[0]), float(a[1])) for a in d.get("asks", [])]
         if not bids_raw or not asks_raw:

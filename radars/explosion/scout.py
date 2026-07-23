@@ -64,11 +64,9 @@ def _init_db():
 async def fetch_top_gainers() -> list[dict]:
     """المستوى 1: كل العملات بطلب واحد + فلتر."""
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get("https://fapi.binance.com/fapi/v1/ticker/24hr")
-            data = r.json()
+        from radars.futures.engine import fapi_get
+        data = await fapi_get("https://fapi.binance.com/fapi/v1/ticker/24hr", 30)
         if not isinstance(data, list):
-            log.error("fetch_top_gainers: رد غير متوقع %s: %s", type(data).__name__, str(data)[:150])
             return []
         out = []
         for d in data:
@@ -88,9 +86,10 @@ async def fetch_top_gainers() -> list[dict]:
 async def fetch_ob_deep(symbol: str) -> dict:
     """تحليل Order Book العميق (500 مستوى): جدران، اختلال، تمييز الجدار الوهمي."""
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get(f"https://fapi.binance.com/fapi/v1/depth?symbol={symbol}&limit=500")
-            d = r.json()
+        from radars.futures.engine import fapi_get
+        d = await fapi_get(f"https://fapi.binance.com/fapi/v1/depth?symbol={symbol}&limit=100", 8)
+        if not isinstance(d, dict) or "bids" not in d:
+            return {"valid": False}
         bids_raw = [(float(b[0]), float(b[1])) for b in d.get("bids", [])]
         asks_raw = [(float(a[0]), float(a[1])) for a in d.get("asks", [])]
         if not bids_raw or not asks_raw:
@@ -588,9 +587,9 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
                     if col["collapse"]:
                         # 🔭 إعادة فحص السيولة الحيّة قبل الصيد — HANA دخلت بـ15M ثمّ انهارت لـ0.9M (تلاعب)
                         try:
-                            async with httpx.AsyncClient(timeout=8) as _vc:
-                                _vr = await _vc.get(f"https://fapi.binance.com/fapi/v1/ticker/24hr?symbol={symbol}")
-                                _vol_now = float(_vr.json().get("quoteVolume", 0))
+                            from radars.futures.engine import fapi_get
+                            _vj = await fapi_get(f"https://fapi.binance.com/fapi/v1/ticker/24hr?symbol={symbol}", 20)
+                            _vol_now = float((_vj or {}).get("quoteVolume", 0))
                             if _vol_now < MIN_VOLUME_USD:
                                 log.info("🔭 %s: سيولة انهارت (%.1fM < %.0fM) — حذف من watchlist، لا صيد",
                                          symbol, _vol_now/1e6, MIN_VOLUME_USD/1e6)

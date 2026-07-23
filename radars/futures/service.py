@@ -252,8 +252,14 @@ async def fetch_all_symbols() -> list[MarketTier]:
             return []
 
         # جلب الحجم الحالي (24h) للحصول على بيانات حية
-        async with httpx.AsyncClient(timeout=20) as c:
-            r = await c.get("https://fapi.binance.com/fapi/v1/ticker/24hr")
+        from radars.futures.engine import fapi_get
+        _tk24 = await fapi_get("https://fapi.binance.com/fapi/v1/ticker/24hr", 30)
+        class _R:
+            @staticmethod
+            def json():
+                return _tk24 if isinstance(_tk24, list) else []
+        r = _R()
+        if True:
             # نتجاهل العقود بلا quoteVolume (عقود COIN-M مثل ETHUSD_PERP — نحن USDT فقط)
             vols = {t["symbol"]: float(t["quoteVolume"])
                     for t in r.json()

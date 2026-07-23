@@ -212,13 +212,13 @@ async def _btc_pulse() -> float:
     if now - _BTC_PULSE["ts"] < 30:
         return _BTC_PULSE["chg"]
     try:
-        import httpx
-        async with httpx.AsyncClient(timeout=6) as cl:
-            r = await cl.get("https://fapi.binance.com/fapi/v1/klines",
-                             params={"symbol": "BTCUSDT", "interval": "1m", "limit": 6})
-            k = r.json()
+        from radars.futures.engine import fapi_get
+        k = await fapi_get("https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1m&limit=6", 10)
+        if isinstance(k, list) and k:
             a, b = float(k[0][4]), float(k[-1][4])
             _BTC_PULSE["chg"] = (b - a) / a * 100 if a else 0.0
+        else:
+            _BTC_PULSE["chg"] = 0.0
     except Exception:
         _BTC_PULSE["chg"] = 0.0
     _BTC_PULSE["ts"] = now
@@ -372,9 +372,11 @@ async def get_price(symbol: str) -> Optional[float]:
         sym = symbol.replace("/", "").replace("-", "")
         if not sym.endswith("USDT"):
             sym += "USDT"
-        async with httpx.AsyncClient(timeout=5) as c:
-            r = await c.get(f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={sym}")
-            return float(r.json()["price"])
+        from radars.futures.engine import fapi_get
+        _pj = await fapi_get(f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={sym}", 2)
+        if isinstance(_pj, dict) and "price" in _pj:
+            return float(_pj["price"])
+        return None
     except:
         return None
 
@@ -401,9 +403,9 @@ async def get_order_book(symbol: str) -> dict:
         _cc = _OB_CACHE.get(sym)
         if _cc and _t.time() - _cc[0] < 3.0:
             return _cc[1]
-        async with httpx.AsyncClient(timeout=5) as c:
-            r = await c.get(f"https://fapi.binance.com/fapi/v1/depth?symbol={sym}&limit=20")
-            d = r.json()
+        from radars.futures.engine import fapi_get
+        d = await fapi_get(f"https://fapi.binance.com/fapi/v1/depth?symbol={sym}&limit=20", 5)
+        if isinstance(d, dict) and d.get("bids"):
             bids = sum(float(b[1]) for b in d.get("bids", [])[:10])
             asks = sum(float(a[1]) for a in d.get("asks", [])[:10])
             _res = {
@@ -414,6 +416,7 @@ async def get_order_book(symbol: str) -> dict:
             }
             _OB_CACHE[sym] = (_t.time(), _res)
             return _res
+        return {}
     except:
         return {}
 
@@ -731,9 +734,10 @@ async def _is_real_reversal_raw(symbol: str, is_long: bool, opened_at: float = 0
         sym = symbol.replace("/", "").replace("-", "")
         if not sym.endswith("USDT"):
             sym += "USDT"
-        async with httpx.AsyncClient(timeout=6) as cl:
-            r = await cl.get(f"https://fapi.binance.com/fapi/v1/depth?symbol={sym}&limit=100")
-            d = r.json()
+        from radars.futures.engine import fapi_get
+        d = await fapi_get(f"https://fapi.binance.com/fapi/v1/depth?symbol={sym}&limit=100", 8)
+        if not isinstance(d, dict):
+            return False, ""
         bids_raw = [(float(b[0]), float(b[1])) for b in d.get("bids", [])]
         asks_raw = [(float(a[0]), float(a[1])) for a in d.get("asks", [])]
         if not bids_raw or not asks_raw:

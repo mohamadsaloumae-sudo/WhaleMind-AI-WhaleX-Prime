@@ -200,8 +200,37 @@ async def get_oi_change(symbol: str) -> float:
 # ─── MULTI-TIMEFRAME CONFIRMATION ───────────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
-_KL_CACHE: dict = {}
+_FAPI_CACHE: dict = {}
 _FAPI_BAN: float = 0.0
+
+
+async def fapi_get(url: str, ttl: float = 8.0):
+    """🛡️ بوابة fapi الموحّدة: كاش URL مشترك + حارس حظر -1003 لكل الخدمة.
+    ترجع json عند النجاح، الكاش القديم أثناء الحظر، أو None."""
+    global _FAPI_BAN
+    _now = time.time()
+    _hit = _FAPI_CACHE.get(url)
+    if _hit and _now - _hit[0] < ttl:
+        return _hit[1]
+    if _now < _FAPI_BAN:
+        return _hit[1] if _hit else None
+    try:
+        async with httpx.AsyncClient(timeout=10) as _cl:
+            _r = await _cl.get(url)
+            data = _r.json()
+        if isinstance(data, dict) and data.get("code") == -1003:
+            import re as _re
+            _ms = max((int(x) for x in _re.findall(r"\d{13}", str(data.get("msg", "")))), default=0)
+            _FAPI_BAN = (_ms / 1000) if _ms else (_now + 120)
+            log.warning("🛡️ fapi محظور حتى %s — كل REST موقوف، نخدم الكاش",
+                        time.strftime("%H:%M:%S", time.localtime(_FAPI_BAN)))
+            return _hit[1] if _hit else None
+        if len(_FAPI_CACHE) > 1200:
+            _FAPI_CACHE.clear()
+        _FAPI_CACHE[url] = (_now, data)
+        return data
+    except Exception:
+        return _hit[1] if _hit else None
 
 
 async def fetch_klines_async(symbol: str, interval: str, limit: int = 50) -> list[Candle]:
@@ -216,27 +245,11 @@ async def fetch_klines_async(symbol: str, interval: str, limit: int = 50) -> lis
                     for r in _rows]
     except Exception:
         pass
-    # 🛡️ كاش REST + حارس حظر الوزن (-1003): يقطع التكرار ويكسر حلقة الحظر الدائم
-    global _KL_CACHE, _FAPI_BAN
-    _key = (symbol, interval, limit)
-    _now = time.time()
-    _hit = _KL_CACHE.get(_key)
-    if _hit and _now - _hit[0] < 45:
-        return _hit[1]
-    if _now < _FAPI_BAN:
-        return _hit[1] if _hit else []
+    data = await fapi_get(f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}", 45)
+    if not isinstance(data, list):
+        return []
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get(f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}")
-            data = r.json()
-        if isinstance(data, dict):
-            if data.get("code") == -1003:
-                import re as _re
-                _ms = max((int(x) for x in _re.findall(r"\d{13}", str(data.get("msg", "")))), default=0)
-                _FAPI_BAN = (_ms / 1000) if _ms else (_now + 120)
-                log.warning("🛡️ fapi محظور حتى %s — إيقاف REST klines وتقديم الكاش", time.strftime("%H:%M:%S", time.localtime(_FAPI_BAN)))
-            return _hit[1] if _hit else []
-        out = [Candle(
+        return [Candle(
             time=int(k[0]) // 1000,
             open=float(k[1]),
             high=float(k[2]),
@@ -245,12 +258,8 @@ async def fetch_klines_async(symbol: str, interval: str, limit: int = 50) -> lis
             volume=float(k[5]),
             buy_volume=float(k[9]),
         ) for k in data]
-        if len(_KL_CACHE) > 800:
-            _KL_CACHE.clear()
-        _KL_CACHE[_key] = (_now, out)
-        return out
-    except:
-        return _hit[1] if _hit else []
+    except Exception:
+        return []
 
 def quick_trend(candles: list[Candle]) -> str:
     """تحديد سريع لاتجاه الإطار الزمني — يعتمد على EMA + Price Action"""
