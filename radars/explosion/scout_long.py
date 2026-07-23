@@ -164,11 +164,7 @@ async def detect_rebound(symbol: str, candles) -> dict:
         if not _sw.endswith("USDT"): _sw+="USDT"
         if any(x["side"]=="ask" for x in get_signals(_sw).get("spoof",[])): _ns=False
     except Exception: pass
-    # 🌊 وعي الترند الحي: لا ضغط شراء عام ولا تآكل بائعين = البائعون أحياء → ارتداد وهمي لا انعكاس
-    _sellers_alive = ("ضغط_شراء_عام" not in signals) and ("تآكل_البائعين" not in signals)
-    if _sellers_alive and radar_ok:
-        log.info("🌊 %s: البائعون أحياء (لا ضغط شراء + لا تآكل) — ارتداد وهمي في هبوط حي، لا لونغ", symbol)
-    rebound = in_uptrend_dip and radar_ok and ob_safe_long and rsi_ok and _ns and not _sellers_alive
+    rebound = in_uptrend_dip and radar_ok and ob_safe_long and rsi_ok and _ns
 
     return {
         "rebound": rebound, "signals": signals, "rsi": r,
@@ -331,7 +327,7 @@ async def scout_long_loop(broadcast_fn=None, position_manager_fn=None):
                 if symbol in COOLDOWN and now - COOLDOWN[symbol] < COOLDOWN_SEC:
                     return
                 try:
-                    candles = await fetch_klines_async(symbol, "4h", 50)
+                    candles = await fetch_klines_async(symbol, "1h", 48)
                     if not candles or len(candles) < 20:
                         return
                     price = candles[-1].close
