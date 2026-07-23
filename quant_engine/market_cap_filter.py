@@ -273,10 +273,11 @@ KNOWN_SUPPLIES = {
 async def fetch_all_prices() -> Dict[str, float]:
     """يجلب أسعار كل عملات Binance Futures دفعة واحدة"""
     try:
-        async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.get(f"{BINANCE_FAPI}/ticker/price")
-            data = r.json()
-            return {t["symbol"]: float(t["price"]) for t in data}
+        from radars.futures.engine import fapi_get
+        data = await fapi_get(f"{BINANCE_FAPI}/ticker/price", 30)
+        if not isinstance(data, list):
+            return {}
+        return {t["symbol"]: float(t["price"]) for t in data}
     except Exception as e:
         log.warning("fetch_all_prices: %s", e)
         return {}
