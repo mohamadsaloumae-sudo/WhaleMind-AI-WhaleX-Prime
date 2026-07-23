@@ -47,7 +47,25 @@ async def _get_price(symbol: str) -> float:
 @router.get("/radar-positions")
 async def radar_positions(market: str = "futures"):
     if market == "meme":
-        return {"positions": []}
+        import sqlite3 as _sq, os as _os, time as _tm
+        _mdb = _os.path.join(_os.path.dirname(__file__), "..", "db", "memecoin.db")
+        try:
+            _mc = _sq.connect(_mdb); _mc.row_factory = _sq.Row
+            _rows = _mc.execute("SELECT id,symbol,chain,score,entry_price,last_price,peak_price,ts,url FROM meme_signals WHERE status='open' AND entry_price>0 ORDER BY ts DESC").fetchall()
+            _mc.close()
+            _out = []
+            for _r in _rows:
+                _d = dict(_r)
+                _e = _d.get("entry_price") or 0
+                _l = _d.get("last_price") or _e
+                _pk = _d.get("peak_price") or _e
+                _d["pnl_pct"] = round((_l - _e) / _e * 100, 2) if _e else 0
+                _d["peak_pnl"] = round((_pk - _e) / _e * 100, 2) if _e else 0
+                _d["age_min"] = int((_tm.time() - (_d.get("ts") or 0)) / 60)
+                _out.append(_d)
+            return {"positions": _out}
+        except Exception:
+            return {"positions": []}
     if market == "spot":
         try:
             from db.database import get_session, Signal

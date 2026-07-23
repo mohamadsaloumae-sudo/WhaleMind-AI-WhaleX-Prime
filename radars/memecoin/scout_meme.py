@@ -170,7 +170,7 @@ def _init_meme_db():
     conn = sqlite3.connect(MEME_DB)
     conn.execute("CREATE TABLE IF NOT EXISTS meme_signals(id INTEGER PRIMARY KEY, symbol TEXT, address TEXT UNIQUE, chain TEXT, score INTEGER, liq REAL, vol REAL, url TEXT, ts INTEGER, active INTEGER DEFAULT 1)")
     for _col, _def in (("entry_price", "REAL"), ("status", "TEXT DEFAULT 'open'"), ("exit_price", "REAL"),
-                       ("pnl_pct", "REAL"), ("peak_price", "REAL"), ("closed_ts", "INTEGER"), ("buys_ratio", "REAL")):
+                       ("pnl_pct", "REAL"), ("peak_price", "REAL"), ("closed_ts", "INTEGER"), ("buys_ratio", "REAL"), ("last_price", "REAL")):
         try: conn.execute(f"ALTER TABLE meme_signals ADD COLUMN {_col} {_def}")
         except Exception: pass
     conn.commit(); conn.close()
@@ -264,6 +264,12 @@ async def _meme_track_one(cc, r):
     if px <= 0 or entry <= 0:
         return
     pnl = (px - entry) / entry * 100
+    try:
+        _lc = sqlite3.connect(MEME_DB)
+        _lc.execute("UPDATE meme_signals SET last_price=? WHERE id=?", (px, r["id"]))
+        _lc.commit(); _lc.close()
+    except Exception:
+        pass
     peak = max(float(r.get("peak_price") or entry), px)
     if peak > float(r.get("peak_price") or 0):
         _meme_peak(r["id"], peak)
