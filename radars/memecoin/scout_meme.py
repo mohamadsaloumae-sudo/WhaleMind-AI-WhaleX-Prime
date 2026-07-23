@@ -12,7 +12,7 @@ import os
 log = logging.getLogger("meme_scout")
 
 CHAINS = ("solana", "bsc", "ethereum")
-MIN_LIQ = 50_000        # سيولة دنيا بالدولار
+MIN_LIQ = 10_000        # سيولة دنيا بالدولار
 MIN_VOL_24 = 20_000     # حجم 24 ساعة دنيا
 AGE_MIN_MIN = 5         # أصغر عمر بالدقائق
 AGE_MAX_MIN = 72 * 60   # أكبر عمر بالدقائق
@@ -162,7 +162,7 @@ async def scan():
 
 MEME_DB = os.path.join(os.path.dirname(__file__), "..", "..", "db", "memecoin.db")
 MEME_CHANNEL = "-1003918596088"
-SIGNAL_THRESHOLD = 60
+SIGNAL_THRESHOLD = 85
 
 
 def _init_meme_db():
