@@ -39,6 +39,27 @@ export default function LivePositions() {
   }, []);
 
   function Card({ p }) {
+    if (p.chain) {
+      const mp = (p.pnl_pct || 0) >= 0;
+      return (
+        <div className="card" style={{ marginBottom: 10, padding: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>{p.symbol}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: "rgba(74,222,128,0.15)", color: "var(--brand)" }}>🐸 {p.chain}</span>
+              <span style={{ fontSize: 11, color: "var(--txt-3)" }}>{p.score}/100</span>
+            </div>
+            <span style={{ fontWeight: 800, fontSize: 16, color: mp ? "#22c55e" : "#ef4444" }}>{mp ? "+" : ""}{Number(p.pnl_pct || 0).toFixed(1)}%</span>
+          </div>
+          <div style={{ display: "flex", gap: 14, marginTop: 8, fontSize: 12.5, color: "var(--txt-2)", flexWrap: "wrap" }}>
+            <span>{lang === "ar" ? "دخول" : "Entry"}: <b style={{ color: "var(--txt-1)" }}>{fmtPx(p.entry_price)}</b></span>
+            <span>{lang === "ar" ? "الآن" : "Now"}: <b style={{ color: "var(--txt-1)" }}>{fmtPx(p.last_price || p.entry_price)}</b></span>
+            <span>{lang === "ar" ? "القمة" : "Peak"}: <b style={{ color: "#22c55e" }}>+{Number(p.peak_pnl || 0).toFixed(1)}%</b></span>
+          </div>
+          <div style={{ marginTop: 6, fontSize: 12, color: "var(--txt-3)" }}>{fmtAge(p.ts, lang)}</div>
+        </div>
+      );
+    }
     const isLong = p.direction === "LONG";
     const isProfit = p.pnl_pct >= 0;
     return (

@@ -125,7 +125,25 @@ def signals_monthly(market: str = "futures"):
     """ملخّص الشهر (من تاريخ 1 بتوقيت دبي): رابحة/خاسرة + المجاميع"""
     import sqlite3
     if market == "meme":
-        return {"total": 0, "wins": 0, "losses": 0, "win_rate": 0, "total_pnl": 0}
+        import os as _os
+        _mdb = _os.path.join(_os.path.dirname(__file__), "..", "db", "memecoin.db")
+        try:
+            _mc = sqlite3.connect(_mdb); _mc.row_factory = sqlite3.Row
+            _rows = _mc.execute("""
+                SELECT pnl_pct FROM meme_signals
+                WHERE status='closed' AND pnl_pct IS NOT NULL
+                  AND closed_ts > (strftime('%s', date('now','+4 hours','start of month')) - 14400)
+            """).fetchall()
+            _mc.close()
+            _w = [r["pnl_pct"] for r in _rows if r["pnl_pct"] >= 0]
+            _l = [r["pnl_pct"] for r in _rows if r["pnl_pct"] < 0]
+            _tp = sum(_w); _tl = sum(abs(x) for x in _l)
+            return {"wins_count": len(_w), "losses_count": len(_l),
+                    "total_profit_pct": round(_tp, 2), "total_loss_pct": round(_tl, 2),
+                    "net_pct": round(_tp - _tl, 2), "total_trades": len(_rows)}
+        except Exception:
+            return {"wins_count": 0, "losses_count": 0, "total_profit_pct": 0,
+                    "total_loss_pct": 0, "net_pct": 0, "total_trades": 0}
     if market == "spot":
         try:
             con = sqlite3.connect("/opt/whalex/db/whalex.db"); con.row_factory = sqlite3.Row
