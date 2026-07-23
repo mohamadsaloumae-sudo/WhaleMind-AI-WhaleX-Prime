@@ -105,6 +105,31 @@ async def _gate1_evm(c, addr, chain):
     return True, "نجح"
 
 
+async def _gate2_solana(cc, addr):
+    # البوابة 2: توزيع الحاملين وشبكات الداخليين — صائد التوزيع على محافظ لحظة الإطلاق
+    try:
+        r = await cc.get(f"https://api.rugcheck.xyz/v1/tokens/{addr}/report", timeout=12)
+        if r.status_code != 200:
+            return False, "لا تقرير حاملين (احترازي)"
+        j = r.json()
+    except Exception:
+        return False, "خطأ تقرير الحاملين"
+    th = j.get("topHolders") or []
+    if not th:
+        return False, "لا بيانات حاملين (احترازي)"
+    _ins = sum((h.get("pct") or 0) for h in th if h.get("insider"))
+    if _ins > 5:
+        return False, f"داخليون يملكون {_ins:.0f}%"
+    if j.get("insiderNetworks"):
+        return False, "شبكة محافظ داخليين"
+    _rest = sum((h.get("pct") or 0) for h in th[1:10])
+    if _rest > 30:
+        return False, f"تركيز موزّع: الحاملون 2-10 يملكون {_rest:.0f}%"
+    if len(th) > 1 and (th[1].get("pct") or 0) > 15:
+        return False, f"حامل فرد يملك {(th[1].get('pct') or 0):.0f}%"
+    return True, "نجح"
+
+
 async def _gate1(c, chain, addr):
     if chain == "solana":
         return await _gate1_solana(c, addr)
@@ -154,6 +179,11 @@ async def scan():
             if not ok:
                 log.info("🐸🚫 %s (%s) بوابة1: %s", (best.get("baseToken") or {}).get("symbol", "?"), chain, reason)
                 return None
+            if chain == "solana":
+                ok2, reason2 = await _gate2_solana(c, addr)
+                if not ok2:
+                    log.info("🐸🚫 %s (%s) بوابة2: %s", (best.get("baseToken") or {}).get("symbol", "?"), chain, reason2)
+                    return None
             return best
 
         res = await asyncio.gather(*[_check(ch, a) for ch, a in cands])
