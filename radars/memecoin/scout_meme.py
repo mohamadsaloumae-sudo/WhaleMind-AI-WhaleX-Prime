@@ -111,6 +111,93 @@ async def _gate1_evm(c, addr, chain):
 _GP_CACHE = {}
 
 
+_AMM_PROGRAMS = {
+    "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P": "pump.fun",
+    "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA": "pumpswap",
+    "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8": "raydium",
+    "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C": "raydium_cpmm",
+    "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK": "raydium_clmm",
+    "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4": "jupiter",
+    "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo": "meteora",
+    "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc": "orca",
+}
+SOL_RPC = "https://api.mainnet-beta.solana.com"
+NO_BUY_MAX_PCT = 10.0
+_RC_CACHE = {}
+
+
+async def _rugcheck_report(cc, addr):
+    # تقرير RugCheck بكاش قصير — البوابتان 2 و2.5 تقرآن منه بنداء واحد
+    _hit = _RC_CACHE.get(addr)
+    if _hit and time.time() - _hit[0] < 120:
+        return _hit[1]
+    try:
+        r = await cc.get(f"https://api.rugcheck.xyz/v1/tokens/{addr}/report", timeout=12)
+        j = r.json() if r.status_code == 200 else None
+    except Exception:
+        j = None
+    if len(_RC_CACHE) > 200:
+        _RC_CACHE.clear()
+    _RC_CACHE[addr] = (time.time(), j)
+    return j
+
+
+async def _holder_bought_onchain(cc, ata):
+    # هل وصلت العملة لهذا الحساب عبر شراء AMM حقيقي؟ (None = تعذّر الفحص)
+    try:
+        r = await cc.post(SOL_RPC, json={"jsonrpc": "2.0", "id": 1,
+                                         "method": "getSignaturesForAddress",
+                                         "params": [ata, {"limit": 100}]}, timeout=10)
+        sigs = (r.json() or {}).get("result") or []
+        if not sigs:
+            return None
+        first = sigs[-1].get("signature")
+        if not first:
+            return None
+        t = await cc.post(SOL_RPC, json={"jsonrpc": "2.0", "id": 1,
+                                         "method": "getTransaction",
+                                         "params": [first, {"encoding": "jsonParsed",
+                                                            "maxSupportedTransactionVersion": 0}]}, timeout=12)
+        res = (t.json() or {}).get("result") or {}
+        progs = set()
+        for ins in ((res.get("transaction") or {}).get("message") or {}).get("instructions", []) or []:
+            progs.add(ins.get("programId", ""))
+        for ig in ((res.get("meta") or {}).get("innerInstructions") or []):
+            for ins in ig.get("instructions", []) or []:
+                progs.add(ins.get("programId", ""))
+        if not progs:
+            return None
+        return any(p in _AMM_PROGRAMS for p in progs)
+    except Exception:
+        return None
+
+
+async def _gate25_onchain(cc, addr):
+    # البوابة 2.5: إثبات الشراء الحقيقي على البلوكشين لأعلى الحاملين
+    j = await _rugcheck_report(cc, addr)
+    if not j:
+        return True, "تعذّر التقرير"
+    th = j.get("topHolders") or []
+    if len(th) < 2:
+        return True, "لا حاملين"
+    no_buy = 0.0
+    checked = 0
+    for h in th[1:6]:
+        pct = h.get("pct") or 0
+        ata = h.get("address")
+        if pct < 1.0 or not ata:
+            continue
+        bought = await _holder_bought_onchain(cc, ata)
+        if bought is None:
+            continue
+        checked += 1
+        if not bought:
+            no_buy += pct
+    if checked and no_buy > NO_BUY_MAX_PCT:
+        return False, f"توزيع بلا شراء: {no_buy:.0f}% استلموا تحويلاً"
+    return True, "نجح"
+
+
 async def _gate2_evm(cc, addr, chain):
     # البوابة 2 لشبكات EVM: توزيع الحاملين من GoPlus (استثناء العقود والمجمّعات، النسب كسور ×100)
     d = _GP_CACHE.get(addr.lower())
@@ -152,13 +239,9 @@ async def _gate2_evm(cc, addr, chain):
 
 async def _gate2_solana(cc, addr):
     # البوابة 2: توزيع الحاملين وشبكات الداخليين — صائد التوزيع على محافظ لحظة الإطلاق
-    try:
-        r = await cc.get(f"https://api.rugcheck.xyz/v1/tokens/{addr}/report", timeout=12)
-        if r.status_code != 200:
-            return False, "لا تقرير حاملين (احترازي)"
-        j = r.json()
-    except Exception:
-        return False, "خطأ تقرير الحاملين"
+    j = await _rugcheck_report(cc, addr)
+    if not j:
+        return False, "لا تقرير حاملين (احترازي)"
     th = j.get("topHolders") or []
     if not th:
         return False, "لا بيانات حاملين (احترازي)"
@@ -228,6 +311,11 @@ async def scan():
             if not ok2:
                 log.info("🐸🚫 %s (%s) بوابة2: %s", (best.get("baseToken") or {}).get("symbol", "?"), chain, reason2)
                 return None
+            if chain == "solana":
+                ok25, reason25 = await _gate25_onchain(c, addr)
+                if not ok25:
+                    log.info("🐸🚫 %s (%s) بوابة2.5: %s", (best.get("baseToken") or {}).get("symbol", "?"), chain, reason25)
+                    return None
             return best
 
         res = await asyncio.gather(*[_check(ch, a) for ch, a in cands])
