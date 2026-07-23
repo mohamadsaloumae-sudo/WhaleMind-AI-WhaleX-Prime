@@ -87,6 +87,9 @@ async def _gate1_evm(c, addr, chain):
     try:
         r = await c.get(f"https://api.gopluslabs.io/api/v1/token_security/{cid}?contract_addresses={addr}", timeout=12)
         d = (r.json().get("result") or {}).get(addr.lower(), {})
+        if len(_GP_CACHE) > 500:
+            _GP_CACHE.clear()
+        _GP_CACHE[addr.lower()] = d
     except Exception:
         return False, "خطأ GoPlus"
     if not d:
@@ -102,6 +105,48 @@ async def _gate1_evm(c, addr, chain):
     st = float(d.get("sell_tax") or 0)
     if bt > 0.10 or st > 0.10:
         return False, f"ضرائب {bt*100:.0f}/{st*100:.0f}%"
+    return True, "نجح"
+
+
+_GP_CACHE = {}
+
+
+async def _gate2_evm(cc, addr, chain):
+    # البوابة 2 لشبكات EVM: توزيع الحاملين من GoPlus (استثناء العقود والمجمّعات، النسب كسور ×100)
+    d = _GP_CACHE.get(addr.lower())
+    if d is None:
+        cid = "56" if chain == "bsc" else "1"
+        try:
+            r = await cc.get(f"https://api.gopluslabs.io/api/v1/token_security/{cid}?contract_addresses={addr}", timeout=12)
+            d = (r.json().get("result") or {}).get(addr.lower(), {})
+        except Exception:
+            return False, "خطأ تقرير الحاملين"
+    if not d:
+        return False, "لا بيانات حاملين (احترازي)"
+    try:
+        _cp = float(d.get("creator_percent") or 0) * 100
+        _op = float(d.get("owner_percent") or 0) * 100
+    except Exception:
+        _cp = _op = 0.0
+    if _cp > 5:
+        return False, f"المنشئ يملك {_cp:.0f}%"
+    if _op > 5:
+        return False, f"المالك يملك {_op:.0f}%"
+    hs = d.get("holders") or []
+    if not hs:
+        return False, "لا بيانات حاملين (احترازي)"
+    _human = []
+    for h in hs:
+        try:
+            _pct = float(h.get("percent") or 0) * 100
+        except Exception:
+            _pct = 0.0
+        if str(h.get("is_contract")) != "1" and not (h.get("tag") or ""):
+            _human.append(_pct)
+    if _human and max(_human) > 15:
+        return False, f"حامل فرد يملك {max(_human):.0f}%"
+    if sum(_human) > 30:
+        return False, f"تركيز بشري: {sum(_human):.0f}%"
     return True, "نجح"
 
 
@@ -179,11 +224,10 @@ async def scan():
             if not ok:
                 log.info("🐸🚫 %s (%s) بوابة1: %s", (best.get("baseToken") or {}).get("symbol", "?"), chain, reason)
                 return None
-            if chain == "solana":
-                ok2, reason2 = await _gate2_solana(c, addr)
-                if not ok2:
-                    log.info("🐸🚫 %s (%s) بوابة2: %s", (best.get("baseToken") or {}).get("symbol", "?"), chain, reason2)
-                    return None
+            ok2, reason2 = (await _gate2_solana(c, addr)) if chain == "solana" else (await _gate2_evm(c, addr, chain))
+            if not ok2:
+                log.info("🐸🚫 %s (%s) بوابة2: %s", (best.get("baseToken") or {}).get("symbol", "?"), chain, reason2)
+                return None
             return best
 
         res = await asyncio.gather(*[_check(ch, a) for ch, a in cands])
