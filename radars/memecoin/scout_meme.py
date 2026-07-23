@@ -381,7 +381,7 @@ async def meme_tracker_loop():
                             log.debug("track one: %s", _e)
         except Exception as e:
             log.warning("meme tracker: %s", e)
-        await asyncio.sleep(60)
+        await asyncio.sleep(20)
 
 
 async def meme_loop():
