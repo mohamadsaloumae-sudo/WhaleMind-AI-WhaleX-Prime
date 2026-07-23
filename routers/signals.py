@@ -51,7 +51,7 @@ def all_signals(market: str = "futures"):
             _mdb = _os.path.join(_os.path.dirname(__file__), "..", "db", "memecoin.db")
             try:
                 _mc = _sq.connect(_mdb); _mc.row_factory = _sq.Row
-                _rows = _mc.execute("SELECT symbol,address,chain,score,liq,vol,url,ts FROM meme_signals WHERE active=1 ORDER BY ts DESC LIMIT 50").fetchall()
+                _rows = _mc.execute("SELECT symbol,address,chain,score,liq,vol,url,ts,entry_price,status,pnl_pct FROM meme_signals ORDER BY ts DESC LIMIT 50").fetchall()
                 _mc.close()
                 _out = []
                 for _r in _rows:
@@ -75,7 +75,19 @@ def all_signals(market: str = "futures"):
 @router.get("/history")
 def signals_history(market: str = "futures"):
     if market == "meme":
-        return {"history": []}
+        import sqlite3 as _sq, os as _os
+        _mdb = _os.path.join(_os.path.dirname(__file__), "..", "db", "memecoin.db")
+        try:
+            con = _sq.connect(_mdb); con.row_factory = _sq.Row
+            rows = con.execute("SELECT symbol, entry_price, exit_price, pnl_pct, closed_ts, chain, score FROM meme_signals WHERE status='closed' AND pnl_pct IS NOT NULL ORDER BY closed_ts DESC LIMIT 300").fetchall()
+            con.close()
+            return {"history": [{"symbol": r["symbol"], "direction": "MEME", "entry": r["entry_price"],
+                                 "exit_price": r["exit_price"], "pnl_pct": r["pnl_pct"],
+                                 "is_win": bool((r["pnl_pct"] or 0) >= 0), "outcome": 1 if (r["pnl_pct"] or 0) >= 0 else 0,
+                                 "closed_at": r["closed_ts"], "grade": str(r["score"]), "tier": "MEME",
+                                 "strategies": "\U0001F438 " + (r["chain"] or "")} for r in rows]}
+        except Exception:
+            return {"history": []}
     if market == "spot":
         import sqlite3 as _sq
         try:

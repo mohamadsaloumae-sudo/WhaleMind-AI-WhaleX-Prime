@@ -55,9 +55,15 @@ export default function Signals() {
               </div>
               <div style={{ fontSize: 13, color: "var(--txt-2)", display: "grid", gap: 6 }}>
                 <div>🌐 {lang === "ar" ? "الشبكة" : "Chain"}: <b style={{ color: "var(--txt-1)" }}>{s.chain}</b></div>
+                <div>🎯 {lang === "ar" ? "سعر الدخول" : "Entry"}: <b style={{ color: "var(--txt-1)" }}>{s.entry_price ? Number(Number(s.entry_price).toPrecision(6)) : "—"}</b></div>
                 <div>💧 {lang === "ar" ? "السيولة" : "Liquidity"}: <b>${Number(s.liq || 0).toLocaleString()}</b></div>
                 <div>📊 {lang === "ar" ? "الحجم 24س" : "Volume 24h"}: <b>${Number(s.vol || 0).toLocaleString()}</b></div>
                 <span className="badge" style={{ background: "rgba(74,222,128,0.15)", color: "var(--brand)", width: "fit-content" }}>✅ {lang === "ar" ? "اجتاز كل الفيتوهات" : "Passed all vetoes"}</span>
+                {s.status === "closed" ? (
+                  <span className="badge" style={{ background: (s.pnl_pct || 0) >= 0 ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", color: (s.pnl_pct || 0) >= 0 ? "#22c55e" : "#ef4444", width: "fit-content" }}>
+                    {(s.pnl_pct || 0) >= 0 ? "✅" : "🔴"} {lang === "ar" ? "أُغلقت" : "Closed"} {(s.pnl_pct || 0) >= 0 ? "+" : ""}{Number(s.pnl_pct || 0).toFixed(1)}%
+                  </span>
+                ) : null}
                 {s.url ? <a href={s.url} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", fontSize: 12.5 }}>🔗 DexScreener</a> : null}
                 <div style={{ color: "var(--txt-3)", fontSize: 12, marginTop: 4 }}>🕐 {s.created_at ? new Date(s.created_at.replace(" ", "T") + "Z").toLocaleString(lang === "ar" ? "ar-AE" : "en-US", { timeZone: "Asia/Dubai", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}</div>
               </div>
