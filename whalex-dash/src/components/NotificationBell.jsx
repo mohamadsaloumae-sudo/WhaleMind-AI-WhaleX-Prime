@@ -85,6 +85,13 @@ export default function NotificationBell() {
         try {
           const d = JSON.parse(e.data);
           if (!d || !d.message) return;
+          // الإشعار العائم يظهر دائماً — أياً كان السوق المفتوح
+          try {
+            window.dispatchEvent(new CustomEvent("wx-toast", {
+              detail: { message: lang === "en" && d.message_en ? d.message_en : d.message, event: d.event },
+            }));
+          } catch { /* */ }
+          playChime();
           if ((d.market || "futures") !== getMarket()) return;
           setItems((prev) => [{
             id: Date.now() + Math.random(),
@@ -94,12 +101,6 @@ export default function NotificationBell() {
             time: new Date(),
           }, ...prev].slice(0, 50));
           setUnread((u) => u + 1);
-          playChime();
-          try {
-            window.dispatchEvent(new CustomEvent("wx-toast", {
-              detail: { message: lang === "en" && d.message_en ? d.message_en : d.message, event: d.event },
-            }));
-          } catch { /* */ }
         } catch { /* */ }
       };
       ws.onclose = () => { if (alive) retry = setTimeout(connect, 5000); };

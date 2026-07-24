@@ -12,7 +12,7 @@ import os
 log = logging.getLogger("meme_scout")
 
 CHAINS = ("solana", "bsc", "ethereum")
-MIN_LIQ = 10_000        # سيولة دنيا بالدولار
+MIN_LIQ = 20_000        # سيولة دنيا بالدولار
 MIN_VOL_24 = 20_000     # حجم 24 ساعة دنيا
 AGE_MIN_MIN = 60        # أصغر عمر بالدقائق — أول ساعة مجزرة
 MAX_PUMP_H1 = 50.0      # فوقها = دخول متأخر بعد الانفجار
@@ -102,6 +102,15 @@ def _gate0(p):
     if _h1 > MAX_PUMP_H1:
         return False
     if _h6 < MAX_DUMP or _h24 < MAX_DUMP:
+        return False
+    # 🚫 لا دخول في عملة هابطة الآن — الاتجاه اللحظي يجب أن يكون صاعداً
+    if _h1 <= 0:
+        return False
+    try:
+        _m5 = float(pc.get("m5") or 0)
+    except Exception:
+        _m5 = 0.0
+    if _m5 < -3.0:
         return False
     return True
 
@@ -652,7 +661,7 @@ async def meme_loop():
                          (p.get("baseToken") or {}).get("symbol", "?"), p.get("chainId"), sc)
         except Exception as e:
             log.warning("meme loop: %s", e)
-        await asyncio.sleep(180)
+        await asyncio.sleep(60)
 
 
 if __name__ == "__main__":
