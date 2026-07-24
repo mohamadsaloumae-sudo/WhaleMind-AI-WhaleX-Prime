@@ -21,6 +21,10 @@ AGE_MAX_MIN = 72 * 60   # أكبر عمر بالدقائق
 MIN_TXNS_24 = 50        # معاملات 24 ساعة دنيا
 
 PROFILES_URL = "https://api.dexscreener.com/token-profiles/latest/v1"
+BOOSTS_URLS = ("https://api.dexscreener.com/token-boosts/top/v1",
+               "https://api.dexscreener.com/token-boosts/latest/v1")
+SEARCH_QUERIES = ("raydium", "pumpswap", "SOL%2FUSDC", "WBNB", "PancakeSwap", "WETH", "uniswap")
+SEARCH_URL = "https://api.dexscreener.com/latest/dex/search?q={q}"
 TOKENS_URL = "https://api.dexscreener.com/latest/dex/tokens/{addr}"
 
 
@@ -366,19 +370,58 @@ def _score(p):
     return round(pts)
 
 
+async def _discover(cc):
+    """مصدر موسّع: البروفايلات + المعزّزة + بحث مستهدف لكل شبكة.
+    يرجع (قائمة عناوين للفحص، خريطة أزواج جاهزة من البحث)."""
+    addrs = {}
+    ready = {}
+    tasks = [_fetch_profiles(cc)]
+    for u in BOOSTS_URLS:
+        tasks.append(_fetch_json(cc, u))
+    for q in SEARCH_QUERIES:
+        tasks.append(_fetch_json(cc, SEARCH_URL.format(q=q)))
+    res = await asyncio.gather(*tasks, return_exceptions=True)
+    for item in res:
+        if isinstance(item, Exception) or item is None:
+            continue
+        if isinstance(item, list):
+            for x in item:
+                ch, ad = x.get("chainId"), x.get("tokenAddress")
+                if ch in CHAINS and ad:
+                    addrs[ad] = ch
+        elif isinstance(item, dict):
+            for pr in (item.get("pairs") or []):
+                ch = pr.get("chainId")
+                ad = (pr.get("baseToken") or {}).get("address")
+                if ch in CHAINS and ad:
+                    addrs[ad] = ch
+                    _prev = ready.get(ad)
+                    if not _prev or ((pr.get("liquidity") or {}).get("usd", 0) or 0) > ((_prev.get("liquidity") or {}).get("usd", 0) or 0):
+                        ready[ad] = pr
+    return addrs, ready
+
+
+async def _fetch_json(cc, url):
+    try:
+        r = await cc.get(url, timeout=15)
+        return r.json()
+    except Exception:
+        return None
+
+
 async def scan():
     """يرصد العملات الجديدة، يمرّرها على البوابة 0 (متوازياً)، يرجع الناجين."""
     async with httpx.AsyncClient() as c:
-        profiles = await _fetch_profiles(c)
-        cands = [(p.get("chainId"), p.get("tokenAddress"))
-                 for p in profiles
-                 if p.get("chainId") in CHAINS and p.get("tokenAddress")]
+        _addrs, _ready = await _discover(c)
+        cands = [(ch, ad) for ad, ch in _addrs.items()]
 
         async def _check(chain, addr):
-            pairs = await _fetch_pairs(c, addr)
-            if not pairs:
-                return None
-            best = max(pairs, key=lambda x: (x.get("liquidity") or {}).get("usd", 0) or 0)
+            best = _ready.get(addr)
+            if best is None:
+                pairs = await _fetch_pairs(c, addr)
+                if not pairs:
+                    return None
+                best = max(pairs, key=lambda x: (x.get("liquidity") or {}).get("usd", 0) or 0)
             if not _gate0(best):
                 return None
             ok, reason = await _gate1(c, chain, addr)
