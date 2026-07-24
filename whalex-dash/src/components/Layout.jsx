@@ -5,6 +5,7 @@ import { useLang } from "../context/LangContext.jsx";
 import { Languages, Share2 } from "lucide-react";
 import NotificationBell from "./NotificationBell.jsx";
 import DrawerMenu from "./DrawerMenu.jsx";
+import ProBadge from "./ProBadge.jsx";
 import ScrollTop from "./ScrollTop.jsx";
 import Toast from "./Toast.jsx";
 
@@ -54,6 +55,7 @@ export default function Layout({ titleKey, children }) {
           </button>
           <NotificationBell />
           <DrawerMenu />
+          <ProBadge />
           <span className="status-dot">{t("systemRunning")}</span>
         </header>
         <div className="page-body" style={{ position: "relative" }}><ScrollTop />{children}</div>

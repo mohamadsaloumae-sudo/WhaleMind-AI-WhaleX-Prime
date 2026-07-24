@@ -138,18 +138,20 @@ def sub_status(user=Depends(get_current_user)):
             Subscription.user_id == user["sub"]
         ).order_by(Subscription.created_at.desc()).first()
 
-        # نتحقّق أنّ الاشتراك لم ينتهِ
-        is_active = False
-        if u and u.tier in ("pro", "admin"):
-            if u.tier == "admin":
-                is_active = True
-            elif sub and sub.expires_at and sub.expires_at > datetime.utcnow():
-                is_active = True
-
+        # الحقيقة من جدول الاشتراكات — لا من عمود ثابت قد يتخلّف
+        from services.tier import live_status
+        st = live_status(db, user["sub"])
+        is_admin = bool(u and u.tier == "admin")
         return {
-            "tier": u.tier if u else "free",
-            "expires_at": str(sub.expires_at) if sub and sub.expires_at else None,
-            "is_active": is_active,
+            "tier": "admin" if is_admin else st["tier"],
+            "expires_at": st["expires_at"],
+            "is_active": bool(is_admin or st["is_pro"]),
+            "days_left": st["days_left"],
+            "plan": st["plan"],
+            "renewals": st["renewals"],
+            "level_ar": st["level_ar"],
+            "level_en": st["level_en"],
+            "icon": st["icon"],
         }
     finally:
         db.close()
