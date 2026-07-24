@@ -17,7 +17,10 @@ MIN_VOL_24 = 20_000     # حجم 24 ساعة دنيا
 AGE_MIN_MIN = 60        # أصغر عمر بالدقائق — أول ساعة مجزرة
 MAX_PUMP_H1 = 50.0      # فوقها = دخول متأخر بعد الانفجار
 MAX_DUMP = -30.0        # تحتها = العملة تنهار أصلاً
-AGE_MAX_MIN = 72 * 60   # أكبر عمر بالدقائق
+AGE_MAX_MIN = 72 * 60   # أكبر عمر لسولانا (ميم وليدة)
+AGE_MAX_EVM = 90 * 24 * 60  # أكبر عمر لـ BNB/Ethereum (عملات ناضجة)
+BASE_TOKENS = {"WBNB", "BNB", "WETH", "ETH", "USDT", "USDC", "BUSD", "DAI",
+               "WSOL", "SOL", "CAKE", "FDUSD", "TUSD", "USDE", "STETH"}
 MIN_TXNS_24 = 50        # معاملات 24 ساعة دنيا
 
 PROFILES_URL = "https://api.dexscreener.com/token-profiles/latest/v1"
@@ -56,10 +59,13 @@ def _gate0(p):
     vol = (p.get("volume") or {}).get("h24", 0) or 0
     if vol < MIN_VOL_24:
         return False
+    if ((p.get("baseToken") or {}).get("symbol") or "").upper() in BASE_TOKENS:
+        return False
     created = (p.get("pairCreatedAt") or 0) / 1000
     if created:
         age = (time.time() - created) / 60
-        if age < AGE_MIN_MIN or age > AGE_MAX_MIN:
+        _amax = AGE_MAX_MIN if p.get("chainId") == "solana" else AGE_MAX_EVM
+        if age < AGE_MIN_MIN or age > _amax:
             return False
     t = (p.get("txns") or {}).get("h24") or {}
     if (t.get("buys", 0) + t.get("sells", 0)) < MIN_TXNS_24:
@@ -235,6 +241,8 @@ async def _gate25_evm(cc, tok, pair, created_ms):
     # البوابة 2.5 لـ BNB: من اشترى فعلاً من الزوج، ومن استلم تحويلاً مجانياً
     if not pair:
         return True, "لا زوج"
+    if created_ms and (time.time() * 1000 - created_ms) > 7 * 24 * 3600 * 1000:
+        return True, "عملة ناضجة"
     d = _GP_CACHE.get((tok or "").lower())
     hs = (d or {}).get("holders") or []
     humans = []
