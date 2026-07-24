@@ -18,7 +18,10 @@ AGE_MIN_MIN = 60        # أصغر عمر بالدقائق — أول ساعة �
 MAX_PUMP_H1 = 50.0      # فوقها = دخول متأخر بعد الانفجار
 MAX_DUMP = -30.0        # تحتها = العملة تنهار أصلاً
 MIN_TXNS_H1 = 30        # حياة الآن: معاملات آخر ساعة
-MIN_BUY_RATIO_H1 = 0.50 # زخم الشراء في الساعة الأخيرة
+MIN_BUY_RATIO_H1 = 0.55 # زخم شراء حقيقي مسيطر
+MIN_AVG_TRADE = 30.0    # متوسط الصفقة بالدولار — أقل = سبام بوتات
+WASH_SYMMETRY = 0.03    # تطابق شراء/بيع مريب = تدوير وهمي
+MAX_VOL_LIQ_H1 = 20.0   # حجم الساعة مقابل السيولة — فوقه مستحيل طبيعياً
 VOL_ACCEL = 2.0         # حجم الساعة ≥ ضعف المتوسط اليومي = تسارع
 BASE_TOKENS = {"WBNB", "BNB", "WETH", "ETH", "USDT", "USDC", "BUSD", "DAI",
                "WSOL", "SOL", "CAKE", "FDUSD", "TUSD", "USDE", "STETH"}
@@ -79,6 +82,14 @@ def _gate0(p):
     v1 = (p.get("volume") or {}).get("h1", 0) or 0
     v24 = (p.get("volume") or {}).get("h24", 0) or 0
     if v24 > 0 and v1 < (v24 / 24) * VOL_ACCEL:
+        return False
+    # 🤖 كشف الحجم الوهمي — الزخم يجب أن يكون بشرياً حقيقياً
+    _tx1 = b1 + s1
+    if _tx1 > 0 and v1 > 0 and (v1 / _tx1) < MIN_AVG_TRADE:
+        return False
+    if _tx1 > 200 and (abs(b1 - s1) / _tx1) < WASH_SYMMETRY:
+        return False
+    if liq > 0 and v1 > liq * MAX_VOL_LIQ_H1:
         return False
     # 🚫 فيتو الدخول المتأخر والانهيار الجاري
     pc = p.get("priceChange") or {}
