@@ -1,4 +1,5 @@
 // الرئيسية — نظرة عامة
+import WelcomeHeader from "../components/WelcomeHeader.jsx";
 import { useEffect, useState } from "react";
 import { Activity, Radio } from "lucide-react";
 import { useLang } from "../context/LangContext.jsx";
@@ -50,7 +51,8 @@ export default function Dashboard() {
 
   const mkt = getMarket();
   const MB = ({ id, ar, en }) => (
-    <button onClick={() => mkt !== id && setMarket(id)}
+    <button onClick={() =>
+      <WelcomeHeader /> mkt !== id && setMarket(id)}
       style={{ flex: 1, padding: "12px 0", borderRadius: 12, border: "1px solid var(--bg-2)",
                fontWeight: 800, fontSize: 15, cursor: "pointer",
                background: mkt === id ? "var(--brand)" : "var(--bg-1)",
