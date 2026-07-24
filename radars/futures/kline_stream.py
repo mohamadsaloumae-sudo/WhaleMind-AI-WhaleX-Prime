@@ -105,12 +105,18 @@ async def _run_batch(pairs, idx=0):
         async with websockets.connect(url, ping_interval=20, close_timeout=5, max_size=2 ** 22) as ws:
             log.info("🕯️🔌 دفعة %d متصلة (%d تدفق)", idx, len(pairs))
             got = 0
+            raw_logged = False
             async for msg in ws:
                 try:
-                    d = json.loads(msg).get("data") or {}
-                    kk = d.get("k") or {}
+                    if not raw_logged:
+                        raw_logged = True
+                        log.info("🕯️📩 دفعة %d أول رسالة خام: %s", idx, str(msg)[:220])
+                    _j = json.loads(msg)
+                    d = _j.get("data") if isinstance(_j, dict) and "data" in _j else _j
+                    kk = (d or {}).get("k") or {}
                     if kk:
-                        _apply(d.get("s", "").upper(), kk.get("i", ""), kk)
+                        _apply((d.get("s") or kk.get("s") or "").upper(),
+                               kk.get("i", ""), kk)
                         got += 1
                         if got == 1:
                             log.info("🕯️✅ دفعة %d تستقبل التحديثات", idx)
