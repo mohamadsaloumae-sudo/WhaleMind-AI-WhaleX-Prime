@@ -64,7 +64,9 @@ export default function Support() {
       const d = await r.json();
       setMsgs((m) => [...m, {
         me: false,
-        text: d.reply || d.menu || (ar ? "📩 وصل سؤالك لفريق الدعم." : "📩 Sent to support."),
+        text: d.reply || (ar
+          ? "📩 <b>وصل سؤالك إلى فريق الدعم</b>\n\nسيراجعه المختص ويصلك الرد هنا وفي تيليجرام خلال وقت قصير.\nتابع استخدام التطبيق بشكل طبيعي."
+          : "📩 <b>Your question reached our support team</b>\n\nA specialist will review it and reply here and on Telegram shortly.\nFeel free to keep using the app."),
         note: !d.reply,
       }]);
     } catch {
