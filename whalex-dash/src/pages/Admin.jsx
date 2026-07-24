@@ -1,4 +1,5 @@
 // لوحة الإدارة — إحصائيات + إدارة المشتركين (ترقية يدوية)
+import UserSheet from "../components/UserSheet.jsx";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
@@ -8,6 +9,8 @@ export default function Admin() {
   const { t, lang } = useLang();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
+  const [sheetUser, setSheetUser] = useState(null);
+  const [frozen, setFrozen] = useState(false);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState("");
@@ -15,6 +18,7 @@ export default function Admin() {
   async function load() {
     try { setStats(await api.get("/api/admin/stats")); } catch (e) { setErr(e.message); }
     try { const u = await api.get("/api/admin/users"); setUsers(u?.users || []); } catch { /* */ }
+    try { const f = await api.get("/api/admin/freeze"); setFrozen(!!f?.frozen); } catch { /* */ }
   }
   useEffect(() => { load(); }, []);
 
@@ -51,15 +55,47 @@ export default function Admin() {
 
       {/* إدارة المستخدمين */}
       <div className="card">
+        <div style={{
+          padding: 14, borderRadius: 12, marginBottom: 16,
+          background: frozen ? "rgba(59,130,246,0.10)" : "rgba(255,255,255,0.04)",
+          border: `1px solid ${frozen ? "rgba(59,130,246,0.3)" : "rgba(255,255,255,0.08)"}`,
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+        }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700 }}>{frozen ? "🧊 التداول مجمّد" : "✅ التداول يعمل"}</div>
+            <div style={{ fontSize: 11.5, color: "var(--txt-3)", marginTop: 3, lineHeight: 1.6 }}>
+              {frozen ? "لا تُفتح أي صفقة آلية حتى فك التجميد" : "جمّده أثناء الصيانة لمنع أي تنفيذ آلي"}
+            </div>
+          </div>
+          <button
+            onClick={async () => {
+              try {
+                const r = await api.post(`/api/admin/freeze?enable=${!frozen}`, {});
+                setFrozen(!!r?.frozen);
+              } catch { /* */ }
+            }}
+            style={{
+              flexShrink: 0, border: "none", borderRadius: 10, padding: "11px 18px",
+              fontSize: 13, fontWeight: 700, cursor: "pointer",
+              background: frozen ? "var(--brand)" : "rgba(59,130,246,0.9)",
+              color: frozen ? "#06110a" : "#fff",
+            }}
+          >{frozen ? "فك التجميد" : "تجميد الكل"}</button>
+        </div>
+
         <div className="card-title">{t("manageUsers")} ({users.length})</div>
+        {sheetUser && (
+          <UserSheet userId={sheetUser} onClose={() => setSheetUser(null)} onChanged={load} />
+        )}
         {users.length === 0 ? (
           <div className="empty">{t("adminHint")}</div>
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
             {users.map((u) => (
-              <div key={u.id} style={{
+              <div key={u.id} onClick={() => setSheetUser(u.id)} style={{
                 display: "flex", justifyContent: "space-between", alignItems: "center",
                 padding: "12px 14px", background: "var(--bg-2)", borderRadius: "var(--radius-sm)",
+                cursor: "pointer",
               }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{u.username}</div>
