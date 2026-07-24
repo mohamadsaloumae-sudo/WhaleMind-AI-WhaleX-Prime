@@ -1365,13 +1365,17 @@ async def predator_agent(
     #   نتداول مع اتّجاه BTC، أو ضدّه/في المحايد فقط بانعكاس قويّ مؤكّد (score>=9).
     #   الجذر: كارثة 01:00 — 5 شورت في BTC محايد (score 7-8.5) ماتت لمّا صعد BTC.
     #   score>=9 نادر (7 من ~190) = قمّة/قاع راسخ يبرّر مخالفة BTC.
+    #   الحماية تمنع التعارض الصريح فقط: البتكوين محايد معظم الوقت،
+    #   والمنع المطلق في المحايد كان يرفض ~96% من إشارات Predator (صمت شهرين).
     _btc = BTC_TREND.get("trend", "NEUTRAL")
-    _strong = (score >= 9.0)
-    if direction == "SHORT" and _btc != "BEARISH" and not _strong:
-        log.info("₿ BTC gate: %s SHORT مرفوض — BTC %s (ليس هابطاً) score=%.1f", symbol, _btc, score)
+    _strong = (score >= 8.0)
+    if direction == "SHORT" and _btc == "BULLISH" and not _strong:
+        PRED_STATS["guardian"] += 1
+        log.info("₿ BTC gate: %s SHORT مرفوض — BTC صاعد score=%.1f", symbol, score)
         return
-    if direction == "LONG" and _btc != "BULLISH" and not _strong:
-        log.info("₿ BTC gate: %s LONG مرفوض — BTC %s (ليس صاعداً) score=%.1f", symbol, _btc, score)
+    if direction == "LONG" and _btc == "BEARISH" and not _strong:
+        PRED_STATS["guardian"] += 1
+        log.info("₿ BTC gate: %s LONG مرفوض — BTC هابط score=%.1f", symbol, score)
         return
 
     # ─── الثقة ───
