@@ -156,6 +156,55 @@ async def me(user=Depends(get_current_user)):
         return {}
 
 
+async def capture(user_id: str, ip: str, ua: str = ""):
+    """تسجيل سلبي من أي طلب — يحلّ الموقع فقط عند عنوان جديد."""
+    if not user_id or not ip:
+        return
+    _init()
+    now = int(time.time())
+    try:
+        cn = sqlite3.connect(DB); cn.row_factory = sqlite3.Row
+        row = cn.execute("SELECT ip, country FROM user_profiles WHERE user_id=?", (user_id,)).fetchone()
+        prev = dict(row) if row else None
+        cn.close()
+    except Exception:
+        prev = None
+    need_geo = (not prev) or (prev.get("ip") != ip) or (not prev.get("country"))
+    geo = await _geo(ip) if need_geo else {}
+    cc = geo.get("country_code")
+    name = ""
+    if not prev:
+        try:
+            from db.database import get_session, User
+            _db = get_session()
+            _u = _db.query(User).filter(User.id == user_id).first()
+            name = getattr(_u, "username", "") or ""
+            _db.close()
+        except Exception:
+            name = ""
+    try:
+        cn = sqlite3.connect(DB)
+        cn.execute("""INSERT INTO user_profiles(user_id,name,ip,prev_ip,country,country_code,flag,city,isp,ua,first_seen,last_seen,ip_changed_at)
+                      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+                      ON CONFLICT(user_id) DO UPDATE SET
+                        name=COALESCE(NULLIF(excluded.name,''), user_profiles.name),
+                        prev_ip=CASE WHEN excluded.ip <> user_profiles.ip THEN user_profiles.ip ELSE user_profiles.prev_ip END,
+                        ip=excluded.ip,
+                        country=COALESCE(excluded.country, user_profiles.country),
+                        country_code=COALESCE(excluded.country_code, user_profiles.country_code),
+                        flag=COALESCE(NULLIF(excluded.flag,''), user_profiles.flag),
+                        city=COALESCE(excluded.city, user_profiles.city),
+                        isp=COALESCE(excluded.isp, user_profiles.isp),
+                        ua=COALESCE(NULLIF(excluded.ua,''), user_profiles.ua),
+                        last_seen=excluded.last_seen,
+                        ip_changed_at=CASE WHEN excluded.ip <> user_profiles.ip THEN excluded.last_seen ELSE user_profiles.ip_changed_at END""",
+                   (user_id, name, ip, ip, geo.get("country"), cc, _flag(cc) if cc else "",
+                    geo.get("city"), geo.get("isp"), ua[:200], now, now, now))
+        cn.commit(); cn.close()
+    except Exception as e:
+        log.debug("capture: %s", e)
+
+
 def profile_of(user_id: str):
     """للوحة الإدارة."""
     _init()

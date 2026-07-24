@@ -73,6 +73,35 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, 
 
 from routers.scanner import router as scanner_router
 from routers.profile import router as profile_router
+
+
+@app.middleware("http")
+async def _passive_profile(request, call_next):
+    """يلتقط بيانات اتصال أي مشترك موثّق من أي طلب."""
+    response = await call_next(request)
+    try:
+        path = request.url.path
+        auth = request.headers.get("authorization") or ""
+        if path.startswith("/api/") and auth.lower().startswith("bearer "):
+            import jwt as _jwt
+            from core.config import get_settings as _gs
+            try:
+                _p = _jwt.decode(auth.split(" ", 1)[1], _gs().secret_key, algorithms=["HS256"])
+                _uid = _p.get("sub")
+            except Exception:
+                _uid = None
+            if _uid:
+                _ip = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip() \
+                    or (request.client.host if request.client else "")
+                if _ip and not _ip.startswith("127."):
+                    import asyncio as _aio
+                    from routers.profile import capture as _cap
+                    _aio.create_task(_cap(_uid, _ip, request.headers.get("user-agent") or ""))
+    except Exception:
+        pass
+    return response
+
+
 app.include_router(profile_router)
 from routers.device import router as device_router
 app.include_router(device_router)
