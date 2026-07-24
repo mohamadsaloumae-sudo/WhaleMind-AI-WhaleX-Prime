@@ -23,7 +23,24 @@ export default function Toast() {
       setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== id)), 6000);
     }
     window.addEventListener("wx-toast", onToast);
-    return () => window.removeEventListener("wx-toast", onToast);
+
+    // فحص ذاتي: بطاقة ترحيب مرة واحدة كل جلسة
+    let greetId;
+    try {
+      if (!sessionStorage.getItem("wx_greeted")) {
+        sessionStorage.setItem("wx_greeted", "1");
+        greetId = setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("wx-toast", {
+            detail: { message: "🐋 WhaleX Prime — الإشعارات جاهزة", event: "signal" },
+          }));
+        }, 1400);
+      }
+    } catch { /* */ }
+
+    return () => {
+      window.removeEventListener("wx-toast", onToast);
+      clearTimeout(greetId);
+    };
   }, []);
 
   if (!items.length) return null;
