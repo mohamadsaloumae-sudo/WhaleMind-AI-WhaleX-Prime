@@ -64,11 +64,8 @@ def _init_db():
 async def fetch_top_gainers() -> list[dict]:
     """المستوى 1: كل العملات بطلب واحد + فلتر."""
     try:
-        from radars.futures.price_stream import get_all_tickers
-        data = get_all_tickers()
-        if not data:
-            from radars.futures.engine import fapi_get
-            data = await fapi_get("https://fapi.binance.com/fapi/v1/ticker/24hr", 30)
+        from radars.futures.engine import fapi_get
+        data = await fapi_get("https://fapi.binance.com/fapi/v1/ticker/24hr", 30)
         if not isinstance(data, list):
             return []
         out = []
@@ -90,17 +87,7 @@ async def fetch_ob_deep(symbol: str) -> dict:
     """تحليل Order Book العميق (500 مستوى): جدران، اختلال، تمييز الجدار الوهمي."""
     try:
         from radars.futures.engine import fapi_get
-        _ws_book = None
-        try:
-            from quant_engine.ob_stream import get_book
-            _ws_book = get_book(symbol)
-        except Exception:
-            _ws_book = None
-        if _ws_book:
-            d = {"bids": [[str(px), str(qty)] for px, qty in _ws_book[0]],
-                 "asks": [[str(px), str(qty)] for px, qty in _ws_book[1]]}
-        else:
-            d = await fapi_get(f"https://fapi.binance.com/fapi/v1/depth?symbol={symbol}&limit=100", 8)
+        d = await fapi_get(f"https://fapi.binance.com/fapi/v1/depth?symbol={symbol}&limit=100", 8)
         if not isinstance(d, dict) or "bids" not in d:
             return {"valid": False}
         bids_raw = [(float(b[0]), float(b[1])) for b in d.get("bids", [])]
@@ -449,17 +436,6 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
     log.info("🔭🔻 PEAK HUNTER SIGNAL: %s SHORT @%.6g grade=%s [%s]",
              symbol, price, sig.grade, "+".join(sigs))
     # نفتح أولاً، ونرسل البطاقة للقناة فقط إن فُتحت الصفقة فعلاً (لا بطاقة لصفقة مُنعت/مكرّرة)
-    # 🔔 إشعار الميني آب فور صدور الإشارة
-    try:
-        from services.notifier import push_note
-        await push_note("futures", "signal",
-                        f"🚨 إشارة جديدة · {sig.symbol}\nبيع SHORT · درجة {sig.grade}\n"
-                        f"الدخول {sig.entry} · وقف {sig.sl}\n🎯 WhaleX Short",
-                        f"🚨 New signal · {sig.symbol}\nSHORT · Grade {sig.grade}\n"
-                        f"Entry {sig.entry} · SL {sig.sl}\n🎯 WhaleX Short")
-    except Exception as _ne:
-        log.debug("short note: %s", _ne)
-
     opened_ok = False
     if position_manager_fn:
         try:

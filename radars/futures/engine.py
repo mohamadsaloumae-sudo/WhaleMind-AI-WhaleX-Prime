@@ -200,9 +200,6 @@ async def get_oi_change(symbol: str) -> float:
 # ─── MULTI-TIMEFRAME CONFIRMATION ───────────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
-_KL_TTL = {"1m": 20, "3m": 40, "5m": 60, "15m": 180, "30m": 300,
-           "1h": 600, "2h": 900, "4h": 1800, "6h": 1800, "8h": 1800,
-           "12h": 3600, "1d": 3600, "3d": 3600, "1w": 3600}
 _FAPI_CACHE: dict = {}
 _FAPI_BAN: float = 0.0
 
@@ -252,18 +249,7 @@ async def fetch_klines_async(symbol: str, interval: str, limit: int = 50) -> lis
                     for r in _rows]
     except Exception:
         pass
-    # 🕯️ الشموع من التيار الحيّ أولاً — صفر REST بعد التسخين
-    data = None
-    try:
-        from radars.futures.kline_stream import get as _kget, want as _kwant
-        data = _kget(symbol, interval, limit)
-        if data is None:
-            _kwant(symbol, interval)
-    except Exception:
-        data = None
-    if data is None:
-        _ttl = _KL_TTL.get(interval, 60)
-        data = await fapi_get(f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}", _ttl)
+    data = await fapi_get(f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}", 45)
     if not isinstance(data, list):
         return []
     try:
