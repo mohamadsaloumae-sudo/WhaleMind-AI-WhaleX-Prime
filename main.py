@@ -72,6 +72,8 @@ settings = get_settings()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 from routers.scanner import router as scanner_router
+from routers.diag import router as diag_router
+app.include_router(diag_router)
 from routers.profile import router as profile_router
 
 
