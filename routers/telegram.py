@@ -8,6 +8,17 @@ router = APIRouter(prefix="/telegram", tags=["Telegram"])
 async def webhook(request: Request):
     try:
         update = await request.json()
+        # 🔎 كشف معرّفات القنوات: يسجّل أي قناة/مجموعة يستقبل منها
+        try:
+            import logging as _lg
+            for _k in ("channel_post", "edited_channel_post", "message", "my_chat_member"):
+                _ch = ((update.get(_k) or {}).get("chat") or {})
+                if _ch.get("id") and str(_ch.get("type")) in ("channel", "supergroup", "group"):
+                    _lg.getLogger("telegram").info(
+                        "🔎 قناة: id=%s | نوع=%s | العنوان=%s",
+                        _ch.get("id"), _ch.get("type"), _ch.get("title"))
+        except Exception:
+            pass
         await TG.handle_update(update)
         return {"ok": True}
     except Exception as e:
