@@ -163,10 +163,47 @@ export default function UserSheet({ userId, onClose, onChanged }) {
           </div>
         )}
 
-        <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8 }}>📊 نتائج التداول</div>
-        <M name="الفيوتشر" icon="⚡" m={d?.markets?.futures} />
-        <M name="السبوت" icon="🪙" m={d?.markets?.spot} />
-        <M name="الميم" icon="🐸" m={d?.markets?.meme} />
+        <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8 }}>📊 تداوله الفعلي</div>
+        {d?.auto_trades && d.auto_trades.total > 0 ? (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7, marginBottom: 10 }}>
+              <div style={{ padding: "10px 8px", background: "rgba(255,255,255,0.04)", borderRadius: 10, textAlign: "center" }}>
+                <div style={{ fontSize: 17, fontWeight: 800 }}>{d.auto_trades.total}</div>
+                <div style={{ fontSize: 10.5, color: "var(--txt-3)" }}>إشارة وصلته</div>
+              </div>
+              <div style={{ padding: "10px 8px", background: "rgba(34,197,94,0.10)", borderRadius: 10, textAlign: "center" }}>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "#22c55e" }}>{d.auto_trades.executed}</div>
+                <div style={{ fontSize: 10.5, color: "var(--txt-3)" }}>نُفّذت فعلياً</div>
+              </div>
+              <div style={{ padding: "10px 8px", background: "rgba(239,68,68,0.10)", borderRadius: 10, textAlign: "center" }}>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "#ef4444" }}>{d.auto_trades.failed}</div>
+                <div style={{ fontSize: 10.5, color: "var(--txt-3)" }}>فشلت</div>
+              </div>
+            </div>
+            {(d.auto_trades.last || []).length > 0 && (
+              <div style={{ display: "grid", gap: 5, marginBottom: 6 }}>
+                {d.auto_trades.last.map((t, i) => (
+                  <div key={i} style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    padding: "8px 10px", background: "rgba(255,255,255,0.03)", borderRadius: 8, fontSize: 11.5,
+                  }}>
+                    <span><b>{t.signal_symbol}</b> · {t.signal_direction}</span>
+                    <span style={{ color: t.executed ? "#22c55e" : "#ef4444", fontWeight: 700 }}>
+                      {t.executed ? "نُفّذت" : "فشلت"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{
+            padding: 12, borderRadius: 10, background: "rgba(255,255,255,0.03)",
+            fontSize: 12, color: "var(--txt-3)", lineHeight: 1.7,
+          }}>
+            لا توجد صفقات منفَّذة لهذا المشترك — لم يربط باينانس أو لم يفعّل التداول الآلي بعد.
+          </div>
+        )}
       </div>
     </div>
   );
