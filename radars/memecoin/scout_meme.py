@@ -14,7 +14,9 @@ log = logging.getLogger("meme_scout")
 CHAINS = ("solana", "bsc", "ethereum")
 MIN_LIQ = 10_000        # سيولة دنيا بالدولار
 MIN_VOL_24 = 20_000     # حجم 24 ساعة دنيا
-AGE_MIN_MIN = 5         # أصغر عمر بالدقائق
+AGE_MIN_MIN = 60        # أصغر عمر بالدقائق — أول ساعة مجزرة
+MAX_PUMP_H1 = 50.0      # فوقها = دخول متأخر بعد الانفجار
+MAX_DUMP = -30.0        # تحتها = العملة تنهار أصلاً
 AGE_MAX_MIN = 72 * 60   # أكبر عمر بالدقائق
 MIN_TXNS_24 = 50        # معاملات 24 ساعة دنيا
 
@@ -57,6 +59,18 @@ def _gate0(p):
             return False
     t = (p.get("txns") or {}).get("h24") or {}
     if (t.get("buys", 0) + t.get("sells", 0)) < MIN_TXNS_24:
+        return False
+    # 🚫 فيتو الدخول المتأخر والانهيار الجاري
+    pc = p.get("priceChange") or {}
+    try:
+        _h1 = float(pc.get("h1") or 0)
+        _h6 = float(pc.get("h6") or 0)
+        _h24 = float(pc.get("h24") or 0)
+    except Exception:
+        _h1 = _h6 = _h24 = 0.0
+    if _h1 > MAX_PUMP_H1:
+        return False
+    if _h6 < MAX_DUMP or _h24 < MAX_DUMP:
         return False
     return True
 
