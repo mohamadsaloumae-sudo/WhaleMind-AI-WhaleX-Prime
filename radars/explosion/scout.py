@@ -291,7 +291,11 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
         if not _sw.endswith("USDT"): _sw+="USDT"
         if any(x["side"]=="bid" for x in get_signals(_sw).get("spoof",[])): _ns=False
     except Exception: pass
-    collapse = radar_ok and hawk_ok and ob_safe_short and r > 45 and _ns
+    # 🌊 وعي الترند الحي: لا ضغط بيع عام ولا تآكل مشترين = المشترون أحياء → تصحيح لا انعكاس
+    _buyers_alive = ("ضغط_بيع_عام" not in signals) and (not has_erosion)
+    if _buyers_alive and radar_ok:
+        log.info("🌊 %s: المشترون أحياء — تصحيح في ترند حي، لا شورت", symbol)
+    collapse = radar_ok and hawk_ok and ob_safe_short and r > 45 and _ns and not _buyers_alive
 
     if radar_ok and not collapse:
         log.info("🦅 %s مُنع: hawk=%s(%s) safe_short=%s rsi=%.0f spoof_ok=%s",

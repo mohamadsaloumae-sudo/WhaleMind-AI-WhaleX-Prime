@@ -168,7 +168,11 @@ async def detect_rebound(symbol: str, candles) -> dict:
         if not _sw.endswith("USDT"): _sw+="USDT"
         if any(x["side"]=="ask" for x in get_signals(_sw).get("spoof",[])): _ns=False
     except Exception: pass
-    rebound = in_uptrend_dip and radar_ok and ob_safe_long and rsi_ok and _ns
+    # 🌊 وعي الترند الحي: لا ضغط شراء عام ولا تآكل بائعين = البائعون أحياء → ارتداد وهمي
+    _sellers_alive = ("ضغط_شراء_عام" not in signals) and ("تآكل_البائعين" not in signals)
+    if _sellers_alive and radar_ok:
+        log.info("🌊 %s: البائعون أحياء — ارتداد وهمي في هبوط حي، لا لونغ", symbol)
+    rebound = in_uptrend_dip and radar_ok and ob_safe_long and rsi_ok and _ns and not _sellers_alive
 
     return {
         "rebound": rebound, "signals": signals, "rsi": r,
