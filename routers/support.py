@@ -10,49 +10,70 @@ router = APIRouter()
 DB = "/opt/whalex/db/whalex.db"
 
 KB = [
-    (("درج", "grade", "تصنيف", "s", "a", "b"), 3,
-     "🏅 <b>درجات الإشارة</b>\nS = أقوى إشارة (توافق كامل بين المؤشرات)\nA = قوية جداً\nB = متوسطة\n\nالمدير الآلي يفتح صفقات للدرجتين S و A فقط."),
-    (("رادار", "radar", "كيف يعمل", "how", "النظام", "يشتغل"), 2,
-     "⚡ <b>ثلاثة رادارات مستقلة</b>\n• Predator — يراقب عملات مستقرة لونغ وشورت\n• WhaleX Short — يصطاد القمة عند بداية الهبوط\n• WhaleX Long — يصطاد بداية الموجة الصاعدة\nكل إشارة تمرّ ببوابات فحص قبل إرسالها."),
+    (("درج", "grade", "تصنيف"), 3,
+     "🏅 <b>درجات الإشارة</b>\nS = أقوى إشارة (توافق كامل بين المؤشرات)\nA = قوية جداً\nB = متوسطة\n\nالمدير الآلي يفتح صفقات للدرجتين S و A فقط.",
+     "🏅 <b>Signal grades</b>\nS = strongest (full indicator alignment)\nA = very strong\nB = moderate\n\nThe auto-manager only opens trades on S and A."),
+    (("رادار", "radar", "كيف يعمل", "how", "النظام", "يشتغل", "system"), 2,
+     "⚡ <b>ثلاثة رادارات مستقلة</b>\n• Predator — يراقب عملات مستقرة لونغ وشورت\n• WhaleX Short — يصطاد القمة عند بداية الهبوط\n• WhaleX Long — يصطاد بداية الموجة الصاعدة\nكل إشارة تمرّ ببوابات فحص صارمة قبل إرسالها.",
+     "⚡ <b>Three independent radars</b>\n• Predator — scans stable pairs, long and short\n• WhaleX Short — catches tops as the drop begins\n• WhaleX Long — catches the start of an upward wave\nEvery signal passes strict screening gates first."),
     (("سبوت", "spot", "فرق", "difference", "فيوتشر", "futures"), 2,
-     "🪙 <b>السبوت</b>: شراء فعلي بلا رافعة — مخاطرة أقل، أرباح 2-5%\n⚡ <b>الفيوتشر</b>: عقود برافعة — أرباح أكبر ومخاطرة أكبر\nلكل سوق رادار ومدير صفقات مستقل."),
-    (("ميم", "meme", "عمل", "سولانا", "solana"), 2,
-     "🐸 <b>رادار الميم</b> يفحص بخمس طبقات:\n1) سيولة وحجم وزخم حقيقي\n2) فحص العقد (honeypot / mint / سيولة مقفلة)\n3) توزيع الحاملين وشبكات الداخليين\n4) إثبات الشراء على البلوكشين\n5) تنقيط 85+ للنخبة فقط."),
-    (("لا تصل", "لا توجد", "no signal", "متوقف", "قليل", "ما في", "بطيء"), 2,
-     "🔍 <b>قلّة الإشارات طبيعية</b>: الفحص صارم ولا يمرّ إلا ما اجتاز كل البوابات.\nتأكد أنك في السوق الصحيح (فيوتشر/سبوت/ميم) — لكل سوق إشاراته وجرسه."),
-    (("باينانس", "binance", "ربط", "مفتاح", "api", "حساب"), 2,
-     "🔗 <b>ربط باينانس</b>: من صفحة التداول أدخل مفتاح API والسر بصلاحيات القراءة والتداول (بلا سحب)، ثم فعّل التداول الآلي واضبط مبلغ كل صفقة."),
-    (("وقف", "خسار", "stop", "مخاطر", "risk"), 2,
-     "🛡️ <b>إدارة المخاطر</b>: وقف خسارة لكل صفقة، قفل ربح متدرّج يحمي المكسب فور تحقّقه، وإغلاق فوري عند انقلاب السوق ضد الصفقة."),
-    (("ربح", "profit", "هدف", "target", "جني"), 2,
-     "🎯 <b>جني الأرباح</b>: أهداف متدرّجة مع قفل تلقائي — كلما ارتفع الربح ارتفع مستوى الحماية، فلا يتبخّر المكسب عند الارتداد."),
-    (("اشتراك", "subscription", "سعر", "price", "دفع", "باقة"), 2,
-     "💳 <b>الاشتراك</b>: تفاصيل الباقات وطرق الدفع في صفحة الاشتراك داخل التطبيق."),
-    (("اشعار", "إشعار", "notification", "جرس", "صوت"), 2,
-     "🔔 <b>الإشعارات</b>: لكل سوق جرسه ورسائله. الصوت يرنّ عند كل إشارة أو حدث من المدير، ويمكن كتمه من أيقونة الصوت أعلى الشاشة."),
-    (("رافعة", "leverage", "x"), 2,
-     "⚙️ <b>الرافعة</b>: تبدأ منخفضة وترتفع تلقائياً عند تأكّد الاتجاه (هرمية)، لتقليل المخاطرة في البداية."),
-    (("لغة", "language", "english", "عربي"), 2,
-     "🌐 <b>اللغة</b>: بدّلها من الأيقونة أعلى الشاشة — كل شيء يتبعها، حتى نص المشاركة."),
-    (("مشاركة", "share", "دعوة", "صديق"), 2,
-     "📤 <b>المشاركة</b>: أيقونة المشاركة أعلى الشاشة ترسل رابط التطبيق مع نبذة، بلغتك الحالية."),
-    (("صفقات مفتوحة", "live", "مفتوح", "الحيه", "الحية"), 2,
-     "📊 <b>الصفقات المفتوحة</b>: صفحة مستقلة في الشريط السفلي تعرض كل صفقة حيّة بربحها اللحظي وقمتها وعمرها، محدَّثة كل ثانية."),
+     "🪙 <b>السبوت</b>: شراء فعلي بلا رافعة — مخاطرة أقل، أرباح 2-5%\n⚡ <b>الفيوتشر</b>: عقود برافعة — أرباح أكبر ومخاطرة أكبر\nلكل سوق رادار ومدير صفقات مستقل.",
+     "🪙 <b>Spot</b>: real purchase, no leverage — lower risk, 2-5% gains\n⚡ <b>Futures</b>: leveraged contracts — bigger gains, bigger risk\nEach market has its own radar and position manager."),
+    (("ميم", "meme"), 2,
+     "🐸 <b>رادار الميم</b> يفحص بخمس طبقات:\n1) سيولة وحجم وزخم حقيقي\n2) فحص العقد (honeypot / mint / سيولة مقفلة)\n3) توزيع الحاملين وشبكات الداخليين\n4) إثبات الشراء على البلوكشين\n5) تنقيط 85+ للنخبة فقط.",
+     "🐸 <b>Meme radar</b> screens in five layers:\n1) Real liquidity, volume and momentum\n2) Contract checks (honeypot / mint / locked liquidity)\n3) Holder distribution and insider networks\n4) On-chain proof of genuine buying\n5) Score 85+ for elite setups only."),
+    (("لا تصل", "لا توجد", "no signal", "متوقف", "قليل", "ما في", "بطيء", "why no"), 2,
+     "🔍 <b>قلّة الإشارات طبيعية</b>: الفحص صارم ولا يمرّ إلا ما اجتاز كل البوابات.\nتأكد أنك في السوق الصحيح (فيوتشر/سبوت/ميم) — لكل سوق إشاراته وجرسه.",
+     "🔍 <b>Few signals is normal</b>: screening is strict and only fully-qualified setups pass.\nCheck you're on the right market tab (Futures/Spot/Meme) — each has its own signals and bell."),
+    (("باينانس", "binance", "ربط", "مفتاح", "api", "حساب", "connect"), 2,
+     "🔗 <b>ربط باينانس</b>: من صفحة التداول أدخل مفتاح API والسر بصلاحيات القراءة والتداول (بلا سحب)، ثم فعّل التداول الآلي واضبط مبلغ كل صفقة.",
+     "🔗 <b>Connecting Binance</b>: in the Trading page add your API key and secret with read + trade permissions (no withdrawals), then enable auto-trading and set your amount per trade."),
+    (("وقف", "خسار", "stop", "مخاطر", "risk", "loss"), 2,
+     "🛡️ <b>إدارة المخاطر</b>: وقف خسارة لكل صفقة، قفل ربح متدرّج يحمي المكسب فور تحقّقه، وإغلاق فوري عند انقلاب السوق ضد الصفقة.",
+     "🛡️ <b>Risk management</b>: a stop-loss on every trade, tiered profit-locking that protects gains as they appear, and an immediate exit when the market flips against the position."),
+    (("ربح", "profit", "هدف", "target", "جني", "take"), 2,
+     "🎯 <b>جني الأرباح</b>: أهداف متدرّجة مع قفل تلقائي — كلما ارتفع الربح ارتفع مستوى الحماية، فلا يتبخّر المكسب عند الارتداد.",
+     "🎯 <b>Taking profit</b>: tiered targets with automatic locking — as profit climbs, so does the protected floor, so gains don't evaporate on a pullback."),
+    (("اشتراك", "subscription", "سعر", "price", "دفع", "باقة", "plan"), 2,
+     "💳 <b>الاشتراك</b>: تفاصيل الباقات وطرق الدفع في صفحة الاشتراك داخل التطبيق.",
+     "💳 <b>Subscription</b>: plans and payment methods are in the Subscription page inside the app."),
+    (("اشعار", "إشعار", "notification", "جرس", "صوت", "bell", "sound"), 2,
+     "🔔 <b>الإشعارات</b>: لكل سوق جرسه ورسائله. الصوت يرنّ عند كل إشارة أو حدث من المدير، ويمكن كتمه من أيقونة الصوت أعلى الشاشة.",
+     "🔔 <b>Notifications</b>: each market has its own bell and feed. A chime plays on every signal or manager event, and you can mute it from the sound icon in the header."),
+    (("رافعة", "leverage"), 2,
+     "⚙️ <b>الرافعة</b>: تبدأ منخفضة وترتفع تلقائياً عند تأكّد الاتجاه (هرمية)، لتقليل المخاطرة في البداية.",
+     "⚙️ <b>Leverage</b>: starts low and scales up automatically once the move is confirmed (pyramiding), keeping early risk small."),
+    (("لغة", "language", "english", "عربي", "arabic"), 2,
+     "🌐 <b>اللغة</b>: بدّلها من الأيقونة أعلى الشاشة — كل شيء يتبعها، حتى نص المشاركة.",
+     "🌐 <b>Language</b>: switch it from the header icon — everything follows, including the share text."),
+    (("مشاركة", "share", "دعوة", "صديق", "invite"), 2,
+     "📤 <b>المشاركة</b>: أيقونة المشاركة أعلى الشاشة ترسل رابط التطبيق مع نبذة، بلغتك الحالية.",
+     "📤 <b>Sharing</b>: the share icon in the header sends the app link with a short pitch, in your current language."),
+    (("صفقات مفتوحة", "live", "مفتوح", "الحيه", "الحية", "open trades", "positions"), 2,
+     "📊 <b>الصفقات المفتوحة</b>: صفحة مستقلة في الشريط السفلي تعرض كل صفقة حيّة بربحها اللحظي وقمتها وعمرها، محدَّثة كل ثانية.",
+     "📊 <b>Open positions</b>: a dedicated tab in the bottom bar showing every live trade with its running PnL, peak and age, refreshed every second."),
 ]
 
 GREET = ("سلام", "مرحب", "هلا", "اهلا", "أهلا", "hi", "hello", "hey", "صباح", "مساء")
-THANKS = ("شكر", "thank", "تسلم", "يعطيك")
+THANKS = ("شكر", "thank", "تسلم", "يعطيك", "thx")
 
-MENU = ("💬 <b>كيف أساعدك؟</b>\nاسأل عن أي موضوع:\n\n"
-        "• كيف تعمل الرادارات؟\n• ما معنى الدرجات S و A؟\n• ما الفرق بين السبوت والفيوتشر؟\n"
-        "• كيف أربط باينانس؟\n• كيف يُدار الوقف وجني الأرباح؟\n• كيف يفحص رادار الميم؟\n"
-        "• لماذا الإشارات قليلة؟\n• تفاصيل الاشتراك\n\n"
-        "أو اكتب سؤالك بحرّية وسيصل فريق الدعم.")
+MENU_AR = ("💬 <b>كيف أساعدك؟</b>\nاسأل عن أي موضوع:\n\n"
+           "• كيف تعمل الرادارات؟\n• ما معنى الدرجات S و A؟\n• ما الفرق بين السبوت والفيوتشر؟\n"
+           "• كيف أربط باينانس؟\n• كيف يُدار الوقف وجني الأرباح؟\n• كيف يفحص رادار الميم؟\n"
+           "• لماذا الإشارات قليلة؟\n• تفاصيل الاشتراك\n\n"
+           "أو اكتب سؤالك بحرّية وسيصل فريق الدعم.")
+
+MENU_EN = ("💬 <b>How can I help?</b>\nAsk about any topic:\n\n"
+           "• How do the radars work?\n• What do grades S and A mean?\n• Spot vs Futures?\n"
+           "• How do I connect Binance?\n• How are stops and profits managed?\n• How does the meme radar screen?\n"
+           "• Why are signals few?\n• Subscription details\n\n"
+           "Or just type your question and our team will receive it.")
 
 
 class Ask(BaseModel):
     message: str
     user_id: str = "guest"
+    lang: str = "ar"
 
 
 def _init():
@@ -70,19 +91,21 @@ def _norm(s: str) -> str:
     return s
 
 
-def _match(text: str):
+def _match(text: str, lang: str = "ar"):
+    en = lang == "en"
+    menu = MENU_EN if en else MENU_AR
     t = _norm(text)
     if not t:
-        return MENU
+        return menu
     if any(g in t for g in GREET) and len(t) < 25:
-        return "👋 أهلاً بك في الدعم الفني!\n\n" + MENU
+        return ("👋 Welcome to Support!\n\n" if en else "👋 أهلاً بك في الدعم الفني!\n\n") + menu
     if any(g in t for g in THANKS) and len(t) < 25:
-        return "🙏 على الرحب والسعة — أي سؤال آخر أنا هنا."
+        return "🙏 Anytime — I'm here for any other question." if en else "🙏 على الرحب والسعة — أي سؤال آخر أنا هنا."
     scored = []
-    for keys, weight, answer in KB:
+    for keys, weight, ar_ans, en_ans in KB:
         hits = sum(weight for k in keys if _norm(k) in t)
         if hits:
-            scored.append((hits, answer))
+            scored.append((hits, en_ans if en else ar_ans))
     if not scored:
         return None
     scored.sort(key=lambda x: -x[0])
@@ -92,7 +115,7 @@ def _match(text: str):
 @router.post("/api/support/ask")
 async def ask(body: Ask):
     _init()
-    answer = _match(body.message)
+    answer = _match(body.message, body.lang)
     now = int(time.time())
     try:
         c = sqlite3.connect(DB)
@@ -112,7 +135,7 @@ async def ask(body: Ask):
             await send_message(str(admin), f"💬 <b>سؤال جديد</b>\n<code>{body.user_id}</code>\n\n{body.message}")
     except Exception as e:
         log.warning("escalate: %s", e)
-    return {"reply": None, "auto": False, "menu": MENU}
+    return {"reply": None, "auto": False, "menu": MENU_EN if body.lang == "en" else MENU_AR}
 
 
 @router.get("/api/support/history")
