@@ -54,9 +54,8 @@ export default function Layout({ titleKey, children }) {
           <DrawerMenu />
           <span className="status-dot">{t("systemRunning")}</span>
         </header>
-        <div className="page-body">{children}</div>
+        <div className="page-body" style={{ position: "relative" }}><ScrollTop />{children}</div>
       </div>
-      <ScrollTop />
       <BottomNav />
     </div>
   );
