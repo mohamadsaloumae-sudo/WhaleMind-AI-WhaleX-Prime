@@ -107,6 +107,10 @@ export default function NotificationBell() {
       ws.onmessage = (e) => {
         try {
           const d = JSON.parse(e.data);
+          if (d && d.event === "device_kick") {
+            try { window.dispatchEvent(new CustomEvent("wx-device", { detail: JSON.stringify(d) })); } catch { /* */ }
+            return;
+          }
           if (!d || !d.message) return;
           // الإشعار العائم يظهر دائماً — أياً كان السوق المفتوح
           try {

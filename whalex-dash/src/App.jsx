@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
 import { LangProvider } from "./context/LangContext.jsx";
 import { PAGES } from "./lib/pages.js";
 import Layout from "./components/Layout.jsx";
+import DeviceGuard from "./components/DeviceGuard.jsx";
 import Login from "./pages/Login.jsx";
 
 function Protected() {
@@ -40,7 +41,7 @@ function Root() {
         path="/login"
         element={ready && user ? <Navigate to="/" replace /> : <Login />}
       />
-      <Route path="/*" element={<Protected />} />
+      <Route path="/*" element={<DeviceGuard><Protected /></DeviceGuard>} />
     </Routes>
   );
 }
