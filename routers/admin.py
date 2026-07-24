@@ -174,6 +174,11 @@ def user_detail(user_id: str, user=Depends(require_admin)):
             out["status"] = live_status(db, user_id)
         except Exception:
             pass
+        try:
+            from routers.profile import profile_of
+            out["profile"] = profile_of(user_id)
+        except Exception:
+            out["profile"] = {}
     except Exception as e:
         out["error"] = str(e)[:120]
     finally:
