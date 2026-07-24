@@ -31,7 +31,16 @@ def list_users(user=Depends(require_admin)):
     db = get_session()
     try:
         users = db.query(User).order_by(User.created_at.desc()).limit(100).all()
-        return {"users": [{"id": u.id, "username": u.username, "tier": u.tier, "demo_balance": u.demo_balance, "created_at": str(u.created_at)} for u in users]}
+        from services.tier import live_status
+        out = []
+        for u in users:
+            st = live_status(db, u.id)
+            out.append({"id": u.id, "username": u.username,
+                        "tier": "admin" if u.tier == "admin" else st["tier"],
+                        "is_pro": st["is_pro"], "days_left": st["days_left"],
+                        "level_ar": st["level_ar"], "icon": st["icon"],
+                        "demo_balance": u.demo_balance, "created_at": str(u.created_at)})
+        return {"users": out}
     finally:
         db.close()
 
@@ -160,6 +169,11 @@ def user_detail(user_id: str, user=Depends(require_admin)):
             }
         else:
             out["subscription"] = {"active": False, "days_left": 0}
+        try:
+            from services.tier import live_status
+            out["status"] = live_status(db, user_id)
+        except Exception:
+            pass
     except Exception as e:
         out["error"] = str(e)[:120]
     finally:
