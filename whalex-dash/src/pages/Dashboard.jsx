@@ -52,7 +52,7 @@ export default function Dashboard() {
   const mkt = getMarket();
   const MB = ({ id, ar, en }) => (
     <button onClick={() =>
-      <WelcomeHeader /> mkt !== id && setMarket(id)}
+      mkt !== id && setMarket(id)}
       style={{ flex: 1, padding: "12px 0", borderRadius: 12, border: "1px solid var(--bg-2)",
                fontWeight: 800, fontSize: 15, cursor: "pointer",
                background: mkt === id ? "var(--brand)" : "var(--bg-1)",
@@ -62,6 +62,7 @@ export default function Dashboard() {
   );
   return (
     <>
+      <WelcomeHeader />
       <div style={{ display: "flex", gap: 10, padding: "12px 16px 4px" }}>
         <MB id="futures" ar="⚡ فيوتشر" en="⚡ Futures" />
         <MB id="spot" ar="🪙 سبوت" en="🪙 Spot" />
