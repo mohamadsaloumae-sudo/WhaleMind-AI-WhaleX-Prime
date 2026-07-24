@@ -151,9 +151,11 @@ async def me(user=Depends(get_current_user)):
         row = c.execute("SELECT name, phone, flag, country, country_code, city FROM user_profiles WHERE user_id=?",
                         (user_id,)).fetchone()
         c.close()
-        return dict(row) if row else {}
+        out = dict(row) if row else {}
+        out["user_id"] = user_id
+        return out
     except Exception:
-        return {}
+        return {"user_id": user_id}
 
 
 async def capture(user_id: str, ip: str, ua: str = ""):

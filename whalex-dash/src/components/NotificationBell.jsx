@@ -4,6 +4,7 @@ import { Bell, X, Volume2, VolumeX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLang } from "../context/LangContext.jsx";
 import { getMarket } from "../hooks/useMarket.js";
+import { api } from "../lib/api.js";
 
 // 🎵 نغمة WhaleX الهادئة — ثلاث نوتات متناغمة بتلاشٍ طويل
 let _actx = null;
@@ -67,6 +68,18 @@ export default function NotificationBell() {
   const wsRef = useRef(null);
 
   const [mkt, setMkt] = useState(getMarket());
+  const meRef = useRef("");
+
+  useEffect(() => {
+    api.get("/api/profile/me")
+      .then((d) => {
+        if (d && d.user_id) {
+          meRef.current = String(d.user_id);
+          try { localStorage.setItem("wx_user_id", String(d.user_id)); } catch { /* */ }
+        }
+      })
+      .catch(() => {});
+  }, []);
   useEffect(() => {
     const iv = setInterval(() => {
       const m = getMarket();
@@ -121,11 +134,7 @@ export default function NotificationBell() {
             return;
           }
           if (d && d.event === "admin_dm") {
-            let me = "";
-            try {
-              me = String(window.Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem("wx_uid") || "");
-            } catch { me = ""; }
-            const uid = localStorage.getItem("wx_user_id") || me;
+            const uid = meRef.current || localStorage.getItem("wx_user_id") || "";
             if (d.target_user && uid && String(d.target_user) !== String(uid)) return;
             try {
               window.dispatchEvent(new CustomEvent("wx-toast", { detail: { message: d.message, event: "signal" } }));
