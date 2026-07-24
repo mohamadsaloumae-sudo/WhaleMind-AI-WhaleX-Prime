@@ -99,41 +99,57 @@ export default function Positions() {
           <div className="empty">{t("noClosedTrades")}</div>
         ) : (
           <div style={{ display: "grid", gap: 10 }}>
-            {history.map((x, i) => (
-              <div key={i} style={{
-                padding: "12px 14px", background: "var(--bg-2)", borderRadius: "var(--radius-sm)",
-                borderInlineStart: `3px solid ${x.is_win ? "var(--green)" : "var(--red)"}`,
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flexWrap: "wrap" }}>
-                    <strong style={{ fontSize: 14 }}>{x.symbol}</strong>
-                    <span className={`badge ${x.direction === "LONG" ? "long" : "short"}`} style={{ flexShrink: 0, fontSize: 10.5 }}>{x.direction}</span>
-                    <span style={{ fontSize: 10.5, color: "var(--accent)" }}>{
-                      x.tier === "MEME" ? "🐸 WhaleX Meme"
-                      : x.tier === "SPOT" || x.direction === "SPOT" ? "🪙 WhaleX Spot"
-                      : x.tier === "PH" ? (x.direction === "LONG" ? "📈 WhaleX Long" : "🎯 WhaleX Short")
-                      : "⚡ WhaleX Predator"
-                    }</span>
+            {history.map((x, i) => {
+              const win = x.is_win;
+              const radar =
+                x.tier === "MEME" ? "🐸 WhaleX Meme"
+                : x.tier === "SPOT" || x.direction === "SPOT" ? "🪙 WhaleX Spot"
+                : x.tier === "PH" ? (x.direction === "LONG" ? "📈 WhaleX Long" : "🎯 WhaleX Short")
+                : "⚡ WhaleX Predator";
+              return (
+                <div key={i} style={{
+                  padding: "13px 15px", background: "var(--bg-2)", borderRadius: "var(--radius-sm)",
+                  borderInlineStart: `3px solid ${win ? "var(--green)" : "var(--red)"}`,
+                }}>
+                  {/* الصف الأول: العملة والرادار | النتيجة والحالة */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
+                        <strong style={{ fontSize: 14.5 }}>{x.symbol}</strong>
+                        <span className={`badge ${x.direction === "LONG" ? "long" : "short"}`} style={{ fontSize: 10, flexShrink: 0 }}>
+                          {x.direction}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--accent)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {radar}
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap",
+                        fontSize: 16.5, fontWeight: 800, color: win ? "var(--green)" : "var(--red)",
+                      }}>
+                        {win ? <TrendingUp size={15} /> : <TrendingDown size={15} />}
+                        {x.pnl_pct >= 0 ? "+" : ""}{Number(x.pnl_pct).toFixed(2)}%
+                      </div>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 6, whiteSpace: "nowrap",
+                        background: win ? "rgba(34,197,94,0.14)" : "rgba(239,68,68,0.14)",
+                        color: win ? "var(--green)" : "var(--red)",
+                      }}>
+                        {win ? t("win") : t("loss")}
+                      </span>
+                    </div>
                   </div>
-                  <div style={{
-                    fontSize: 16, fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0,
-                    color: x.is_win ? "var(--green)" : "var(--red)",
-                    display: "flex", alignItems: "center", gap: 4,
-                  }}>
-                    {x.is_win ? <TrendingUp size={15} /> : <TrendingDown size={15} />}
-                    {x.pnl_pct >= 0 ? "+" : ""}{Number(x.pnl_pct).toFixed(2)}%
-                  </div>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 11.5, color: "var(--txt-3)" }}>
+
+                  {/* الصف الثاني: الوقت */}
+                  <div style={{ marginTop: 8, paddingTop: 7, borderTop: "1px solid rgba(255,255,255,0.05)", fontSize: 11.5, color: "var(--txt-3)" }}>
                     {x.closed_at ? new Date(x.closed_at * 1000).toLocaleString(lang === "ar" ? "ar-AE" : "en-US", { timeZone: "Asia/Dubai", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
-                  </span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: x.is_win ? "var(--green)" : "var(--red)" }}>
-                    {x.is_win ? t("win") : t("loss")}
-                  </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
