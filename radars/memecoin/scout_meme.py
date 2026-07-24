@@ -548,6 +548,9 @@ async def _meme_broadcast(p, sc):
         log.warning("meme broadcast: %s", e)
 
 
+_SL_PENDING: dict = {}
+
+
 def _meme_close(sid, px, pnl):
     try:
         conn = sqlite3.connect(MEME_DB)
@@ -616,7 +619,36 @@ async def _meme_track_one(cc, r):
         _meme_peak(r["id"], peak)
     peak_pnl = (peak - entry) / entry * 100
     reason = None
-    if pnl >= 25:
+    # 🧠 وقف ذكي: لا يُضرب على هبوط لحظة — يقرأ تدفّق السلسلة أولاً
+    if -22 < pnl <= -12:
+        _flow = None
+        try:
+            from radars.memecoin.live_stream import get_flow
+            _flow = get_flow(r["address"], 180)
+        except Exception:
+            _flow = None
+        _pending = _SL_PENDING.get(r["id"])
+        _recovering = px > (float(r.get("last_price") or px) or px)
+        _buyers_alive = bool(_flow and _flow["trades"] >= 5 and
+                             (_flow["buy_ratio"] >= 0.55 or _flow["vol_ratio"] >= 0.60))
+        if _buyers_alive and not _pending:
+            _SL_PENDING[r["id"]] = time.time()
+            log.info("🧠 %s وقف مؤجَّل: المشترون مسيطرون (%.0f%% شراء) — انتظار تأكيد",
+                     r.get("symbol"), (_flow or {}).get("buy_ratio", 0) * 100)
+            return
+        if _recovering and not _pending:
+            _SL_PENDING[r["id"]] = time.time()
+            log.info("🧠 %s وقف مؤجَّل: السعر يرتد — انتظار تأكيد", r.get("symbol"))
+            return
+        if _pending and (time.time() - _pending) < 90 and (_buyers_alive or _recovering):
+            return
+        _SL_PENDING.pop(r["id"], None)
+    else:
+        _SL_PENDING.pop(r["id"], None)
+
+    if pnl <= -22:
+        reason = "\U0001F6D1 \u0623\u0631\u0636\u064a\u0629 \u0642\u0635\u0648\u0649 -22%"
+    elif pnl >= 25:
         reason = "\U0001F3AF \u0627\u0644\u0647\u062f\u0641 +25%"
     elif pnl <= -12:
         reason = "\U0001F6D1 \u0627\u0644\u0648\u0642\u0641 -12%"

@@ -15,6 +15,36 @@ _sol_usd = 0.0
 _ws_ref = {"ws": None}
 
 
+_flow: dict = {}   # mint -> [(ts, is_buy, sol_amount)]
+
+
+def record_flow(mint: str, is_buy: bool, amount: float = 0.0):
+    arr = _flow.setdefault(mint, [])
+    arr.append((time.time(), bool(is_buy), float(amount or 0)))
+    if len(arr) > 400:
+        del arr[0:len(arr) - 400]
+
+
+def get_flow(mint: str, window: float = 180.0):
+    """زخم الشراء/البيع على السلسلة خلال نافذة زمنية."""
+    arr = _flow.get(mint) or []
+    now = time.time()
+    recent = [x for x in arr if now - x[0] <= window]
+    if not recent:
+        return None
+    buys = [x for x in recent if x[1]]
+    sells = [x for x in recent if not x[1]]
+    bvol = sum(x[2] for x in buys)
+    svol = sum(x[2] for x in sells)
+    tot = len(recent)
+    return {
+        "trades": tot,
+        "buys": len(buys), "sells": len(sells),
+        "buy_ratio": (len(buys) / tot) if tot else 0.0,
+        "vol_ratio": (bvol / (bvol + svol)) if (bvol + svol) > 0 else 0.0,
+    }
+
+
 def get_live_price(mint: str, max_age: float = 30.0):
     """سعر لحظي من تيار الصفقات — None إن لا بثّ."""
     v = _last_px.get(mint)
@@ -157,6 +187,11 @@ async def live_loop():
                             px = _extract_price(d)
                             if px:
                                 _last_px[mint] = (px, time.time())
+                            try:
+                                _isbuy = str(d.get("txType") or "").lower() == "buy"
+                                record_flow(mint, _isbuy, float(d.get("solAmount") or 0))
+                            except Exception:
+                                pass
                             if not structure_logged["trade"]:
                                 structure_logged["trade"] = True
                                 log.info("⚡🐸 بنية صفقة: %s", str(d)[:230])
