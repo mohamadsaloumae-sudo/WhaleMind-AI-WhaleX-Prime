@@ -1,7 +1,6 @@
 // الإعدادات
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
-import { playChime } from "../components/NotificationBell.jsx";
 import { useLang } from "../context/LangContext.jsx";
 import { User, Shield, LogOut, Bell, BellOff } from "lucide-react";
 import { enablePush, disablePush, isPushEnabled, pushSupported } from "../lib/pushSetup.js";
@@ -32,28 +31,6 @@ export default function Settings() {
   return (
     <div style={{ maxWidth: 560 }}>
       <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ marginBottom: 16, padding: 14, borderRadius: 12, background: "rgba(74,222,128,0.07)", border: "1px solid rgba(74,222,128,0.2)" }}>
-          <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 4 }}>🔔 اختبار الإشعارات</div>
-          <div style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 10, lineHeight: 1.7 }}>
-            اضغط لتجربة البطاقة العائمة والنغمة على جهازك مباشرة
-          </div>
-          <button
-            onClick={() => {
-              try {
-                playChime();
-                window.dispatchEvent(new CustomEvent("wx-toast", {
-                  detail: { message: "🔔 هذا إشعار تجريبي — البطاقة والنغمة تعملان بنجاح", event: "signal" },
-                }));
-              } catch (e) { alert("خطأ: " + e.message); }
-            }}
-            style={{
-              background: "var(--brand, #4ade80)", color: "#06110a", border: "none",
-              borderRadius: 10, padding: "10px 20px", fontSize: 13.5, fontWeight: 700, cursor: "pointer",
-            }}
-          >
-            تجربة الآن
-          </button>
-        </div>
 
         <div className="card-title"><User size={14} style={{ verticalAlign: "middle", marginInlineEnd: 6 }} /> {t("account")}</div>
         <div style={{ display: "grid", gap: 12, fontSize: 14 }}>
