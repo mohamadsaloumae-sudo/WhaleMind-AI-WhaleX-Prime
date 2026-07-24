@@ -584,11 +584,21 @@ async def _meme_close_broadcast(r, px, pnl, reason):
 
 
 async def _meme_track_one(cc, r):
-    pairs = await _fetch_pairs(cc, r["address"])
-    if not pairs:
-        return
-    best = max(pairs, key=lambda x: (x.get("liquidity") or {}).get("usd", 0) or 0)
-    px = float(best.get("priceUsd") or 0)
+    # ⚡ السعر اللحظي من تيار الصفقات أولاً — يضرب الوقف على الحركة الحقيقية
+    px = 0.0
+    try:
+        from radars.memecoin.live_stream import get_live_price
+        _lp = get_live_price(r["address"])
+        if _lp:
+            px = float(_lp)
+    except Exception:
+        px = 0.0
+    if px <= 0:
+        pairs = await _fetch_pairs(cc, r["address"])
+        if not pairs:
+            return
+        best = max(pairs, key=lambda x: (x.get("liquidity") or {}).get("usd", 0) or 0)
+        px = float(best.get("priceUsd") or 0)
     entry = float(r.get("entry_price") or 0)
     if px <= 0 or entry <= 0:
         return
