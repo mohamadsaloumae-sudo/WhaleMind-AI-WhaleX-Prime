@@ -51,7 +51,7 @@ export default function Support() {
     try {
       const r = await fetch("/api/support/ask", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: q, user_id: uid() }),
+        body: JSON.stringify({ message: q, user_id: uid(), lang }),
       });
       const d = await r.json();
       setMsgs((m) => [...m, {
