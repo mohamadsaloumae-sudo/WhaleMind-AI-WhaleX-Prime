@@ -108,7 +108,12 @@ export default function Positions() {
                   <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flexWrap: "wrap" }}>
                     <strong style={{ fontSize: 14 }}>{x.symbol}</strong>
                     <span className={`badge ${x.direction === "LONG" ? "long" : "short"}`} style={{ flexShrink: 0, fontSize: 10.5 }}>{x.direction}</span>
-                    <span style={{ fontSize: 10.5, color: "var(--accent)" }}>{x.tier === "PH" ? (x.direction === "LONG" ? "📈 Long" : "🎯 Short") : "⚡ Predator"}</span>
+                    <span style={{ fontSize: 10.5, color: "var(--accent)" }}>{
+                      x.tier === "MEME" ? "🐸 WhaleX Meme"
+                      : x.tier === "SPOT" || x.direction === "SPOT" ? "🪙 WhaleX Spot"
+                      : x.tier === "PH" ? (x.direction === "LONG" ? "📈 WhaleX Long" : "🎯 WhaleX Short")
+                      : "⚡ WhaleX Predator"
+                    }</span>
                   </div>
                   <div style={{
                     fontSize: 16, fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0,
