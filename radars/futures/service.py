@@ -649,8 +649,9 @@ async def futures_scan_loop(oracle: OracleAgent, signal_queue: asyncio.Queue):
             try:
                 from radars.futures.engine import pred_stats_snapshot
                 _ps = pred_stats_snapshot()
-                log.info("🔎 Predator: فُحص %d | حجم ميت %d | تلاعب %d | نقاط ضعيفة %d | حارس %d | أطر %d | دلتا %d | صدر %d",
+                log.info("🔎 Predator: فُحص %d | ميت %d | تلاعب %d | نقاط<الحد %d (أعلى %s) | بلا مفتاحية %d | ثقة %d | حارس %d | أطر %d | دلتا %d | صدر %d",
                          _ps["scanned"], _ps["dead_vol"], _ps["spoof"], _ps["low_score"],
+                         _ps.get("best_score", "-"), _ps.get("no_key", 0), _ps.get("low_conf", 0),
                          _ps["guardian"], _ps["mtf"], _ps["delta"], _ps["emitted"])
             except Exception:
                 pass

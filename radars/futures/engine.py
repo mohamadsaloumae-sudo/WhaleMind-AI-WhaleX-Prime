@@ -1354,10 +1354,15 @@ async def predator_agent(
         direction, score, strats, key_strats = "SHORT", short_score, short_strats, short_key
 
     if not direction:
+        PRED_STATS["low_score"] += 1
+        _best = max(long_score, short_score)
+        if _best > PRED_STATS.get("best_score", 0):
+            PRED_STATS["best_score"] = round(_best, 1)
         return
 
     # ─── لا بد من استراتيجية قوية واحدة على الأقل ───
     if key_strats < 1:
+        PRED_STATS["no_key"] = PRED_STATS.get("no_key", 0) + 1
         log.debug("Reject %s %s — no key strategy", symbol, direction)
         return
 
@@ -1382,6 +1387,7 @@ async def predator_agent(
     strat_count = len(strats)
     conf = min(95.0, 45.0 + score * 4.5 + strat_count * 2)
     if conf < 62.0:
+        PRED_STATS["low_conf"] = PRED_STATS.get("low_conf", 0) + 1
         return
 
     # ═══ Guardian Veto V3 (الحارس الواقعي) ═══
@@ -1391,13 +1397,14 @@ async def predator_agent(
         hist_low_dist, hist_high_dist
     )
     if vetoed:
+        PRED_STATS["guardian"] += 1
         log.info("🛡️ Veto: %s %s — %s", symbol, direction, veto_reason)
         return
 
     # ═══ MTF Confirmation ═══
     mtf_passed, mtf_details = await mtf_check(symbol, direction)
     if not mtf_passed:
-        log.debug("MTF reject: %s %s", symbol, direction)
+        PRED_STATS["mtf"] += 1
         return
 
     # ═══ Funding Rate Filter ═══
