@@ -19,6 +19,30 @@ class UpgradeBody(BaseModel):
     plan: str = "month"
 
 
+async def _issue_channels(user_id: str, expires):
+    """روابط القنوات بمدة الاشتراك + تصفير التذكيرات."""
+    try:
+        from services.membership import issue_links, _clear_reminders
+        import datetime as _dt
+        _clear_reminders(user_id)
+        _ts = int(expires.timestamp()) if hasattr(expires, "timestamp") else int(_dt.datetime.fromisoformat(str(expires)).timestamp())
+        return await issue_links(user_id, _ts)
+    except Exception as _e:
+        import logging
+        logging.getLogger("subscription").warning("issue channels: %s", _e)
+        return []
+
+
+@router.get("/api/subscription/channels")
+async def my_channels(user_id: str):
+    """روابط قنوات المشترك الفعّالة."""
+    try:
+        from services.membership import get_links
+        return {"channels": get_links(user_id)}
+    except Exception:
+        return {"channels": []}
+
+
 @router.get("/plans")
 def get_plans():
     """قائمة الخطط والأسعار + عنوان المحفظة"""
@@ -99,6 +123,7 @@ def upgrade(body: UpgradeBody, user=Depends(get_current_user)):
             "plan": plan["label"],
             "amount_paid": result["amount"],
             "expires_at": str(expires),
+            "channels": await _issue_channels(body.user_id, expires),
         }
     finally:
         db.close()
