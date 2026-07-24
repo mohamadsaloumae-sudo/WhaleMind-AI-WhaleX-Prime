@@ -918,7 +918,7 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
         btc_macro_loop(),
         mc_refresh_loop(),
         _price_stream_guard(),  # ⚡ تيار الأسعار الحي
-        _kline_stream_guard(),  # 🕯️ تيار الشموع الحي
+        # _kline_stream_guard(),  # مُعطَّل: Binance ترفض تدفقات إضافية من هذا العنوان
         _spot_guard(),  # 🪙 عقل السبوت — معزول كلياً
         _meme_guard(),
         _meme_live_guard(),  # ⚡🐸 تيار الميم اللحظي
