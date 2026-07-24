@@ -122,18 +122,28 @@ async def _run_batch(pairs, idx=0):
         raise
 
 
+async def _seed_worker():
+    """تعبئة تاريخية في الخلفية — لا تعطّل البثّ أبداً."""
+    while True:
+        try:
+            for k in list(_WANTED):
+                if k not in _READY and k not in _SEEDING:
+                    await _seed(k[0], k[1])
+                    await asyncio.sleep(0.15)
+        except Exception as e:
+            log.debug("seed worker: %s", e)
+        await asyncio.sleep(5)
+
+
 async def kline_stream_loop():
-    """يعبّئ الجديد ويبثّ الكل، ويعيد الاتصال عند تغيّر القائمة."""
+    """يبثّ فوراً، والتعبئة تجري بالتوازي في الخلفية."""
+    asyncio.create_task(_seed_worker())
     while True:
         try:
             pairs = sorted(_WANTED)
             if not pairs:
                 await asyncio.sleep(5)
                 continue
-            for s, tf in pairs:
-                if (s, tf) not in _READY:
-                    await _seed(s, tf)
-                    await asyncio.sleep(0.12)   # مباعدة التعبئة
             snapshot = _gen
             started = time.time()
             chunks = [pairs[i:i + 40] for i in range(0, len(pairs), 40)]
