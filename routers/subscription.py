@@ -145,6 +145,7 @@ def sub_status(user=Depends(get_current_user)):
         return {
             "tier": "admin" if is_admin else st["tier"],
             "expires_at": st["expires_at"],
+            "started_at": st.get("started_at"),
             "is_active": bool(is_admin or st["is_pro"]),
             "days_left": st["days_left"],
             "plan": st["plan"],

@@ -40,7 +40,9 @@ def live_status(db, user_id: str):
                 db.commit()
     except Exception:
         pass
+    started = latest.created_at if latest else None
     return {
+        "started_at": str(started) if started else None,
         "is_pro": is_pro, "tier": "pro" if is_pro else "free",
         "expires_at": str(exp) if exp else None, "days_left": days_left,
         "plan": latest.plan if latest else None, **lv,

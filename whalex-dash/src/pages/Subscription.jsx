@@ -1,4 +1,5 @@
 // الاشتراك — خطتان + دفع USDT-TRC20
+import SubCountdown from "../components/SubCountdown.jsx";
 import { useEffect, useState } from "react";
 import { subscription } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
@@ -48,6 +49,7 @@ export default function Subscription() {
 
   return (
     <div style={{ maxWidth: 560 }}>
+      <SubCountdown />
       {msg && <div className={`alert ${msg.type}`}>{msg.text}</div>}
 
       {/* عدّاد المشتركين */}
