@@ -15,6 +15,17 @@ export default function Admin() {
   const [bcastMsg, setBcastMsg] = useState("");
   const [pending, setPending] = useState([]);
   const [replies, setReplies] = useState({});
+
+  useEffect(() => {
+    const onQ = () => {
+      api.get("/api/admin/support/pending")
+        .then((s) => setPending(s?.pending || []))
+        .catch(() => {});
+    };
+    window.addEventListener("wx-support", onQ);
+    const iv = setInterval(onQ, 30000);
+    return () => { window.removeEventListener("wx-support", onQ); clearInterval(iv); };
+  }, []);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState("");
@@ -23,7 +34,11 @@ export default function Admin() {
     try { setStats(await api.get("/api/admin/stats")); } catch (e) { setErr(e.message); }
     try { const u = await api.get("/api/admin/users"); setUsers(u?.users || []); } catch { /* */ }
     try { const f = await api.get("/api/admin/freeze"); setFrozen(!!f?.frozen); } catch { /* */ }
-    try { const s = await api.get("/api/admin/support/pending"); setPending(s?.pending || []); } catch { /* */ }
+    try {
+      const s = await api.get("/api/admin/support/pending");
+      setPending(s?.pending || []);
+      localStorage.setItem("wx_is_admin", "1");
+    } catch { /* */ }
   }
   useEffect(() => { load(); }, []);
 

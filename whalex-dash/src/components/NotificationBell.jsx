@@ -107,6 +107,19 @@ export default function NotificationBell() {
       ws.onmessage = (e) => {
         try {
           const d = JSON.parse(e.data);
+          if (d && d.event === "support_question") {
+            let isAdmin = false;
+            try { isAdmin = localStorage.getItem("wx_is_admin") === "1"; } catch { /* */ }
+            if (!isAdmin) return;
+            try {
+              window.dispatchEvent(new CustomEvent("wx-toast", { detail: { message: d.message, event: "signal" } }));
+              window.dispatchEvent(new CustomEvent("wx-support"));
+            } catch { /* */ }
+            playChime();
+            setItems((prev) => [{ id: Date.now() + Math.random(), event: "support_question", message: d.message, time: new Date() }, ...prev].slice(0, 50));
+            setUnread((u) => u + 1);
+            return;
+          }
           if (d && d.event === "admin_dm") {
             let me = "";
             try {
