@@ -79,7 +79,7 @@ def signals_history(market: str = "futures"):
         _mdb = _os.path.join(_os.path.dirname(__file__), "..", "db", "memecoin.db")
         try:
             con = _sq.connect(_mdb); con.row_factory = _sq.Row
-            rows = con.execute("SELECT symbol, entry_price, exit_price, pnl_pct, closed_ts, chain, score FROM meme_signals WHERE status='closed' AND pnl_pct IS NOT NULL ORDER BY closed_ts DESC LIMIT 300").fetchall()
+            rows = con.execute("SELECT symbol, entry_price, exit_price, pnl_pct, closed_ts, chain, score FROM meme_signals WHERE status='closed' AND pnl_pct IS NOT NULL AND closed_ts > (strftime('%s', date('now','+4 hours')) - 14400) ORDER BY closed_ts DESC LIMIT 300").fetchall()
             con.close()
             return {"history": [{"symbol": r["symbol"], "direction": "MEME", "entry": r["entry_price"],
                                  "exit_price": r["exit_price"], "pnl_pct": r["pnl_pct"],
@@ -92,7 +92,7 @@ def signals_history(market: str = "futures"):
         import sqlite3 as _sq
         try:
             con = _sq.connect("/opt/whalex/db/whalex.db"); con.row_factory = _sq.Row
-            rows = con.execute("SELECT symbol, entry, exit_price, pnl_pct, outcome, reason, ts FROM spot_results ORDER BY ts DESC LIMIT 300").fetchall()
+            rows = con.execute("SELECT symbol, entry, exit_price, pnl_pct, outcome, reason, ts FROM spot_results WHERE ts > (strftime('%s', date('now','+4 hours')) - 14400) ORDER BY ts DESC LIMIT 300").fetchall()
             con.close()
             return {"history": [{"symbol": r["symbol"], "direction": "LONG", "entry": r["entry"],
                                  "exit_price": r["exit_price"], "pnl_pct": r["pnl_pct"],
