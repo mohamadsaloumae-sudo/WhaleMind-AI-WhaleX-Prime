@@ -672,6 +672,9 @@ def _fmt_spot_qty(client, symbol: str, qty: float) -> float:
 
 async def execute_spot_buy(user_id: str, signal: dict) -> dict:
     """شراء سبوت حقيقي بمبلغ USDT محدّد (quoteOrderQty). لا رافعة."""
+    import os
+    if os.path.exists("/opt/whalex/db/trading_freeze.flag"):
+        return {"ok": False, "error": "التداول مجمّد مؤقتاً للصيانة"}
     _spot_pos_table()
     client = get_client(user_id)
     if not client:

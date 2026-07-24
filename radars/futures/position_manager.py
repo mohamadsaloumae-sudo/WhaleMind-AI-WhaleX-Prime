@@ -1624,6 +1624,10 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
     """
     يفتح صفقة من إشارة الرادار - فقط Grade A و S
     """
+    import os as _os
+    if _os.path.exists("/opt/whalex/db/trading_freeze.flag"):
+        log.info("🧊 التداول مجمّد — تخطّي %s", getattr(sig, "symbol", "?"))
+        return None
     # منع الازدواج: صفقة واحدة لكل عملة (من أي رادار وأي اتجاه)
     _cd = _LOSS_CD.get(sig.symbol, 0.0)
     if _cd and time.time() - _cd < 1800:
