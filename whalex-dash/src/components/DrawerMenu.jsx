@@ -1,5 +1,5 @@
-// ☰ قائمة جانبية علوية — كل الصفحات خارج الشريط السفلي
-import { useState } from "react";
+// ☰ قائمة جانبية — انزلاق ناعم، صفوف مرتّبة، تتبع اتجاه اللغة
+import { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { PAGES } from "../lib/pages.js";
@@ -8,55 +8,99 @@ import { useLang } from "../context/LangContext.jsx";
 export default function DrawerMenu() {
   const { t, lang } = useLang();
   const [open, setOpen] = useState(false);
+  const [shown, setShown] = useState(false);
   const pages = PAGES.filter((p) => !p.adminOnly).slice(5);
-  const side = lang === "ar" ? "right" : "left";
+  const rtl = lang === "ar";
+
+  useEffect(() => {
+    if (open) {
+      const id = setTimeout(() => setShown(true), 10);
+      document.body.style.overflow = "hidden";
+      return () => { clearTimeout(id); document.body.style.overflow = ""; };
+    }
+    setShown(false);
+  }, [open]);
+
+  function close() {
+    setShown(false);
+    setTimeout(() => setOpen(false), 220);
+  }
 
   return (
     <>
-      <button className="lang-btn" onClick={() => setOpen(true)} title={t("more")}>
+      <button className="lang-btn" onClick={() => setOpen(true)} title={t("more")} aria-label="menu">
         <Menu size={18} />
       </button>
 
       {open && (
         <div
-          onClick={() => setOpen(false)}
+          onClick={close}
           style={{
-            position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
-            zIndex: 900, backdropFilter: "blur(2px)",
+            position: "fixed", inset: 0, zIndex: 950,
+            background: shown ? "rgba(4,6,12,0.6)" : "rgba(4,6,12,0)",
+            backdropFilter: shown ? "blur(3px)" : "none",
+            transition: "background .22s ease, backdrop-filter .22s ease",
           }}
         >
-          <div
+          <aside
             onClick={(e) => e.stopPropagation()}
             style={{
-              position: "absolute", top: 0, bottom: 0, [side]: 0, width: "min(78vw, 300px)",
-              background: "var(--bg-2, #131722)", borderInlineStart: "1px solid var(--line, #222)",
-              padding: "18px 14px", display: "flex", flexDirection: "column", gap: 6,
-              boxShadow: "0 0 40px rgba(0,0,0,0.5)",
+              position: "absolute", top: 0, bottom: 0, [rtl ? "right" : "left"]: 0,
+              width: "min(76vw, 288px)", maxWidth: "100%",
+              background: "var(--bg-2, #10141f)",
+              [rtl ? "borderLeft" : "borderRight"]: "1px solid rgba(255,255,255,0.07)",
+              boxShadow: "0 0 48px rgba(0,0,0,0.55)",
+              transform: shown ? "translateX(0)" : `translateX(${rtl ? "100%" : "-100%"})`,
+              transition: "transform .24s cubic-bezier(.22,.9,.3,1)",
+              display: "flex", flexDirection: "column",
+              padding: "calc(env(safe-area-inset-top, 0px) + 14px) 12px calc(env(safe-area-inset-bottom, 0px) + 14px)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <span style={{ fontWeight: 700, fontSize: 15 }}>{t("more")}</span>
-              <button className="more-close" onClick={() => setOpen(false)}><X size={20} /></button>
+            <header style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "2px 6px 14px", borderBottom: "1px solid rgba(255,255,255,0.07)", marginBottom: 10,
+            }}>
+              <span style={{ fontWeight: 700, fontSize: 14.5, letterSpacing: .2, opacity: .95 }}>
+                {rtl ? "القائمة" : "Menu"}
+              </span>
+              <button onClick={close} aria-label="close" style={{
+                background: "rgba(255,255,255,0.06)", border: "none", color: "inherit",
+                width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", cursor: "pointer",
+              }}><X size={17} /></button>
+            </header>
+
+            <nav style={{ display: "flex", flexDirection: "column", gap: 3, overflowY: "auto" }}>
+              {pages.map((p) => {
+                const Icon = p.icon;
+                return (
+                  <NavLink
+                    key={p.path}
+                    to={p.path}
+                    onClick={close}
+                    style={({ isActive }) => ({
+                      display: "flex", alignItems: "center", gap: 11,
+                      padding: "11px 10px", borderRadius: 11, textDecoration: "none",
+                      fontSize: 14, fontWeight: isActive ? 700 : 500,
+                      color: isActive ? "var(--brand, #4ade80)" : "var(--txt-2, #b6bdcc)",
+                      background: isActive ? "rgba(74,222,128,0.10)" : "transparent",
+                    })}
+                  >
+                    <span style={{
+                      width: 32, height: 32, borderRadius: 9, display: "grid", placeItems: "center",
+                      background: "rgba(255,255,255,0.05)", flexShrink: 0,
+                    }}><Icon size={17} /></span>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {t("nav." + p.path)}
+                    </span>
+                  </NavLink>
+                );
+              })}
+            </nav>
+
+            <div style={{ marginTop: "auto", paddingTop: 12, fontSize: 11, opacity: .4, textAlign: "center" }}>
+              WhaleX Prime 🐋
             </div>
-            {pages.map((p) => {
-              const Icon = p.icon;
-              return (
-                <NavLink
-                  key={p.path}
-                  to={p.path}
-                  onClick={() => setOpen(false)}
-                  className={({ isActive }) => `more-item ${isActive ? "active" : ""}`}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 12, padding: "13px 12px",
-                    borderRadius: 10, fontSize: 14.5, textDecoration: "none",
-                  }}
-                >
-                  <Icon size={21} />
-                  <span>{t("nav." + p.path)}</span>
-                </NavLink>
-              );
-            })}
-          </div>
+          </aside>
         </div>
       )}
     </>
