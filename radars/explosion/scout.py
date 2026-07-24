@@ -64,8 +64,11 @@ def _init_db():
 async def fetch_top_gainers() -> list[dict]:
     """المستوى 1: كل العملات بطلب واحد + فلتر."""
     try:
-        from radars.futures.engine import fapi_get
-        data = await fapi_get("https://fapi.binance.com/fapi/v1/ticker/24hr", 30)
+        from radars.futures.price_stream import get_all_tickers
+        data = get_all_tickers()
+        if not data:
+            from radars.futures.engine import fapi_get
+            data = await fapi_get("https://fapi.binance.com/fapi/v1/ticker/24hr", 30)
         if not isinstance(data, list):
             return []
         out = []

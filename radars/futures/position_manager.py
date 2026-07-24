@@ -372,6 +372,10 @@ async def get_price(symbol: str) -> Optional[float]:
         sym = symbol.replace("/", "").replace("-", "")
         if not sym.endswith("USDT"):
             sym += "USDT"
+        from radars.futures.price_stream import get_price as _ws_price
+        _wp = _ws_price(sym)
+        if _wp:
+            return float(_wp)
         from radars.futures.engine import fapi_get
         _pj = await fapi_get(f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={sym}", 2, max_stale=20)
         if isinstance(_pj, dict) and "price" in _pj:

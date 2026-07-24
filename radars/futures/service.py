@@ -252,8 +252,11 @@ async def fetch_all_symbols() -> list[MarketTier]:
             return []
 
         # جلب الحجم الحالي (24h) للحصول على بيانات حية
-        from radars.futures.engine import fapi_get
-        _tk24 = await fapi_get("https://fapi.binance.com/fapi/v1/ticker/24hr", 30)
+        from radars.futures.price_stream import get_all_tickers
+        _tk24 = get_all_tickers()
+        if not _tk24:
+            from radars.futures.engine import fapi_get
+            _tk24 = await fapi_get("https://fapi.binance.com/fapi/v1/ticker/24hr", 30)
         class _R:
             @staticmethod
             def json():
@@ -790,6 +793,17 @@ def _open_position_syms():
     except Exception:
         return []
 
+async def _price_stream_guard():
+    while True:
+        try:
+            from radars.futures.price_stream import price_stream_loop
+            await price_stream_loop()
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("price_stream").error("price stream guard: %s", _e)
+        await asyncio.sleep(15)
+
+
 async def _spot_guard():
     """حارس عزل السبوت: أي فشل (حتى الاستيراد) يبقى داخله ولا يمسّ الفيوتشر."""
     while True:
@@ -852,6 +866,7 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
         mlops_loop(),
         btc_macro_loop(),
         mc_refresh_loop(),
+        _price_stream_guard(),  # ⚡ تيار الأسعار الحي
         _spot_guard(),  # 🪙 عقل السبوت — معزول كلياً
         _meme_guard(),
         shadow_loop(),

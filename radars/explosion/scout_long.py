@@ -75,11 +75,12 @@ async def fetch_top_gainers() -> list[dict]:
     """الصاعدة بقوة (اتجاه صاعد) — للبحث عن تصحيح + ارتداد LONG.
     معكوس الفلسفة القديمة (الهابطة): نشتري الانخفاض المؤقت في صعود، لا القاع الهابط."""
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get("https://fapi.binance.com/fapi/v1/ticker/24hr")
-            data = r.json()
+        from radars.futures.price_stream import get_all_tickers
+        data = get_all_tickers()
+        if not data:
+            from radars.futures.engine import fapi_get
+            data = await fapi_get("https://fapi.binance.com/fapi/v1/ticker/24hr", 30)
         if not isinstance(data, list):
-            log.error("fetch_top_gainers: رد غير متوقع %s: %s", type(data).__name__, str(data)[:150])
             return []
         out = []
         for d in data:
