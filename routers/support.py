@@ -126,13 +126,40 @@ async def ask(body: Ask):
         log.warning("save: %s", e)
     if answer:
         return {"reply": answer, "auto": True}
+    # اسم صاحب السؤال
+    _who = body.user_id
+    try:
+        from db.database import get_session, User
+        _db = get_session()
+        _u = _db.query(User).filter(User.id == body.user_id).first()
+        _who = getattr(_u, "username", None) or body.user_id
+        _db.close()
+    except Exception:
+        pass
+
+    # 🔔 تنبيه لحظي للأدمن داخل التطبيق
+    try:
+        from routers.ws import registry
+        await registry.broadcast({
+            "event": "support_question", "market": "futures", "admin_only": True,
+            "message": f"💬 سؤال جديد من {_who}\n\n{body.message[:160]}",
+            "message_en": f"💬 New question from {_who}\n\n{body.message[:160]}",
+        })
+    except Exception as e:
+        log.debug("admin ws: %s", e)
+
+    # وتيليجرام
     try:
         from services.telegram import send_message
         from core.config import get_settings
         _s = get_settings()
-        admin = getattr(_s, "admin_chat_id", None) or getattr(_s, "telegram_admin_id", None) or getattr(_s, "admin_id", None)
+        admin = (getattr(_s, "telegram_admin_chat_id", None) or getattr(_s, "admin_chat_id", None)
+                 or getattr(_s, "telegram_admin_id", None) or getattr(_s, "admin_id", None))
         if admin:
-            await send_message(str(admin), f"💬 <b>سؤال جديد</b>\n<code>{body.user_id}</code>\n\n{body.message}")
+            await send_message(str(admin),
+                               f"💬 <b>سؤال جديد يحتاج ردّك</b>\n"
+                               f"من: <b>{_who}</b>\n\n{body.message}\n\n"
+                               f"↩️ رد عليه من لوحة الإدارة في التطبيق")
     except Exception as e:
         log.warning("escalate: %s", e)
     return {"reply": None, "auto": False, "menu": MENU_EN if body.lang == "en" else MENU_AR}
