@@ -1,6 +1,7 @@
 // 👋 ترحيب + علم الدولة + السوشيال + مشاركة الرقم
 import { useEffect, useState } from "react";
 import { useLang } from "../context/LangContext.jsx";
+import { api } from "../lib/api.js";
 
 const ICONS = {
   telegram: (
@@ -63,13 +64,8 @@ export default function WelcomeHeader() {
   const [askPhone, setAskPhone] = useState(false);
 
   useEffect(() => {
-    const id = uid(), name = tgName();
-    fetch("/api/profile/track", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: id, name }),
-    }).catch(() => {});
-    fetch(`/api/profile/me?user_id=${encodeURIComponent(id)}`)
-      .then((r) => r.json())
+    api.post("/api/profile/track", { user_id: "", name: tgName() }).catch(() => {});
+    api.get("/api/profile/me")
       .then((d) => { setP(d || {}); setAskPhone(!d?.phone); })
       .catch(() => {});
   }, []);
@@ -85,10 +81,7 @@ export default function WelcomeHeader() {
             phone = raw || "";
           } catch { /* */ }
           if (!phone) return;
-          await fetch("/api/profile/phone", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ user_id: uid(), phone }),
-          });
+          await api.post("/api/profile/phone", { user_id: "", phone });
           setAskPhone(false);
           setP((x) => ({ ...x, phone }));
         });
@@ -97,30 +90,24 @@ export default function WelcomeHeader() {
     } catch { /* */ }
     const manual = prompt(ar ? "أدخل رقم واتساب مع رمز الدولة" : "Enter your WhatsApp number with country code");
     if (manual && manual.trim().length > 6) {
-      await fetch("/api/profile/phone", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: uid(), phone: manual.trim() }),
-      });
+      await api.post("/api/profile/phone", { user_id: "", phone: manual.trim() });
       setAskPhone(false);
       setP((x) => ({ ...x, phone: manual.trim() }));
     }
   }
 
-  const name = p.name || tgName() || (ar ? "صديقنا" : "friend");
+  const name = p.name || tgName() || "";
 
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 12 }}>
-        <span style={{ fontSize: 30, lineHeight: 1 }}>{p.flag || "🌍"}</span>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 16.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {ar ? `أهلاً ${name}` : `Welcome, ${name}`}
-          </div>
-          <div style={{ fontSize: 11.5, color: "var(--txt-3)", marginTop: 2 }}>
-            {[p.city, p.country].filter(Boolean).join(" · ") || "WhaleX Prime 🐋"}
-          </div>
+      {name && (
+        <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 12 }}>
+          <span style={{ fontSize: 17, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {name}
+          </span>
+          {p.flag && <span style={{ fontSize: 21, lineHeight: 1 }}>{p.flag}</span>}
         </div>
-      </div>
+      )}
 
       {askPhone && (
         <div onClick={sharePhone} style={{

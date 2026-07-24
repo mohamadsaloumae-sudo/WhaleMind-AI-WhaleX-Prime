@@ -100,6 +100,20 @@ export default function UserSheet({ userId, onClose, onChanged }) {
           {sub?.expires_at && <div style={{ fontSize: 11.5, color: "var(--txt-3)", marginTop: 3 }}>ينتهي: {String(sub.expires_at).slice(0, 16)}</div>}
         </div>
 
+        {d?.profile && (d.profile.ip || d.profile.phone || d.profile.country) && (
+          <div style={{ padding: 12, borderRadius: 12, marginBottom: 14, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8 }}>🌐 بيانات الاتصال</div>
+            <div style={{ display: "grid", gap: 5, fontSize: 11.5, color: "var(--txt-3)" }}>
+              {d.profile.country && <div>الدولة: <b style={{ color: "var(--txt-1)" }}>{d.profile.flag} {d.profile.country}{d.profile.city ? " · " + d.profile.city : ""}</b></div>}
+              {d.profile.phone && <div>الهاتف: <b style={{ color: "#25D366" }} dir="ltr">{d.profile.phone}</b></div>}
+              {d.profile.ip && <div>العنوان الحالي: <b style={{ color: "var(--txt-1)" }} dir="ltr">{d.profile.ip}</b></div>}
+              {d.profile.prev_ip && d.profile.prev_ip !== d.profile.ip && <div>السابق: <span dir="ltr">{d.profile.prev_ip}</span></div>}
+              {d.profile.isp && <div>المزوّد: <b style={{ color: "var(--txt-1)" }}>{d.profile.isp}</b></div>}
+              {d.profile.last_seen && <div>آخر دخول: <b style={{ color: "var(--txt-1)" }}>{new Date(d.profile.last_seen * 1000).toLocaleString("ar-AE", { timeZone: "Asia/Dubai", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</b></div>}
+            </div>
+          </div>
+        )}
+
         <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8 }}>🎁 تفعيل مجاني</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
           {DURATIONS.map((n) => (
