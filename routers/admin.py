@@ -287,3 +287,82 @@ async def set_freeze(enable: bool = True, user=Depends(require_admin)):
     except Exception:
         pass
     return {"frozen": enable}
+
+# ═══════════════ المراسلة ═══════════════
+class MsgBody(BaseModel):
+    message: str
+    title: str = ""
+
+
+async def _deliver(user_id: str, text: str):
+    """يحفظ الرسالة للمستخدم ويبثّها له وحده."""
+    import sqlite3, time as _tm
+    try:
+        cn = sqlite3.connect("/opt/whalex/db/whalex.db")
+        cn.execute("""CREATE TABLE IF NOT EXISTS user_messages(
+            id INTEGER PRIMARY KEY, user_id TEXT, message TEXT, created_at INTEGER, seen INTEGER DEFAULT 0)""")
+        cn.execute("INSERT INTO user_messages(user_id,message,created_at) VALUES(?,?,?)",
+                   (user_id, text, int(_tm.time())))
+        cn.commit()
+        row = cn.execute("SELECT telegram_id FROM users WHERE id=?", (user_id,)).fetchone()
+        cn.close()
+        tg = row[0] if row else None
+    except Exception:
+        tg = None
+    try:
+        from routers.ws import registry
+        await registry.broadcast({
+            "event": "admin_dm", "market": "futures", "target_user": user_id,
+            "message": text, "message_en": text,
+        })
+    except Exception:
+        pass
+    if tg:
+        try:
+            from services.telegram import send_message
+            await send_message(str(tg), text)
+        except Exception:
+            pass
+
+
+@router.post("/users/{user_id}/message")
+async def dm_user(user_id: str, body: MsgBody, user=Depends(require_admin)):
+    """رسالة خاصة لمشترك واحد فقط."""
+    txt = (body.title + "\n\n" if body.title else "") + body.message
+    await _deliver(user_id, txt)
+    return {"status": "sent", "user_id": user_id}
+
+
+@router.get("/users/{user_id}/messages")
+def dm_history(user_id: str, user=Depends(require_admin)):
+    import sqlite3
+    try:
+        cn = sqlite3.connect("/opt/whalex/db/whalex.db"); cn.row_factory = sqlite3.Row
+        rows = cn.execute("SELECT message, created_at FROM user_messages WHERE user_id=? ORDER BY id DESC LIMIT 30",
+                          (user_id,)).fetchall()
+        cn.close()
+        return {"messages": [dict(r) for r in rows]}
+    except Exception:
+        return {"messages": []}
+
+
+@router.post("/broadcast")
+async def broadcast_all(body: MsgBody, user=Depends(require_admin)):
+    """بثّ جماعي — للمشتركين الفعّالين فقط."""
+    from datetime import datetime
+    txt = (body.title + "\n\n" if body.title else "") + body.message
+    db = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        subs = db.query(Subscription).filter(Subscription.expires_at > now).all()
+        targets = sorted({s.user_id for s in subs if s.user_id})
+    finally:
+        db.close()
+    sent = 0
+    for uid in targets:
+        try:
+            await _deliver(uid, txt)
+            sent += 1
+        except Exception:
+            pass
+    return {"status": "sent", "recipients": sent}
