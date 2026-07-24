@@ -880,9 +880,13 @@ async def notify(user_id: str, msg: str, event_type: str = "alert", data: dict =
         _clean_msg = _re.sub(r"<[^>]+>", "", msg).strip()
         _clean_msg_en = _re.sub(r"<[^>]+>", "", msg_en).strip() if msg_en else None
         _c = sqlite3.connect("/opt/whalex/db/whalex.db")
+        try:
+            _c.execute("ALTER TABLE notifications ADD COLUMN market TEXT DEFAULT 'futures'")
+        except Exception:
+            pass
         _c.execute(
-            "INSERT INTO notifications (event, message, message_en, created_at) VALUES (?,?,?,?)",
-            (_classified, _clean_msg, _clean_msg_en, int(_t.time()))
+            "INSERT INTO notifications (event, message, message_en, created_at, market) VALUES (?,?,?,?,?)",
+            (_classified, _clean_msg, _clean_msg_en, int(_t.time()), "futures")
         )
         _c.commit()
         _c.close()
@@ -890,7 +894,7 @@ async def notify(user_id: str, msg: str, event_type: str = "alert", data: dict =
         log.debug("notify db save error: %s", _e)
     try:
         from routers.ws import registry
-        await registry.broadcast({"event": event_type, "user_id": user_id, "message": msg, "message_en": msg_en, "data": data or {}})
+        await registry.broadcast({"event": event_type, "market": "futures", "user_id": user_id, "message": msg, "message_en": msg_en, "data": data or {}})
     except Exception as e:
         log.debug("notify ws error: %s", e)
     try:

@@ -150,6 +150,11 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
         from core.config import get_settings
         ch = get_settings().telegram_spot_channel_id
         if ch:
+            try:
+                from services.notifier import push_note
+                await push_note("spot", "signal", f"🪙 إشارة سبوت جديدة: {sym}")
+            except Exception:
+                pass
             await send_message(ch,
                 f"🪙 <b>WhaleX Spot — BUY</b>\n"
                 f"⚡ <b>{sym}</b>  ·  قاع تجميع مؤكّد\n\n"
@@ -260,6 +265,10 @@ async def tracker_loop():
 
                         async def _announce(txt):
                             if ch:
+                                try:
+                                    from services.notifier import push_note
+                                    await push_note("spot", "closed", txt)
+                                except Exception: pass
                                 try: await send_message(ch, txt)
                                 except Exception as _te: log.debug("spot ann: %s", _te)
 

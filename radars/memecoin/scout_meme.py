@@ -533,6 +533,8 @@ async def _meme_broadcast(p, sc):
     try:
         from services.telegram import send_message
         await send_message(MEME_CHANNEL, msg)
+        from services.notifier import push_note
+        await push_note("meme", "signal", f"🐸 إشارة ميم: {b.get('symbol','?')} ({p.get('chainId')}) — {sc}/100")
     except Exception as e:
         log.warning("meme broadcast: %s", e)
 
@@ -566,6 +568,8 @@ async def _meme_close_broadcast(r, px, pnl, reason):
     try:
         from services.telegram import send_message
         await send_message(MEME_CHANNEL, msg)
+        from services.notifier import push_note
+        await push_note("meme", "closed", f"{emoji} إغلاق ميم: {r.get('symbol','?')} {pnl:+.1f}% — {reason}")
     except Exception as e:
         log.warning("meme close bc: %s", e)
 

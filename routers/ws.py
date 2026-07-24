@@ -178,13 +178,19 @@ registry = ClientRegistry()
 
 
 @router.get("/api/notifications")
-async def get_notifications(limit: int = 50):
+async def get_notifications(limit: int = 50, market: str = "futures"):
     """يرجع آخر الإشعارات المخزّنة (للجرس عند فتح الصفحة)"""
     import sqlite3
     conn = sqlite3.connect("/opt/whalex/db/whalex.db")
+    try:
+        conn.execute("ALTER TABLE notifications ADD COLUMN market TEXT DEFAULT 'futures'")
+        conn.commit()
+    except Exception:
+        pass
     rows = conn.execute(
-        "SELECT id, event, message, message_en, created_at FROM notifications ORDER BY id DESC LIMIT ?",
-        (limit,)
+        "SELECT id, event, message, message_en, created_at FROM notifications "
+        "WHERE COALESCE(market,'futures')=? ORDER BY id DESC LIMIT ?",
+        (market, limit)
     ).fetchall()
     conn.close()
     return {

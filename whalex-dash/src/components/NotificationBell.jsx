@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bell, X, Volume2, VolumeX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLang } from "../context/LangContext.jsx";
+import { getMarket } from "../hooks/useMarket.js";
 
 // 🔔 نغمة تنبيه عبر WebAudio — بلا ملف صوت، تعمل على الجوال بعد أول لمسة
 let _actx = null;
@@ -36,8 +37,19 @@ export default function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const wsRef = useRef(null);
 
+  const [mkt, setMkt] = useState(getMarket());
   useEffect(() => {
-    fetch("/api/notifications?limit=50")
+    const iv = setInterval(() => {
+      const m = getMarket();
+      setMkt((prev) => (prev === m ? prev : m));
+    }, 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  useEffect(() => {
+    setItems([]);
+    setUnread(0);
+    fetch(`/api/notifications?limit=50&market=${mkt}`)
       .then((r) => r.json())
       .then((d) => {
         if (d && Array.isArray(d.notifications)) {
@@ -53,7 +65,7 @@ export default function NotificationBell() {
         }
       })
       .catch(() => { /* تجاهل فشل التحميل الأولي */ });
-  }, []);
+  }, [mkt]);
 
   useEffect(() => {
     const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -67,6 +79,7 @@ export default function NotificationBell() {
         try {
           const d = JSON.parse(e.data);
           if (!d || !d.message) return;
+          if ((d.market || "futures") !== getMarket()) return;
           setItems((prev) => [{
             id: Date.now() + Math.random(),
             event: d.event || "alert",
