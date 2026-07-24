@@ -1215,10 +1215,13 @@ async def monitor_position(pos: Position):
         if _new != pos.sl:
             pos.sl = _new
             await _binance_update_sl(pos, pos.sl)
-    _be_th = (2.0 if is_predator else 5.0) * TUNE["harvest"]   # ⚖️ تأمين مبكر — يتبع حالة النظام
+    # ⚖️ التأمين لا يبدأ قبل ربح محترم — كان +2% فيقتل الصفقة عند الصفر قبل بلوغ هدفها
+    _be_th = (4.0 if is_predator else 6.0) * TUNE["harvest"]
     if not pos.trailing_active and pnl_pct >= _be_th:
         pos.trailing_active = True
-        pos.sl = pos.entry * (1.001 if is_long else 0.999)
+        # نقفل ربحاً حقيقياً (+1.5% مُرفّع) لا صفراً
+        _lock_pct = 1.5 / (100 * max(1.0, pos.leverage))
+        pos.sl = pos.entry * (1 + _lock_pct) if is_long else pos.entry * (1 - _lock_pct)
         pos.trailing_sl = pos.sl
         await _binance_update_sl(pos, pos.sl)
         await notify(pos.user_id,
