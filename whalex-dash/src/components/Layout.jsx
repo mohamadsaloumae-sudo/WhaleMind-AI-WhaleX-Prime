@@ -9,7 +9,7 @@ export default function Layout({ titleKey, children }) {
   const { t, lang, toggle } = useLang();
 
   async function shareApp() {
-    const APP_URL = "https://t.me/WhaleMindAI_bot";
+    const APP_URL = "https://whalemindhybridai.online";
     const TEXT = lang === "ar"
       ? "🐋 WhaleX Prime — رادار إشارات تداول بالذكاء الاصطناعي"
       : "🐋 WhaleX Prime — AI-powered trading signals radar";
