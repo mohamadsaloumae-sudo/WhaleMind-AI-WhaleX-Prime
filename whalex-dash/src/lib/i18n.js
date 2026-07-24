@@ -52,6 +52,7 @@ export const TRANSLATIONS = {
     "nav./scanner": "فاحص العملات",
     "nav./subscription": "الاشتراك",
     "nav./settings": "الإعدادات",
+    "nav./support": "الدعم الفني",
     "nav./admin": "لوحة الإدارة",
 
     // دخول
@@ -220,6 +221,7 @@ export const TRANSLATIONS = {
     "nav./scanner": "Coin Scanner",
     "nav./subscription": "Subscription",
     "nav./settings": "Settings",
+    "nav./support": "Support",
     "nav./admin": "Admin Panel",
 
     login: "Login",

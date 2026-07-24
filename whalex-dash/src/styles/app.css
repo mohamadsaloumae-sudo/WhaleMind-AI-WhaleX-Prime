@@ -449,3 +449,11 @@ table, pre, code { max-width: 100%; overflow-x: auto; }
   .topbar { gap: 6px; }
   .topbar h1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 }
+
+
+/* ═ رأس الصفحة: أزرار ثابتة، عنوان مرن ═ */
+.topbar .lang-btn, .topbar .bell-btn, .topbar .status-dot { flex-shrink: 0; }
+@media (max-width: 520px) {
+  .topbar .status-dot { display: none; }
+  .topbar h1 { font-size: 15.5px; }
+}

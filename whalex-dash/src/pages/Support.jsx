@@ -1,6 +1,5 @@
 // 💬 خدمة العملاء
 import { useState, useEffect, useRef } from "react";
-import Layout from "../components/Layout.jsx";
 import { Send } from "lucide-react";
 import { useLang } from "../context/LangContext.jsx";
 
@@ -63,8 +62,8 @@ export default function Support() {
   }
 
   return (
-    <Layout titleKey="nav./support">
-      <div className="card" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 215px)", minHeight: 330, padding: 0, overflow: "hidden" }}>
+    <>
+      <div className="card" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 205px)", minHeight: 330, padding: 0, overflow: "hidden" }}>
         <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 9 }}>
           {msgs.length === 0 && (
             <div style={{ textAlign: "center", color: "var(--txt-3)", fontSize: 13, marginTop: 26, lineHeight: 1.9, whiteSpace: "pre-line" }}>
@@ -102,6 +101,6 @@ export default function Support() {
           }}><Send size={17} /></button>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }

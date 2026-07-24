@@ -40,7 +40,7 @@ export default function Layout({ titleKey, children }) {
       <Sidebar />
       <div className="main-area">
         <header className="topbar">
-          <h1>{t(titleKey)}</h1>
+          <h1 style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(titleKey)}</h1>
           <div className="spacer" />
           <button className="lang-btn" onClick={toggle} title="Language">
             <Languages size={17} />
