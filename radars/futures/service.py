@@ -827,6 +827,17 @@ async def _spot_guard():
         await asyncio.sleep(60)
 
 
+async def _membership_guard():
+    while True:
+        try:
+            from services.membership import lifecycle_loop
+            await lifecycle_loop()
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("membership").error("membership guard: %s", _e)
+        await asyncio.sleep(60)
+
+
 async def _meme_live_guard():
     while True:
         try:
@@ -893,6 +904,7 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
         _spot_guard(),  # 🪙 عقل السبوت — معزول كلياً
         _meme_guard(),
         _meme_live_guard(),  # ⚡🐸 تيار الميم اللحظي
+        _membership_guard(),  # 🎟️ دورة حياة الاشتراك
         shadow_loop(),
         scout_long_loop(position_manager_fn=position_manager_fn),
         ob_stream_run(list(dict.fromkeys([t.symbol for t in ALL_SYMBOLS] + _open_position_syms()))),
