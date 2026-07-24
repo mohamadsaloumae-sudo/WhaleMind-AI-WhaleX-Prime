@@ -252,6 +252,17 @@ async def _send_long_and_open(symbol, price, candles, bottom, res, position_mana
              symbol, price, sig.grade, "+".join(sigs))
 
 
+    # 🔔 إشعار الميني آب فور صدور الإشارة
+    try:
+        from services.notifier import push_note
+        await push_note("futures", "signal",
+                        f"🚨 إشارة جديدة · {sig.symbol}\nشراء LONG · درجة {sig.grade}\n"
+                        f"الدخول {sig.entry} · وقف {sig.sl}\n📈 WhaleX Long",
+                        f"🚨 New signal · {sig.symbol}\nLONG · Grade {sig.grade}\n"
+                        f"Entry {sig.entry} · SL {sig.sl}\n📈 WhaleX Long")
+    except Exception as _ne:
+        log.debug("long note: %s", _ne)
+
     if position_manager_fn:
         try:
             _res = await position_manager_fn(sig)

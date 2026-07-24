@@ -449,6 +449,17 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
     log.info("🔭🔻 PEAK HUNTER SIGNAL: %s SHORT @%.6g grade=%s [%s]",
              symbol, price, sig.grade, "+".join(sigs))
     # نفتح أولاً، ونرسل البطاقة للقناة فقط إن فُتحت الصفقة فعلاً (لا بطاقة لصفقة مُنعت/مكرّرة)
+    # 🔔 إشعار الميني آب فور صدور الإشارة
+    try:
+        from services.notifier import push_note
+        await push_note("futures", "signal",
+                        f"🚨 إشارة جديدة · {sig.symbol}\nبيع SHORT · درجة {sig.grade}\n"
+                        f"الدخول {sig.entry} · وقف {sig.sl}\n🎯 WhaleX Short",
+                        f"🚨 New signal · {sig.symbol}\nSHORT · Grade {sig.grade}\n"
+                        f"Entry {sig.entry} · SL {sig.sl}\n🎯 WhaleX Short")
+    except Exception as _ne:
+        log.debug("short note: %s", _ne)
+
     opened_ok = False
     if position_manager_fn:
         try:
