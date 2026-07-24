@@ -138,6 +138,95 @@ async def ask(body: Ask):
     return {"reply": None, "auto": False, "menu": MENU_EN if body.lang == "en" else MENU_AR}
 
 
+TOPICS = [
+    ("كيف تعمل الرادارات؟", "How do the radars work?"),
+    ("ما معنى الدرجات S و A؟", "What do grades S and A mean?"),
+    ("الفرق بين السبوت والفيوتشر", "Spot vs Futures"),
+    ("كيف يفحص رادار الميم؟", "How does the meme radar screen?"),
+    ("كيف أربط باينانس؟", "How do I connect Binance?"),
+    ("كيف تُدار المخاطر والوقف؟", "How are risk and stops managed?"),
+    ("كيف يتم جني الأرباح؟", "How is profit taken?"),
+    ("لماذا الإشارات قليلة؟", "Why are signals few?"),
+    ("ما هي الرافعة الهرمية؟", "What is pyramided leverage?"),
+    ("تفاصيل الاشتراك", "Subscription details"),
+    ("كيف تعمل الإشعارات؟", "How do notifications work?"),
+    ("الصفقات المفتوحة", "Open positions"),
+]
+
+
+@router.get("/api/support/topics")
+async def topics(lang: str = "ar"):
+    en = lang == "en"
+    return {"topics": [t[1] if en else t[0] for t in TOPICS]}
+
+
+@router.get("/api/admin/support/pending")
+async def pending(limit: int = 50):
+    """الأسئلة التي لم يجب عنها النظام — للأدمن."""
+    _init()
+    try:
+        c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
+        rows = c.execute("SELECT id,user_id,message,created_at FROM support_messages "
+                         "WHERE (reply IS NULL OR reply='') ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        c.close()
+        out = []
+        for r in rows:
+            d = dict(r)
+            try:
+                from db.database import get_session, User
+                _db = get_session()
+                _u = _db.query(User).filter(User.id == d["user_id"]).first()
+                d["username"] = getattr(_u, "username", None) if _u else None
+                _db.close()
+            except Exception:
+                d["username"] = None
+            out.append(d)
+        return {"pending": out}
+    except Exception:
+        return {"pending": []}
+
+
+class ReplyBody(BaseModel):
+    msg_id: int
+    reply: str
+
+
+@router.post("/api/admin/support/reply")
+async def admin_reply(body: ReplyBody):
+    """رد الأدمن — يُحفظ ويصل المستخدم فوراً."""
+    _init()
+    uid = None
+    try:
+        c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
+        row = c.execute("SELECT user_id FROM support_messages WHERE id=?", (body.msg_id,)).fetchone()
+        uid = dict(row).get("user_id") if row else None
+        c.execute("UPDATE support_messages SET reply=?, replied_at=? WHERE id=?",
+                  (body.reply, int(time.time()), body.msg_id))
+        c.commit(); c.close()
+    except Exception as e:
+        log.warning("reply: %s", e)
+        return {"ok": False}
+    if uid:
+        try:
+            from routers.ws import registry
+            await registry.broadcast({"event": "admin_dm", "market": "futures", "target_user": uid,
+                                      "message": "💬 رد الدعم الفني:\n" + body.reply,
+                                      "message_en": "💬 Support reply:\n" + body.reply})
+        except Exception:
+            pass
+        try:
+            c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
+            r = c.execute("SELECT telegram_id FROM users WHERE id=?", (uid,)).fetchone()
+            c.close()
+            tg = dict(r).get("telegram_id") if r else None
+            if tg:
+                from services.telegram import send_message
+                await send_message(str(tg), "💬 <b>رد الدعم الفني</b>\n\n" + body.reply)
+        except Exception:
+            pass
+    return {"ok": True, "user_id": uid}
+
+
 @router.get("/api/support/history")
 async def history(user_id: str = "guest", limit: int = 50):
     _init()
