@@ -133,3 +133,157 @@ def delete_signal(signal_id: str, user=Depends(require_admin)):
         return {"status": "ok"}
     finally:
         db.close()
+
+# ═══════════════ ملف المستخدم التفصيلي ═══════════════
+@router.get("/users/{user_id}/detail")
+def user_detail(user_id: str, user=Depends(require_admin)):
+    """كل شيء عن مشترك: بياناته، اشتراكه، ونتائج تداوله في كل سوق."""
+    import sqlite3
+    from datetime import datetime as _dt
+    out = {"user_id": user_id}
+    db = SessionLocal()
+    try:
+        u = db.query(User).filter(User.id == user_id).first()
+        if u:
+            out["email"] = getattr(u, "email", None)
+            out["telegram_id"] = getattr(u, "telegram_id", None)
+            out["created_at"] = str(getattr(u, "created_at", "") or "")
+        sub = db.query(Subscription).filter(Subscription.user_id == user_id)\
+                .order_by(Subscription.expires_at.desc()).first()
+        if sub:
+            exp = sub.expires_at
+            out["subscription"] = {
+                "plan": sub.plan, "expires_at": str(exp) if exp else None,
+                "amount_paid": sub.amount_paid,
+                "active": bool(exp and exp > _dt.utcnow()),
+                "days_left": max(0, int((exp - _dt.utcnow()).total_seconds() / 86400)) if exp else 0,
+            }
+        else:
+            out["subscription"] = {"active": False, "days_left": 0}
+    except Exception as e:
+        out["error"] = str(e)[:120]
+    finally:
+        db.close()
+
+    def _agg(rows):
+        vals = [r for r in rows if r is not None]
+        wins = [v for v in vals if v > 0]
+        losses = [v for v in vals if v <= 0]
+        return {
+            "trades": len(vals), "wins": len(wins), "losses": len(losses),
+            "win_rate": round(len(wins) / len(vals) * 100, 1) if vals else 0,
+            "profit": round(sum(wins), 2), "loss": round(abs(sum(losses)), 2),
+            "net": round(sum(vals), 2),
+        }
+
+    markets = {}
+    try:
+        con = sqlite3.connect("/opt/whalex/ml_training.db")
+        rows = [r[0] for r in con.execute(
+            "SELECT pnl_pct FROM training_signals WHERE pnl_pct IS NOT NULL AND result IN ('win','loss')")]
+        con.close()
+        markets["futures"] = _agg(rows)
+    except Exception:
+        markets["futures"] = _agg([])
+    try:
+        con = sqlite3.connect("/opt/whalex/db/whalex.db")
+        rows = [r[0] for r in con.execute("SELECT pnl_pct FROM spot_results WHERE pnl_pct IS NOT NULL")]
+        con.close()
+        markets["spot"] = _agg(rows)
+    except Exception:
+        markets["spot"] = _agg([])
+    try:
+        con = sqlite3.connect("/opt/whalex/db/memecoin.db")
+        rows = [r[0] for r in con.execute(
+            "SELECT pnl_pct FROM meme_signals WHERE status='closed' AND pnl_pct IS NOT NULL")]
+        con.close()
+        markets["meme"] = _agg(rows)
+    except Exception:
+        markets["meme"] = _agg([])
+    out["markets"] = markets
+    return out
+
+
+class GrantBody(BaseModel):
+    days: int = 30
+
+
+@router.post("/users/{user_id}/grant-custom")
+async def grant_custom(user_id: str, body: GrantBody, user=Depends(require_admin)):
+    """تفعيل مجاني بمدة مخصّصة + إصدار روابط القنوات."""
+    from datetime import datetime, timedelta
+    import uuid as _uuid
+    days = max(1, min(int(body.days or 30), 3650))
+    db = SessionLocal()
+    try:
+        cur = db.query(Subscription).filter(Subscription.user_id == user_id)\
+                .order_by(Subscription.expires_at.desc()).first()
+        base = datetime.utcnow()
+        if cur and cur.expires_at and cur.expires_at > base:
+            base = cur.expires_at
+        expires = base + timedelta(days=days)
+        db.add(Subscription(id=str(_uuid.uuid4()), user_id=user_id, plan="pro",
+                            amount_paid=0.0, expires_at=expires))
+        db.commit()
+    finally:
+        db.close()
+    channels = []
+    try:
+        from services.membership import issue_links, _clear_reminders
+        _clear_reminders(user_id)
+        channels = await issue_links(user_id, int(expires.timestamp()))
+    except Exception:
+        pass
+    return {"status": "ok", "days": days, "expires_at": str(expires), "channels": channels}
+
+
+@router.post("/users/{user_id}/cancel-sub")
+async def cancel_sub(user_id: str, user=Depends(require_admin)):
+    """إلغاء الاشتراك فوراً + سحب الوصول للقنوات."""
+    from datetime import datetime
+    db = SessionLocal()
+    try:
+        for s in db.query(Subscription).filter(Subscription.user_id == user_id).all():
+            s.expires_at = datetime.utcnow()
+        db.commit()
+    finally:
+        db.close()
+    try:
+        from services.membership import revoke_access
+        await revoke_access(user_id)
+    except Exception:
+        pass
+    return {"status": "cancelled", "user_id": user_id}
+
+
+# ═══════════════ تجميد التداول العام ═══════════════
+FREEZE_FILE = "/opt/whalex/db/trading_freeze.flag"
+
+
+@router.get("/freeze")
+def freeze_status(user=Depends(require_admin)):
+    import os
+    return {"frozen": os.path.exists(FREEZE_FILE)}
+
+
+@router.post("/freeze")
+async def set_freeze(enable: bool = True, user=Depends(require_admin)):
+    """تجميد/فك تجميد كل التنفيذ الآلي أثناء الصيانة."""
+    import os
+    if enable:
+        os.makedirs(os.path.dirname(FREEZE_FILE), exist_ok=True)
+        with open(FREEZE_FILE, "w") as f:
+            f.write(str(int(__import__("time").time())))
+    else:
+        try:
+            os.remove(FREEZE_FILE)
+        except FileNotFoundError:
+            pass
+    try:
+        from services.notifier import push_note
+        await push_note("futures", "alert",
+                        "🧊 تم تجميد التداول الآلي مؤقتاً للصيانة" if enable
+                        else "✅ عاد التداول الآلي للعمل")
+    except Exception:
+        pass
+    return {"frozen": enable}
