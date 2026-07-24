@@ -17,8 +17,9 @@ MIN_VOL_24 = 20_000     # حجم 24 ساعة دنيا
 AGE_MIN_MIN = 60        # أصغر عمر بالدقائق — أول ساعة مجزرة
 MAX_PUMP_H1 = 50.0      # فوقها = دخول متأخر بعد الانفجار
 MAX_DUMP = -30.0        # تحتها = العملة تنهار أصلاً
-AGE_MAX_MIN = 72 * 60   # أكبر عمر لسولانا (ميم وليدة)
-AGE_MAX_EVM = 90 * 24 * 60  # أكبر عمر لـ BNB/Ethereum (عملات ناضجة)
+MIN_TXNS_H1 = 30        # حياة الآن: معاملات آخر ساعة
+MIN_BUY_RATIO_H1 = 0.50 # زخم الشراء في الساعة الأخيرة
+VOL_ACCEL = 2.0         # حجم الساعة ≥ ضعف المتوسط اليومي = تسارع
 BASE_TOKENS = {"WBNB", "BNB", "WETH", "ETH", "USDT", "USDC", "BUSD", "DAI",
                "WSOL", "SOL", "CAKE", "FDUSD", "TUSD", "USDE", "STETH"}
 MIN_TXNS_24 = 50        # معاملات 24 ساعة دنيا
@@ -62,13 +63,22 @@ def _gate0(p):
     if ((p.get("baseToken") or {}).get("symbol") or "").upper() in BASE_TOKENS:
         return False
     created = (p.get("pairCreatedAt") or 0) / 1000
-    if created:
-        age = (time.time() - created) / 60
-        _amax = AGE_MAX_MIN if p.get("chainId") == "solana" else AGE_MAX_EVM
-        if age < AGE_MIN_MIN or age > _amax:
-            return False
+    if created and (time.time() - created) / 60 < AGE_MIN_MIN:
+        return False
     t = (p.get("txns") or {}).get("h24") or {}
     if (t.get("buys", 0) + t.get("sells", 0)) < MIN_TXNS_24:
+        return False
+    # ⚡ الحراك الحي والتسارع — العمر لا يهم، الزخم يهم
+    t1 = (p.get("txns") or {}).get("h1") or {}
+    b1 = t1.get("buys", 0) or 0
+    s1 = t1.get("sells", 0) or 0
+    if (b1 + s1) < MIN_TXNS_H1:
+        return False
+    if (b1 + s1) > 0 and (b1 / (b1 + s1)) < MIN_BUY_RATIO_H1:
+        return False
+    v1 = (p.get("volume") or {}).get("h1", 0) or 0
+    v24 = (p.get("volume") or {}).get("h24", 0) or 0
+    if v24 > 0 and v1 < (v24 / 24) * VOL_ACCEL:
         return False
     # 🚫 فيتو الدخول المتأخر والانهيار الجاري
     pc = p.get("priceChange") or {}
