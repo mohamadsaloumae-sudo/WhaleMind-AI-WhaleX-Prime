@@ -1018,6 +1018,17 @@ def guardian_veto_v3(direction, rsi_v, sk, sd, price, bb_u, bb_l, bb_m,
 # ─── PREDATOR AGENT V3 ──────────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
+PRED_STATS = {"scanned": 0, "dead_vol": 0, "spoof": 0, "low_score": 0,
+              "guardian": 0, "mtf": 0, "delta": 0, "emitted": 0}
+
+
+def pred_stats_snapshot():
+    s = dict(PRED_STATS)
+    for k in PRED_STATS:
+        PRED_STATS[k] = 0
+    return s
+
+
 async def predator_agent(
     candles: list,
     symbol: str,
@@ -1034,6 +1045,7 @@ async def predator_agent(
     """
     if len(candles) < 60:
         return
+    PRED_STATS["scanned"] += 1
 
     closes = [c.close for c in candles]
     price = closes[-1]
@@ -1081,11 +1093,12 @@ async def predator_agent(
 
     # ═══ السوق ميت → تجاهل ═══
     if not vol_passed:
+        PRED_STATS["dead_vol"] += 1
         return
 
     # ═══ Spoofing → تجاهل (تلاعب) ═══
     if spoofing:
-        log.debug("Spoofing detected: %s", symbol)
+        PRED_STATS["spoof"] += 1
         return
 
     long_score = 0.0
@@ -1455,11 +1468,13 @@ async def predator_agent(
         from quant_engine.mtf_confluence import validate_signal_with_mtf
         _okm, _rsm, _ = await validate_signal_with_mtf(symbol, direction)
         if not _okm:
+            PRED_STATS["mtf"] += 1
             log.info("🧭 %s %s رُفض بتوافق الأطر: %s", symbol, direction, _rsm)
             return
         from quant_engine.delta_engine import validate_signal_with_delta
         _okd, _rsd, _ = await validate_signal_with_delta(symbol, direction)
         if not _okd:
+            PRED_STATS["delta"] += 1
             log.info("📊 %s %s رُفض بالدلتا: %s", symbol, direction, _rsd)
             return
         log.info("✅ %s %s اجتاز Quant: %s | %s", symbol, direction, _rsm, _rsd)
@@ -1577,11 +1592,13 @@ async def sleeping_giants_radar(
         from quant_engine.mtf_confluence import validate_signal_with_mtf
         _okm, _rsm, _ = await validate_signal_with_mtf(symbol, direction)
         if not _okm:
+            PRED_STATS["mtf"] += 1
             log.info("🧭 %s %s رُفض بتوافق الأطر: %s", symbol, direction, _rsm)
             return
         from quant_engine.delta_engine import validate_signal_with_delta
         _okd, _rsd, _ = await validate_signal_with_delta(symbol, direction)
         if not _okd:
+            PRED_STATS["delta"] += 1
             log.info("📊 %s %s رُفض بالدلتا: %s", symbol, direction, _rsd)
             return
         log.info("✅ %s %s اجتاز Quant: %s | %s", symbol, direction, _rsm, _rsd)
