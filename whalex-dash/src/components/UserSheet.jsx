@@ -1,6 +1,6 @@
 // 👤 ملف المشترك — تفعيل، إلغاء، ونتائج التداول
 import { useEffect, useState } from "react";
-import { X, Check, Ban } from "lucide-react";
+import { X, Check, Ban, Send } from "lucide-react";
 import { api } from "../lib/api.js";
 
 const DURATIONS = [7, 30, 90, 180, 365];
@@ -10,6 +10,21 @@ export default function UserSheet({ userId, onClose, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [days, setDays] = useState(30);
   const [msg, setMsg] = useState("");
+  const [dm, setDm] = useState("");
+  const [sentLog, setSentLog] = useState([]);
+
+  async function sendDm() {
+    const t = dm.trim();
+    if (!t) return;
+    setBusy(true);
+    try {
+      await api.post(`/api/admin/users/${userId}/message`, { message: t });
+      setDm(""); setMsg("✉️ أُرسلت الرسالة");
+      const h = await api.get(`/api/admin/users/${userId}/messages`);
+      setSentLog(h?.messages || []);
+    } catch { setMsg("⚠️ فشل الإرسال"); }
+    setBusy(false);
+  }
 
   async function load() {
     try {
@@ -109,6 +124,30 @@ export default function UserSheet({ userId, onClose, onChanged }) {
           }}><Ban size={16} /> إلغاء</button>
         </div>
         {msg && <div style={{ fontSize: 12.5, marginBottom: 12, color: "var(--brand)" }}>{msg}</div>}
+
+        <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8 }}>✉️ رسالة خاصة</div>
+        <div style={{ display: "flex", gap: 7, marginBottom: 8 }}>
+          <input
+            value={dm}
+            onChange={(e) => setDm(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendDm()}
+            placeholder="اكتب رسالة تصله وحده..."
+            style={{
+              flex: 1, minWidth: 0, background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10,
+              padding: "10px 12px", color: "inherit", fontSize: 13, outline: "none",
+            }}
+          />
+          <button onClick={sendDm} disabled={busy} style={{
+            background: "var(--accent, #38bdf8)", border: "none", borderRadius: 10, width: 44,
+            display: "grid", placeItems: "center", cursor: "pointer", color: "#04121a", opacity: busy ? .5 : 1,
+          }}><Send size={16} /></button>
+        </div>
+        {sentLog.length > 0 && (
+          <div style={{ fontSize: 11, color: "var(--txt-3)", marginBottom: 14, lineHeight: 1.8 }}>
+            آخر رسالة: {String(sentLog[0]?.message || "").slice(0, 60)}
+          </div>
+        )}
 
         <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8 }}>📊 نتائج التداول</div>
         <M name="الفيوتشر" icon="⚡" m={d?.markets?.futures} />

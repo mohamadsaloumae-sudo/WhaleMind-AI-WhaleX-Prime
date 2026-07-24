@@ -107,6 +107,21 @@ export default function NotificationBell() {
       ws.onmessage = (e) => {
         try {
           const d = JSON.parse(e.data);
+          if (d && d.event === "admin_dm") {
+            let me = "";
+            try {
+              me = String(window.Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem("wx_uid") || "");
+            } catch { me = ""; }
+            const uid = localStorage.getItem("wx_user_id") || me;
+            if (d.target_user && uid && String(d.target_user) !== String(uid)) return;
+            try {
+              window.dispatchEvent(new CustomEvent("wx-toast", { detail: { message: d.message, event: "signal" } }));
+            } catch { /* */ }
+            playChime();
+            setItems((prev) => [{ id: Date.now() + Math.random(), event: "admin_dm", message: d.message, time: new Date() }, ...prev].slice(0, 50));
+            setUnread((u) => u + 1);
+            return;
+          }
           if (d && d.event === "device_kick") {
             try { window.dispatchEvent(new CustomEvent("wx-device", { detail: JSON.stringify(d) })); } catch { /* */ }
             return;

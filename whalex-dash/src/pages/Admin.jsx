@@ -11,6 +11,8 @@ export default function Admin() {
   const [users, setUsers] = useState([]);
   const [sheetUser, setSheetUser] = useState(null);
   const [frozen, setFrozen] = useState(false);
+  const [bcast, setBcast] = useState("");
+  const [bcastMsg, setBcastMsg] = useState("");
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState("");
@@ -81,6 +83,43 @@ export default function Admin() {
               color: frozen ? "#06110a" : "#fff",
             }}
           >{frozen ? "فك التجميد" : "تجميد الكل"}</button>
+        </div>
+
+        <div style={{ padding: 14, borderRadius: 12, marginBottom: 16, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 4 }}>📢 إرسال جماعي</div>
+          <div style={{ fontSize: 11.5, color: "var(--txt-3)", marginBottom: 10, lineHeight: 1.6 }}>
+            تصل كل المشتركين الفعّالين فقط — إشعار منبثق داخل التطبيق وتيليجرام
+          </div>
+          <textarea
+            value={bcast}
+            onChange={(e) => setBcast(e.target.value)}
+            placeholder="اكتب رسالتك للمشتركين..."
+            rows={3}
+            style={{
+              width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 10, padding: "10px 12px", color: "inherit", fontSize: 13, outline: "none",
+              resize: "vertical", marginBottom: 8, fontFamily: "inherit",
+            }}
+          />
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              onClick={async () => {
+                const t = bcast.trim();
+                if (!t) return;
+                if (!confirm("إرسال هذه الرسالة لكل المشتركين الفعّالين؟")) return;
+                try {
+                  const r = await api.post("/api/admin/broadcast", { message: t });
+                  setBcastMsg(`✅ وصلت ${r?.recipients ?? 0} مشترك`);
+                  setBcast("");
+                } catch { setBcastMsg("⚠️ فشل الإرسال"); }
+              }}
+              style={{
+                background: "var(--brand)", color: "#06110a", border: "none", borderRadius: 10,
+                padding: "10px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer",
+              }}
+            >إرسال للجميع</button>
+            {bcastMsg && <span style={{ fontSize: 12, color: "var(--brand)" }}>{bcastMsg}</span>}
+          </div>
         </div>
 
         <div className="card-title">{t("manageUsers")} ({users.length})</div>
