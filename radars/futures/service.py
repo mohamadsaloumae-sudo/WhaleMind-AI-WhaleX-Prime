@@ -793,6 +793,17 @@ def _open_position_syms():
     except Exception:
         return []
 
+async def _kline_stream_guard():
+    while True:
+        try:
+            from radars.futures.kline_stream import kline_stream_loop
+            await kline_stream_loop()
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("kline_stream").error("kline stream guard: %s", _e)
+        await asyncio.sleep(15)
+
+
 async def _price_stream_guard():
     while True:
         try:
@@ -867,6 +878,7 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
         btc_macro_loop(),
         mc_refresh_loop(),
         _price_stream_guard(),  # ⚡ تيار الأسعار الحي
+        _kline_stream_guard(),  # 🕯️ تيار الشموع الحي
         _spot_guard(),  # 🪙 عقل السبوت — معزول كلياً
         _meme_guard(),
         shadow_loop(),
