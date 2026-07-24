@@ -195,8 +195,31 @@ def user_detail(user_id: str, user=Depends(require_admin)):
             "net": round(sum(vals), 2),
         }
 
-    # صفقات هذا المستخدم وحده — من سجلّ التنفيذ الفعلي
-    markets = {"futures": _agg([]), "spot": _agg([]), "meme": _agg([])}
+    # أداء إشارات المنصة (مرجعي — ليس أرباح المستخدم)
+    markets = {}
+    try:
+        con = sqlite3.connect("/opt/whalex/ml_training.db")
+        rows = [r[0] for r in con.execute(
+            "SELECT pnl_pct FROM training_signals WHERE pnl_pct IS NOT NULL AND result IN ('win','loss')")]
+        con.close()
+        markets["futures"] = _agg(rows)
+    except Exception:
+        markets["futures"] = _agg([])
+    try:
+        con = sqlite3.connect("/opt/whalex/db/whalex.db")
+        rows = [r[0] for r in con.execute("SELECT pnl_pct FROM spot_results WHERE pnl_pct IS NOT NULL")]
+        con.close()
+        markets["spot"] = _agg(rows)
+    except Exception:
+        markets["spot"] = _agg([])
+    try:
+        con = sqlite3.connect("/opt/whalex/db/memecoin.db")
+        rows = [r[0] for r in con.execute(
+            "SELECT pnl_pct FROM meme_signals WHERE status='closed' AND pnl_pct IS NOT NULL")]
+        con.close()
+        markets["meme"] = _agg(rows)
+    except Exception:
+        markets["meme"] = _agg([])
     executed = 0
     try:
         con = sqlite3.connect("/opt/whalex/db/whalex.db")

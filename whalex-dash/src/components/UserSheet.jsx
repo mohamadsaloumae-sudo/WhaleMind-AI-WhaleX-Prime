@@ -252,6 +252,11 @@ export default function UserSheet({ userId, onClose, onChanged }) {
             لا توجد صفقات منفَّذة لهذا المشترك — لم يربط باينانس أو لم يفعّل التداول الآلي بعد.
           </div>
         )}
+
+        <div style={{ fontSize: 12.5, fontWeight: 700, margin: "14px 0 8px" }}>📈 أداء إشارات المنصة</div>
+        <M name="الفيوتشر" icon="⚡" m={d?.markets?.futures} />
+        <M name="السبوت" icon="🪙" m={d?.markets?.spot} />
+        <M name="الميم" icon="🐸" m={d?.markets?.meme} />
       </div>
     </div>
   );
