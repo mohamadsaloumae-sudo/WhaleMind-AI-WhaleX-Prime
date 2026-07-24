@@ -2,7 +2,8 @@
 import sqlite3
 import time
 import logging
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from routers.auth import get_current_user
 from pydantic import BaseModel
 
 log = logging.getLogger("device")
@@ -25,9 +26,10 @@ class DevBody(BaseModel):
 
 
 @router.post("/api/device/register")
-async def register(body: DevBody):
+async def register(body: DevBody, user=Depends(get_current_user)):
     """يسجّل الجهاز الحالي ويُبطل أي جهاز سابق."""
     _init()
+    body.user_id = user.get("sub") or body.user_id
     now = int(time.time())
     try:
         c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
@@ -56,9 +58,12 @@ async def register(body: DevBody):
 
 
 @router.get("/api/device/check")
-async def check(user_id: str, device_id: str):
+async def check(device_id: str, user=Depends(get_current_user)):
     """هل هذا الجهاز ما زال الجلسة المعتمدة؟"""
     _init()
+    user_id = user.get("sub")
+    if not user_id:
+        return {"valid": True}
     try:
         c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
         row = c.execute("SELECT device_id FROM active_devices WHERE user_id=?", (user_id,)).fetchone()

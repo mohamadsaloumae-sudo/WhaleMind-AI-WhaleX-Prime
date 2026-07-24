@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Smartphone } from "lucide-react";
 import { useLang } from "../context/LangContext.jsx";
+import { api } from "../lib/api.js";
 
 function deviceId() {
   let v = localStorage.getItem("wx_device");
@@ -12,13 +13,7 @@ function deviceId() {
   return v;
 }
 
-function userId() {
-  try {
-    const tg = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-    if (tg) return String(tg);
-  } catch { /* */ }
-  return localStorage.getItem("wx_uid") || "guest";
-}
+
 
 export default function DeviceGuard({ children }) {
   const { lang } = useLang();
@@ -27,10 +22,7 @@ export default function DeviceGuard({ children }) {
 
   async function register() {
     try {
-      await fetch("/api/device/register", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId(), device_id: deviceId(), ua: navigator.userAgent || "" }),
-      });
+      await api.post("/api/device/register", { user_id: "", device_id: deviceId(), ua: navigator.userAgent || "" });
       setLocked(false);
     } catch { /* */ }
   }
@@ -39,8 +31,7 @@ export default function DeviceGuard({ children }) {
     register();
     const check = async () => {
       try {
-        const r = await fetch(`/api/device/check?user_id=${encodeURIComponent(userId())}&device_id=${deviceId()}`);
-        const d = await r.json();
+        const d = await api.get(`/api/device/check?device_id=${deviceId()}`);
         setLocked(d && d.valid === false);
       } catch { /* */ }
     };
@@ -49,7 +40,7 @@ export default function DeviceGuard({ children }) {
     function onKick(e) {
       try {
         const d = JSON.parse(e.detail || "{}");
-        if (d.event === "device_kick" && d.user_id === userId() && d.target_device === deviceId()) {
+        if (d.event === "device_kick" && d.target_device === deviceId()) {
           setLocked(true);
         }
       } catch { /* */ }
