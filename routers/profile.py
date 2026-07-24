@@ -148,7 +148,7 @@ async def me(user=Depends(get_current_user)):
     user_id = user.get("sub")
     try:
         c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
-        row = c.execute("SELECT name, phone, flag, country, city FROM user_profiles WHERE user_id=?",
+        row = c.execute("SELECT name, phone, flag, country, country_code, city FROM user_profiles WHERE user_id=?",
                         (user_id,)).fetchone()
         c.close()
         return dict(row) if row else {}
