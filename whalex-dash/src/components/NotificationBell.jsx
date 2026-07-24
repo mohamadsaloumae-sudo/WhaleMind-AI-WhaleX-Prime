@@ -5,9 +5,9 @@ import { useNavigate } from "react-router-dom";
 import { useLang } from "../context/LangContext.jsx";
 import { getMarket } from "../hooks/useMarket.js";
 
-// 🔔 نغمة تنبيه عبر WebAudio — بلا ملف صوت، تعمل على الجوال بعد أول لمسة
+// 🎵 نغمة WhaleX الهادئة — ثلاث نوتات متناغمة بتلاشٍ طويل
 let _actx = null;
-function playChime() {
+export function playChime() {
   try {
     if (localStorage.getItem("wx_sound") === "off") return;
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -15,15 +15,21 @@ function playChime() {
     if (!_actx) _actx = new AC();
     if (_actx.state === "suspended") _actx.resume();
     const now = _actx.currentTime;
-    [880, 1174.7].forEach((f, i) => {
-      const osc = _actx.createOscillator(), g = _actx.createGain();
+    const master = _actx.createGain();
+    master.gain.value = 0.5;
+    master.connect(_actx.destination);
+    // مثلث هارموني هادئ: E5 · G#5 · B5
+    [659.25, 830.61, 987.77].forEach((f, i) => {
+      const t0 = now + i * 0.19;
+      const osc = _actx.createOscillator();
+      const g = _actx.createGain();
       osc.type = "sine";
       osc.frequency.value = f;
-      g.gain.setValueAtTime(0.0001, now + i * 0.14);
-      g.gain.exponentialRampToValueAtTime(0.28, now + i * 0.14 + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.14 + 0.42);
-      osc.connect(g); g.connect(_actx.destination);
-      osc.start(now + i * 0.14); osc.stop(now + i * 0.14 + 0.45);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.16, t0 + 0.08);   // هجوم ناعم
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.25); // تلاشٍ طويل
+      osc.connect(g); g.connect(master);
+      osc.start(t0); osc.stop(t0 + 1.3);
     });
   } catch { /* */ }
 }
@@ -89,6 +95,11 @@ export default function NotificationBell() {
           }, ...prev].slice(0, 50));
           setUnread((u) => u + 1);
           playChime();
+          try {
+            window.dispatchEvent(new CustomEvent("wx-toast", {
+              detail: { message: lang === "en" && d.message_en ? d.message_en : d.message, event: d.event },
+            }));
+          } catch { /* */ }
         } catch { /* */ }
       };
       ws.onclose = () => { if (alive) retry = setTimeout(connect, 5000); };

@@ -6,6 +6,7 @@ import { Languages, Share2 } from "lucide-react";
 import NotificationBell from "./NotificationBell.jsx";
 import DrawerMenu from "./DrawerMenu.jsx";
 import ScrollTop from "./ScrollTop.jsx";
+import Toast from "./Toast.jsx";
 
 export default function Layout({ titleKey, children }) {
   const { t, lang, toggle } = useLang();
@@ -38,6 +39,7 @@ export default function Layout({ titleKey, children }) {
 
   return (
     <div className="app-shell">
+      <Toast />
       <Sidebar />
       <div className="main-area">
         <header className="topbar">
