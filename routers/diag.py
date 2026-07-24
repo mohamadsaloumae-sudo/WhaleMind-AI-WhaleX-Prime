@@ -23,10 +23,11 @@ async def klines_integrity(symbol: str = "BTCUSDT", interval: str = "15m", limit
 
     if store_rows is None:
         try:
-            from radars.futures.kline_stream import get as _kg, want as _kw, stats as _ks
+            from radars.futures.kline_stream import get as _kg, want as _kw, stats as _ks, age as _ka
             _kw(symbol, interval)
             _r = _kg(symbol, interval, limit)
             out["store_stats"] = _ks()
+            out["store_age_sec"] = _ka(symbol, interval)
             if _r:
                 store_rows = [{"t": int(x[0]) // 1000, "o": float(x[1]), "h": float(x[2]),
                                "l": float(x[3]), "c": float(x[4])} for x in _r]

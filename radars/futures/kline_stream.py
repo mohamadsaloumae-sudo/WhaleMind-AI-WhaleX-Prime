@@ -10,6 +10,11 @@ log = logging.getLogger("kline_stream")
 WS_BASE = "wss://fstream.binance.com/stream?streams="
 MAX_BARS = 200
 _STORE: dict = {}      # (SYM, tf) -> list[list] بصيغة Binance
+_TOUCH: dict = {}      # (SYM, tf) -> آخر تحديث من البثّ
+
+_TF_SEC = {"1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800,
+           "1h": 3600, "2h": 7200, "4h": 14400, "6h": 21600, "8h": 28800,
+           "12h": 43200, "1d": 86400}
 _WANTED: set = set()   # (SYM, tf) المطلوب بثّها
 _READY: set = set()    # ما اكتملت تعبئته
 _SEEDING: set = set()
@@ -27,12 +32,24 @@ def want(symbol: str, interval: str):
 
 
 def get(symbol: str, interval: str, limit: int = 50):
-    """شموع حيّة من المخزن، أو None إن لم تجهز بعد."""
+    """شموع حيّة فقط — تُرفض إن تجمّد بثّها (تُخدم من REST بدلاً منها)."""
     k = (symbol.upper(), interval)
     rows = _STORE.get(k)
-    if rows and k in _READY and len(rows) >= min(limit, 30):
-        return rows[-limit:]
-    return None
+    if not rows or k not in _READY or len(rows) < min(limit, 30):
+        return None
+    # 🧊 حارس الطزاجة: شمعة جارية لم تُحدَّث = بيانات ميتة تفسد المؤشرات
+    _max_age = max(90, _TF_SEC.get(interval, 900))
+    _last = _TOUCH.get(k, 0)
+    if (time.time() - _last) > _max_age:
+        return None
+    return rows[-limit:]
+
+
+def age(symbol: str, interval: str):
+    """عمر آخر تحديث بالثواني (للتشخيص)."""
+    k = (symbol.upper(), interval)
+    t = _TOUCH.get(k)
+    return round(time.time() - t, 1) if t else None
 
 
 def stats():
@@ -58,6 +75,7 @@ async def _seed(sym, tf):
 
 
 def _apply(sym, tf, kk):
+    _TOUCH[(sym, tf)] = time.time()
     """تحديث الشمعة الجارية أو إضافة المكتملة."""
     k = (sym, tf)
     rows = _STORE.get(k)
