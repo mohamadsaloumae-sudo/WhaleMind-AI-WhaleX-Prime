@@ -204,7 +204,7 @@ _FAPI_CACHE: dict = {}
 _FAPI_BAN: float = 0.0
 
 
-async def fapi_get(url: str, ttl: float = 8.0):
+async def fapi_get(url: str, ttl: float = 8.0, max_stale: float | None = None):
     """🛡️ بوابة fapi الموحّدة: كاش URL مشترك + حارس حظر -1003 لكل الخدمة.
     ترجع json عند النجاح، الكاش القديم أثناء الحظر، أو None."""
     global _FAPI_BAN
@@ -213,7 +213,9 @@ async def fapi_get(url: str, ttl: float = 8.0):
     if _hit and _now - _hit[0] < ttl:
         return _hit[1]
     if _now < _FAPI_BAN:
-        return _hit[1] if _hit else None
+        if _hit and (max_stale is None or (_now - _hit[0]) <= max_stale):
+            return _hit[1]
+        return None
     try:
         async with httpx.AsyncClient(timeout=10) as _cl:
             _r = await _cl.get(url)
@@ -230,7 +232,9 @@ async def fapi_get(url: str, ttl: float = 8.0):
         _FAPI_CACHE[url] = (_now, data)
         return data
     except Exception:
-        return _hit[1] if _hit else None
+        if _hit and (max_stale is None or (time.time() - _hit[0]) <= max_stale):
+            return _hit[1]
+        return None
 
 
 async def fetch_klines_async(symbol: str, interval: str, limit: int = 50) -> list[Candle]:

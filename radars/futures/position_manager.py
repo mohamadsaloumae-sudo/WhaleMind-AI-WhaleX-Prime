@@ -373,9 +373,17 @@ async def get_price(symbol: str) -> Optional[float]:
         if not sym.endswith("USDT"):
             sym += "USDT"
         from radars.futures.engine import fapi_get
-        _pj = await fapi_get(f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={sym}", 2)
+        _pj = await fapi_get(f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={sym}", 2, max_stale=20)
         if isinstance(_pj, dict) and "price" in _pj:
             return float(_pj["price"])
+        # بديل حيّ أثناء حظر fapi: تغذية WebSocket للسبوت (صفر REST، لا يتأثر بالحظر)
+        try:
+            from radars.spot.scout_spot import _prices as _ws_prices
+            _v = _ws_prices.get(sym)
+            if _v and float(_v) > 0:
+                return float(_v)
+        except Exception:
+            pass
         return None
     except:
         return None
