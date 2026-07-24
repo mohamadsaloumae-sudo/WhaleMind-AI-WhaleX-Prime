@@ -207,6 +207,16 @@ async def capture(user_id: str, ip: str, ua: str = ""):
         log.debug("capture: %s", e)
 
 
+@router.get("/api/profile/trades")
+async def my_trades(user=Depends(get_current_user)):
+    """سجلّ صفقات هذا العميل الحقيقية وحدها."""
+    try:
+        from services.user_trades import stats
+        return stats(user.get("sub"))
+    except Exception:
+        return {}
+
+
 def profile_of(user_id: str):
     """للوحة الإدارة."""
     _init()

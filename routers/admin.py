@@ -217,6 +217,11 @@ def user_detail(user_id: str, user=Depends(require_admin)):
         out["auto_trades"] = {"total": 0, "executed": 0, "failed": 0, "last": [], "note": str(e)[:60]}
     out["markets"] = markets
     out["has_own_trades"] = executed > 0
+    try:
+        from services.user_trades import stats as _ustats
+        out["ledger"] = _ustats(user_id)
+    except Exception:
+        out["ledger"] = {}
     return out
 
 
