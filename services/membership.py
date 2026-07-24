@@ -99,8 +99,25 @@ def get_links(user_id: str):
         return []
 
 
+def _is_admin(uid) -> bool:
+    """الأدمن لا يُطرد أبداً."""
+    try:
+        from core.config import get_settings
+        s = get_settings()
+        for a in ("admin_chat_id", "telegram_admin_id", "admin_id", "owner_id"):
+            v = getattr(s, a, None)
+            if v and str(v).strip() and str(v).strip() == str(uid).strip():
+                return True
+    except Exception:
+        pass
+    return False
+
+
 async def revoke_access(user_id: str):
     """إلغاء الروابط وإخراج العضو من كل القنوات (يمكنه العودة بعد التجديد)."""
+    if _is_admin(user_id):
+        log.info("🎟️ تخطّي الأدمن %s — لا طرد", user_id)
+        return
     tg_id = None
     try:
         c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
@@ -114,7 +131,7 @@ async def revoke_access(user_id: str):
     for r in rows:
         d = dict(r)
         await _tg("revokeChatInviteLink", {"chat_id": d["chat_id"], "invite_link": d["invite_link"]})
-    if tg_id:
+    if tg_id and not _is_admin(tg_id):
         for chat_id, _ in _channels():
             await _tg("banChatMember", {"chat_id": chat_id, "user_id": int(str(tg_id)) if str(tg_id).lstrip("-").isdigit() else tg_id})
             await asyncio.sleep(0.4)
@@ -189,6 +206,11 @@ async def lifecycle_loop():
                     continue
                 left_h = (exp_dt - now).total_seconds() / 3600
                 if left_h <= 0:
+                    # لا نلمس الاشتراكات المنتهية منذ زمن (تفادي طرد جماعي تاريخي)
+                    if left_h < -168:
+                        continue
+                    if _is_admin(uid):
+                        continue
                     if not _reminded(uid, 0):
                         _mark(uid, 0)
                         await revoke_access(uid)
