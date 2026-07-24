@@ -827,6 +827,17 @@ async def _spot_guard():
         await asyncio.sleep(60)
 
 
+async def _meme_live_guard():
+    while True:
+        try:
+            from radars.memecoin.live_stream import live_loop
+            await live_loop()
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("meme_live").error("meme live guard: %s", _e)
+        await asyncio.sleep(20)
+
+
 async def _meme_guard():
     while True:
         try:
@@ -881,6 +892,7 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
         _kline_stream_guard(),  # 🕯️ تيار الشموع الحي
         _spot_guard(),  # 🪙 عقل السبوت — معزول كلياً
         _meme_guard(),
+        _meme_live_guard(),  # ⚡🐸 تيار الميم اللحظي
         shadow_loop(),
         scout_long_loop(position_manager_fn=position_manager_fn),
         ob_stream_run(list(dict.fromkeys([t.symbol for t in ALL_SYMBOLS] + _open_position_syms()))),
