@@ -198,6 +198,70 @@ async def _gate25_onchain(cc, addr):
     return True, "نجح"
 
 
+BSC_RPC = "https://bsc-mainnet.nodereal.io/v1/64a9df0874fb4a93b9d0a3849de012d3"
+TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+BSC_BLOCK_SEC = 0.75
+BSC_SPAN = 20000
+BSC_MAX_BATCHES = 10
+
+
+async def _bsc_rpc(cc, method, params):
+    try:
+        r = await cc.post(BSC_RPC, json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params}, timeout=20)
+        return (r.json() or {}).get("result")
+    except Exception:
+        return None
+
+
+async def _gate25_evm(cc, tok, pair, created_ms):
+    # البوابة 2.5 لـ BNB: من اشترى فعلاً من الزوج، ومن استلم تحويلاً مجانياً
+    if not pair:
+        return True, "لا زوج"
+    d = _GP_CACHE.get((tok or "").lower())
+    hs = (d or {}).get("holders") or []
+    humans = []
+    for h in hs:
+        try:
+            pct = float(h.get("percent") or 0) * 100
+        except Exception:
+            continue
+        a = (h.get("address") or "").lower()
+        if pct >= 1.0 and a and not (h.get("tag") or "") and str(h.get("is_contract")) != "1":
+            humans.append((pct, a))
+    if not humans:
+        return True, "لا حاملين بشر"
+    bn = await _bsc_rpc(cc, "eth_blockNumber", [])
+    if not bn:
+        return True, "تعذّر RPC"
+    latest = int(bn, 16)
+    age_sec = ((time.time() * 1000) - created_ms) / 1000 if created_ms else 86400
+    span_total = min(int(max(age_sec, 600) / BSC_BLOCK_SEC) + 200, BSC_SPAN * BSC_MAX_BATCHES)
+    start = max(0, latest - span_total)
+    _pad = lambda a: "0x" + "0" * 24 + a[2:].lower()
+    buyers = set()
+    scanned = False
+    for i in range(BSC_MAX_BATCHES):
+        fb = start + i * BSC_SPAN
+        if fb > latest:
+            break
+        tb = min(fb + BSC_SPAN, latest)
+        logs = await _bsc_rpc(cc, "eth_getLogs", [{"fromBlock": hex(fb), "toBlock": hex(tb),
+                                                   "address": tok, "topics": [TRANSFER_TOPIC, _pad(pair)]}])
+        if not isinstance(logs, list):
+            continue
+        scanned = True
+        for lg in logs:
+            tp = lg.get("topics") or []
+            if len(tp) >= 3:
+                buyers.add("0x" + tp[2][-40:].lower())
+    if not scanned:
+        return True, "تعذّر المسح"
+    no_buy = sum(pct for pct, a in humans if a not in buyers)
+    if no_buy > NO_BUY_MAX_PCT:
+        return False, f"توزيع بلا شراء: {no_buy:.0f}% استلموا تحويلاً"
+    return True, "نجح"
+
+
 async def _gate2_evm(cc, addr, chain):
     # البوابة 2 لشبكات EVM: توزيع الحاملين من GoPlus (استثناء العقود والمجمّعات، النسب كسور ×100)
     d = _GP_CACHE.get(addr.lower())
@@ -313,9 +377,13 @@ async def scan():
                 return None
             if chain == "solana":
                 ok25, reason25 = await _gate25_onchain(c, addr)
-                if not ok25:
-                    log.info("🐸🚫 %s (%s) بوابة2.5: %s", (best.get("baseToken") or {}).get("symbol", "?"), chain, reason25)
-                    return None
+            elif chain == "bsc":
+                ok25, reason25 = await _gate25_evm(c, addr, best.get("pairAddress"), best.get("pairCreatedAt"))
+            else:
+                ok25, reason25 = True, ""
+            if not ok25:
+                log.info("🐸🚫 %s (%s) بوابة2.5: %s", (best.get("baseToken") or {}).get("symbol", "?"), chain, reason25)
+                return None
             return best
 
         res = await asyncio.gather(*[_check(ch, a) for ch, a in cands])
