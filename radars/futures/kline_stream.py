@@ -74,8 +74,14 @@ async def _seed(sym, tf):
         _SEEDING.discard(k)
 
 
+_RECV = {"n": 0}
+
+
 def _apply(sym, tf, kk):
     _TOUCH[(sym, tf)] = time.time()
+    _RECV["n"] += 1
+    if _RECV["n"] in (1, 100, 1000):
+        log.info("🕯️✅ المخزن يستقبل التحديثات (%d رسالة)", _RECV["n"])
     """تحديث الشمعة الجارية أو إضافة المكتملة."""
     k = (sym, tf)
     rows = _STORE.get(k)
@@ -119,10 +125,14 @@ async def kline_stream_loop():
                     await _seed(s, tf)
                     await asyncio.sleep(0.12)   # مباعدة التعبئة
             snapshot = _gen
+            started = time.time()
             chunks = [pairs[i:i + 150] for i in range(0, len(pairs), 150)]
             tasks = [asyncio.create_task(_run_batch(ch)) for ch in chunks]
-            while snapshot == _gen and any(not t.done() for t in tasks):
+            # لا نعيد الاتصال إلا بعد دقيقة كاملة ومع نموّ حقيقي في القائمة
+            while any(not t.done() for t in tasks):
                 await asyncio.sleep(3)
+                if _gen != snapshot and (time.time() - started) >= 60 and len(_WANTED) > len(pairs):
+                    break
             for t in tasks:
                 t.cancel()
         except Exception as e:
