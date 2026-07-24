@@ -97,19 +97,29 @@ def _apply(sym, tf, kk):
             del rows[0:len(rows) - MAX_BARS]
 
 
-async def _run_batch(pairs):
+async def _run_batch(pairs, idx=0):
     streams = "/".join(f"{s.lower()}@kline_{tf}" for s, tf in pairs)
+    url = WS_BASE + streams
     import websockets
-    async with websockets.connect(WS_BASE + streams, ping_interval=20, close_timeout=5) as ws:
-        log.info("🕯️🔌 Kline WS: %d تدفق", len(pairs))
-        async for msg in ws:
-            try:
-                d = json.loads(msg).get("data") or {}
-                kk = d.get("k") or {}
-                if kk:
-                    _apply(d.get("s", "").upper(), kk.get("i", ""), kk)
-            except Exception:
-                pass
+    try:
+        async with websockets.connect(url, ping_interval=20, close_timeout=5, max_size=2 ** 22) as ws:
+            log.info("🕯️🔌 دفعة %d متصلة (%d تدفق)", idx, len(pairs))
+            got = 0
+            async for msg in ws:
+                try:
+                    d = json.loads(msg).get("data") or {}
+                    kk = d.get("k") or {}
+                    if kk:
+                        _apply(d.get("s", "").upper(), kk.get("i", ""), kk)
+                        got += 1
+                        if got == 1:
+                            log.info("🕯️✅ دفعة %d تستقبل التحديثات", idx)
+                except Exception:
+                    pass
+    except Exception as e:
+        log.warning("🕯️❌ دفعة %d سقطت: %s | تدفقات=%d | طول الرابط=%d",
+                    idx, str(e)[:90], len(pairs), len(url))
+        raise
 
 
 async def kline_stream_loop():
@@ -126,8 +136,8 @@ async def kline_stream_loop():
                     await asyncio.sleep(0.12)   # مباعدة التعبئة
             snapshot = _gen
             started = time.time()
-            chunks = [pairs[i:i + 150] for i in range(0, len(pairs), 150)]
-            tasks = [asyncio.create_task(_run_batch(ch)) for ch in chunks]
+            chunks = [pairs[i:i + 40] for i in range(0, len(pairs), 40)]
+            tasks = [asyncio.create_task(_run_batch(ch, i)) for i, ch in enumerate(chunks)]
             # لا نعيد الاتصال إلا بعد دقيقة كاملة ومع نموّ حقيقي في القائمة
             while any(not t.done() for t in tasks):
                 await asyncio.sleep(3)
