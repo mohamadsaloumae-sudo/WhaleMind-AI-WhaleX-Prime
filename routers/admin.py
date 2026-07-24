@@ -30,7 +30,7 @@ def stats(user=Depends(require_admin)):
 def list_users(user=Depends(require_admin)):
     db = get_session()
     try:
-        users = db.query(User).order_by(User.created_at.desc()).limit(100).all()
+        users = db.query(User).order_by(User.created_at.desc()).all()
         from services.tier import live_status
         out = []
         for u in users:
