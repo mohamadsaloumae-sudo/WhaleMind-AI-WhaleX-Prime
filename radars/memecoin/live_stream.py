@@ -128,7 +128,6 @@ async def live_loop():
             async with websockets.connect(WS_URL, ping_interval=20, close_timeout=5) as ws:
                 _ws_ref["ws"] = ws
                 await ws.send(json.dumps({"method": "subscribeMigration"}))
-                await ws.send(json.dumps({"method": "subscribeNewToken"}))
                 if _watch_trades:
                     await ws.send(json.dumps({"method": "subscribeTokenTrade", "keys": list(_watch_trades)}))
                 log.info("⚡🐸 Meme live stream connected")
@@ -155,9 +154,7 @@ async def live_loop():
                                 log.info("⚡🐸 بنية ترحيل: %s", str(d)[:230])
                             asyncio.create_task(_evaluate(mint, "ترحيل"))
                         elif tx in ("create", "created"):
-                            if not structure_logged["new"]:
-                                structure_logged["new"] = True
-                                log.info("⚡🐸 بنية إطلاق: %s", str(d)[:230])
+                            pass  # لا نصطاد الوليدة — نصطاد الناجية المرحَّلة
                     except Exception as e:
                         log.debug("msg: %s", e)
         except Exception as e:
