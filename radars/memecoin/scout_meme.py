@@ -12,7 +12,7 @@ import os
 log = logging.getLogger("meme_scout")
 
 CHAINS = ("solana", "bsc", "ethereum")
-MIN_LIQ = 20_000        # سيولة دنيا بالدولار
+MIN_LIQ = 50_000        # سيولة دنيا بالدولار
 MIN_VOL_24 = 20_000     # حجم 24 ساعة دنيا
 AGE_MIN_MIN = 60        # أصغر عمر بالدقائق — أول ساعة مجزرة
 MAX_PUMP_H1 = 50.0      # فوقها = دخول متأخر بعد الانفجار

@@ -909,7 +909,7 @@ async def notify(user_id: str, msg: str, event_type: str = "alert", data: dict =
 #    انقلاب مؤكد→نغلق | فخ مكشوف→نتنفّس | صمت→نغلق (احترام الوقف).
 #  القرار يُخزَّن 60 ثانية لكل صفقة (يمنع إغراق Binance وتضارب البوّابتين).
 # ═══════════════════════════════════════════════════════════
-PNL_HARD_FLOOR = -8.0   # أرضية الخسارة المطلقة (pnl مُرفّع) — كانت -15: انقلاب مؤكّد يُغلق مبكراً، والفجوات العنيفة تُقطع هنا
+PNL_HARD_FLOOR = -5.0   # أرضية الخسارة المطلقة — ضُيّقت من -8: الخاسر كان يفوق الرابح (0.87:1)
 _REV_CACHE: dict = {}    # pos.id -> (ts, breathe, reason)
 _LADDER_TS: dict = {}    # pos.id -> آخر فحص سلّم دوري
 _LOSS_CD: dict = {}      # symbol -> وقت آخر إغلاق خاسر (تهدئة 30 دقيقة)
@@ -943,8 +943,8 @@ async def _ladder_verdict(pos: "Position", pnl_pct: float):
                 _dslope = _cum5[-1] - _cum5[-6]
                 _flow_against = (_dslope < 0) if _lng else (_dslope > 0)
                 _flow_for = (_dslope > 0) if _lng else (_dslope < 0)
-        if pnl_pct <= -10.0:
-            return f"⚖️ حد صلب {pnl_pct:.1f}% ≤ -10%: إغلاق غير مشروط — لا دليل يعلو عليه"
+        if pnl_pct <= -6.5:
+            return f"⚖️ حد صلب {pnl_pct:.1f}% ≤ -6.5%: إغلاق غير مشروط — لا دليل يعلو عليه"
         if pnl_pct <= _t8:
             _spoof_trap = (_spf == "ask") if _lng else (_spf == "bid")
             if _spoof_trap:
