@@ -70,7 +70,7 @@ def sub_stats():
 
 
 @router.post("/upgrade")
-def upgrade(body: UpgradeBody, user=Depends(get_current_user)):
+async def upgrade(body: UpgradeBody, user=Depends(get_current_user)):
     # 1) نتحقّق أنّ الخطّة صحيحة
     plan = PLANS.get(body.plan)
     if not plan:
