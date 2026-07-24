@@ -34,6 +34,29 @@ export function playChime() {
   } catch { /* */ }
 }
 
+// 🧹 تنظيف رسائل المدير: إزالة الفواصل والوسوم واستخراج سطر واضح
+export function cleanMsg(raw) {
+  const txt = String(raw || "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/[━─═_]{3,}/g, "\n")
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (!txt.length) return { title: "", detail: "" };
+  const title = txt[0];
+  const detail = txt.slice(1).filter((l) => !/^[·•\-]+$/.test(l)).slice(0, 2).join(" · ");
+  return { title, detail };
+}
+
+const TONE = (msg) => {
+  const s = String(msg || "");
+  if (/ربح|PROFIT|✅|🎊|🛡/.test(s)) return { c: "#22c55e", bg: "rgba(34,197,94,0.13)" };
+  if (/خسار|LOSS|❌|🛑|🔴/.test(s)) return { c: "#ef4444", bg: "rgba(239,68,68,0.13)" };
+  if (/⚠️|تحذير|WARN/.test(s)) return { c: "#f59e0b", bg: "rgba(245,158,11,0.13)" };
+  return { c: "#4ade80", bg: "rgba(74,222,128,0.12)" };
+};
+
 export default function NotificationBell() {
   const { t, lang } = useLang();
   const [muted, setMuted] = useState(() => localStorage.getItem("wx_sound") === "off");
@@ -88,7 +111,11 @@ export default function NotificationBell() {
           // الإشعار العائم يظهر دائماً — أياً كان السوق المفتوح
           try {
             window.dispatchEvent(new CustomEvent("wx-toast", {
-              detail: { message: lang === "en" && d.message_en ? d.message_en : d.message, event: d.event },
+              detail: (() => {
+                const raw = lang === "en" && d.message_en ? d.message_en : d.message;
+                const { title, detail } = cleanMsg(raw);
+                return { message: detail ? title + "\n" + detail : title, event: d.event };
+              })(),
             }));
           } catch { /* */ }
           playChime();
@@ -171,10 +198,32 @@ export default function NotificationBell() {
                     }}
                     style={{ cursor: "pointer" }}
                   >
-                    <div className="bell-item-msg">{lang === "ar" ? it.message : (it.message_en || it.message)}</div>
-                    <div className="bell-item-time">
-                      {it.time.toLocaleTimeString(lang === "ar" ? "ar-AE" : "en-US", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Dubai" })}
-                    </div>
+                    {(() => {
+                      const raw = lang === "ar" ? it.message : (it.message_en || it.message);
+                      const { title, detail } = cleanMsg(raw);
+                      const tone = TONE(raw);
+                      return (
+                        <div style={{ display: "flex", gap: 10, alignItems: "flex-start", width: "100%" }}>
+                          <span style={{
+                            width: 30, height: 30, borderRadius: 9, flexShrink: 0, marginTop: 1,
+                            background: tone.bg, color: tone.c, display: "grid", placeItems: "center", fontSize: 14,
+                          }}>{title.match(/^\p{Emoji}/u) ? title.match(/^\p{Emoji}/u)[0] : "🔔"}</span>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--txt-1)", lineHeight: 1.5 }}>
+                              {title.replace(/^\p{Emoji}\s*/u, "")}
+                            </div>
+                            {detail && (
+                              <div style={{ fontSize: 11.5, color: "var(--txt-3)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {detail}
+                              </div>
+                            )}
+                            <div style={{ fontSize: 10.5, color: "var(--txt-3)", marginTop: 3, opacity: .75 }}>
+                              {it.time.toLocaleTimeString(lang === "ar" ? "ar-AE" : "en-US", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Dubai" })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))
               )}
