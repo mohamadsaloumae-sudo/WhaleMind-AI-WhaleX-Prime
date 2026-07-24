@@ -249,6 +249,19 @@ async def fetch_klines_async(symbol: str, interval: str, limit: int = 50) -> lis
                     for r in _rows]
     except Exception:
         pass
+    # 🕯️ المخزن العام: يغطّي أي إطار زمني (تعبئة واحدة ثم WebSocket)
+    try:
+        from radars.futures.kline_stream import get as _kget, want as _kwant
+        _k = _kget(symbol, interval, limit)
+        if _k:
+            return [Candle(
+                time=int(x[0]) // 1000,
+                open=float(x[1]), high=float(x[2]), low=float(x[3]),
+                close=float(x[4]), volume=float(x[5]), buy_volume=float(x[9]),
+            ) for x in _k]
+        _kwant(symbol, interval)
+    except Exception:
+        pass
     data = await fapi_get(f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}", 45)
     if not isinstance(data, list):
         return []
