@@ -505,14 +505,16 @@ async def _meme_track_one(cc, r):
         _meme_peak(r["id"], peak)
     peak_pnl = (peak - entry) / entry * 100
     reason = None
-    if pnl >= 50:
-        reason = "\U0001F3AF \u0627\u0644\u0647\u062f\u0641 +50%"
-    elif pnl <= -25:
-        reason = "\U0001F6D1 \u0627\u0644\u0648\u0642\u0641 -25%"
-    elif peak_pnl >= 35 and pnl <= 20:
-        reason = "\U0001F512 \u0642\u0641\u0644 \u0631\u0628\u062d +20%"
-    elif peak_pnl >= 20 and pnl <= 10:
-        reason = "\U0001F512 \u0642\u0641\u0644 \u0631\u0628\u062d +10%"
+    if pnl >= 25:
+        reason = "\U0001F3AF \u0627\u0644\u0647\u062f\u0641 +25%"
+    elif pnl <= -12:
+        reason = "\U0001F6D1 \u0627\u0644\u0648\u0642\u0641 -12%"
+    elif peak_pnl >= 25 and pnl <= 15:
+        reason = "\U0001F512 \u0642\u0641\u0644 \u0631\u0628\u062d +15%"
+    elif peak_pnl >= 15 and pnl <= 8:
+        reason = "\U0001F512 \u0642\u0641\u0644 \u0631\u0628\u062d +8%"
+    elif peak_pnl >= 8 and pnl <= 3:
+        reason = "\U0001F512 \u0642\u0641\u0644 \u0631\u0628\u062d +3%"
     elif time.time() - (r.get("ts") or 0) > 24 * 3600:
         reason = "\u23F1 \u0627\u0646\u062a\u0647\u0627\u0621 24\u0633"
     if reason:
@@ -537,7 +539,7 @@ async def meme_tracker_loop():
                             log.debug("track one: %s", _e)
         except Exception as e:
             log.warning("meme tracker: %s", e)
-        await asyncio.sleep(20)
+        await asyncio.sleep(10)
 
 
 async def meme_loop():
