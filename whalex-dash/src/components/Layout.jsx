@@ -9,19 +9,31 @@ export default function Layout({ titleKey, children }) {
   const { t, lang, toggle } = useLang();
 
   async function shareApp() {
-    const url = "https://t.me/WhaleMindAI_bot";
-    const text = lang === "ar"
+    const APP_URL = "https://t.me/WhaleMindAI_bot";
+    const TEXT = lang === "ar"
       ? "🐋 WhaleX Prime — رادار إشارات تداول بالذكاء الاصطناعي"
       : "🐋 WhaleX Prime — AI-powered trading signals radar";
+    // داخل تيليجرام: نافذة المشاركة الأصلية برابط التطبيق (لا رابط الصفحة)
     try {
-      if (navigator.share) {
-        await navigator.share({ title: "WhaleX Prime", text, url });
+      const tg = window.Telegram && window.Telegram.WebApp;
+      if (tg && tg.openTelegramLink) {
+        tg.openTelegramLink(
+          "https://t.me/share/url?url=" + encodeURIComponent(APP_URL) +
+          "&text=" + encodeURIComponent(TEXT)
+        );
         return;
       }
-      await navigator.clipboard.writeText(text + "\n" + url);
-      alert(lang === "ar" ? "✅ نُسخ الرابط" : "✅ Link copied");
+    } catch { /* تابع للبديل */ }
+    try {
+      if (navigator.share) {
+        await navigator.share({ text: TEXT, url: APP_URL });
+        return;
+      }
+      await navigator.clipboard.writeText(TEXT + "\n" + APP_URL);
+      alert(lang === "ar" ? "✅ نُسخ رابط التطبيق" : "✅ App link copied");
     } catch { /* المستخدم ألغى */ }
   }
+
   return (
     <div className="app-shell">
       <Sidebar />
