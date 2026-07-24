@@ -574,6 +574,15 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
         )
         
         order_id = order["orderId"]
+        # 📒 سجلّ حقيقي لهذا المستخدم
+        try:
+            from services.user_trades import log_open as _lo
+            _entry_px = float(signal.get("entry") or 0) if isinstance(signal, dict) else 0
+            _lo(user_id, symbol, direction, _entry_px, quantity,
+                float(signal.get("leverage") or 1) if isinstance(signal, dict) else 1,
+                str(order_id), "futures")
+        except Exception as _le:
+            log.debug("ledger open: %s", _le)
         log.info("✅ Trade opened: %s %s qty=%s (user %s, order %s)",
                  symbol, direction, quantity, user_id, order_id)
         
