@@ -128,8 +128,20 @@ async def live_loop():
             async with websockets.connect(WS_URL, ping_interval=20, close_timeout=5) as ws:
                 _ws_ref["ws"] = ws
                 await ws.send(json.dumps({"method": "subscribeMigration"}))
+                # استرجاع كل الصفقات المفتوحة من القاعدة والاشتراك بها
+                try:
+                    import sqlite3 as _sq
+                    from radars.memecoin.scout_meme import MEME_DB
+                    _cn = _sq.connect(MEME_DB)
+                    for (_a,) in _cn.execute("SELECT address FROM meme_signals WHERE status='open' AND entry_price>0"):
+                        if _a:
+                            _watch_trades.add(_a)
+                    _cn.close()
+                except Exception as _e:
+                    log.debug("restore watch: %s", _e)
                 if _watch_trades:
                     await ws.send(json.dumps({"method": "subscribeTokenTrade", "keys": list(_watch_trades)}))
+                    log.info("⚡🐸 تتبّع لحظي لـ %d صفقة مفتوحة", len(_watch_trades))
                 log.info("⚡🐸 Meme live stream connected")
                 async for msg in ws:
                     try:

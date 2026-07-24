@@ -587,7 +587,9 @@ async def _meme_track_one(cc, r):
     # ⚡ السعر اللحظي من تيار الصفقات أولاً — يضرب الوقف على الحركة الحقيقية
     px = 0.0
     try:
-        from radars.memecoin.live_stream import get_live_price
+        from radars.memecoin.live_stream import get_live_price, watch_token, _watch_trades
+        if r["address"] not in _watch_trades:
+            await watch_token(r["address"])
         _lp = get_live_price(r["address"])
         if _lp:
             px = float(_lp)
@@ -627,6 +629,11 @@ async def _meme_track_one(cc, r):
     elif time.time() - (r.get("ts") or 0) > 24 * 3600:
         reason = "\u23F1 \u0627\u0646\u062a\u0647\u0627\u0621 24\u0633"
     if reason:
+        try:
+            from radars.memecoin.live_stream import unwatch_token
+            await unwatch_token(r["address"])
+        except Exception:
+            pass
         _meme_close(r["id"], px, pnl)
         await _meme_close_broadcast(r, px, pnl, reason)
         log.info("\U0001F438 closed %s %+.1f%% (%s)", r.get("symbol"), pnl, reason)
