@@ -811,13 +811,13 @@ def calc_grade(score: float, conf: float, strat_count: int = 0, key_strats: int 
     key_strats = عدد الاستراتيجيات القوية (Liquidation, Stop Hunt, FVG, CVD, Delta Div)
     """
     # Grade S: أعلى ثقة + استراتيجيات متعددة + قوية
-    if score >= 9.0 and conf >= 85 and strat_count >= 5 and key_strats >= 2:
+    if score >= 6.5 and conf >= 80 and strat_count >= 4 and key_strats >= 2:
         return "S"
     # Grade A: جودة عالية (score + conf + استراتيجية قوية) — لا نشترط 5
-    if score >= 7.0 and conf >= 75 and key_strats >= 1:
+    if score >= 5.0 and conf >= 70 and key_strats >= 1:
         return "A"
     # Grade B: متوسط
-    if score >= 5.5 and conf >= 65:
+    if score >= 4.0 and conf >= 62:
         return "B"
     return "C"
 
@@ -1345,7 +1345,7 @@ async def predator_agent(
     # ════════════════════════════════════════════════════════════
     # اتخاذ القرار
     # ════════════════════════════════════════════════════════════
-    MIN_SCORE = 6.0  # عتبة جودة واقعية (بدل 5.0 المكسورة)
+    MIN_SCORE = 4.5  # مُعايَرة على الواقع: أقصى نقاط مرصودة 5.0 (كانت 6.0 = صفر إشارات شهرين)
 
     direction, score, strats, key_strats = None, 0.0, [], 0
     if long_score >= MIN_SCORE and long_score > short_score:
