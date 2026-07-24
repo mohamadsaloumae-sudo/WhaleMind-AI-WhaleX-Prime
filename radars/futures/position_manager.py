@@ -1466,6 +1466,14 @@ async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_p
     #   (درس EVAA: التقرير حُسب من سعر لحظي مخادع فأعلن -18% بينما Binance ربحت)
     _real_exit = await _binance_close_position(pos)
     if _real_exit and _real_exit > 0:
+        try:
+            from services.user_trades import log_close as _lc
+            _dm = 1 if pos.direction == "LONG" else -1
+            _pnl_real = (_real_exit - pos.entry) / pos.entry * 100 * _dm * pos.leverage
+            _lc(getattr(pos, "binance_user_id", "") or getattr(pos, "user_id", ""),
+                pos.symbol, _real_exit, _pnl_real, str(reason), "futures")
+        except Exception as _le:
+            log.debug("ledger close: %s", _le)
         _dirmul = 1 if pos.direction == "LONG" else -1
         pnl_pct = (_real_exit - pos.entry) / pos.entry * 100 * _dirmul * pos.leverage
         price = _real_exit

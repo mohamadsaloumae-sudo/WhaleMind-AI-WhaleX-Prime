@@ -725,6 +725,15 @@ async def execute_spot_buy(user_id: str, signal: dict) -> dict:
 
 async def close_spot_all(symbol: str, reason: str = "close"):
     """يبيع كل مراكز السبوت المفتوحة على رمزٍ ما (عند TP3/SL)."""
+    _ledger_rows = []
+    try:
+        import sqlite3 as _sq
+        _cn = _sq.connect(DB_PATH); _cn.row_factory = _sq.Row
+        _ledger_rows = [dict(r) for r in _cn.execute(
+            "SELECT user_id, entry FROM spot_positions WHERE symbol=? AND status='open'", (symbol,))]
+        _cn.close()
+    except Exception:
+        _ledger_rows = []
     _spot_pos_table()
     try:
         conn = sqlite3.connect(DB_PATH); conn.row_factory = sqlite3.Row
