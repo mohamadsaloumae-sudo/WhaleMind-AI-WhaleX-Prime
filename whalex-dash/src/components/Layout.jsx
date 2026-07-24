@@ -11,8 +11,8 @@ export default function Layout({ titleKey, children }) {
   async function shareApp() {
     const APP_URL = "https://whalemindhybridai.online";
     const TEXT = lang === "ar"
-      ? "🐋 WhaleX Prime — رادار إشارات تداول بالذكاء الاصطناعي"
-      : "🐋 WhaleX Prime — AI-powered trading signals radar";
+      ? "🐋 WhaleX Prime\n\nمنصّة إشارات تداول مدعومة بالذكاء الاصطناعي.\n\n⚡ رادارات للعقود الآجلة والسبوت والميم كوينز\n🎯 فحص صارم متعدّد الطبقات قبل كل إشارة\n📊 إدارة لحظية للصفقات وجني أرباح تلقائي\n🔔 إشعارات فورية عبر تيليجرام\n\nجرّبها الآن:"
+      : "🐋 WhaleX Prime\n\nAI-powered trading signals platform.\n\n⚡ Futures, Spot & Meme-coin radars\n🎯 Multi-layer screening before every signal\n📊 Live position management with auto profit-locking\n🔔 Instant Telegram alerts\n\nTry it now:";
     // داخل تيليجرام: نافذة المشاركة الأصلية برابط التطبيق (لا رابط الصفحة)
     try {
       const tg = window.Telegram && window.Telegram.WebApp;
