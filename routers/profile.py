@@ -2,7 +2,8 @@
 import sqlite3
 import time
 import logging
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
+from routers.auth import get_current_user
 from pydantic import BaseModel
 
 log = logging.getLogger("profile")
@@ -50,9 +51,19 @@ class TrackBody(BaseModel):
 
 
 @router.post("/api/profile/track")
-async def track(body: TrackBody, request: Request):
+async def track(body: TrackBody, request: Request, user=Depends(get_current_user)):
     """يسجّل بيانات الاتصال عند فتح التطبيق، وينبّه عند تغيّر العنوان."""
     _init()
+    body.user_id = user.get("sub") or body.user_id
+    if not body.name:
+        try:
+            from db.database import get_session, User
+            _db = get_session()
+            _u = _db.query(User).filter(User.id == body.user_id).first()
+            body.name = (getattr(_u, "username", "") or "") if _u else ""
+            _db.close()
+        except Exception:
+            pass
     ip = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip() \
         or (request.client.host if request.client else "")
     ua = (request.headers.get("user-agent") or "")[:200]
@@ -112,9 +123,10 @@ class PhoneBody(BaseModel):
 
 
 @router.post("/api/profile/phone")
-async def save_phone(body: PhoneBody):
+async def save_phone(body: PhoneBody, user=Depends(get_current_user)):
     """يحفظ الرقم بعد مشاركته من المستخدم."""
     _init()
+    body.user_id = user.get("sub") or body.user_id
     ph = "".join(ch for ch in body.phone if ch.isdigit() or ch == "+")[:20]
     if len(ph) < 7:
         return {"ok": False}
@@ -131,8 +143,9 @@ async def save_phone(body: PhoneBody):
 
 
 @router.get("/api/profile/me")
-async def me(user_id: str):
+async def me(user=Depends(get_current_user)):
     _init()
+    user_id = user.get("sub")
     try:
         c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
         row = c.execute("SELECT name, phone, flag, country, city FROM user_profiles WHERE user_id=?",
