@@ -14,8 +14,7 @@ const uid = () => {
   return v;
 };
 
-const CHIPS_AR = ["كيف تعمل الرادارات؟", "ما معنى الدرجات؟", "الفرق بين السبوت والفيوتشر", "كيف أربط باينانس؟", "كيف يفحص رادار الميم؟"];
-const CHIPS_EN = ["How do radars work?", "What are grades?", "Spot vs Futures", "How to link Binance?", "Meme screening?"];
+
 
 export default function Support() {
   const { lang } = useLang();
@@ -25,6 +24,8 @@ export default function Support() {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const endRef = useRef(null);
+  const [topics, setTopics] = useState([]);
+  const [showTopics, setShowTopics] = useState(true);
 
   useEffect(() => {
     fetch(`/api/support/history?user_id=${uid()}`)
@@ -41,6 +42,13 @@ export default function Support() {
   }, []);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, busy]);
+
+  useEffect(() => {
+    fetch(`/api/support/topics?lang=${lang}`)
+      .then((r) => r.json())
+      .then((d) => setTopics(d.topics || []))
+      .catch(() => {});
+  }, [lang]);
 
   async function send(q0) {
     const q = (q0 ?? text).trim();
@@ -109,16 +117,33 @@ export default function Support() {
         <div ref={endRef} />
       </div>
 
-      {msgs.length === 0 && (
-        <div style={{ display: "flex", gap: 7, padding: "0 12px 10px", overflowX: "auto", flexShrink: 0 }}>
-          {chips.map((ch) => (
-            <button key={ch} onClick={() => send(ch)} style={{
-              flexShrink: 0, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.09)",
-              color: "var(--txt-2)", borderRadius: 20, padding: "8px 13px", fontSize: 12, cursor: "pointer",
-            }}>{ch}</button>
-          ))}
-        </div>
-      )}
+      <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
+        <button
+          onClick={() => setShowTopics((v) => !v)}
+          style={{
+            width: "100%", background: "transparent", border: "none", color: "var(--txt-3)",
+            padding: "9px 14px", fontSize: 12, cursor: "pointer", textAlign: "start",
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+          }}
+        >
+          <span>{ar ? "❓ الأسئلة الشائعة" : "❓ Common questions"}</span>
+          <span style={{ fontSize: 11 }}>{showTopics ? "▲" : "▼"}</span>
+        </button>
+        {showTopics && (
+          <div style={{
+            display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6,
+            padding: "0 12px 10px", maxHeight: "30vh", overflowY: "auto",
+          }}>
+            {topics.map((t) => (
+              <button key={t} onClick={() => send(t)} style={{
+                background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)",
+                color: "var(--txt-2)", borderRadius: 10, padding: "10px 9px", fontSize: 11.5,
+                cursor: "pointer", textAlign: "start", lineHeight: 1.5,
+              }}>{t}</button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div style={{ display: "flex", gap: 8, padding: 12, borderTop: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
         <input
