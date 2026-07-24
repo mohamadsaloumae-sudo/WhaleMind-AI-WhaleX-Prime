@@ -74,7 +74,6 @@ export default function Support() {
   }
 
   const Back = ar ? ArrowRight : ArrowLeft;
-  const chips = ar ? CHIPS_AR : CHIPS_EN;
 
   return (
     <div style={{
