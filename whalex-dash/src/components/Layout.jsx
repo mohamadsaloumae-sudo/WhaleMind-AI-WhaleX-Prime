@@ -5,6 +5,7 @@ import { useLang } from "../context/LangContext.jsx";
 import { Languages, Share2 } from "lucide-react";
 import NotificationBell from "./NotificationBell.jsx";
 import DrawerMenu from "./DrawerMenu.jsx";
+import ScrollTop from "./ScrollTop.jsx";
 
 export default function Layout({ titleKey, children }) {
   const { t, lang, toggle } = useLang();
@@ -55,6 +56,7 @@ export default function Layout({ titleKey, children }) {
         </header>
         <div className="page-body">{children}</div>
       </div>
+      <ScrollTop />
       <BottomNav />
     </div>
   );

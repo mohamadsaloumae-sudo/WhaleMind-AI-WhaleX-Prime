@@ -87,11 +87,18 @@ export default function Positions() {
 
       {/* الصفقات المغلقة */}
       <div className="card">
-        <div className="card-title">{t("closedTrades")}</div>
+        <div className="card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>{t("closedTrades")}</span>
+          {history.length > 0 && (
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--txt-3)", background: "rgba(255,255,255,0.05)", padding: "3px 9px", borderRadius: 7 }}>
+              {history.length}
+            </span>
+          )}
+        </div>
         {history.length === 0 ? (
           <div className="empty">{t("noClosedTrades")}</div>
         ) : (
-          <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "grid", gap: 10, maxHeight: "58vh", overflowY: "auto", paddingInlineEnd: 4 }}>
             {history.map((x, i) => (
               <div key={i} style={{
                 padding: "12px 14px", background: "var(--bg-2)", borderRadius: "var(--radius-sm)",

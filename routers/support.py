@@ -43,11 +43,17 @@ def _init():
 
 
 def _match(text: str):
+    """يرجع كل الأقسام ذات الصلة مرتّبة (حتى ثلاثة)."""
     t = (text or "").lower()
+    scored = []
     for keys, answer in KB:
-        if any(k in t for k in keys):
-            return answer
-    return None
+        hits = sum(1 for k in keys if k in t)
+        if hits:
+            scored.append((hits, answer))
+    if not scored:
+        return None
+    scored.sort(key=lambda x: -x[0])
+    return "\n\n───────────\n\n".join(a for _, a in scored[:3])
 
 
 @router.post("/api/support/ask")
