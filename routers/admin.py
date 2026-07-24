@@ -150,7 +150,7 @@ def user_detail(user_id: str, user=Depends(require_admin)):
     import sqlite3
     from datetime import datetime as _dt
     out = {"user_id": user_id}
-    db = SessionLocal()
+    db = get_session()
     try:
         u = db.query(User).filter(User.id == user_id).first()
         if u:
@@ -228,7 +228,7 @@ async def grant_custom(user_id: str, body: GrantBody, user=Depends(require_admin
     from datetime import datetime, timedelta
     import uuid as _uuid
     days = max(1, min(int(body.days or 30), 3650))
-    db = SessionLocal()
+    db = get_session()
     try:
         cur = db.query(Subscription).filter(Subscription.user_id == user_id)\
                 .order_by(Subscription.expires_at.desc()).first()
@@ -255,7 +255,7 @@ async def grant_custom(user_id: str, body: GrantBody, user=Depends(require_admin
 async def cancel_sub(user_id: str, user=Depends(require_admin)):
     """إلغاء الاشتراك فوراً + سحب الوصول للقنوات."""
     from datetime import datetime
-    db = SessionLocal()
+    db = get_session()
     try:
         for s in db.query(Subscription).filter(Subscription.user_id == user_id).all():
             s.expires_at = datetime.utcnow()
@@ -365,7 +365,7 @@ async def broadcast_all(body: MsgBody, user=Depends(require_admin)):
     """بثّ جماعي — للمشتركين الفعّالين فقط."""
     from datetime import datetime
     txt = (body.title + "\n\n" if body.title else "") + body.message
-    db = SessionLocal()
+    db = get_session()
     try:
         now = datetime.utcnow()
         subs = db.query(Subscription).filter(Subscription.expires_at > now).all()
