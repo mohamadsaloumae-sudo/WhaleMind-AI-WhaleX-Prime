@@ -86,8 +86,8 @@ export default function Positions() {
       </div>
 
       {/* الصفقات المغلقة */}
-      <div className="card">
-        <div className="card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div>
+        <div className="card-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <span>{t("closedTrades")}</span>
           {history.length > 0 && (
             <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--txt-3)", background: "rgba(255,255,255,0.05)", padding: "3px 9px", borderRadius: 7 }}>
@@ -96,7 +96,7 @@ export default function Positions() {
           )}
         </div>
         {history.length === 0 ? (
-          <div className="empty">{t("noClosedTrades")}</div>
+          <div className="card"><div className="empty">{t("noClosedTrades")}</div></div>
         ) : (
           <div style={{ display: "grid", gap: 10 }}>
             {history.map((x, i) => {
@@ -107,8 +107,8 @@ export default function Positions() {
                 : x.tier === "PH" ? (x.direction === "LONG" ? "📈 WhaleX Long" : "🎯 WhaleX Short")
                 : "⚡ WhaleX Predator";
               return (
-                <div key={i} style={{
-                  padding: "13px 15px", background: "var(--bg-2)", borderRadius: "var(--radius-sm)",
+                <div key={i} className="card" style={{
+                  padding: "14px 16px", marginBottom: 0,
                   borderInlineStart: `3px solid ${win ? "var(--green)" : "var(--red)"}`,
                 }}>
                   {/* الصف الأول: العملة والرادار | النتيجة والحالة */}
