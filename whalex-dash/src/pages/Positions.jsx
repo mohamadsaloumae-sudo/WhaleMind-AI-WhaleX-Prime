@@ -98,17 +98,17 @@ export default function Positions() {
         {history.length === 0 ? (
           <div className="empty">{t("noClosedTrades")}</div>
         ) : (
-          <div style={{ display: "grid", gap: 10, maxHeight: "58vh", overflowY: "auto", paddingInlineEnd: 4 }}>
+          <div style={{ display: "grid", gap: 10 }}>
             {history.map((x, i) => (
               <div key={i} style={{
                 padding: "12px 14px", background: "var(--bg-2)", borderRadius: "var(--radius-sm)",
                 borderInlineStart: `3px solid ${x.is_win ? "var(--green)" : "var(--red)"}`,
               }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                    <strong style={{ whiteSpace: "nowrap" }}>{x.symbol}</strong>
-                    <span className={`badge ${x.direction === "LONG" ? "long" : "short"}`} style={{ flexShrink: 0 }}>{x.direction}</span>
-                    <span style={{ fontSize: 11, color: "var(--accent)", whiteSpace: "nowrap" }}>{x.tier === "PH" ? (x.direction === "LONG" ? "📈 WhaleX Long" : "🎯 WhaleX Short") : "⚡ WhaleX Predator"}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flexWrap: "wrap" }}>
+                    <strong style={{ fontSize: 14 }}>{x.symbol}</strong>
+                    <span className={`badge ${x.direction === "LONG" ? "long" : "short"}`} style={{ flexShrink: 0, fontSize: 10.5 }}>{x.direction}</span>
+                    <span style={{ fontSize: 10.5, color: "var(--accent)" }}>{x.tier === "PH" ? (x.direction === "LONG" ? "📈 Long" : "🎯 Short") : "⚡ Predator"}</span>
                   </div>
                   <div style={{
                     fontSize: 16, fontWeight: 800, whiteSpace: "nowrap", flexShrink: 0,
@@ -119,8 +119,8 @@ export default function Positions() {
                     {x.pnl_pct >= 0 ? "+" : ""}{Number(x.pnl_pct).toFixed(2)}%
                   </div>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 5 }}>
-                  <span style={{ fontSize: 12, color: "var(--txt-3)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 11.5, color: "var(--txt-3)" }}>
                     {x.closed_at ? new Date(x.closed_at * 1000).toLocaleString(lang === "ar" ? "ar-AE" : "en-US", { timeZone: "Asia/Dubai", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
                   </span>
                   <span style={{ fontSize: 11, fontWeight: 700, color: x.is_win ? "var(--green)" : "var(--red)" }}>

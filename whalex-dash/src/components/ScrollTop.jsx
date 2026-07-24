@@ -1,4 +1,4 @@
-// ⬆️ العودة للأعلى — يظهر عند النزول، بضغطة واحدة
+// ⬆️ العودة للأعلى
 import { useEffect, useState } from "react";
 import { ArrowUp } from "lucide-react";
 import { useLang } from "../context/LangContext.jsx";
@@ -8,21 +8,30 @@ export default function ScrollTop() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    const target = document.querySelector(".page-body") || window;
-    const read = () => (target === window ? window.scrollY : target.scrollTop);
-    const onScroll = () => setShow(read() > 300);
-    target.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("scroll", onScroll, { passive: true });
+    const scrollers = [window, document.querySelector(".page-body"), document.querySelector(".main-area")].filter(Boolean);
+    const read = () => Math.max(
+      window.scrollY || 0,
+      document.documentElement.scrollTop || 0,
+      document.body.scrollTop || 0,
+      document.querySelector(".page-body")?.scrollTop || 0,
+      document.querySelector(".main-area")?.scrollTop || 0
+    );
+    const onScroll = () => setShow(read() > 250);
+    scrollers.forEach((s) => s.addEventListener("scroll", onScroll, { passive: true }));
+    const iv = setInterval(onScroll, 400);
+    onScroll();
     return () => {
-      target.removeEventListener("scroll", onScroll);
-      window.removeEventListener("scroll", onScroll);
+      scrollers.forEach((s) => s.removeEventListener("scroll", onScroll));
+      clearInterval(iv);
     };
   }, []);
 
   function up() {
-    const target = document.querySelector(".page-body");
-    if (target && target.scrollTop > 0) target.scrollTo({ top: 0, behavior: "smooth" });
+    [document.querySelector(".page-body"), document.querySelector(".main-area")].forEach((el) => {
+      if (el && el.scrollTop > 0) el.scrollTo({ top: 0, behavior: "smooth" });
+    });
     window.scrollTo({ top: 0, behavior: "smooth" });
+    document.documentElement.scrollTo?.({ top: 0, behavior: "smooth" });
   }
 
   return (
@@ -31,20 +40,20 @@ export default function ScrollTop() {
       aria-label="top"
       style={{
         position: "fixed",
-        bottom: "calc(env(safe-area-inset-bottom, 0px) + 78px)",
+        bottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
         [lang === "ar" ? "left" : "right"]: 16,
-        width: 42, height: 42, borderRadius: "50%",
+        width: 44, height: 44, borderRadius: "50%",
         display: "grid", placeItems: "center",
-        background: "rgba(74,222,128,0.92)", color: "#06110a",
-        border: "none", cursor: "pointer", zIndex: 800,
-        boxShadow: "0 6px 20px rgba(0,0,0,0.35)",
+        background: "rgba(74,222,128,0.95)", color: "#06110a",
+        border: "none", cursor: "pointer", zIndex: 880,
+        boxShadow: "0 6px 22px rgba(0,0,0,0.4)",
         opacity: show ? 1 : 0,
-        transform: show ? "translateY(0) scale(1)" : "translateY(14px) scale(.85)",
+        transform: show ? "translateY(0) scale(1)" : "translateY(14px) scale(.8)",
         pointerEvents: show ? "auto" : "none",
-        transition: "opacity .22s ease, transform .22s cubic-bezier(.22,.9,.3,1)",
+        transition: "opacity .2s ease, transform .2s cubic-bezier(.22,.9,.3,1)",
       }}
     >
-      <ArrowUp size={20} strokeWidth={2.6} />
+      <ArrowUp size={21} strokeWidth={2.7} />
     </button>
   );
 }
