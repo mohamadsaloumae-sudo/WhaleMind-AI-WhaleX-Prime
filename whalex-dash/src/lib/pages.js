@@ -25,10 +25,10 @@ import Admin from "../pages/Admin.jsx";
 export const PAGES = [
   { path: "/",             label: "الرئيسية",        icon: LayoutDashboard, component: Dashboard },
   { path: "/signals",      label: "الإشارات الحيّة",  icon: Radio,           component: Signals },
+  { path: "/live",         label: "الصفقات المفتوحة", icon: Activity,        component: LivePositions },
   { path: "/positions",    label: "الصفقات",         icon: BarChart3,       component: Positions },
   { path: "/auto-trade",   label: "التداول",         icon: Bot,             component: AutoTrade },
   { path: "/trades",       label: "صفقاتي",          icon: TrendingUp,      component: Trades },
-  { path: "/live",         label: "الصفقات المفتوحة", icon: Activity,        component: LivePositions },
   { path: "/scanner",      label: "فاحص العملات",     icon: Search,          component: Scanner },
   { path: "/subscription", label: "الاشتراك",        icon: CreditCard,      component: Subscription },
   { path: "/settings",     label: "الإعدادات",       icon: Settings,        component: SettingsPage },

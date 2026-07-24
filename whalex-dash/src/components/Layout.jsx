@@ -4,6 +4,7 @@ import BottomNav from "./BottomNav.jsx";
 import { useLang } from "../context/LangContext.jsx";
 import { Languages, Share2 } from "lucide-react";
 import NotificationBell from "./NotificationBell.jsx";
+import DrawerMenu from "./DrawerMenu.jsx";
 
 export default function Layout({ titleKey, children }) {
   const { t, lang, toggle } = useLang();
@@ -49,6 +50,7 @@ export default function Layout({ titleKey, children }) {
             <Share2 size={16} />
           </button>
           <NotificationBell />
+          <DrawerMenu />
           <span className="status-dot">{t("systemRunning")}</span>
         </header>
         <div className="page-body">{children}</div>
