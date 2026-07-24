@@ -237,6 +237,14 @@ async def fapi_get(url: str, ttl: float = 8.0, max_stale: float | None = None):
         return None
 
 
+# مدة صلاحية الشموع بحسب الإطار — شمعة 4h لا تتغيّر معناها خلال ساعة
+_KL_TTL = {
+    "1m": 45, "3m": 90, "5m": 150, "15m": 400, "30m": 800,
+    "1h": 1200, "2h": 2400, "4h": 3600, "6h": 3600, "8h": 5400,
+    "12h": 7200, "1d": 7200, "3d": 10800, "1w": 10800,
+}
+
+
 async def fetch_klines_async(symbol: str, interval: str, limit: int = 50) -> list[Candle]:
     """شموع من WebSocket (ob_stream) أولاً — fallback لـREST عند نقص البثّ."""
     # 🌊 محاولة الستريم: صفر REST، لحظي
@@ -249,7 +257,8 @@ async def fetch_klines_async(symbol: str, interval: str, limit: int = 50) -> lis
                     for r in _rows]
     except Exception:
         pass
-    data = await fapi_get(f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}", 45)
+    _ttl = _KL_TTL.get(interval, 300)
+    data = await fapi_get(f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}", _ttl)
     if not isinstance(data, list):
         return []
     try:
