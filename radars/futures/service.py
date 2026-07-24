@@ -421,6 +421,24 @@ async def orchestrate_approved(
 
 async def _broadcast_telegram(sig: Signal, broadcast_fn, position_manager_fn=None):
     """إرسال الإشارة لـ Telegram — Grade A و S فقط للقناة"""
+    # 🔔 إشعار الميني آب لكل إشارة مهما كان الرادار أو الدرجة
+    try:
+        from services.notifier import push_note
+        _radar = ("📈 WhaleX Long" if sig.direction == "LONG" else "🎯 WhaleX Short") \
+            if getattr(sig, "tier", "") == "PH" else "⚡ WhaleX Predator"
+        _dir = "شراء LONG" if sig.direction == "LONG" else "بيع SHORT"
+        _msg = (f"🚨 إشارة جديدة · {sig.symbol}\n"
+                f"{_dir} · درجة {sig.grade}\n"
+                f"الدخول {sig.entry} · وقف {sig.sl}\n"
+                f"{_radar}")
+        _msg_en = (f"🚨 New signal · {sig.symbol}\n"
+                   f"{sig.direction} · Grade {sig.grade}\n"
+                   f"Entry {sig.entry} · SL {sig.sl}\n"
+                   f"{_radar}")
+        await push_note("futures", "signal", _msg, _msg_en)
+    except Exception as _ne:
+        log.debug("signal note: %s", _ne)
+
     # فلتر الجودة: فقط أعلى درجات للقناة
     if sig.grade not in ("S", "A"):
         log.info("Skip channel broadcast: %s grade=%s (only A/S)", sig.symbol, sig.grade)
