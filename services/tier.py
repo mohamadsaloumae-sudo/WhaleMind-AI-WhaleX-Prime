@@ -41,6 +41,20 @@ def live_status(db, user_id: str):
     except Exception:
         pass
     started = latest.created_at if latest else None
+    _is_admin = False
+    try:
+        _u = db.query(User).filter(User.id == user_id).first()
+        _is_admin = bool(_u and _u.tier == "admin")
+    except Exception:
+        _is_admin = False
+    if _is_admin:
+        return {
+            "started_at": str(started) if started else None,
+            "is_pro": True, "tier": "admin",
+            "expires_at": str(exp) if exp else None, "days_left": 9999,
+            "plan": "admin", "renewals": len(subs),
+            "level_ar": "المالك", "level_en": "Owner", "icon": "👑",
+        }
     return {
         "started_at": str(started) if started else None,
         "is_pro": is_pro, "tier": "pro" if is_pro else "free",
