@@ -3,11 +3,10 @@ import { useEffect, useState } from "react";
 import { useLang } from "../context/LangContext.jsx";
 
 const SOCIALS = [
-  { id: "telegram", label: "Telegram", url: "https://t.me/WhaleMindAI_bot", emoji: "✈️" },
-  { id: "tiktok",   label: "TikTok",   url: "https://tiktok.com/@whalemindai", emoji: "🎵" },
-  { id: "x",        label: "X",        url: "https://x.com/whalemindai", emoji: "𝕏" },
-  { id: "youtube",  label: "YouTube",  url: "https://youtube.com/@whalemindai", emoji: "▶️" },
-  { id: "discord",  label: "Discord",  url: "https://discord.gg/whalemind", emoji: "💬" },
+  { id: "telegram", label: "Telegram", url: "https://t.me/whaleXApp", emoji: "✈️" },
+  { id: "youtube",  label: "YouTube",  url: "https://youtube.com/@whalemindhybridai", emoji: "▶️" },
+  { id: "x",        label: "X",        url: "https://x.com/Whale_Mind_AI", emoji: "𝕏" },
+  { id: "tiktok",   label: "TikTok",   url: "https://tiktok.com/@whalemind.ai.bot", emoji: "🎵" },
 ];
 
 function uid() {
