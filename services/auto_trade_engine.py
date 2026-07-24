@@ -152,6 +152,13 @@ async def execute_for_user_tracked(user_id: str, signal: dict) -> dict:
                 from services.telegram import send_message
                 from core.config import get_settings
                 _adm = get_settings().telegram_admin_chat_id
+                try:
+                    from services.notifier import push_note
+                    await push_note("futures", "alert",
+                                    f"⚠️ افتراق ورقي/حقيقي · {signal['symbol']} {signal['direction']}\n"
+                                    f"فُتحت ورقياً وفشل التنفيذ الحقيقي: {result.get('error')}")
+                except Exception:
+                    pass
                 if _adm:
                     await send_message(_adm,
                         f"⚠️ <b>افتراق ورقي/حقيقي</b>\n"
