@@ -19,7 +19,17 @@ async def fetch_ob_deep(symbol: str) -> dict:
     """تحليل Order Book العميق (مستقلّ عن scout)."""
     try:
         from radars.futures.engine import fapi_get
-        d = await fapi_get(f"https://fapi.binance.com/fapi/v1/depth?symbol={symbol}&limit=100", 8)
+        _ws_book = None
+        try:
+            from quant_engine.ob_stream import get_book
+            _ws_book = get_book(symbol)
+        except Exception:
+            _ws_book = None
+        if _ws_book:
+            d = {"bids": [[str(px), str(qty)] for px, qty in _ws_book[0]],
+                 "asks": [[str(px), str(qty)] for px, qty in _ws_book[1]]}
+        else:
+            d = await fapi_get(f"https://fapi.binance.com/fapi/v1/depth?symbol={symbol}&limit=100", 8)
         if not isinstance(d, dict):
             return {"valid": False}
         bids_raw = [(float(b[0]), float(b[1])) for b in d.get("bids", [])]

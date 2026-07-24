@@ -93,6 +93,19 @@ def get_price(symbol):
         return bk[-1].mid_price
     return None
 
+def get_book(symbol, max_age: float = 8.0):
+    """دفتر الأوامر الحيّ من WS — (bids, asks) أو None."""
+    sym = symbol.upper().replace("/", "").replace("-", "")
+    if not sym.endswith("USDT"):
+        sym += "USDT"
+    bk = _books.get(sym.lower())
+    if bk and len(bk):
+        snap = bk[-1]
+        if (time.time() - snap.timestamp) <= max_age:
+            return snap.bids, snap.asks
+    return None
+
+
 async def _bootstrap(symbols):
     """ملء المخزون تاريخياً مرة واحدة (REST مُباعد) — بعده التحديث من WS فقط."""
     import httpx
