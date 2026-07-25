@@ -66,6 +66,11 @@ async def lifespan(app: FastAPI):
     yield
     log.info("WhaleX Prime shutting down")
 
+import logging as _lg
+_lg.getLogger("httpx").setLevel(_lg.WARNING)
+_lg.getLogger("httpcore").setLevel(_lg.WARNING)
+_lg.getLogger("websockets").setLevel(_lg.WARNING)
+
 app = FastAPI(title="WhaleX Prime", version="1.0.0", lifespan=lifespan)
 settings = get_settings()
 
