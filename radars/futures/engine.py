@@ -1291,6 +1291,27 @@ async def predator_agent(
         log.debug("Reject %s %s — no key strategy", symbol, direction)
         return
 
+    # ═══ بوّابة منطقة الربح — مستخرجة من 1103 نتيجة حقيقية ═══
+    #   القياس: قاع النطاق (pos<0.20) = 697 صفقة، فوز 40.6%، صافي +1086.8%
+    #           النطاق 0.20-0.80 = 365 صفقة، فوز أعلى (46-52%) لكن صافي سالب (-55%)
+    #           RSI 55-75 = 357 صفقة، صافي +685.9%
+    #   الدرس: نسبة الفوز ليست المقياس — حجم الرابح هو المقياس.
+    try:
+        _rp = float(range_pos)
+    except Exception:
+        _rp = 0.5
+    try:
+        _rsi_now = float(rsi_v)
+    except Exception:
+        _rsi_now = 50.0
+    _in_bottom = _rp < 0.20
+    _in_rsi_zone = 55.0 <= _rsi_now <= 75.0
+    if not (_in_bottom or _in_rsi_zone):
+        PRED_STATS["zone"] = PRED_STATS.get("zone", 0) + 1
+        log.info("📍 %s %s رُفض: خارج منطقة الربح (موقع %.0f%% · RSI %.0f)",
+                 symbol, direction, _rp * 100, _rsi_now)
+        return
+
     # ═══ بوّابة BTC الذكية: العملات مرتبطة بـBTC، فالتعارض معه خطر (الارتباط يغلب) ═══
     #   نتداول مع اتّجاه BTC، أو ضدّه/في المحايد فقط بانعكاس قويّ مؤكّد (score>=9).
     #   الجذر: كارثة 01:00 — 5 شورت في BTC محايد (score 7-8.5) ماتت لمّا صعد BTC.
