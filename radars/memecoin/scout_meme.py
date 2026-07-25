@@ -13,6 +13,29 @@ log = logging.getLogger("meme_scout")
 
 CHAINS = ("solana", "bsc", "ethereum")
 MIN_LIQ = 50_000        # سيولة دنيا — عملات راديوم المُرحّلة تجمع 20-40k (إشارتا 22k ربحتا +28% و+1.3%)
+# 🚫 كاش الرفض: عملة رُفضت لسبب بنيوي (توزيع/عقد) لا تُعاد كل دقيقة
+_REJECT_CACHE: dict = {}
+_REJECT_TTL = 1800   # نصف ساعة
+
+
+def _is_rejected(addr: str) -> bool:
+    import time as _t
+    v = _REJECT_CACHE.get(addr)
+    if v and (_t.time() - v) < _REJECT_TTL:
+        return True
+    if v:
+        _REJECT_CACHE.pop(addr, None)
+    return False
+
+
+def _mark_rejected(addr: str):
+    import time as _t
+    _REJECT_CACHE[addr] = _t.time()
+    if len(_REJECT_CACHE) > 800:
+        _now = _t.time()
+        for k in [k for k, t in _REJECT_CACHE.items() if _now - t > _REJECT_TTL]:
+            _REJECT_CACHE.pop(k, None)
+
 MIN_VOL_24 = 20_000     # حجم 24 ساعة دنيا
 AGE_MIN_MIN = 60        # أصغر عمر بالدقائق — أول ساعة مجزرة
 MAX_PUMP_H1 = 50.0      # فوقها = دخول متأخر بعد الانفجار
@@ -465,10 +488,12 @@ async def scan():
             ok, reason = await _gate1(c, chain, addr)
             if not ok:
                 log.info("🐸🚫 %s (%s) بوابة1: %s", (best.get("baseToken") or {}).get("symbol", "?"), chain, reason)
+                _mark_rejected(addr)
                 return None
             ok2, reason2 = (await _gate2_solana(c, addr)) if chain == "solana" else (await _gate2_evm(c, addr, chain))
             if not ok2:
                 log.info("🐸🚫 %s (%s) بوابة2: %s", (best.get("baseToken") or {}).get("symbol", "?"), chain, reason2)
+                _mark_rejected(addr)
                 return None
             if chain == "solana":
                 ok25, reason25 = await _gate25_onchain(c, addr)
@@ -478,6 +503,7 @@ async def scan():
                 ok25, reason25 = True, ""
             if not ok25:
                 log.info("🐸🚫 %s (%s) بوابة2.5: %s", (best.get("baseToken") or {}).get("symbol", "?"), chain, reason25)
+                _mark_rejected(addr)
                 return None
             return best
 
