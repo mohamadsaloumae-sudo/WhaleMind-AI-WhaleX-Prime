@@ -157,7 +157,7 @@ async def detect_rebound(symbol: str, candles) -> dict:
     radar_ok = has_buy_wall and len(signals) >= 4  # الأربعة كلها: imbalance+pressure+wall+erosion (نظافة الدخول)
 
     # RSI في منطقة وسطى (تصحيح صحي 40-60، لا oversold=سكين، لا overbought=قمة).
-    rsi_ok = 38 <= r <= 60
+    rsi_ok = (45 <= r <= 58)   # منطقة LONG الرابحة: 159 صفقة فوز 52.8% صافي +119.5% (55-65 أهدرت -166%)
 
     at_real_bottom = in_uptrend_dip  # توافق مع باقي الكود
     _ns=True
