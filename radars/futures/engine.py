@@ -21,6 +21,39 @@ from typing import Optional
 import math
 import httpx
 
+_FAPI_CACHE: dict = {}
+_FAPI_BAN: float = 0.0
+
+
+async def fapi_get(url: str, ttl: float = 8.0):
+    """🛡️ بوابة fapi الموحّدة: كاش URL مشترك + حارس حظر -1003 لكل الخدمة.
+    ترجع json عند النجاح، الكاش القديم أثناء الحظر، أو None."""
+    global _FAPI_BAN
+    _now = time.time()
+    _hit = _FAPI_CACHE.get(url)
+    if _hit and _now - _hit[0] < ttl:
+        return _hit[1]
+    if _now < _FAPI_BAN:
+        return _hit[1] if _hit else None
+    try:
+        async with httpx.AsyncClient(timeout=10) as _cl:
+            _r = await _cl.get(url)
+            data = _r.json()
+        if isinstance(data, dict) and data.get("code") == -1003:
+            import re as _re
+            _ms = max((int(x) for x in _re.findall(r"\d{13}", str(data.get("msg", "")))), default=0)
+            _FAPI_BAN = (_ms / 1000) if _ms else (_now + 120)
+            log.warning("🛡️ fapi محظور حتى %s — كل REST موقوف، نخدم الكاش",
+                        time.strftime("%H:%M:%S", time.localtime(_FAPI_BAN)))
+            return _hit[1] if _hit else None
+        if len(_FAPI_CACHE) > 1200:
+            _FAPI_CACHE.clear()
+        _FAPI_CACHE[url] = (_now, data)
+        return data
+    except Exception:
+        return _hit[1] if _hit else None
+
+
 log = logging.getLogger("engine")
 
 # ═══════════════════════════════════════════════════════════════
