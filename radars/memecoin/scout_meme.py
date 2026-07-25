@@ -12,7 +12,7 @@ import os
 log = logging.getLogger("meme_scout")
 
 CHAINS = ("solana", "bsc", "ethereum")
-MIN_LIQ = 50_000        # سيولة دنيا — عملات راديوم المُرحّلة تجمع 20-40k (إشارتا 22k ربحتا +28% و+1.3%)
+MIN_LIQ = 30_000        # سيولة دنيا — عملات راديوم المُرحّلة تجمع 20-40k (إشارتا 22k ربحتا +28% و+1.3%)
 # 🚫 كاش الرفض: عملة رُفضت لسبب بنيوي (توزيع/عقد) لا تُعاد كل دقيقة
 _REJECT_CACHE: dict = {}
 _REJECT_TTL = 1800   # نصف ساعة
@@ -649,6 +649,11 @@ async def _meme_track_one(cc, r):
         _meme_peak(r["id"], peak)
     peak_pnl = (peak - entry) / entry * 100
     reason = None
+    # عملة ميم لا تتحرّك في ساعتين = ميتة، لا ننتظر رَغاً متأخراً
+    _age_h = (time.time() - (r.get("ts") or 0)) / 3600
+    if _age_h >= 2 and abs(pnl) < 2 and (peak_pnl or 0) < 4:
+        _dead_exit = True
+        reason = "\u23F1 \u062E\u0631\u0648\u062C: \u0644\u0627 \u062D\u0631\u0643\u0629 \u0641\u064A \u0633\u0627\u0639\u062A\u064A\u0646"
     # 🧠 وقف ذكي: لا يُضرب على هبوط لحظة — يقرأ تدفّق السلسلة أولاً
     if -22 < pnl <= -12:
         _flow = None
@@ -682,13 +687,15 @@ async def _meme_track_one(cc, r):
         reason = "\U0001F3AF \u0627\u0644\u0647\u062f\u0641 +25%"
     elif pnl <= -12:
         reason = "\U0001F6D1 \u0627\u0644\u0648\u0642\u0641 -12%"
-    elif peak_pnl >= 25 and pnl <= 15:
+    elif peak_pnl >= 40 and pnl <= 28:
         reason = "\U0001F512 \u0642\u0641\u0644 \u0631\u0628\u062d +15%"
-    elif peak_pnl >= 15 and pnl <= 8:
+    elif peak_pnl >= 25 and pnl <= 18:
         reason = "\U0001F512 \u0642\u0641\u0644 \u0631\u0628\u062d +8%"
-    elif peak_pnl >= 8 and pnl <= 3:
+    elif peak_pnl >= 8 and pnl <= 5:
+        reason = "\U0001F512 \u0642\u0641\u0644 \u0631\u0628\u062d +5%"
+    elif peak_pnl >= 15 and pnl <= 10:
         reason = "\U0001F512 \u0642\u0641\u0644 \u0631\u0628\u062d +3%"
-    elif time.time() - (r.get("ts") or 0) > 24 * 3600:
+    elif time.time() - (r.get("ts") or 0) > 8 * 3600:
         reason = "\u23F1 \u0627\u0646\u062a\u0647\u0627\u0621 24\u0633"
     if reason:
         try:
