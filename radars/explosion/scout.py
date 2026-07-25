@@ -434,19 +434,28 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
         except Exception as e:
             log.error("scout → manager error: %s", e)
 
-    if opened_ok:
-        try:
-            from services.telegram import send_message
-            from core.config import get_settings
-            ch = get_settings().telegram_channel_futures
-            if ch:
-                await send_message(ch, msg)
-        except Exception as e:
-            log.error("scout signal error: %s", e)
-        _save_to_signals_table(sig, "🎯 Peak Hunter SHORT\n" + "\n".join(sigs))
-        log.info("🔭📈 Peak Hunter → manager: %s SHORT (opened)", symbol)
-    else:
-        log.info("🔭⏭️ Peak Hunter: %s SHORT لم تُفتح (مفتوحة بالفعل/مُنعت) — لا بطاقة للقناة", symbol)
+    # كل إشارة تُنشر وتُسجَّل — المفتوحة والمرصودة، بوسم يفرّق بينهما
+    _tag = ("✅ <b>فُتحت صفقة</b>\n" if opened_ok
+            else "👁️ <b>إشارة مرصودة</b> — لم تُفتح (صفقة قائمة أو مُنعت)\n")
+    try:
+        from services.telegram import send_message
+        from core.config import get_settings
+        ch = get_settings().telegram_channel_futures
+        if ch:
+            await send_message(ch, _tag + msg)
+    except Exception as e:
+        log.error("scout signal error: %s", e)
+    _save_to_signals_table(sig, "🎯 Peak Hunter SHORT\n" + "\n".join(sigs))
+    try:
+        from services.notifier import push_note
+        await push_note("futures", "signal",
+                        ("✅ فُتحت صفقة · " if opened_ok else "👁️ إشارة مرصودة · ")
+                        + f"{sig.symbol}\nبيع SHORT · درجة {sig.grade}\n"
+                        f"الدخول {sig.entry} · وقف {sig.sl}\n🎯 WhaleX Short")
+    except Exception:
+        pass
+    log.info("🔭%s Peak Hunter: %s SHORT %s", "📈" if opened_ok else "👁️",
+             symbol, "فُتحت" if opened_ok else "مرصودة فقط")
 
 
 
