@@ -106,7 +106,7 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
         return  # نبثّ A والقوي من B — انتقاء عالٍ بفرص أكثر
 
     entry = price
-    sl    = lo * 0.985
+    sl    = max(lo * 0.985, price * 0.98)   # أقصى خسارة 2% من الدخول (القاع قد يبعد 6%)
     tp1, tp2, tp3 = entry * 1.06, entry * 1.12, entry * 1.20
     conf  = min(95, 60 + (taker - 0.52) * 400 + (v_infl - 1.15) * 20)
     _last_sig[sym] = time.time()
@@ -302,8 +302,6 @@ async def tracker_loop():
                             _locked_sl = max(_locked_sl, s.entry * 1.03)    # بلغ +4 → يحمي +3
                         elif _peak_pnl >= 3.0:
                             _locked_sl = max(_locked_sl, s.entry * 1.022)   # بلغ +3 → يحمي +2.2
-                        elif _peak_pnl >= 2.0:
-                            _locked_sl = max(_locked_sl, s.entry * 1.015)   # بلغ +2 → يحمي +1.5
                         _drop = (_pk - px) / _pk * 100 if _pk else 0
                         _smart_rev = (pnl >= 2.0 and _peak_pnl >= 4.0 and _drop >= 1.5)
 
