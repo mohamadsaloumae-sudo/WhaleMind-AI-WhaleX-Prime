@@ -279,7 +279,7 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
         if any(x["side"]=="bid" for x in get_signals(_sw).get("spoof",[])): _ns=False
     except Exception: pass
     # منطقة الربح المستخرجة من 1103 نتيجة: RSI 55-75 = +686% صافي · RSI<25 = +23% فقط
-    collapse = radar_ok and hawk_ok and ob_safe_short and 55 <= r <= 78 and _ns
+    collapse = radar_ok and hawk_ok and ob_safe_short and 48 <= r <= 78 and _ns
 
     if radar_ok and not collapse:
         log.debug("🦅 %s: OB إشارات لكن مُنع (hawk=%s safe_short=%s)", symbol, hawk_ok, ob_safe_short)

@@ -76,7 +76,7 @@ export default function NotificationBell() {
     const load = () => {
       subscription.status()
         .then((s) => { isProRef.current = !!(s && (s.is_active || s.tier === "admin")); })
-        .catch(() => {});
+        .catch(() => { isProRef.current = true; });
     };
     load();
     const iv = setInterval(load, 120000);
