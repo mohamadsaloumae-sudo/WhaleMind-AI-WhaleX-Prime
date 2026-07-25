@@ -3,6 +3,9 @@ from pydantic import BaseModel
 from typing import List, Optional
 from routers.auth import require_pro, get_current_user
 from core.config import get_settings
+import logging
+
+log = logging.getLogger("ai")
 
 router = APIRouter(prefix="/api/ai", tags=["AI"])
 
@@ -32,7 +35,6 @@ async def ai_chat(body: ChatBody):
                 json={
                     "model": "claude-sonnet-4-5",
                     "max_tokens": 1000,
-                    "system": "أنت مساعد تداول خبير في العملات الرقمية. تتحدث العربية والإنجليزية. تعطي تحليلات دقيقة ومفيدة. لا تعطي نصائح مالية مباشرة.",
                     "system": """أنت WhaleX AI — المساعد الذكي الرسمي لمنصة WhaleMind Prime وWhaleX Prime.
 
 هويتك:

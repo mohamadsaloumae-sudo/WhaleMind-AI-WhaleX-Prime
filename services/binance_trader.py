@@ -12,6 +12,7 @@ WhaleMind Binance Trader Service
 """
 
 import os
+import time
 import logging
 import sqlite3
 from typing import Optional

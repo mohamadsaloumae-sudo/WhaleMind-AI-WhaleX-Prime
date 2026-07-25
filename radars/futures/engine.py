@@ -155,6 +155,7 @@ class ShadowTrade:
 # ═══════════════════════════════════════════════════════════════
 
 BTC_TREND = {"trend": "NEUTRAL", "last_update": 0, "btc_change_1h": 0.0, "btc_change_24h": 0.0}
+PRED_STATS = {}
 
 async def update_btc_macro():
     """يحدّث اتجاه BTC كل 5 دقائق — يستخدمه كل الإشارات"""
