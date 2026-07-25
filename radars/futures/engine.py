@@ -1431,6 +1431,24 @@ async def predator_agent(
     real_accuracy = get_real_accuracy()
     btc = BTC_TREND.get("trend", "NEUTRAL")
 
+    # ═══ بوّابتا Quant: توافق الأطر + الدلتا ═══
+    try:
+        from quant_engine.mtf_confluence import validate_signal_with_mtf as _mtf_chk
+        _okm, _rsm = await _mtf_chk(symbol, direction)
+        if not _okm:
+            log.info("🧭 %s %s رُفض بتوافق الأطر: %s", symbol, direction, _rsm)
+            return
+    except Exception as _e:
+        log.debug("mtf gate: %s", _e)
+    try:
+        from quant_engine.delta_engine import validate_signal_with_delta as _dlt_chk
+        _okd, _rsd = await _dlt_chk(symbol, direction)
+        if not _okd:
+            log.info("📊 %s %s رُفض بالدلتا: %s", symbol, direction, _rsd)
+            return
+    except Exception as _e:
+        log.debug("delta gate: %s", _e)
+
     sig = Signal(
         symbol=symbol,
         direction=direction,
@@ -1511,6 +1529,24 @@ async def sleeping_giants_radar(
     strats = ["🌙 Sleeping Giant", "Volatility Squeeze", "Silent Accumulation"]
     if sg_score >= 8:
         strats.append("⚡ Imminent Explosion")
+
+    # ═══ بوّابتا Quant: توافق الأطر + الدلتا ═══
+    try:
+        from quant_engine.mtf_confluence import validate_signal_with_mtf as _mtf_chk
+        _okm, _rsm = await _mtf_chk(symbol, direction)
+        if not _okm:
+            log.info("🧭 %s %s رُفض بتوافق الأطر: %s", symbol, direction, _rsm)
+            return
+    except Exception as _e:
+        log.debug("mtf gate: %s", _e)
+    try:
+        from quant_engine.delta_engine import validate_signal_with_delta as _dlt_chk
+        _okd, _rsd = await _dlt_chk(symbol, direction)
+        if not _okd:
+            log.info("📊 %s %s رُفض بالدلتا: %s", symbol, direction, _rsd)
+            return
+    except Exception as _e:
+        log.debug("delta gate: %s", _e)
 
     sig = Signal(
         symbol=symbol,
