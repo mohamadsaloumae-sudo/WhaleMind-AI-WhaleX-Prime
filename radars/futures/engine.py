@@ -83,7 +83,6 @@ class Signal:
     regime: str = ""
     range_pos: float = 0.0
     rsi: float = 0.0
-    source_radar: str = "PREDATOR"   # المصدر: PREDATOR / PH_SHORT / PH_LONG / OB_REV
 
 @dataclass
 class ShadowTrade:
@@ -200,78 +199,22 @@ async def get_oi_change(symbol: str) -> float:
 # ─── MULTI-TIMEFRAME CONFIRMATION ───────────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
-_FAPI_CACHE: dict = {}
-_FAPI_BAN: float = 0.0
-
-
-async def fapi_get(url: str, ttl: float = 8.0, max_stale: float | None = None):
-    """🛡️ بوابة fapi الموحّدة: كاش URL مشترك + حارس حظر -1003 لكل الخدمة.
-    ترجع json عند النجاح، الكاش القديم أثناء الحظر، أو None."""
-    global _FAPI_BAN
-    _now = time.time()
-    _hit = _FAPI_CACHE.get(url)
-    if _hit and _now - _hit[0] < ttl:
-        return _hit[1]
-    if _now < _FAPI_BAN:
-        if _hit and (max_stale is None or (_now - _hit[0]) <= max_stale):
-            return _hit[1]
-        return None
-    try:
-        async with httpx.AsyncClient(timeout=10) as _cl:
-            _r = await _cl.get(url)
-            data = _r.json()
-        if isinstance(data, dict) and data.get("code") == -1003:
-            import re as _re
-            _ms = max((int(x) for x in _re.findall(r"\d{13}", str(data.get("msg", "")))), default=0)
-            _FAPI_BAN = (_ms / 1000) if _ms else (_now + 120)
-            log.warning("🛡️ fapi محظور حتى %s — كل REST موقوف، نخدم الكاش",
-                        time.strftime("%H:%M:%S", time.localtime(_FAPI_BAN)))
-            return _hit[1] if _hit else None
-        if len(_FAPI_CACHE) > 1200:
-            _FAPI_CACHE.clear()
-        _FAPI_CACHE[url] = (_now, data)
-        return data
-    except Exception:
-        if _hit and (max_stale is None or (time.time() - _hit[0]) <= max_stale):
-            return _hit[1]
-        return None
-
-
-# مدة صلاحية الشموع بحسب الإطار — شمعة 4h لا تتغيّر معناها خلال ساعة
-_KL_TTL = {
-    "1m": 45, "3m": 90, "5m": 150, "15m": 400, "30m": 800,
-    "1h": 1200, "2h": 2400, "4h": 3600, "6h": 3600, "8h": 5400,
-    "12h": 7200, "1d": 7200, "3d": 10800, "1w": 10800,
-}
-
-
 async def fetch_klines_async(symbol: str, interval: str, limit: int = 50) -> list[Candle]:
-    """شموع من WebSocket (ob_stream) أولاً — fallback لـREST عند نقص البثّ."""
-    # 🌊 محاولة الستريم: صفر REST، لحظي
+    """جلب شموع من Binance"""
     try:
-        from quant_engine.ob_stream import get_klines as _ws_kl
-        _rows = _ws_kl(symbol, interval, limit)
-        if _rows:
-            return [Candle(time=r["t"], open=r["o"], high=r["h"], low=r["l"],
-                           close=r["c"], volume=r["v"], buy_volume=r.get("bv", 0.0))
-                    for r in _rows]
-    except Exception:
-        pass
-    _ttl = _KL_TTL.get(interval, 300)
-    data = await fapi_get(f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}", _ttl)
-    if not isinstance(data, list):
-        return []
-    try:
-        return [Candle(
-            time=int(k[0]) // 1000,
-            open=float(k[1]),
-            high=float(k[2]),
-            low=float(k[3]),
-            close=float(k[4]),
-            volume=float(k[5]),
-            buy_volume=float(k[9]),
-        ) for k in data]
-    except Exception:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}")
+            data = r.json()
+            return [Candle(
+                time=int(k[0]) // 1000,
+                open=float(k[1]),
+                high=float(k[2]),
+                low=float(k[3]),
+                close=float(k[4]),
+                volume=float(k[5]),
+                buy_volume=float(k[9]),
+            ) for k in data]
+    except:
         return []
 
 def quick_trend(candles: list[Candle]) -> str:
@@ -811,13 +754,13 @@ def calc_grade(score: float, conf: float, strat_count: int = 0, key_strats: int 
     key_strats = عدد الاستراتيجيات القوية (Liquidation, Stop Hunt, FVG, CVD, Delta Div)
     """
     # Grade S: أعلى ثقة + استراتيجيات متعددة + قوية
-    if score >= 6.5 and conf >= 80 and strat_count >= 4 and key_strats >= 2:
+    if score >= 9.0 and conf >= 85 and strat_count >= 5 and key_strats >= 2:
         return "S"
     # Grade A: جودة عالية (score + conf + استراتيجية قوية) — لا نشترط 5
-    if score >= 5.0 and conf >= 70 and key_strats >= 1:
+    if score >= 7.0 and conf >= 75 and key_strats >= 1:
         return "A"
     # Grade B: متوسط
-    if score >= 4.0 and conf >= 62:
+    if score >= 5.5 and conf >= 65:
         return "B"
     return "C"
 
@@ -1018,17 +961,6 @@ def guardian_veto_v3(direction, rsi_v, sk, sd, price, bb_u, bb_l, bb_m,
 # ─── PREDATOR AGENT V3 ──────────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
-PRED_STATS = {"scanned": 0, "dead_vol": 0, "spoof": 0, "low_score": 0,
-              "guardian": 0, "mtf": 0, "delta": 0, "emitted": 0}
-
-
-def pred_stats_snapshot():
-    s = dict(PRED_STATS)
-    for k in PRED_STATS:
-        PRED_STATS[k] = 0
-    return s
-
-
 async def predator_agent(
     candles: list,
     symbol: str,
@@ -1045,7 +977,6 @@ async def predator_agent(
     """
     if len(candles) < 60:
         return
-    PRED_STATS["scanned"] += 1
 
     closes = [c.close for c in candles]
     price = closes[-1]
@@ -1093,12 +1024,11 @@ async def predator_agent(
 
     # ═══ السوق ميت → تجاهل ═══
     if not vol_passed:
-        PRED_STATS["dead_vol"] += 1
         return
 
     # ═══ Spoofing → تجاهل (تلاعب) ═══
     if spoofing:
-        PRED_STATS["spoof"] += 1
+        log.debug("Spoofing detected: %s", symbol)
         return
 
     long_score = 0.0
@@ -1345,7 +1275,7 @@ async def predator_agent(
     # ════════════════════════════════════════════════════════════
     # اتخاذ القرار
     # ════════════════════════════════════════════════════════════
-    MIN_SCORE = 4.0  # مُعايَرة على الواقع: النقاط الفعلية 4.0-5.0 (كانت 6.0 = صفر إشارات شهرين)
+    MIN_SCORE = 6.0  # عتبة جودة واقعية (بدل 5.0 المكسورة)
 
     direction, score, strats, key_strats = None, 0.0, [], 0
     if long_score >= MIN_SCORE and long_score > short_score:
@@ -1354,15 +1284,10 @@ async def predator_agent(
         direction, score, strats, key_strats = "SHORT", short_score, short_strats, short_key
 
     if not direction:
-        PRED_STATS["low_score"] += 1
-        _best = max(long_score, short_score)
-        if _best > PRED_STATS.get("best_score", 0):
-            PRED_STATS["best_score"] = round(_best, 1)
         return
 
     # ─── لا بد من استراتيجية قوية واحدة على الأقل ───
     if key_strats < 1:
-        PRED_STATS["no_key"] = PRED_STATS.get("no_key", 0) + 1
         log.debug("Reject %s %s — no key strategy", symbol, direction)
         return
 
@@ -1370,24 +1295,19 @@ async def predator_agent(
     #   نتداول مع اتّجاه BTC، أو ضدّه/في المحايد فقط بانعكاس قويّ مؤكّد (score>=9).
     #   الجذر: كارثة 01:00 — 5 شورت في BTC محايد (score 7-8.5) ماتت لمّا صعد BTC.
     #   score>=9 نادر (7 من ~190) = قمّة/قاع راسخ يبرّر مخالفة BTC.
-    #   الحماية تمنع التعارض الصريح فقط: البتكوين محايد معظم الوقت،
-    #   والمنع المطلق في المحايد كان يرفض ~96% من إشارات Predator (صمت شهرين).
     _btc = BTC_TREND.get("trend", "NEUTRAL")
-    _strong = (score >= 8.0)
-    if direction == "SHORT" and _btc == "BULLISH" and not _strong:
-        PRED_STATS["guardian"] += 1
-        log.info("₿ BTC gate: %s SHORT مرفوض — BTC صاعد score=%.1f", symbol, score)
+    _strong = (score >= 9.0)
+    if direction == "SHORT" and _btc != "BEARISH" and not _strong:
+        log.info("₿ BTC gate: %s SHORT مرفوض — BTC %s (ليس هابطاً) score=%.1f", symbol, _btc, score)
         return
-    if direction == "LONG" and _btc == "BEARISH" and not _strong:
-        PRED_STATS["guardian"] += 1
-        log.info("₿ BTC gate: %s LONG مرفوض — BTC هابط score=%.1f", symbol, score)
+    if direction == "LONG" and _btc != "BULLISH" and not _strong:
+        log.info("₿ BTC gate: %s LONG مرفوض — BTC %s (ليس صاعداً) score=%.1f", symbol, _btc, score)
         return
 
     # ─── الثقة ───
     strat_count = len(strats)
     conf = min(95.0, 45.0 + score * 4.5 + strat_count * 2)
     if conf < 62.0:
-        PRED_STATS["low_conf"] = PRED_STATS.get("low_conf", 0) + 1
         return
 
     # ═══ Guardian Veto V3 (الحارس الواقعي) ═══
@@ -1397,14 +1317,13 @@ async def predator_agent(
         hist_low_dist, hist_high_dist
     )
     if vetoed:
-        PRED_STATS["guardian"] += 1
         log.info("🛡️ Veto: %s %s — %s", symbol, direction, veto_reason)
         return
 
     # ═══ MTF Confirmation ═══
     mtf_passed, mtf_details = await mtf_check(symbol, direction)
     if not mtf_passed:
-        PRED_STATS["mtf"] += 1
+        log.debug("MTF reject: %s %s", symbol, direction)
         return
 
     # ═══ Funding Rate Filter ═══
@@ -1443,22 +1362,6 @@ async def predator_agent(
     except Exception as _obe:
         log.debug("ob_stream check %s: %s", symbol, _obe)
 
-    # 🎯 الضغط المركّب (Funding + OI): ازدحام جانب = وقود انعكاس للجانب الآخر
-    #   funding سالب حاد + OI صاعد = شورتات مزدحمة → صعود محتمل (يعزّز LONG)
-    #   funding موجب حاد + OI صاعد = لونغات مزدحمة → هبوط محتمل (يعزّز SHORT)
-    _sq = ""
-    if funding < -0.02 and oi_change > 2.0:
-        _sq = "short_squeeze"
-    elif funding > 0.02 and oi_change > 2.0:
-        _sq = "long_crowded"
-    if _sq:
-        _supports = ((_sq == "short_squeeze" and direction == "LONG") or
-                     (_sq == "long_crowded" and direction == "SHORT"))
-        if _supports:
-            conf = min(99.0, conf + 5.0)
-            log.info("🎯 Squeeze يعزّز %s %s (funding=%.3f%% oi=%+.1f%%) conf→%.0f%%",
-                     symbol, direction, funding, oi_change, conf)
-
     # ═══ Grade + Leverage ═══
     grade = calc_grade(score, conf, strat_count, key_strats)
 
@@ -1473,24 +1376,6 @@ async def predator_agent(
 
     real_accuracy = get_real_accuracy()
     btc = BTC_TREND.get("trend", "NEUTRAL")
-
-    # ═══ بوابتا Quant النهائيتان: MTF (6 أطر) + Delta/CVD المتقدم ═══
-    try:
-        from quant_engine.mtf_confluence import validate_signal_with_mtf
-        _okm, _rsm, _ = await validate_signal_with_mtf(symbol, direction)
-        if not _okm:
-            PRED_STATS["mtf"] += 1
-            log.info("🧭 %s %s رُفض بتوافق الأطر: %s", symbol, direction, _rsm)
-            return
-        from quant_engine.delta_engine import validate_signal_with_delta
-        _okd, _rsd, _ = await validate_signal_with_delta(symbol, direction)
-        if not _okd:
-            PRED_STATS["delta"] += 1
-            log.info("📊 %s %s رُفض بالدلتا: %s", symbol, direction, _rsd)
-            return
-        log.info("✅ %s %s اجتاز Quant: %s | %s", symbol, direction, _rsm, _rsd)
-    except Exception as _qe:
-        log.debug("quant gates %s: %s", symbol, _qe)
 
     sig = Signal(
         symbol=symbol,
@@ -1524,31 +1409,6 @@ async def predator_agent(
         range_pos=range_pos,
         rsi=rsi_v,
     )
-
-
-    # ═══ Quant Gate — دمج المحرك الكمّي قبل الطابور ═══
-    # 1) Delta المتقدم (CVD أُطر متعددة + Smart Money + امتصاص/استنزاف)
-    try:
-        from quant_engine.delta_engine import validate_signal_with_delta
-        _dok, _dwhy, _ = await validate_signal_with_delta(symbol, direction)
-        if not _dok:
-            log.info("📊 Delta gate: %s %s مرفوض — %s", symbol, direction, _dwhy)
-            return
-        log.info("📊 Delta gate: %s %s — %s", symbol, direction, _dwhy)
-    except Exception as _de:
-        log.debug("delta gate %s: %s", symbol, _de)
-
-    # 2) توافق 6 أُطر زمنية (MTF) — فشل التحليل نفسه لا يقتل الإشارة (fail-open)
-    try:
-        from quant_engine.mtf_confluence import validate_signal_with_mtf
-        _mok, _mwhy, _ = await validate_signal_with_mtf(symbol, direction)
-        if not _mok and "فشل MTF" not in _mwhy:
-            log.info("🧭 MTF gate: %s %s مرفوض — %s", symbol, direction, _mwhy)
-            return
-        if _mok:
-            log.info("🧭 MTF gate: %s %s — %s", symbol, direction, _mwhy)
-    except Exception as _me:
-        log.debug("mtf gate %s: %s", symbol, _me)
 
     await signal_queue.put(sig)
     log.info("Predator V3 → Queue: %s %s [%s] score=%.1f conf=%.0f%% grade=%s pos=%.0f%% lev=%.0fx",
@@ -1598,24 +1458,6 @@ async def sleeping_giants_radar(
     if sg_score >= 8:
         strats.append("⚡ Imminent Explosion")
 
-    # ═══ بوابتا Quant النهائيتان: MTF (6 أطر) + Delta/CVD المتقدم ═══
-    try:
-        from quant_engine.mtf_confluence import validate_signal_with_mtf
-        _okm, _rsm, _ = await validate_signal_with_mtf(symbol, direction)
-        if not _okm:
-            PRED_STATS["mtf"] += 1
-            log.info("🧭 %s %s رُفض بتوافق الأطر: %s", symbol, direction, _rsm)
-            return
-        from quant_engine.delta_engine import validate_signal_with_delta
-        _okd, _rsd, _ = await validate_signal_with_delta(symbol, direction)
-        if not _okd:
-            PRED_STATS["delta"] += 1
-            log.info("📊 %s %s رُفض بالدلتا: %s", symbol, direction, _rsd)
-            return
-        log.info("✅ %s %s اجتاز Quant: %s | %s", symbol, direction, _rsm, _rsd)
-    except Exception as _qe:
-        log.debug("quant gates %s: %s", symbol, _qe)
-
     sig = Signal(
         symbol=symbol,
         direction=direction,
@@ -1638,7 +1480,6 @@ async def sleeping_giants_radar(
         strategy_count=len(strats),
         btc_trend=BTC_TREND.get("trend", "NEUTRAL"),
     )
-
 
     await signal_queue.put(sig)
     log.info("SleepingGiant → Queue: %s score=%.1f conf=%.1f%%", symbol, sg_score, conf)
@@ -1738,19 +1579,6 @@ async def guardian_agent(
             sig = await asyncio.wait_for(signal_queue.get(), timeout=1.0)
 
             oracle_veto = (sig.grade == "C")
-
-            # فحص التعارض: صفقة مفتوحة بعكس الاتجاه على نفس الرمز (من أي رادار)
-            if not oracle_veto:
-                try:
-                    from radars.futures.position_manager import ACTIVE
-                    for _pos in ACTIVE.values():
-                        if _pos.symbol == sig.symbol and _pos.status == "open" and _pos.direction != sig.direction:
-                            log.warning("Guardian central REJECT (conflict): %s %s — صفقة %s مفتوحة بالفعل",
-                                        sig.symbol, sig.direction, _pos.direction)
-                            oracle_veto = True
-                            break
-                except Exception as _e:
-                    log.debug("conflict check %s: %s", sig.symbol, _e)
 
             if oracle_context.get("market_crash_warning"):
                 oracle_veto = True

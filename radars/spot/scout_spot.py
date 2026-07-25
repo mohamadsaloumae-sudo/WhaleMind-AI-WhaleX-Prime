@@ -86,7 +86,7 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
     if range_pos > 0.45:
         return
     rsi_v = _rsi(closes)
-    if not (20 <= rsi_v <= 52):
+    if not (25 <= rsi_v <= 48):
         return
     if min(lows[-6:]) < lo * 0.985:
         return  # كسر قاعٍ جديد — ليس صموداً
@@ -94,7 +94,7 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
     taker = (t8 / v8) if v8 > 0 else 0
     v_avg = sum(vols[-48:-8]) / 40 if len(vols) >= 48 else (sum(vols[:-8]) / max(1, len(vols) - 8))
     v_infl = (v8 / 8) / v_avg if v_avg > 0 else 0
-    if taker < 0.50 or v_infl < 1.08:
+    if taker < 0.52 or v_infl < 1.15:
         return
     log.info("🪙🔎 مرشّح قريب: %s taker=%.0f%% vol=%.2fx rsi=%.0f pos=%.0f%%",
              sym, taker*100, v_infl, rsi_v, range_pos*100)
@@ -102,7 +102,7 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
         return  # لا شرارة خضراء فوق المتوسط القريب
 
     grade = "A" if (taker >= 0.55 and v_infl >= 1.30) else "B"
-    if taker < 0.51 or v_infl < 1.10:
+    if taker < 0.53 or v_infl < 1.20:
         return  # نبثّ A والقوي من B — انتقاء عالٍ بفرص أكثر
 
     entry = price

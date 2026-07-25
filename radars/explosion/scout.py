@@ -64,10 +64,9 @@ def _init_db():
 async def fetch_top_gainers() -> list[dict]:
     """المستوى 1: كل العملات بطلب واحد + فلتر."""
     try:
-        from radars.futures.engine import fapi_get
-        data = await fapi_get("https://fapi.binance.com/fapi/v1/ticker/24hr", 30)
-        if not isinstance(data, list):
-            return []
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get("https://fapi.binance.com/fapi/v1/ticker/24hr")
+            data = r.json()
         out = []
         for d in data:
             if not d["symbol"].endswith("USDT"):
@@ -86,10 +85,9 @@ async def fetch_top_gainers() -> list[dict]:
 async def fetch_ob_deep(symbol: str) -> dict:
     """تحليل Order Book العميق (500 مستوى): جدران، اختلال، تمييز الجدار الوهمي."""
     try:
-        from radars.futures.engine import fapi_get
-        d = await fapi_get(f"https://fapi.binance.com/fapi/v1/depth?symbol={symbol}&limit=100", 8)
-        if not isinstance(d, dict) or "bids" not in d:
-            return {"valid": False}
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(f"https://fapi.binance.com/fapi/v1/depth?symbol={symbol}&limit=500")
+            d = r.json()
         bids_raw = [(float(b[0]), float(b[1])) for b in d.get("bids", [])]
         asks_raw = [(float(a[0]), float(a[1])) for a in d.get("asks", [])]
         if not bids_raw or not asks_raw:
@@ -224,18 +222,7 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
         from quant_engine.order_book_analyzer import analyze_order_book
         _a = await analyze_order_book(symbol, check_spoofing=True)
         if _a is not None:
-            # قراءة الحكم الكامل للأوردر بوك (لا الحقل الواحد):
-            #   ضغط شراء مسيطر / جدار بيع وهمي (spoofing على ask) = خدعة → لا شورت
-            _pdir = getattr(_a, "pressure_direction", "NEUTRAL")
-            _psc = getattr(_a, "pressure_score", 0.0)
-            _spf = getattr(_a, "spoofing_side", "")
             ob_safe_short = _a.safe_for_short
-            if _pdir == "LONG":
-                ob_safe_short = False
-            if _spf == "ask":
-                ob_safe_short = False
-            log.info("🔬 %s OB: safe_short=%s | ضغط=%s(%.2f) | spoof=%s",
-                     symbol, ob_safe_short, _pdir, _psc, _spf or "لا")
     except Exception as _e:
         log.debug("ob_analyzer %s: %s", symbol, _e)
         ob_safe_short = True
@@ -291,12 +278,10 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
         if not _sw.endswith("USDT"): _sw+="USDT"
         if any(x["side"]=="bid" for x in get_signals(_sw).get("spoof",[])): _ns=False
     except Exception: pass
-    # منطق يونيو الرابح: الأوردر بوك + نافذة القمة + RSI + لا spoofing (بلا شرط المشترين)
     collapse = radar_ok and hawk_ok and ob_safe_short and r > 45 and _ns
 
     if radar_ok and not collapse:
-        log.info("🦅 %s مُنع: hawk=%s(%s) safe_short=%s rsi=%.0f spoof_ok=%s",
-                 symbol, hawk_ok, hawk_block_reason or "-", ob_safe_short, r, _ns)
+        log.debug("🦅 %s: OB إشارات لكن مُنع (hawk=%s safe_short=%s)", symbol, hawk_ok, ob_safe_short)
     return {
         "collapse": collapse, "signals": signals, "deep": deep,
         "rsi": r, "stoch_k": sk, "stoch_d": sd,
@@ -318,10 +303,21 @@ def _build_signal(symbol: str, price: float, candles: list, peak: float,
     rr2 = abs(tp2 - price) / risk if risk > 0 else 0
     rr3 = abs(tp3 - price) / risk if risk > 0 else 0
     drop = (peak - price) / peak * 100 if peak > 0 else 0
+    # موقع السعر في النطاق (للتسجيل والتحليل — كان فارغاً 0.0)
+    try:
+        _rng_pos = range_position(candles, 20)
+    except Exception:
+        _rng_pos = 0.0
+    # نسبة حجم آخر شمعة لمتوسط 20 (للتسجيل)
+    try:
+        _vols = [c.volume for c in candles[-20:] if getattr(c, "volume", 0)]
+        _avg_vol = sum(_vols) / len(_vols) if _vols else 0
+        _vol_ratio = (candles[-1].volume / _avg_vol) if _avg_vol > 0 else 0.0
+    except Exception:
+        _vol_ratio = 0.0
     conf = min(92.0, 72.0 + len(ob_signals) * 5.0)
     strats = ["🔭 Explosion Scout — انهيار OB"] + ob_signals + [f"هبوط من الذروة: -{drop:.1f}%"]
     return Signal(
-        source_radar="PH_SHORT",
         symbol=symbol, direction="SHORT", grade="A",
         score=round(6.5 + len(ob_signals) * 0.3, 2),
         confidence=round(conf, 1), entry=price,
@@ -329,7 +325,7 @@ def _build_signal(symbol: str, price: float, candles: list, peak: float,
         leverage=3.0, strategies="\n".join(strats), radar_type="futures", tier="PH",
         rr_tp1=round(rr1, 2), rr_tp2=round(rr2, 2), rr_tp3=round(rr3, 2),
         strategy_count=len(strats), btc_trend="NEUTRAL",
-        rsi=rsi_v,
+        rsi=rsi_v, range_pos=round(_rng_pos, 4), volume_ratio=round(_vol_ratio, 2),
     )
 
 
@@ -338,7 +334,7 @@ async def _send_alert_once(symbol: str, res: dict, peak: float):
     price = res["price"]
     drop = (peak - price) / peak * 100 if peak > 0 else 0
     msg = (
-        f"🎯 <b>WhaleX Short</b> — Watch Started\n"
+        f"🎯 <b>PEAK HUNTER</b> — Watch Started\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"📡 <code>{symbol}</code>   ▼ {drop:.0f}% from peak\n\n"
         f"Price   <code>{price:.6g}</code>\n"
@@ -387,10 +383,6 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
                                  col: dict, position_manager_fn):
     """Full systematic SHORT signal + open in manager."""
     sig = _build_signal(symbol, price, candles, peak, col["signals"], col["rsi"])
-    try:
-        from quant_engine.ml_brain import smart_leverage as _sml
-        sig.leverage = _sml(sig)
-    except Exception: pass
     # تسجيل الإشارة في ml_training (يكمل الحلقة: عند الإغلاق update_result_by_match يجدها)
     try:
         from ml_recorder import record_signal
@@ -413,7 +405,7 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
     f_rsi = _filter_line("RSI", f"{col['rsi']:.0f}", col['rsi'] >= 58)
 
     msg = (
-        f"🎯 <b>WhaleX Short</b> — 🔻 SHORT\n"
+        f"🎯 <b>PEAK HUNTER</b> — 🔻 SHORT\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"⚡ <code>{symbol}</code>   ▼ {drop:.0f}% from peak\n\n"
         f"Entry   <code>{sig.entry:.6g}</code>\n"
@@ -442,24 +434,6 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
             log.error("scout → manager error: %s", e)
 
     if opened_ok:
-        # 🧠 توقّع النموذج المتعلّم (مراقبة)
-        try:
-            from quant_engine.ml_brain import predict_signal, ML_VETO_THRESHOLD
-            _mlp, _mlf = predict_signal(sig)
-            log.info("🧠 ML: %s %s — نجاح متوقّع %.0f%% | %s",
-                     sig.symbol, sig.direction, _mlp * 100, _mlf)
-            _short_thr = min(ML_VETO_THRESHOLD, 0.36)  # SHORT يربح بحجم رابحاته لا نسبتها — عتبة أخفف تعيد صفقاته
-            if _short_thr > 0 and _mlp < _short_thr:
-                log.info("🧠 ML veto: %s — %.0f%% < %.0f%%", sig.symbol, _mlp*100, _short_thr*100)
-                return
-        except Exception as _mle:
-            log.debug("ml predict: %s", _mle)
-        # ✅ التنفيذ الحقيقي (Binance) — نفس نقطة الفتح الورقي
-        try:
-            from services.auto_trade_engine import on_signal_approved
-            asyncio.create_task(on_signal_approved(sig))
-        except Exception as _ae:
-            log.error("auto_trade (PH) error: %s", _ae, exc_info=True)
         try:
             from services.telegram import send_message
             from core.config import get_settings
@@ -522,35 +496,17 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
             conn = sqlite3.connect(DB_PATH)
             # نراقب كل العملات إلا التي في cooldown (signaled حديثاً)
             rows = conn.execute("""
-                SELECT symbol, peak_price, alert_sent, signal_sent, last_check, status, gain_pct
+                SELECT symbol, peak_price, alert_sent, signal_sent, last_check, status
                 FROM watchlist
             """).fetchall()
             conn.close()
 
-            async def _scan_one(symbol, peak, alert_sent, signal_sent, last_check, status, gain_pct):
+            for symbol, peak, alert_sent, signal_sent, last_check, status in rows:
                 try:
-                    # ─ إخراج الجثث (فحص رخيص قبل أي مرحلة): ─
-                    #   عملة استهلكت هبوطها معظم صعودها (≥85% من gain) = انتهت موجتها.
-                    #   تُحذف نهائياً؛ إن انفجرت من جديد يعيدها الفرز بقمة جديدة تلقائياً.
-                    try:
-                        _k1 = await fetch_klines_async(symbol, "1m", 1)
-                        _px = _k1[-1].close if _k1 else 0
-                        if _px and peak and peak > 0 and gain_pct and gain_pct > 0:
-                            _dr = (peak - _px) / peak * 100
-                            if _dr >= gain_pct * 0.85:
-                                conn = sqlite3.connect(DB_PATH)
-                                conn.execute("DELETE FROM watchlist WHERE symbol=?", (symbol,))
-                                conn.commit(); conn.close()
-                                log.info("🪦 %s خرجت من المراقبة: هبطت %.1f%% من قمتها (صعودها كان %.1f%%) — موجتها انتهت",
-                                         symbol, _dr, gain_pct)
-                                return
-                    except Exception as _ev:
-                        log.debug("evict check %s: %s", symbol, _ev)
-
                     # العملة في cooldown بعد إشارة؟ (لا تموت — تعود بعد 10د)
                     if status == "signaled":
                         if now - (last_check or 0) < SIGNAL_COOLDOWN:
-                            return  # ما زالت في الراحة القصيرة
+                            continue  # ما زالت في الراحة القصيرة
                         # 🔭 كسر الحلقة: إن خسرت آخر صفقة خلال ساعتين، لا تُعاد بعد (INX خسرت 3 مرّات متتالية صاعدة)
                         try:
                             _cc = sqlite3.connect("/opt/whalex/ml_training.db")
@@ -561,7 +517,7 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
                             _cc.close()
                             if _last and _last[0] is not None and _last[0] <= 0 and _last[1] and (now - int(_last[1])) < 7200:
                                 log.info("🔭 %s: خسرت آخر صفقة (%.2f%%) قبل <ساعتين — كسر الحلقة، لا إعادة اصطياد", symbol, _last[0])
-                                return
+                                continue
                         except Exception as _e:
                             log.debug("loop-break check %s: %s", symbol, _e)
                         # انتهى cooldown + لم تخسر حديثاً → تعود للمراقبة (تُحيا)
@@ -580,7 +536,7 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
                             conn.execute("UPDATE watchlist SET alert_sent=1, last_check=? WHERE symbol=?", (int(now), symbol))
                             conn.commit()
                             conn.close()
-                        return
+                        continue
 
                     # مرحلة 2: نُبِّه → مراقبة OB صارمة للانهيار
                     candles = await fetch_klines_async(symbol, "15m", 50)
@@ -588,9 +544,9 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
                     if col["collapse"]:
                         # 🔭 إعادة فحص السيولة الحيّة قبل الصيد — HANA دخلت بـ15M ثمّ انهارت لـ0.9M (تلاعب)
                         try:
-                            from radars.futures.engine import fapi_get
-                            _vj = await fapi_get(f"https://fapi.binance.com/fapi/v1/ticker/24hr?symbol={symbol}", 20)
-                            _vol_now = float((_vj or {}).get("quoteVolume", 0))
+                            async with httpx.AsyncClient(timeout=8) as _vc:
+                                _vr = await _vc.get(f"https://fapi.binance.com/fapi/v1/ticker/24hr?symbol={symbol}")
+                                _vol_now = float(_vr.json().get("quoteVolume", 0))
                             if _vol_now < MIN_VOLUME_USD:
                                 log.info("🔭 %s: سيولة انهارت (%.1fM < %.0fM) — حذف من watchlist، لا صيد",
                                          symbol, _vol_now/1e6, MIN_VOLUME_USD/1e6)
@@ -598,7 +554,7 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
                                 conn.execute("DELETE FROM watchlist WHERE symbol=?", (symbol,))
                                 conn.commit()
                                 conn.close()
-                                return
+                                continue
                         except Exception as _ve:
                             log.debug("liquidity recheck %s: %s", symbol, _ve)
                         price = candles[-1].close
@@ -611,17 +567,9 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
                         log.info("🔭 %s: انهيار OB → إشارة (ثم cooldown 10د)", symbol)
                 except Exception as e:
                     log.debug("scout monitor %s: %s", symbol, e)
-            _sem = asyncio.Semaphore(8)
-            async def _g(_r):
-                async with _sem:
-                    try: await _scan_one(*_r) if isinstance(_r, tuple) else await _scan_one(_r)
-                    except Exception as _e: log.debug("par %s: %s", _r, _e)
-            await asyncio.gather(*[_g(_r) for _r in rows], return_exceptions=True)
+                await asyncio.sleep(0.2)  # فاصل صغير بين العملات (تخفيف API)
 
         except Exception as e:
             log.error("scout_loop error: %s", e)
 
-        try:
-            from quant_engine.watchdog import beat as _wb; _wb("scout")
-        except Exception: pass
         await asyncio.sleep(MONITOR_INTERVAL)  # مراقبة كل 10s (صرامة)

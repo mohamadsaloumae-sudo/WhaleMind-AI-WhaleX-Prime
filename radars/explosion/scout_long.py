@@ -18,10 +18,9 @@ import httpx
 async def fetch_ob_deep(symbol: str) -> dict:
     """تحليل Order Book العميق (مستقلّ عن scout)."""
     try:
-        from radars.futures.engine import fapi_get
-        d = await fapi_get(f"https://fapi.binance.com/fapi/v1/depth?symbol={symbol}&limit=100", 8)
-        if not isinstance(d, dict):
-            return {"valid": False}
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(f"https://fapi.binance.com/fapi/v1/depth?symbol={symbol}&limit=500")
+            d = r.json()
         bids_raw = [(float(b[0]), float(b[1])) for b in d.get("bids", [])]
         asks_raw = [(float(a[0]), float(a[1])) for a in d.get("asks", [])]
         if not bids_raw or not asks_raw:
@@ -78,9 +77,6 @@ async def fetch_top_gainers() -> list[dict]:
         async with httpx.AsyncClient(timeout=10) as c:
             r = await c.get("https://fapi.binance.com/fapi/v1/ticker/24hr")
             data = r.json()
-        if not isinstance(data, list):
-            log.error("fetch_top_gainers: رد غير متوقع %s: %s", type(data).__name__, str(data)[:150])
-            return []
         out = []
         for d in data:
             if not d["symbol"].endswith("USDT"):
@@ -136,12 +132,15 @@ async def detect_rebound(symbol: str, candles) -> dict:
     # ارتفاع من القاع (كم ارتدّ)
     dist_from_bottom = (cur - lo_4h) / lo_4h * 100 if lo_4h > 0 else 0
 
+    # تصحيح في اتجاه صاعد (لا قاع هابط): العملة صاعدة، نزلت من قمتها 5-18% (تصحيح صحي)،
+    # لكن ما زالت في النصف العلوي (pos>0.35 = الاتجاه الصاعد سليم، ليست منهارة).
     dist_from_peak = (peak_4h - cur) / peak_4h * 100 if peak_4h > 0 else 0
-    # ─── صيد الموجة الحيّة (تصميم Mohamad): منفجرة في تصحيح صحّي — لا هادئة عند قاع ───
-    #   تصحيح 5–15% من القمة + ما زالت في النصف العلوي = الموجة مستمرة والمشترون يعودون
-    healthy_dip = 5.0 <= dist_from_peak <= 15.0
-    upper_half  = pos_in_range > 0.50
-    in_uptrend_dip = healthy_dip and upper_half
+    # ─── منطق جديد: عرضية عند القاع (لا صاعدة في تصحيح) ───
+    # عرض النطاق الكلّي: ضيّق = عملة هادئة متجمّعة (ليست منفجرة ولا منهارة)
+    rng_width_pct = (peak_4h - lo_4h) / lo_4h * 100 if lo_4h > 0 else 999
+    is_sideways = rng_width_pct <= 12.0       # نطاق ضيّق ≤12% = عرضية هادئة
+    at_bottom_half = pos_in_range < 0.45      # النصف السفلي = عند القاع لا مرتفعة
+    in_uptrend_dip = is_sideways and at_bottom_half
 
     # ارتداد لحظي مؤكّد من الأوردر بوك الاحترافي (safe_for_long) — لا سكين.
     ob_safe_long = True
@@ -153,12 +152,12 @@ async def detect_rebound(symbol: str, candles) -> dict:
     except Exception:
         ob_safe_long = True
 
-    # الرادار: اختلال شراء قرب السعر + علامة ثانية — نفس فلسفة WhaleX Short الناجح (2 من 4).
-    has_buy_imb = "اختلال_شراء_قرب_السعر" in signals
-    radar_ok = has_buy_imb and len(signals) >= 2
+    # الرادار: جدار شراء ضخم + علامة شراء ثانية (مشترون يدخلون عند التصحيح).
+    has_buy_wall = "جدار_شراء_ضخم" in signals
+    radar_ok = has_buy_wall and len(signals) >= 4  # الأربعة كلها: imbalance+pressure+wall+erosion (نظافة الدخول)
 
-    # RSI أوسع للموجات القوية (35–65): تصحيح داخل زخم — لا سكين ولا قمة محترقة.
-    rsi_ok = 35 <= r <= 65
+    # RSI في منطقة وسطى (تصحيح صحي 40-60، لا oversold=سكين، لا overbought=قمة).
+    rsi_ok = 38 <= r <= 60
 
     at_real_bottom = in_uptrend_dip  # توافق مع باقي الكود
     _ns=True
@@ -168,11 +167,7 @@ async def detect_rebound(symbol: str, candles) -> dict:
         if not _sw.endswith("USDT"): _sw+="USDT"
         if any(x["side"]=="ask" for x in get_signals(_sw).get("spoof",[])): _ns=False
     except Exception: pass
-    # 🌊 وعي الترند الحي: لا ضغط شراء عام ولا تآكل بائعين = البائعون أحياء → ارتداد وهمي
-    _sellers_alive = ("ضغط_شراء_عام" not in signals) and ("تآكل_البائعين" not in signals)
-    if _sellers_alive and radar_ok:
-        log.info("🌊 %s: البائعون أحياء — ارتداد وهمي في هبوط حي، لا لونغ", symbol)
-    rebound = in_uptrend_dip and radar_ok and ob_safe_long and rsi_ok and _ns and not _sellers_alive
+    rebound = in_uptrend_dip and radar_ok and ob_safe_long and rsi_ok and _ns
 
     return {
         "rebound": rebound, "signals": signals, "rsi": r,
@@ -199,7 +194,6 @@ def _build_long_signal(symbol: str, price: float, candles: list, bottom: float,
     conf = min(92.0, 72.0 + len(ob_signals) * 5.0)
     strats = ["🔭 Explosion Long — ارتداد OB"] + ob_signals + [f"ارتداد من القاع: +{rise:.1f}%"]
     return Signal(
-        source_radar="PH_LONG",
         symbol=symbol, direction="LONG", grade="A",
         score=round(6.5 + len(ob_signals) * 0.3, 2),
         confidence=round(conf, 1), entry=price,
@@ -225,10 +219,6 @@ async def _send_long_and_open(symbol, price, candles, bottom, res, position_mana
         log.debug("active check %s: %s", symbol, _e)
     sigs = res["signals"]
     sig = _build_long_signal(symbol, price, candles, bottom, sigs, res["rsi"], res.get("pos", 0.0))
-    try:
-        from quant_engine.ml_brain import smart_leverage as _sml
-        sig.leverage = _sml(sig)
-    except Exception: pass
 
     # تسجيل في ml_training (يكمل حلقة التعلّم)
     try:
@@ -240,73 +230,45 @@ async def _send_long_and_open(symbol, price, candles, bottom, res, position_mana
     log.info("🔭🔼 PEAK HUNTER LONG SIGNAL: %s LONG @%.6g grade=%s [%s]",
              symbol, price, sig.grade, "+".join(sigs))
 
+    # ─── نشر بطاقة LONG (📈 أخضر، أرقام قابلة للنسخ) ───
+    rise = (price - bottom) / bottom * 100 if bottom > 0 else 0
+    n_trig = len(sigs)
+    f_imb = _filter_line("Buy Imbalance", "yes" if "اختلال_شراء_قرب_السعر" in sigs else "no", "اختلال_شراء_قرب_السعر" in sigs)
+    f_prs = _filter_line("Buy Pressure", "yes" if "ضغط_شراء_عام" in sigs else "no", "ضغط_شراء_عام" in sigs)
+    f_wal = _filter_line("Buy Wall", "yes" if "جدار_شراء_ضخم" in sigs else "no", "جدار_شراء_ضخم" in sigs)
+    f_ero = _filter_line("Seller Erosion", "yes" if "تآكل_البائعين" in sigs else "no", "تآكل_البائعين" in sigs)
+    f_rsi = _filter_line("RSI", f"{res['rsi']:.0f}", res['rsi'] < 40)
+    msg = (
+        f"📈 <b>PEAK HUNTER</b> — LONG\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"⚡ <code>{symbol}</code>   ▲ {rise:.0f}% from bottom\n\n"
+        f"Entry   <code>{sig.entry:.6g}</code>\n"
+        f"Stop    <code>{sig.sl:.6g}</code>\n"
+        f"TP1     <code>{sig.tp1:.6g}</code>\n"
+        f"TP2     <code>{sig.tp2:.6g}</code>\n"
+        f"TP3     <code>{sig.tp3:.6g}</code>\n\n"
+        f"Grade <b>{sig.grade}</b>  ·  Conf <b>{sig.confidence:.0f}%</b>  ·  Lev <b>{sig.leverage:.0f}x</b>\n"
+        f"R:R   {sig.rr_tp1} / {sig.rr_tp2} / {sig.rr_tp3}\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"🎯 <b>DETECTION FILTERS</b>   {n_trig}/5\n"
+        f"{f_imb}\n{f_prs}\n{f_wal}\n{f_ero}\n{f_rsi}\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"📈 Rebound confirmed — entering rise\n"
+        f"🐋 <i>WhaleMind Prime</i>"
+    )
+    try:
+        from services.telegram import send_message
+        from core.config import get_settings
+        ch = get_settings().telegram_channel_futures
+        if ch:
+            await send_message(ch, msg)
+    except Exception as _e:
+        log.error("Long signal broadcast error: %s", _e)
 
     if position_manager_fn:
         try:
-            _res = await position_manager_fn(sig)
-            if _res is not None:
-                log.info("🔭📈 Peak Hunter LONG → manager: %s LONG (opened)", symbol)
-                # ─── نشر بطاقة LONG (📈 أخضر، أرقام قابلة للنسخ) ───
-                rise = (price - bottom) / bottom * 100 if bottom > 0 else 0
-                n_trig = len(sigs)
-                f_imb = _filter_line("Buy Imbalance", "yes" if "اختلال_شراء_قرب_السعر" in sigs else "no", "اختلال_شراء_قرب_السعر" in sigs)
-                f_prs = _filter_line("Buy Pressure", "yes" if "ضغط_شراء_عام" in sigs else "no", "ضغط_شراء_عام" in sigs)
-                f_wal = _filter_line("Buy Wall", "yes" if "جدار_شراء_ضخم" in sigs else "no", "جدار_شراء_ضخم" in sigs)
-                f_ero = _filter_line("Seller Erosion", "yes" if "تآكل_البائعين" in sigs else "no", "تآكل_البائعين" in sigs)
-                f_rsi = _filter_line("RSI", f"{res['rsi']:.0f}", res['rsi'] < 40)
-                msg = (
-                    f"📈 <b>WhaleX Long</b> — LONG\n"
-                    f"━━━━━━━━━━━━━━━━━━━\n"
-                    f"⚡ <code>{symbol}</code>   ▲ {rise:.0f}% from bottom\n\n"
-                    f"Entry   <code>{sig.entry:.6g}</code>\n"
-                    f"Stop    <code>{sig.sl:.6g}</code>\n"
-                    f"TP1     <code>{sig.tp1:.6g}</code>\n"
-                    f"TP2     <code>{sig.tp2:.6g}</code>\n"
-                    f"TP3     <code>{sig.tp3:.6g}</code>\n\n"
-                    f"Grade <b>{sig.grade}</b>  ·  Conf <b>{sig.confidence:.0f}%</b>  ·  Lev <b>{sig.leverage:.0f}x</b>\n"
-                    f"R:R   {sig.rr_tp1} / {sig.rr_tp2} / {sig.rr_tp3}\n"
-                    f"━━━━━━━━━━━━━━━━━━━\n"
-                    f"🎯 <b>DETECTION FILTERS</b>   {n_trig}/5\n"
-                    f"{f_imb}\n{f_prs}\n{f_wal}\n{f_ero}\n{f_rsi}\n"
-                    f"━━━━━━━━━━━━━━━━━━━\n"
-                    f"📈 Rebound confirmed — entering rise\n"
-                    f"🐋 <i>WhaleMind Prime</i>"
-                )
-                try:
-                    from services.telegram import send_message
-                    from core.config import get_settings
-                    ch = get_settings().telegram_channel_futures
-                    if ch:
-                        await send_message(ch, msg)
-                except Exception as _e:
-                    log.error("Long signal broadcast error: %s", _e)
-                # ✅ حفظ للميني آب فوراً — ما فُتح يُعرض، والفشل يصرخ لا يصمت
-                try:
-                    from radars.explosion.scout import _save_to_signals_table
-                    _save_to_signals_table(sig, "📈 Peak Hunter LONG\n" + "\n".join(sigs))
-                except Exception as _se:
-                    log.error("❌ Long save_signals FAILED %s: %s", symbol, _se)
-                # 🧠 الفيتو يحكم التنفيذ الحقيقي فقط (لا الظهور)
-                _veto = False
-                try:
-                    from quant_engine.ml_brain import predict_signal, ML_VETO_THRESHOLD
-                    _mlp, _mlf = predict_signal(sig)
-                    log.info("🧠 ML: %s %s — نجاح متوقّع %.0f%% | %s",
-                             sig.symbol, sig.direction, _mlp * 100, _mlf)
-                    if ML_VETO_THRESHOLD > 0 and _mlp < ML_VETO_THRESHOLD:
-                        _veto = True
-                        log.info("🧠 ML veto (أوتو فقط): %s — %.0f%% < %.0f%%",
-                                 sig.symbol, _mlp * 100, ML_VETO_THRESHOLD * 100)
-                except Exception as _mle:
-                    log.debug("ml predict: %s", _mle)
-                if not _veto:
-                    try:
-                        from services.auto_trade_engine import on_signal_approved
-                        asyncio.create_task(on_signal_approved(sig))
-                    except Exception as _ae:
-                        log.error("auto_trade (PH-LONG) error: %s", _ae)
-            else:
-                log.info("🔭📈 %s LONG — المدير رفض الفتح (حارس/ازدواج)", symbol)
+            await position_manager_fn(sig)
+            log.info("🔭📈 Peak Hunter LONG → manager: %s LONG (opened)", symbol)
         except Exception as _e:
             log.error("Long open error %s: %s", symbol, _e)
 
@@ -330,20 +292,15 @@ async def scout_long_loop(broadcast_fn=None, position_manager_fn=None):
                     log.info("🔭🔼 [فرز LONG] %d عملة هادئة عند القاع", len(gainers[:25]))
 
             # مراقبة كل عملة
-            async def _one_long(symbol):
+            for symbol in list(watchlist.keys()):
                 # cooldown
                 if symbol in COOLDOWN and now - COOLDOWN[symbol] < COOLDOWN_SEC:
-                    return
+                    continue
                 try:
-                    candles = await fetch_klines_async(symbol, "1h", 48)
+                    candles = await fetch_klines_async(symbol, "4h", 50)
                     if not candles or len(candles) < 20:
-                        return
+                        continue
                     price = candles[-1].close
-                    try:
-                        from quant_engine.ob_stream import get_price as _wp
-                        _lp = _wp(symbol)
-                        if _lp and _lp > 0: price = _lp
-                    except Exception: pass
                     res = await detect_rebound(symbol, candles)
                     if res["rebound"]:
                         await _send_long_and_open(symbol, price, candles,
@@ -352,16 +309,8 @@ async def scout_long_loop(broadcast_fn=None, position_manager_fn=None):
                         log.info("🔭🔼 %s: ارتداد OB → إشارة LONG (cooldown 10د)", symbol)
                 except Exception as _e:
                     log.debug("long watch %s: %s", symbol, _e)
-            _sem = asyncio.Semaphore(8)
-            async def _g(_r):
-                async with _sem:
-                    try: await _one_long(*_r) if isinstance(_r, tuple) else await _one_long(_r)
-                    except Exception as _e: log.debug("par %s: %s", _r, _e)
-            await asyncio.gather(*[_g(_r) for _r in list(watchlist.keys())], return_exceptions=True)
+                await asyncio.sleep(0.2)
 
-            try:
-                from quant_engine.watchdog import beat as _wb; _wb("scout_long")
-            except Exception: pass
             await asyncio.sleep(WATCH_INTERVAL)
         except Exception as e:
             log.error("scout_long_loop: %s", e)
