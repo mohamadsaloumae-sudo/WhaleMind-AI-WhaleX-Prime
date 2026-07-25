@@ -371,7 +371,11 @@ async def _gate2_evm(cc, addr, chain):
             _pct = float(h.get("percent") or 0) * 100
         except Exception:
             _pct = 0.0
-        if str(h.get("is_contract")) != "1" and not (h.get("tag") or ""):
+        _tag = str(h.get("tag") or "").lower()
+        _safe_tag = any(k in _tag for k in ("lock", "burn", "null", "dead", "pair",
+                                            "pool", "router", "liquidity"))
+        # عقد غير معروف الوسم يُحسب: قد يكون محفظة منشئ متنكّرة (ثغرة رَغ)
+        if not _safe_tag:
             _human.append(_pct)
     if _human and max(_human) > 15:
         return False, f"حامل فرد يملك {max(_human):.0f}%"
