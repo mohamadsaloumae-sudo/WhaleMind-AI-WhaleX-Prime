@@ -35,7 +35,10 @@ async def push_note(market: str, event: str, message: str, message_en: str = Non
         log.debug("save: %s", e)
     try:
         from routers.ws import registry
-        await registry.broadcast({"event": event, "market": market, "message": clean,
+        _pro_only = event in ("signal", "opened", "closed", "position_closed",
+                              "sl_warning", "trailing_active", "alert")
+        await registry.broadcast({"event": event, "market": market, "pro_only": _pro_only,
+                                  "message": clean,
                                   "message_en": clean_en, "data": {}})
     except Exception as e:
         log.debug("ws: %s", e)

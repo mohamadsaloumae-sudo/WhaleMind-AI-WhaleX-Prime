@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useLang } from "../context/LangContext.jsx";
 import { getMarket } from "../hooks/useMarket.js";
 import { api } from "../lib/api.js";
+import { subscription } from "../lib/api.js";
 
 // 🎵 نغمة WhaleX الهادئة — ثلاث نوتات متناغمة بتلاشٍ طويل
 let _actx = null;
@@ -69,6 +70,18 @@ export default function NotificationBell() {
 
   const [mkt, setMkt] = useState(getMarket());
   const meRef = useRef("");
+  const isProRef = useRef(false);
+
+  useEffect(() => {
+    const load = () => {
+      subscription.status()
+        .then((s) => { isProRef.current = !!(s && (s.is_active || s.tier === "admin")); })
+        .catch(() => {});
+    };
+    load();
+    const iv = setInterval(load, 120000);
+    return () => clearInterval(iv);
+  }, []);
 
   useEffect(() => {
     api.get("/api/profile/me")
@@ -148,6 +161,8 @@ export default function NotificationBell() {
             try { window.dispatchEvent(new CustomEvent("wx-device", { detail: JSON.stringify(d) })); } catch { /* */ }
             return;
           }
+          // إشعارات الإشارات والمدير للمشتركين الفعّالين فقط
+          if (d && d.pro_only && !isProRef.current) return;
           if (!d || !d.message) return;
           // الإشعار العائم يظهر دائماً — أياً كان السوق المفتوح
           try {
