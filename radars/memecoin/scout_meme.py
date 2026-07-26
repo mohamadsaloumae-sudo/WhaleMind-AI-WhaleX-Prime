@@ -580,6 +580,16 @@ async def _meme_broadcast(p, sc):
 
 _SL_PENDING: dict = {}
 
+# 🌊 عتبات الخروج التدفّقي للميم (تُضبط بالقياس)
+MEME_FLOW_WINDOW = 180.0
+MEME_MIN_FLOW_TRADES = 8
+MEME_SELL_VOL = 0.35
+MEME_SELL_BUYRATIO = 0.50
+MEME_SELL_CONFIRM = 60.0
+MEME_HARD_FLOOR = -18.0
+MEME_TRAIL_ARM = 12.0
+MEME_TRAIL_GIVEBACK = 8.0
+
 
 def _meme_close(sid, px, pnl):
     try:
@@ -649,54 +659,43 @@ async def _meme_track_one(cc, r):
         _meme_peak(r["id"], peak)
     peak_pnl = (peak - entry) / entry * 100
     reason = None
-    # عملة ميم لا تتحرّك في ساعتين = ميتة، لا ننتظر رَغاً متأخراً
     _age_h = (time.time() - (r.get("ts") or 0)) / 3600
-    if _age_h >= 2 and abs(pnl) < 2 and (peak_pnl or 0) < 4:
-        _dead_exit = True
-        reason = "\u23F1 \u062E\u0631\u0648\u062C: \u0644\u0627 \u062D\u0631\u0643\u0629 \u0641\u064A \u0633\u0627\u0639\u062A\u064A\u0646"
-    # 🧠 وقف ذكي: لا يُضرب على هبوط لحظة — يقرأ تدفّق السلسلة أولاً
-    if -22 < pnl <= -12:
+    _sid = r["id"]
+    _flow = None
+    try:
+        from radars.memecoin.live_stream import get_flow
+        _flow = get_flow(r["address"], MEME_FLOW_WINDOW)
+    except Exception:
         _flow = None
-        try:
-            from radars.memecoin.live_stream import get_flow
-            _flow = get_flow(r["address"], 180)
-        except Exception:
-            _flow = None
-        _pending = _SL_PENDING.get(r["id"])
-        _recovering = px > (float(r.get("last_price") or px) or px)
-        _buyers_alive = bool(_flow and _flow["trades"] >= 5 and
-                             (_flow["buy_ratio"] >= 0.55 or _flow["vol_ratio"] >= 0.60))
-        if _buyers_alive and not _pending:
-            _SL_PENDING[r["id"]] = time.time()
-            log.info("🧠 %s وقف مؤجَّل: المشترون مسيطرون (%.0f%% شراء) — انتظار تأكيد",
-                     r.get("symbol"), (_flow or {}).get("buy_ratio", 0) * 100)
-            return
-        if _recovering and not _pending:
-            _SL_PENDING[r["id"]] = time.time()
-            log.info("🧠 %s وقف مؤجَّل: السعر يرتد — انتظار تأكيد", r.get("symbol"))
-            return
-        if _pending and (time.time() - _pending) < 90 and (_buyers_alive or _recovering):
-            return
-        _SL_PENDING.pop(r["id"], None)
+    _trades = (_flow or {}).get("trades", 0) or 0
+    _buy_ratio = (_flow or {}).get("buy_ratio", 0.0) or 0.0
+    _vol_ratio = (_flow or {}).get("vol_ratio", 0.0) or 0.0
+    if pnl <= MEME_HARD_FLOOR:
+        reason = "🛑 أرضية أمان -18%"
+        _SL_PENDING.pop(_sid, None)
+    elif _trades >= MEME_MIN_FLOW_TRADES:
+        if _vol_ratio < MEME_SELL_VOL:
+            reason = "🔻 بيع: سيطرة بائعين على الحجم"
+            _SL_PENDING.pop(_sid, None)
+        elif _buy_ratio < MEME_SELL_BUYRATIO:
+            _p = _SL_PENDING.get(_sid)
+            if not _p:
+                _SL_PENDING[_sid] = time.time()
+                log.info("🌊 %s تضاؤل مشترين — انتظار تأكيد %ds", r.get("symbol"), int(MEME_SELL_CONFIRM))
+            elif time.time() - _p >= MEME_SELL_CONFIRM:
+                reason = "🔻 بيع: تضاؤل المشترين (مؤكَّد)"
+                _SL_PENDING.pop(_sid, None)
+        else:
+            _SL_PENDING.pop(_sid, None)
     else:
-        _SL_PENDING.pop(r["id"], None)
-
-    if pnl <= -22:
-        reason = "\U0001F6D1 \u0623\u0631\u0636\u064a\u0629 \u0642\u0635\u0648\u0649 -22%"
-    elif pnl >= 25:
-        reason = "\U0001F3AF \u0627\u0644\u0647\u062f\u0641 +25%"
-    elif pnl <= -12:
-        reason = "\U0001F6D1 \u0627\u0644\u0648\u0642\u0641 -12%"
-    elif peak_pnl >= 40 and pnl <= 28:
-        reason = "\U0001F512 \u0642\u0641\u0644 \u0631\u0628\u062d +15%"
-    elif peak_pnl >= 25 and pnl <= 18:
-        reason = "\U0001F512 \u0642\u0641\u0644 \u0631\u0628\u062d +8%"
-    elif peak_pnl >= 8 and pnl <= 5:
-        reason = "\U0001F512 \u0642\u0641\u0644 \u0631\u0628\u062d +5%"
-    elif peak_pnl >= 15 and pnl <= 10:
-        reason = "\U0001F512 \u0642\u0641\u0644 \u0631\u0628\u062d +3%"
-    elif time.time() - (r.get("ts") or 0) > 8 * 3600:
-        reason = "\u23F1 \u0627\u0646\u062a\u0647\u0627\u0621 24\u0633"
+        _SL_PENDING.pop(_sid, None)
+        if peak_pnl >= MEME_TRAIL_ARM and pnl <= peak_pnl - MEME_TRAIL_GIVEBACK:
+            reason = "🔒 قفل: تراجع عن القمة"
+    if not reason:
+        if _age_h >= 2 and abs(pnl) < 2 and (peak_pnl or 0) < 4:
+            reason = "⏱ خروج: لا حركة في ساعتين"
+        elif time.time() - (r.get("ts") or 0) > 8 * 3600:
+            reason = "⏱ انتهاء المهلة 8س"
     if reason:
         try:
             from radars.memecoin.live_stream import unwatch_token
