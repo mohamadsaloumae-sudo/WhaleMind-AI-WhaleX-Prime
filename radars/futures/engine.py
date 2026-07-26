@@ -156,6 +156,16 @@ class ShadowTrade:
 
 BTC_TREND = {"trend": "NEUTRAL", "last_update": 0, "btc_change_1h": 0.0, "btc_change_24h": 0.0}
 PRED_STATS = {}
+_PRED_KEYS = ("scanned", "no_data", "dead_vol", "spoof", "best_score", "low_score",
+              "no_key", "zone", "btc", "low_conf", "guardian", "mtf", "emitted")
+
+def _ps_hit(k):
+    PRED_STATS[k] = PRED_STATS.get(k, 0) + 1
+
+def pred_stats_snapshot():
+    snap = {k: PRED_STATS.get(k, 0) for k in _PRED_KEYS}
+    PRED_STATS.clear()
+    return snap
 
 async def update_btc_macro():
     """يحدّث اتجاه BTC كل 5 دقائق — يستخدمه كل الإشارات"""
@@ -1009,7 +1019,9 @@ async def predator_agent(
       • RANGING       → Reversal عند الحواف
     فلاتر إلزامية: موقع السعر + Guardian واقعي + MTF + Funding/OI.
     """
+    _ps_hit("scanned")
     if len(candles) < 60:
+        _ps_hit("no_data")
         return
 
     closes = [c.close for c in candles]
@@ -1058,10 +1070,12 @@ async def predator_agent(
 
     # ═══ السوق ميت → تجاهل ═══
     if not vol_passed:
+        _ps_hit("dead_vol")
         return
 
     # ═══ Spoofing → تجاهل (تلاعب) ═══
     if spoofing:
+        _ps_hit("spoof")
         log.debug("Spoofing detected: %s", symbol)
         return
 
@@ -1309,6 +1323,7 @@ async def predator_agent(
     # ════════════════════════════════════════════════════════════
     # اتخاذ القرار
     # ════════════════════════════════════════════════════════════
+    PRED_STATS["best_score"] = round(max(PRED_STATS.get("best_score", 0.0), long_score, short_score), 1)
     MIN_SCORE = 6.0  # عتبة جودة واقعية (بدل 5.0 المكسورة)
 
     direction, score, strats, key_strats = None, 0.0, [], 0
@@ -1318,10 +1333,12 @@ async def predator_agent(
         direction, score, strats, key_strats = "SHORT", short_score, short_strats, short_key
 
     if not direction:
+        _ps_hit("low_score")
         return
 
     # ─── لا بد من استراتيجية قوية واحدة على الأقل ───
     if key_strats < 1:
+        _ps_hit("no_key")
         log.debug("Reject %s %s — no key strategy", symbol, direction)
         return
 
@@ -1353,9 +1370,11 @@ async def predator_agent(
     _btc = BTC_TREND.get("trend", "NEUTRAL")
     _strong = (score >= 9.0)
     if direction == "SHORT" and _btc != "BEARISH" and not _strong:
+        _ps_hit("btc")
         log.info("₿ BTC gate: %s SHORT مرفوض — BTC %s (ليس هابطاً) score=%.1f", symbol, _btc, score)
         return
     if direction == "LONG" and _btc != "BULLISH" and not _strong:
+        _ps_hit("btc")
         log.info("₿ BTC gate: %s LONG مرفوض — BTC %s (ليس صاعداً) score=%.1f", symbol, _btc, score)
         return
 
@@ -1363,6 +1382,7 @@ async def predator_agent(
     strat_count = len(strats)
     conf = min(95.0, 45.0 + score * 4.5 + strat_count * 2)
     if conf < 62.0:
+        _ps_hit("low_conf")
         return
 
     # ═══ Guardian Veto V3 (الحارس الواقعي) ═══
@@ -1372,12 +1392,14 @@ async def predator_agent(
         hist_low_dist, hist_high_dist
     )
     if vetoed:
+        _ps_hit("guardian")
         log.info("🛡️ Veto: %s %s — %s", symbol, direction, veto_reason)
         return
 
     # ═══ MTF Confirmation ═══
     mtf_passed, mtf_details = await mtf_check(symbol, direction)
     if not mtf_passed:
+        _ps_hit("mtf")
         log.debug("MTF reject: %s %s", symbol, direction)
         return
 
@@ -1483,6 +1505,7 @@ async def predator_agent(
         rsi=rsi_v,
     )
 
+    _ps_hit("emitted")
     await signal_queue.put(sig)
     log.info("Predator V3 → Queue: %s %s [%s] score=%.1f conf=%.0f%% grade=%s pos=%.0f%% lev=%.0fx",
              symbol, direction, regime, score, conf, grade, range_pos * 100, lev)
