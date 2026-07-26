@@ -36,6 +36,14 @@ COOLDOWN_SIGNAL = 3600        # ساعة بين إشارتين لنفس العم
 HAWK_SENSITIVITY = 0    # عين الصقر: 100=تسمح بكل شيء، 0=تمنع أي صعود
 RADAR_SENSITIVITY = 50   # الرادار: 100=أي ضعف إشارة، 0=انهيار قوي جداً فقط
 
+SHORT_STATS = {}
+_SHORT_KEYS = ("checked", "no_ob", "radar", "hawk", "not_safe", "bad_rsi", "spoof", "emitted")
+def _sh_hit(k): SHORT_STATS[k] = SHORT_STATS.get(k, 0) + 1
+def short_stats_snapshot():
+    snap = {k: SHORT_STATS.get(k, 0) for k in _SHORT_KEYS}
+    SHORT_STATS.clear()
+    return snap
+
 # تتبّع قراءة OB السابقة (لكشف التآكل)
 PREV_OB = {}
 
@@ -196,8 +204,10 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
     deep = await fetch_ob_deep(symbol)
     prev = PREV_OB.get(symbol)
     PREV_OB[symbol] = deep
+    _sh_hit("checked")
 
     if not deep.get("valid"):
+        _sh_hit("no_ob")
         return {"collapse": False, "signals": []}
 
     signals = []
@@ -294,6 +304,18 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
         if any(x["side"]=="bid" for x in get_signals(_sw).get("spoof",[])): _ns=False
     except Exception: pass
     # منطقة الربح المستخرجة من 1103 نتيجة: RSI 55-75 = +686% صافي · RSI<25 = +23% فقط
+    if not radar_ok:
+        _sh_hit("radar")
+    elif not hawk_ok:
+        _sh_hit("hawk")
+    elif not ob_safe_short:
+        _sh_hit("not_safe")
+    elif not (48 <= r <= 78):
+        _sh_hit("bad_rsi")
+    elif not _ns:
+        _sh_hit("spoof")
+    else:
+        _sh_hit("emitted")
     collapse = radar_ok and hawk_ok and ob_safe_short and 48 <= r <= 78 and _ns
 
     if radar_ok and not collapse:
@@ -516,6 +538,9 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
                 conn.commit()
                 conn.close()
                 log.info("🔭 [فرز] %d عملة في الأعلى ربحاً (مراقبة صارمة)", len(gainers))
+                _sh = short_stats_snapshot()
+                log.info("🔭 Short: فُحص %d | بلا OB %d | رادار %d | هوك %d | فخّ %d | RSI %d | spoof %d | صدر %d",
+                         _sh["checked"], _sh["no_ob"], _sh["radar"], _sh["hawk"], _sh["not_safe"], _sh["bad_rsi"], _sh["spoof"], _sh["emitted"])
 
             # ═══ المراقبة الصارمة (كل 10s): كل العملات النشطة ═══
             conn = sqlite3.connect(DB_PATH)

@@ -62,6 +62,14 @@ log = logging.getLogger("explosion_long")
 MIN_VOLUME_USD = 15_000_000
 MIN_GAIN_PCT = 30.0           # صعود ≥30% (اتجاه صاعد — نشتري تصحيحه)
 RADAR_SENSITIVITY = 50
+
+LONG_STATS = {}
+_LONG_KEYS = ("checked", "no_ob", "not_dip", "few_signals", "not_safe", "bad_rsi", "spoof", "emitted")
+def _lo_hit(k): LONG_STATS[k] = LONG_STATS.get(k, 0) + 1
+def long_stats_snapshot():
+    snap = {k: LONG_STATS.get(k, 0) for k in _LONG_KEYS}
+    LONG_STATS.clear()
+    return snap
 SCAN_INTERVAL = 60
 WATCH_INTERVAL = 10
 
@@ -99,8 +107,10 @@ async def detect_rebound(symbol: str, candles) -> dict:
     deep = await fetch_ob_deep(symbol)
     prev = PREV_OB.get(symbol)
     PREV_OB[symbol] = deep
+    _lo_hit("checked")
 
     if not deep.get("valid"):
+        _lo_hit("no_ob")
         return {"rebound": False, "signals": [], "rsi": 50}
 
     signals = []
@@ -167,6 +177,18 @@ async def detect_rebound(symbol: str, candles) -> dict:
         if not _sw.endswith("USDT"): _sw+="USDT"
         if any(x["side"]=="ask" for x in get_signals(_sw).get("spoof",[])): _ns=False
     except Exception: pass
+    if not in_uptrend_dip:
+        _lo_hit("not_dip")
+    elif not radar_ok:
+        _lo_hit("few_signals")
+    elif not ob_safe_long:
+        _lo_hit("not_safe")
+    elif not rsi_ok:
+        _lo_hit("bad_rsi")
+    elif not _ns:
+        _lo_hit("spoof")
+    else:
+        _lo_hit("emitted")
     rebound = in_uptrend_dip and radar_ok and ob_safe_long and rsi_ok and _ns
 
     return {
@@ -288,6 +310,9 @@ async def scout_long_loop(broadcast_fn=None, position_manager_fn=None):
                 for g in gainers[:25]:
                     watchlist[g["symbol"]] = g["price"]
                 last_scan = now
+                _lo = long_stats_snapshot()
+                log.info("🔭🔼 Long: فُحص %d | بلا OB %d | لا قاع %d | إشارات<4 %d | فخّ %d | RSI %d | spoof %d | صدر %d",
+                         _lo["checked"], _lo["no_ob"], _lo["not_dip"], _lo["few_signals"], _lo["not_safe"], _lo["bad_rsi"], _lo["spoof"], _lo["emitted"])
                 if gainers:
                     log.info("🔭🔼 [فرز LONG] %d عملة هادئة عند القاع", len(gainers[:25]))
 
