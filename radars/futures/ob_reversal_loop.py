@@ -267,7 +267,7 @@ async def ob_reversal_loop(approved_queue: asyncio.Queue):
             # مرحلة 2: تأكيد كامل لكل candidate (سيأخذ وقتاً)
             for symbol, _ in candidates:
                 try:
-                    result = await detect_ob_reversal(symbol, check_btc=True)
+                    result = await detect_ob_reversal(symbol, check_btc=False)  # BTC لبريديتر وحده — الانقلاب مستقل عن BTC
                     
                     if result.detected and result.confidence >= MIN_CONFIDENCE:
                         # فحص السيولة الحية قبل البناء
