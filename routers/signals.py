@@ -12,13 +12,18 @@ def _fmt(sigs):
         "confidence": s.confidence, "entry": s.entry, "sl": s.sl,
         "tp1": s.tp1, "tp2": s.tp2, "tp3": s.tp3, "leverage": s.leverage,
         "strategies": s.strategies, "created_at": str(s.created_at),
+        "is_active": bool(s.is_active),
+        "pnl_pct": getattr(s, "pnl_pct", None),
+        "close_reason": getattr(s, "close_reason", None),
+        "closed_at": str(getattr(s, "closed_at", "") or ""),
+        "is_win": (None if getattr(s, "pnl_pct", None) is None else bool(s.pnl_pct >= 0)),
     } for s in sigs]
 
 @router.get("/futures", )
 def futures_signals():
     db = get_session()
     try:
-        sigs = db.query(Signal).filter(Signal.radar_type.in_(["futures","explosion"]), Signal.is_active==True, Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
+        sigs = db.query(Signal).filter(Signal.radar_type.in_(["futures","explosion"]), Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
         _seen=set(); sigs=[s for s in sigs if not (s.symbol in _seen or _seen.add(s.symbol))]
         return {"signals": _fmt(sigs)}
     finally:
@@ -28,7 +33,7 @@ def futures_signals():
 def spot_signals():
     db = get_session()
     try:
-        sigs = db.query(Signal).filter(Signal.radar_type=="spot", Signal.is_active==True, Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
+        sigs = db.query(Signal).filter(Signal.radar_type=="spot", Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
         return {"signals": _fmt(sigs)}
     finally:
         db.close()
@@ -37,7 +42,7 @@ def spot_signals():
 def meme_signals():
     db = get_session()
     try:
-        sigs = db.query(Signal).filter(Signal.radar_type=="meme", Signal.is_active==True, Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
+        sigs = db.query(Signal).filter(Signal.radar_type=="meme", Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
         return {"signals": _fmt(sigs)}
     finally:
         db.close()
@@ -63,9 +68,9 @@ def all_signals(market: str = "futures"):
             except Exception:
                 return {"signals": []}
         if market == "spot":
-            sigs = db.query(Signal).filter(Signal.radar_type=="spot", Signal.is_active==True).order_by(Signal.created_at.desc()).limit(100).all()
+            sigs = db.query(Signal).filter(Signal.radar_type=="spot").order_by(Signal.created_at.desc()).limit(100).all()
         else:
-            sigs = db.query(Signal).filter(Signal.radar_type.in_(["futures","explosion"]), Signal.is_active==True, Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
+            sigs = db.query(Signal).filter(Signal.radar_type.in_(["futures","explosion"]), Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
         _seen=set(); sigs=[s for s in sigs if not (s.symbol in _seen or _seen.add(s.symbol))]
         return {"signals": _fmt(sigs)}
     finally:

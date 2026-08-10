@@ -326,7 +326,7 @@ async def tracker_loop():
                         _smart_rev = (pnl >= 2.0 and _peak_pnl >= 3.0 and _drop >= 1.2)   # 💰 يجني من +2
 
                         if _smart_rev:
-                            s.is_active = False; db.commit()
+                            s.is_active = False; s.pnl_pct = round(pnl, 2); s.close_reason = "reversal"; s.closed_at = datetime.utcnow(); db.commit()
                             _log_result(1 if pnl > 0 else 0, "reversal")
                             try:
                                 from services.binance_trader import close_spot_all
@@ -339,7 +339,7 @@ async def tracker_loop():
                             await _announce(f"🧠 <b>{s.symbol}</b> — انعكاس مُكتشف، أغلقنا لحفظ الربح\nالنتيجة: <b>{pnl:+.1f}%</b> (القمة كانت {_peak_pnl:+.0f}%)\n🪙 <i>WhaleMind Spot</i>")
                             log.info("🪙🧠 %s reversal-exit %.1f%% (peak %.0f%%)", s.symbol, pnl, _peak_pnl)
                         elif px <= _locked_sl and _locked_sl > s.sl:
-                            s.is_active = False; db.commit()
+                            s.is_active = False; s.pnl_pct = round(pnl, 2); s.close_reason = "locked"; s.closed_at = datetime.utcnow(); db.commit()
                             _log_result(1 if pnl > 0 else 0, "locked")
                             try:
                                 from services.binance_trader import close_spot_all
@@ -352,7 +352,7 @@ async def tracker_loop():
                             await _announce(f"🔒 <b>{s.symbol}</b> — قفل الربح عند الارتداد\nالنتيجة: <b>{pnl:+.1f}%</b>\n🪙 <i>WhaleMind Spot</i>")
                             log.info("🪙🔒 %s locked %.1f%%", s.symbol, pnl)
                         elif px <= s.sl:
-                            s.is_active = False; db.commit()
+                            s.is_active = False; s.pnl_pct = round(pnl, 2); s.close_reason = "sl"; s.closed_at = datetime.utcnow(); db.commit()
                             _log_result(0, "sl")
                             try:
                                 from services.binance_trader import close_spot_all
@@ -365,7 +365,7 @@ async def tracker_loop():
                             await _announce(f"🔴 <b>{s.symbol}</b> — ضرب الوقف\nالنتيجة: <b>{pnl:+.1f}%</b>\n🪙 <i>WhaleMind Spot</i>")
                             log.info("🪙🔴 %s SL %.1f%%", s.symbol, pnl)
                         elif px >= s.tp3:
-                            s.is_active = False; db.commit()
+                            s.is_active = False; s.pnl_pct = round(pnl, 2); s.close_reason = "tp3"; s.closed_at = datetime.utcnow(); db.commit()
                             _log_result(1, "tp3")
                             try:
                                 from services.binance_trader import close_spot_all
@@ -384,7 +384,7 @@ async def tracker_loop():
                             _track[s.id] = 1
                             await _announce(f"✅ <b>{s.symbol}</b> — الهدف الأول (+6%)\nربح مؤمّن، نواصل 📈")
                         elif age > 72 * 3600 and st == 0:
-                            s.is_active = False; db.commit()
+                            s.is_active = False; s.pnl_pct = round(pnl, 2); s.close_reason = "expired"; s.closed_at = datetime.utcnow(); db.commit()
                             _log_result(0, "expired")
                             log.info("🪙⌛ %s expired %.1f%%", s.symbol, pnl)
                 finally:

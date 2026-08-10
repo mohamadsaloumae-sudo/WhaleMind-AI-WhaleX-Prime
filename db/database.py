@@ -63,6 +63,9 @@ class Signal(Base):
     leverage     = Column(Float, nullable=True)
     strategies   = Column(Text, default="")
     is_active    = Column(Boolean, default=True)
+    pnl_pct      = Column(Float, nullable=True)
+    close_reason = Column(String, nullable=True)
+    closed_at    = Column(DateTime, nullable=True)
     created_at   = Column(DateTime, default=datetime.utcnow)
 
 class Subscription(Base):
