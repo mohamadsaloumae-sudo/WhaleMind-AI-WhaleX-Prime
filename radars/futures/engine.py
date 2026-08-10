@@ -95,6 +95,8 @@ class Signal:
     strategies: str
     radar_type: str = "futures"
     tier: str = "B"
+    source_radar: str = ""
+    volume_ratio: float = 0.0
     timestamp: int = field(default_factory=lambda: int(time.time()))
     end_time: Optional[int] = None
     highest_hit: Optional[float] = None
