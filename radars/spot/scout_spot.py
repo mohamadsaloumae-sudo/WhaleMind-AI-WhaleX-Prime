@@ -17,6 +17,23 @@ _last_sig: dict = {}
 _universe: list = []
 _uni_ts = 0.0
 _EXCLUDE = ("UP", "DOWN", "BULL", "BEAR")   # روافع سبوت المغلفة
+# 🚫 عملات مستقرّة ومربوطة — أهداف 6-20% مستحيلة عليها
+_STABLES = {
+    "USDT", "USDC", "BUSD", "TUSD", "USDP", "DAI", "FDUSD", "USDD", "USD1",
+    "PYUSD", "EURI", "EUR", "AEUR", "GBP", "TRY", "BRL", "ARS", "IDRT",
+    "UAH", "ZAR", "NGN", "RUB", "PLN", "RON", "CZK", "JPY", "MXN", "COP",
+    "USDS", "USDE", "USDF", "SUSD", "LUSD", "GUSD", "USDX", "XUSD", "USTC",
+    "WBTC", "WBETH", "BETH", "WBNB", "PAXG", "XAUT",
+}
+
+
+def _is_stable(sym: str) -> bool:
+    """يكشف الأزواج المستقرّة: الأصل نفسه عملة مستقرّة أو مربوطة."""
+    s = (sym or "").upper()
+    if not s.endswith("USDT"):
+        return True
+    base = s[:-4]
+    return (not base) or (base in _STABLES)
 
 
 def _fmt_px(p):
@@ -44,6 +61,7 @@ async def _universe_refresh(c: httpx.AsyncClient):
     rows = [x for x in r.json()
             if x.get("symbol", "").endswith("USDT")
             and not any(t in x["symbol"] for t in _EXCLUDE)
+            and not _is_stable(x["symbol"])
             and float(x.get("quoteVolume", 0) or 0) > 0]
     rows.sort(key=lambda x: float(x["quoteVolume"]), reverse=True)
     _universe = [x["symbol"] for x in rows[:UNIVERSE_N]]
