@@ -138,18 +138,38 @@ def _gate0(p):
     return True
 
 
+MIN_LOCK_DAYS = 180        # 🔒 عملات راديوم/المطلقة يدوياً: القفل ≥ 6 أشهر
+
+
 async def _gate1_solana(c, addr):
-    # فيتوهات سولانا عبر RugCheck
+    # منطق مزدوج: pump.fun (بلا lockers) → rugged+عمق | راديوم (لها lockers) → قفل+مدّة
     try:
-        r = await c.get(f"https://api.rugcheck.xyz/v1/tokens/{addr}/report/summary", timeout=12)
+        r = await c.get(f"https://api.rugcheck.xyz/v1/tokens/{addr}/report", timeout=15)
         if r.status_code != 200:
             return False, "لا بيانات RugCheck (احترازي)"
         j = r.json()
     except Exception:
         return False, "خطأ RugCheck"
+
+    if j.get("rugged") is True:
+        return False, "RugCheck: rugged"
+
+    _lockers = j.get("lockers") or {}
+    _liq_total = float(j.get("totalMarketLiquidity") or 0)
     lp = j.get("lpLockedPct", 0) or 0
-    if lp < 80:
-        return False, f"سيولة مقفلة {lp:.0f}% فقط"
+
+    if _lockers:
+        if lp < 80:
+            return False, f"سيولة مقفلة {lp:.0f}% فقط"
+        _dated = [float(v.get("unlockDate") or 0) for v in _lockers.values()]
+        _dated = [d for d in _dated if d > 0]
+        if _dated:
+            _days = (min(_dated) - time.time()) / 86400
+            if _days < MIN_LOCK_DAYS:
+                return False, f"قفل قصير: {_days:.0f} يوم فقط (المطلوب {MIN_LOCK_DAYS})"
+    else:
+        if _liq_total < MIN_LIQ:
+            return False, f"سيولة ضعيفة ${_liq_total:,.0f} (بلا قفل)"
     for rk in (j.get("risks") or []):
         if (rk.get("level") or "").lower() in ("danger", "high"):
             return False, rk.get("name", "خطر عالٍ")
