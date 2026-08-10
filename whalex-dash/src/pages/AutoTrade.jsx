@@ -1,6 +1,6 @@
 // التداول — ربط Binance + اختيار آلي/يدوي + إعدادات التداول
 import { useEffect, useState } from "react";
-import { binance } from "../lib/api.js";
+import { binance, memeWallet } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
 import { Bot, Hand, Link2, Unlink, Save } from "lucide-react";
 import Paywall from "../components/Paywall.jsx";
@@ -11,6 +11,30 @@ export default function AutoTrade() {
   const [settings, setSettings] = useState(null);
   const [mode, setMode] = useState(localStorage.getItem("wx_auto_mode") || "auto");
   useEffect(() => { localStorage.setItem("wx_auto_mode", mode); }, [mode]);
+
+  // 🐸 محفظة الميم
+  const [mw, setMw] = useState(null);
+  const [mwBusy, setMwBusy] = useState(false);
+  const [mwSecret, setMwSecret] = useState("");
+  const [mwErr, setMwErr] = useState("");
+  async function loadMw() {
+    try { setMw(await memeWallet.status()); } catch (e) { setMwErr(String(e?.message || e)); }
+  }
+  useEffect(() => { if (mode === "meme") loadMw(); }, [mode]);
+  async function createMw() {
+    if (mwBusy) return; setMwBusy(true); setMwErr("");
+    try {
+      const r = await memeWallet.create();
+      if (r?.secret_b58) setMwSecret(r.secret_b58);
+      await loadMw();
+    } catch (e) { setMwErr(String(e?.message || e)); }
+    finally { setMwBusy(false); }
+  }
+  async function saveMw(patch) {
+    setMwErr("");
+    try { const r = await memeWallet.config(patch); setMw((s) => ({ ...s, config: r.config })); }
+    catch (e) { setMwErr(String(e?.message || e)); }
+  }
   const [spotBusy, setSpotBusy] = useState(false);
   async function toggleSpot() {
     if (spotBusy) return; setSpotBusy(true);
@@ -119,7 +143,97 @@ export default function AutoTrade() {
         <button className={`mode-btn ${mode === "spot" ? "active" : ""}`} onClick={() => setMode("spot")}>
           <Bot size={22} /> {t("autoSpot")}
         </button>
+        <button className={`mode-btn ${mode === "meme" ? "active" : ""}`} onClick={() => setMode("meme")}>
+          <Bot size={22} /> 🐸 {lang === "ar" ? "الميم" : "Meme"}
+        </button>
       </div>
+
+      {mode === "meme" && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-title">🐸 {lang === "ar" ? "محفظة الميم (سولانا)" : "Meme Wallet (Solana)"}</div>
+          {mwErr && <div className="alert error" style={{ fontSize: 12 }}>{mwErr}</div>}
+
+          {mwSecret && (
+            <div style={{ background: "#3a1a1a", border: "1px solid #a33", borderRadius: 10, padding: 12, marginBottom: 12 }}>
+              <div style={{ fontWeight: 800, color: "#f66", marginBottom: 6 }}>
+                ⚠️ {lang === "ar" ? "احفظ المفتاح الآن — لن يُعرض مرّة أخرى" : "Save this key now — shown once"}
+              </div>
+              <div style={{ fontSize: 11, wordBreak: "break-all", fontFamily: "monospace", color: "#fdd" }}>{mwSecret}</div>
+              <button className="btn" style={{ marginTop: 8, fontSize: 12 }} onClick={() => setMwSecret("")}>
+                {lang === "ar" ? "حفظته ✓" : "Saved ✓"}
+              </button>
+            </div>
+          )}
+
+          {!mw?.exists ? (
+            <button className="btn primary" disabled={mwBusy} onClick={createMw}>
+              {mwBusy ? "..." : (lang === "ar" ? "إنشاء محفظة" : "Create Wallet")}
+            </button>
+          ) : (
+            <>
+              <div style={{ fontSize: 12, color: "var(--txt-2)" }}>{lang === "ar" ? "العنوان (للإيداع)" : "Address (deposit)"}</div>
+              <div style={{ fontSize: 11, wordBreak: "break-all", fontFamily: "monospace", marginBottom: 4 }}>{mw.pubkey}</div>
+              <button className="btn" style={{ fontSize: 11, marginBottom: 10 }}
+                      onClick={() => navigator.clipboard?.writeText(mw.pubkey || "")}>
+                {lang === "ar" ? "نسخ العنوان" : "Copy"}
+              </button>
+              <div style={{ fontSize: 26, fontWeight: 800, color: "var(--brand)", marginBottom: 10 }}>
+                {Number(mw.sol || 0).toFixed(4)} SOL
+              </div>
+
+              <div className="toggle-row" style={{ marginBottom: 10 }}>
+                <span>{mw.config?.enabled ? "✅ " : "⭕ "}{lang === "ar" ? "التداول الآلي" : "Auto trading"}</span>
+                <div onClick={() => saveMw({ enabled: mw.config?.enabled ? 0 : 1 })}
+                     style={{ width: 52, height: 28, borderRadius: 14, cursor: "pointer",
+                              background: mw.config?.enabled ? "var(--brand)" : "#3a3a3a",
+                              position: "relative", transition: "background .2s" }}>
+                  <div style={{ width: 22, height: 22, borderRadius: 11, background: "#fff",
+                                position: "absolute", top: 3, left: mw.config?.enabled ? 27 : 3,
+                                transition: "left .2s" }} />
+                </div>
+              </div>
+
+              <div style={{ fontSize: 12, color: "var(--txt-2)" }}>
+                {lang === "ar" ? "لكل صفقة (SOL)" : "Per trade (SOL)"} — {lang === "ar" ? "الحد الأقصى" : "cap"} {mw.caps?.per_trade}
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                {[0.05, 0.1, 0.25, 0.5, 1, 2].map((v) => (
+                  <button key={v} className="btn" style={{ fontSize: 12, padding: "6px 10px",
+                          background: Number(mw.config?.per_trade_sol) === v ? "var(--brand)" : undefined }}
+                          onClick={() => saveMw({ per_trade_sol: v })}>{v}</button>
+                ))}
+              </div>
+
+              <div style={{ fontSize: 12, color: "var(--txt-2)" }}>
+                {lang === "ar" ? "الحد اليومي (SOL)" : "Daily max (SOL)"} — {lang === "ar" ? "الحد الأقصى" : "cap"} {mw.caps?.daily}
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                {[0.25, 0.5, 1, 2, 5].map((v) => (
+                  <button key={v} className="btn" style={{ fontSize: 12, padding: "6px 10px",
+                          background: Number(mw.config?.daily_max_sol) === v ? "var(--brand)" : undefined }}
+                          onClick={() => saveMw({ daily_max_sol: v })}>{v}</button>
+                ))}
+              </div>
+
+              <div style={{ fontSize: 12, color: "var(--txt-2)" }}>
+                {lang === "ar" ? "صفقات متزامنة" : "Concurrent"} — {lang === "ar" ? "الحد الأقصى" : "cap"} {mw.caps?.concurrent}
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                {[1, 2, 3, 4, 5].map((v) => (
+                  <button key={v} className="btn" style={{ fontSize: 12, padding: "6px 12px",
+                          background: Number(mw.config?.max_concurrent) === v ? "var(--brand)" : undefined }}
+                          onClick={() => saveMw({ max_concurrent: v })}>{v}</button>
+                ))}
+              </div>
+
+              <div style={{ fontSize: 12, color: "var(--txt-2)", borderTop: "1px solid #333", paddingTop: 8 }}>
+                {lang === "ar" ? "أُنفق اليوم" : "Spent today"}: {Number(mw.spent_today || 0).toFixed(3)} SOL ·{" "}
+                {lang === "ar" ? "مفتوحة" : "Open"}: {mw.open_positions || 0}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-title">{t("binanceStatus")}</div>

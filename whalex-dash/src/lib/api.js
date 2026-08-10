@@ -65,6 +65,13 @@ export const binance = {
   settings:   ()     => api.get("/api/binance/settings"),
 };
 
+export const memeWallet = {
+  status: () => api.get("/api/memewallet/status"),
+  create: () => api.post("/api/memewallet/create", {}),
+  config: (body) => api.post("/api/memewallet/config", body),
+  trades: () => api.get("/api/memewallet/trades"),
+};
+
 export const push = {
   publicKey: () => api.get("/api/push/public-key"),
   subscribe: (subscription) => api.post("/api/push/subscribe", { subscription }),
