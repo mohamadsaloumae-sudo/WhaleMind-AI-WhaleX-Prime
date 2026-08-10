@@ -9,7 +9,7 @@ import httpx
 log = logging.getLogger("spot_scout")
 
 SPOT = "https://api.binance.com"
-UNIVERSE_N   = 50           # 🎯 تركيز على أعلى 50 زوجاً تداولاً وقيمةً سوقية (سيولة أعمق، انزلاق أقل)
+UNIVERSE_N   = 120          # أعلى الأزواج سيولةً (التوب 50 داخلها — إضافة لا إلغاء)
 UNIVERSE_TTL = 3600         # تحديث الكون كل ساعة
 CYCLE        = 300          # دورة فحص كل 5 دقائق
 COOLDOWN     = 4 * 3600     # لكل رمز بعد إشارة
@@ -302,8 +302,10 @@ async def tracker_loop():
                             _locked_sl = max(_locked_sl, s.entry * 1.03)    # بلغ +4 → يحمي +3
                         elif _peak_pnl >= 3.0:
                             _locked_sl = max(_locked_sl, s.entry * 1.022)   # بلغ +3 → يحمي +2.2
+                        elif _peak_pnl >= 2.5:
+                            _locked_sl = max(_locked_sl, s.entry * 1.020)   # 💰 بلغ +2.5 → يضمن +2
                         _drop = (_pk - px) / _pk * 100 if _pk else 0
-                        _smart_rev = (pnl >= 2.0 and _peak_pnl >= 4.0 and _drop >= 1.5)
+                        _smart_rev = (pnl >= 2.0 and _peak_pnl >= 3.0 and _drop >= 1.2)   # 💰 يجني من +2
 
                         if _smart_rev:
                             s.is_active = False; db.commit()
