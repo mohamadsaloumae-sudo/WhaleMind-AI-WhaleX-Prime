@@ -310,13 +310,15 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
         _sh_hit("hawk")
     elif not ob_safe_short:
         _sh_hit("not_safe")
-    elif not (48 <= r <= 78):
+    elif not (r > 45):
         _sh_hit("bad_rsi")
     elif not _ns:
         _sh_hit("spoof")
     else:
         _sh_hit("emitted")
-    collapse = radar_ok and hawk_ok and ob_safe_short and 48 <= r <= 78 and _ns
+    # 🔄 إرجاع نطاق يونيو: r > 45 بلا سقف — القمم الأشدّ سخونة هي الأربح
+    #    قياس WhaleX Short: يونيو (r>45) = +965.9% | يوليو (48-78) = +85.6%
+    collapse = radar_ok and hawk_ok and ob_safe_short and r > 45 and _ns
 
     if radar_ok and not collapse:
         log.debug("🦅 %s: OB إشارات لكن مُنع (hawk=%s safe_short=%s)", symbol, hawk_ok, ob_safe_short)
