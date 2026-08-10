@@ -599,6 +599,8 @@ async def _meme_broadcast(p, sc):
 
 
 _SL_PENDING: dict = {}
+_SAFETY_LAST: dict = {}          # 🛡️ آخر فحص أمان لكل صفقة
+SAFETY_RECHECK_SEC = 300         # كل 5 دقائق
 
 # 🌊 عتبات الخروج التدفّقي للميم (تُضبط بالقياس)
 MEME_FLOW_WINDOW = 180.0
@@ -674,6 +676,26 @@ async def _meme_track_one(cc, r):
         _lc.commit(); _lc.close()
     except Exception:
         pass
+    # 🛡️ حارس أمان بعد الدخول: الخطر قد يظهر بعد الشراء
+    _sid_g = r["id"]
+    if time.time() - _SAFETY_LAST.get(_sid_g, 0) >= SAFETY_RECHECK_SEC:
+        _SAFETY_LAST[_sid_g] = time.time()
+        try:
+            _ok_s, _why_s = await _gate1(cc, r.get("chain") or "solana", r["address"])
+        except Exception:
+            _ok_s, _why_s = True, ""
+        if not _ok_s:
+            log.warning("🛡️🚨 %s خطر أمان بعد الدخول: %s — إغلاق فوري", r.get("symbol"), _why_s)
+            try:
+                from radars.memecoin.live_stream import unwatch_token
+                await unwatch_token(r["address"])
+            except Exception:
+                pass
+            _meme_close(r["id"], px, pnl)
+            await _meme_close_broadcast(r, px, pnl, f"🛡️ أمان: {_why_s}")
+            _SL_PENDING.pop(_sid_g, None)
+            _SAFETY_LAST.pop(_sid_g, None)
+            return
     peak = max(float(r.get("peak_price") or entry), px)
     if peak > float(r.get("peak_price") or 0):
         _meme_peak(r["id"], peak)
