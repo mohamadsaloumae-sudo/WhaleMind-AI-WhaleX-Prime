@@ -50,6 +50,25 @@ def save_private_key(secret_b58: str) -> str:
     return pub
 
 
+def create_wallet(force: bool = False) -> dict:
+    """🔐 ينشئ محفظة جديدة داخل النظام ويحفظها مشفّرة.
+    يرجع المفتاح الخاص مرّة واحدة — احفظه فوراً، لن يُعرض مرّة أخرى."""
+    import base58
+    from solders.keypair import Keypair
+    if os.path.exists(KEY_FILE) and not force:
+        raise RuntimeError("محفظة موجودة بالفعل — force=True للاستبدال (ستفقد القديمة)")
+    kp = Keypair()
+    secret_b58 = base58.b58encode(bytes(kp)).decode()
+    pub = str(kp.pubkey())
+    with open(KEY_FILE, "wb") as fh:
+        fh.write(_fernet().encrypt(secret_b58.encode()))
+    os.chmod(KEY_FILE, 0o600)
+    _db_init()
+    _set_meta("pubkey", pub)
+    log.info("🔐 محفظة جديدة أُنشئت — %s", pub)
+    return {"pubkey": pub, "secret_b58": secret_b58}
+
+
 def _load_keypair():
     import base58
     from solders.keypair import Keypair
