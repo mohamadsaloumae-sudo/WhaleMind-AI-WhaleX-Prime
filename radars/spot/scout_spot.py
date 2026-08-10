@@ -9,7 +9,7 @@ import httpx
 log = logging.getLogger("spot_scout")
 
 SPOT = "https://api.binance.com"
-UNIVERSE_N   = 120          # أعلى الأزواج سيولةً
+UNIVERSE_N   = 50           # 🎯 تركيز على أعلى 50 زوجاً تداولاً وقيمةً سوقية (سيولة أعمق، انزلاق أقل)
 UNIVERSE_TTL = 3600         # تحديث الكون كل ساعة
 CYCLE        = 300          # دورة فحص كل 5 دقائق
 COOLDOWN     = 4 * 3600     # لكل رمز بعد إشارة
