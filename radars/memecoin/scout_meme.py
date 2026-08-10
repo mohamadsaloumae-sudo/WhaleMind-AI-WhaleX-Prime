@@ -36,9 +36,9 @@ def _mark_rejected(addr: str):
         for k in [k for k, t in _REJECT_CACHE.items() if _now - t > _REJECT_TTL]:
             _REJECT_CACHE.pop(k, None)
 
-MIN_VOL_24 = 20_000     # حجم 24 ساعة دنيا
-AGE_MIN_MIN = 60        # أصغر عمر بالدقائق — أول ساعة مجزرة
-MAX_PUMP_H1 = 50.0      # فوقها = دخول متأخر بعد الانفجار
+MIN_VOL_24 = 8_000      # 🚀 الطازجة بلا تاريخ 24س
+AGE_MIN_MIN = 20        # 🚀 صيد الصاروخ: 20د بدل 60
+MAX_PUMP_H1 = 200.0     # 🚀 لا نرفض الصاروخ نفسه
 MAX_DUMP = -30.0        # تحتها = العملة تنهار أصلاً
 MIN_TXNS_H1 = 30        # حياة الآن: معاملات آخر ساعة
 MIN_BUY_RATIO_H1 = 0.55 # زخم شراء حقيقي مسيطر
@@ -48,7 +48,7 @@ MAX_VOL_LIQ_H1 = 20.0   # حجم الساعة مقابل السيولة — فو
 VOL_ACCEL = 2.0         # حجم الساعة ≥ ضعف المتوسط اليومي = تسارع
 BASE_TOKENS = {"WBNB", "BNB", "WETH", "ETH", "USDT", "USDC", "BUSD", "DAI",
                "WSOL", "SOL", "CAKE", "FDUSD", "TUSD", "USDE", "STETH"}
-MIN_TXNS_24 = 50        # معاملات 24 ساعة دنيا
+MIN_TXNS_24 = 20        # 🚀 خُفّض للطازجة (الحماية في MIN_TXNS_H1=30)
 
 PROFILES_URL = "https://api.dexscreener.com/token-profiles/latest/v1"
 BOOSTS_URLS = ("https://api.dexscreener.com/token-boosts/top/v1",
