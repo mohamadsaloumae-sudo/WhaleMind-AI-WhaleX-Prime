@@ -106,18 +106,26 @@ async def _evaluate(mint: str, source: str):
     async with httpx.AsyncClient() as c:
         pair = None
         # العملة قد تحتاج ثوانٍ لتظهر في مصدر البيانات
-        for attempt in range(4):
+        # ⏳ المتخرّج الطازج: DexScreener يحتاج دقائق لبناء السيولة — ننتظر بياناتٍ حقيقية
+        for attempt in range(10):
             pairs = await _fetch_pairs(c, mint)
             if pairs:
-                pair = max(pairs, key=lambda x: (x.get("liquidity") or {}).get("usd", 0) or 0)
-                break
-            await asyncio.sleep(6)
+                _cand = max(pairs, key=lambda x: (x.get("liquidity") or {}).get("usd", 0) or 0)
+                if ((_cand.get("liquidity") or {}).get("usd", 0) or 0) > 0:
+                    pair = _cand
+                    break
+            await asyncio.sleep(20)
         if not pair:
+            log.info("⚡🔍 %s لا زوج في DexScreener بعد 4 محاولات", mint[:8])
             return
+        _sym0 = (pair.get("baseToken") or {}).get("symbol", "?")
+        _liq0 = (pair.get("liquidity") or {}).get("usd", 0) or 0
         # 🚀 الأمان أولاً: الطازجة تمرّ ببوابة أمان لا بشروط تراكمية
         _full = _gate0(pair)
         if not _full and not _gate0_early(pair):
+            log.info("⚡🔍 %s رُفض قبل الأمان (سيولة $%.0f)", _sym0, _liq0)
             return
+        log.info("⚡🔍 %s مرشّح (سيولة $%.0f · كامل=%s)", _sym0, _liq0, _full)
         ok1, r1 = await _gate1(c, "solana", mint)
         if not ok1:
             log.info("⚡🐸🚫 %s بوابة1: %s", (pair.get("baseToken") or {}).get("symbol", "?"), r1)
