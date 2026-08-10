@@ -235,6 +235,7 @@ export default function AutoTrade() {
         </div>
       )}
 
+      {mode !== "meme" && (
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-title">{t("binanceStatus")}</div>
         {connected ? (
@@ -268,7 +269,9 @@ export default function AutoTrade() {
         )}
       </div>
 
-      {connected && (balance?.futures || balance?.spot) && (
+      )}
+
+      {mode !== "meme" && connected && (balance?.futures || balance?.spot) && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title">{t("balance")}</div>
           {mode === "spot" ? (
