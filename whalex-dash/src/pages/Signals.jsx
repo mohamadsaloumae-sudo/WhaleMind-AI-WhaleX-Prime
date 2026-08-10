@@ -95,6 +95,22 @@ export default function Signals() {
                   </div>
                 )}
                 <div>{t("grade")}: <span className="badge" style={{ background: s.grade === "B" ? "rgba(245,158,11,0.18)" : "rgba(45,212,191,0.15)", color: s.grade === "B" ? "var(--amber)" : "var(--brand)" }}>{s.grade}{s.grade === "B" ? " ⚠️" : ""}</span> · {t("confidence")} {s.confidence}%{s.leverage ? <> · <span className="badge" style={{ background: "rgba(99,102,241,0.15)", color: "#a5b4fc" }}>{Math.round(s.leverage)}x</span></> : null}</div>
+                {s.is_active === false && (
+                  <div style={{ marginTop: 6 }}>
+                    <span className="badge" style={{
+                      background: s.pnl_pct == null ? "rgba(120,120,120,0.18)"
+                        : (s.pnl_pct >= 0 ? "rgba(34,197,94,0.18)" : "rgba(239,68,68,0.18)"),
+                      color: s.pnl_pct == null ? "var(--txt-2)"
+                        : (s.pnl_pct >= 0 ? "var(--green)" : "#f87171"),
+                      fontWeight: 800 }}>
+                      {s.pnl_pct == null
+                        ? (lang === "ar" ? "⚪ أُغلقت" : "⚪ Closed")
+                        : (s.pnl_pct >= 0
+                            ? `🟢 ${lang === "ar" ? "رابحة" : "Win"} ${s.pnl_pct > 0 ? "+" : ""}${Number(s.pnl_pct).toFixed(1)}%`
+                            : `🔴 ${lang === "ar" ? "خاسرة" : "Loss"} ${Number(s.pnl_pct).toFixed(1)}%`)}
+                    </span>
+                  </div>
+                )}
                 <div style={{ color: "var(--txt-3)", fontSize: 12, marginTop: 4 }}>
                   🕐 {s.created_at ? new Date(s.created_at.replace(" ", "T") + "Z").toLocaleString(lang === "ar" ? "ar-AE" : "en-US", { timeZone: "Asia/Dubai", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
                 </div>
