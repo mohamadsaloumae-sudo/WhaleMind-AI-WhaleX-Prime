@@ -99,8 +99,9 @@ async def _evaluate(mint: str, source: str):
 
     import httpx
     from radars.memecoin.scout_meme import (
-        _fetch_pairs, _gate0, _gate1, _gate2_solana, _gate25_onchain,
+        _fetch_pairs, _gate0, _gate0_early, _gate1, _gate2_solana, _gate25_onchain,
         _score, _meme_seen, _meme_save, _meme_broadcast, SIGNAL_THRESHOLD,
+        early_watch_add,
     )
     async with httpx.AsyncClient() as c:
         pair = None
@@ -111,7 +112,11 @@ async def _evaluate(mint: str, source: str):
                 pair = max(pairs, key=lambda x: (x.get("liquidity") or {}).get("usd", 0) or 0)
                 break
             await asyncio.sleep(6)
-        if not pair or not _gate0(pair):
+        if not pair:
+            return
+        # 🚀 الأمان أولاً: الطازجة تمرّ ببوابة أمان لا بشروط تراكمية
+        _full = _gate0(pair)
+        if not _full and not _gate0_early(pair):
             return
         ok1, r1 = await _gate1(c, "solana", mint)
         if not ok1:
@@ -125,16 +130,22 @@ async def _evaluate(mint: str, source: str):
         if not ok25:
             log.info("⚡🐸🚫 %s بوابة2.5: %s", (pair.get("baseToken") or {}).get("symbol", "?"), r25)
             return
-        sc = _score(pair)
-        if sc < SIGNAL_THRESHOLD:
-            return
+        _sym = (pair.get("baseToken") or {}).get("symbol", "?")
         if _meme_seen(mint):
+            return
+        sc = _score(pair)
+        # 🚀 طازجة آمنة → مراقبة لحظية، والدخول عند تسارع الشراء
+        if not _full:
+            await watch_token(mint)
+            early_watch_add(mint, _sym)
+            log.info("⚡🚀 %s آمنة وطازجة — بدأت المراقبة اللحظية (score %d)", _sym, sc)
+            return
+        if sc < SIGNAL_THRESHOLD:
             return
         _meme_save(pair, sc)
         await _meme_broadcast(pair, sc)
         await watch_token(mint)
-        log.info("⚡🐸 إشارة لحظية (%s): %s score %d",
-                 source, (pair.get("baseToken") or {}).get("symbol", "?"), sc)
+        log.info("⚡🐸 إشارة لحظية (%s): %s score %d", source, _sym, sc)
 
 
 def _extract_price(d):

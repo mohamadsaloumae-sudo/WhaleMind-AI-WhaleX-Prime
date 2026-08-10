@@ -455,6 +455,116 @@ def _score(p):
     return round(pts)
 
 
+# ═══════ 🚀 الدخول المبكر: أمان أولاً ثم مراقبة تدفّق لحظي ═══════
+EARLY_MIN_LIQ        = 20_000
+EARLY_WATCH_MAX      = 20
+EARLY_WATCH_TTL      = 2700
+EARLY_MIN_TRADES_60  = 8
+EARLY_MIN_BUY_RATIO  = 0.60
+EARLY_MIN_VOL_RATIO  = 0.60
+EARLY_ACCEL          = 1.3
+EARLY_MAX_PUMP       = 60.0
+EARLY_WATCH: dict = {}
+
+
+def _gate0_early(p):
+    """🚀 أمان وجودة فقط — بلا شروط تراكمية."""
+    if p.get("chainId") not in CHAINS:
+        return False
+    liq = (p.get("liquidity") or {}).get("usd", 0) or 0
+    if liq < EARLY_MIN_LIQ:
+        return False
+    if ((p.get("baseToken") or {}).get("symbol") or "").upper() in BASE_TOKENS:
+        return False
+    t1 = (p.get("txns") or {}).get("h1") or {}
+    b1 = (t1.get("buys", 0) or 0) + (t1.get("sells", 0) or 0)
+    v1 = (p.get("volume") or {}).get("h1", 0) or 0
+    if b1 > 0 and v1 > 0 and (v1 / b1) < MIN_AVG_TRADE:
+        return False
+    if liq > 0 and v1 > liq * MAX_VOL_LIQ_H1:
+        return False
+    pc = p.get("priceChange") or {}
+    try:
+        _h6 = float(pc.get("h6") or 0); _h24 = float(pc.get("h24") or 0)
+        _m5 = float(pc.get("m5") or 0)
+    except Exception:
+        _h6 = _h24 = _m5 = 0.0
+    if _h6 < MAX_DUMP or _h24 < MAX_DUMP:
+        return False
+    if _m5 < -3.0:
+        return False
+    return True
+
+
+def early_watch_add(addr, symbol):
+    if not addr or addr in EARLY_WATCH:
+        return False
+    if len(EARLY_WATCH) >= EARLY_WATCH_MAX:
+        return False
+    EARLY_WATCH[addr] = {"symbol": symbol or "?", "added": time.time()}
+    log.info("🚀👁 مراقبة مبكرة: %s (المراقَبون %d)", symbol, len(EARLY_WATCH))
+    return True
+
+
+async def early_watch_loop():
+    """🚀 يدخل لحظة تسارع الشراء الحقيقي."""
+    from radars.memecoin.live_stream import get_flow, unwatch_token
+    log.info("🚀🐸 مراقب الدخول المبكر بدأ")
+    while True:
+        try:
+            now = time.time()
+            for addr in list(EARLY_WATCH.keys()):
+                info = EARLY_WATCH.get(addr) or {}
+                sym = info.get("symbol", "?")
+                if now - (info.get("added") or 0) > EARLY_WATCH_TTL:
+                    EARLY_WATCH.pop(addr, None)
+                    try:
+                        await unwatch_token(addr)
+                    except Exception:
+                        pass
+                    log.info("🚀👁 انتهت مهلة المراقبة: %s", sym)
+                    continue
+                f60 = get_flow(addr, 60.0)
+                if not f60 or f60["trades"] < EARLY_MIN_TRADES_60:
+                    continue
+                if f60["buy_ratio"] < EARLY_MIN_BUY_RATIO or f60["vol_ratio"] < EARLY_MIN_VOL_RATIO:
+                    continue
+                f180 = get_flow(addr, 180.0)
+                if f180 and f180["trades"] > 0:
+                    if f60["trades"] < (f180["trades"] / 3.0) * EARLY_ACCEL:
+                        continue
+                if _meme_seen(addr):
+                    EARLY_WATCH.pop(addr, None)
+                    continue
+                try:
+                    async with httpx.AsyncClient() as cc:
+                        pairs = await _fetch_pairs(cc, addr)
+                        if not pairs:
+                            continue
+                        p = max(pairs, key=lambda x: (x.get("liquidity") or {}).get("usd", 0) or 0)
+                        pc = p.get("priceChange") or {}
+                        try:
+                            _h1 = float(pc.get("h1") or 0)
+                        except Exception:
+                            _h1 = 0.0
+                        if _h1 > EARLY_MAX_PUMP:
+                            EARLY_WATCH.pop(addr, None)
+                            await unwatch_token(addr)
+                            log.info("🚀🚫 %s فات الوقت (h1 %+.0f%%)", sym, _h1)
+                            continue
+                        sc = _score(p)
+                        _meme_save(p, sc)
+                        await _meme_broadcast(p, sc)
+                        EARLY_WATCH.pop(addr, None)
+                        log.info("🚀🐸 دخول مبكر: %s | صفقات60=%d شراء=%.0f%% حجم=%.0f%% score=%d",
+                                 sym, f60["trades"], f60["buy_ratio"] * 100, f60["vol_ratio"] * 100, sc)
+                except Exception as e:
+                    log.warning("🚀 دخول مبكر %s: %s", sym, e)
+        except Exception as e:
+            log.warning("early watch loop: %s", e)
+        await asyncio.sleep(10)
+
+
 async def _discover(cc):
     """مصدر موسّع: البروفايلات + المعزّزة + بحث مستهدف لكل شبكة.
     يرجع (قائمة عناوين للفحص، خريطة أزواج جاهزة من البحث)."""
@@ -771,6 +881,7 @@ async def meme_tracker_loop():
 async def meme_loop():
     _init_meme_db()
     asyncio.create_task(meme_tracker_loop())
+    asyncio.create_task(early_watch_loop())
     log.info("\U0001F438 Meme radar loop started")
     while True:
         try:
