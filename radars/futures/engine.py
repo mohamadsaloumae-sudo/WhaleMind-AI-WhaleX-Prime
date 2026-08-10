@@ -1357,8 +1357,9 @@ async def predator_agent(
         _rsi_now = float(rsi_v)
     except Exception:
         _rsi_now = 50.0
+    # 📊 معايرة 2117 صفقة بريديتر: موقع<0.15 = +241.6% (رابح) | RSI 45-65 = -59.2% (خاسر)
     _in_bottom = _rp < 0.20
-    _in_rsi_zone = 55.0 <= _rsi_now <= 75.0
+    _in_rsi_zone = 65.0 <= _rsi_now <= 75.0   # ضُيّق: 65-75 وحدها موجبة
     if not (_in_bottom or _in_rsi_zone):
         PRED_STATS["zone"] = PRED_STATS.get("zone", 0) + 1
         log.info("📍 %s %s رُفض: خارج منطقة الربح (موقع %.0f%% · RSI %.0f)",
