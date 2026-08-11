@@ -481,6 +481,11 @@ def _gate0_early(p):
     v1 = (p.get("volume") or {}).get("h1", 0) or 0
     if b1 > 0 and v1 > 0 and (v1 / b1) < MIN_AVG_TRADE:
         return False
+    # 🚫 لا دخول والبائعون مسيطرون — الثغرة التي أدخلت FOXVSHEEP (45% مشترين) وخسرت -66.5%
+    _buys = (t1.get("buys", 0) or 0)
+    _sells = (t1.get("sells", 0) or 0)
+    if (_buys + _sells) > 0 and (_buys / (_buys + _sells)) < MIN_BUY_RATIO_H1:
+        return False
     if liq > 0 and v1 > liq * MAX_VOL_LIQ_H1:
         return False
     pc = p.get("priceChange") or {}
