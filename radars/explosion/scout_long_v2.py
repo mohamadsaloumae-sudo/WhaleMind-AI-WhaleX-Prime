@@ -197,3 +197,51 @@ async def evaluate_symbol(symbol: str):
 
     _hit("emitted")
     return r
+
+# ═══════════════════════════════════════════════════════════════
+# 🧠 الوقف والأهداف الذكية — كل عملة تُقاس بنفسها (ATR + قاع الشلال)
+# ═══════════════════════════════════════════════════════════════
+RISK_BUDGET_PCT = 10.0      # أقصى خسارة من رأس المال عند ضرب الوقف
+RR_TARGETS = (1.5, 3.0, 5.0)
+LEV_MIN = 5.0        # 🎯 الحدّ الأدنى المطلوب (قرار Mohamad)
+LEV_MAX = 10.0
+MAX_SL_PCT = 12.0    # 🛡️ أقصى شبكة نجاة (المدير يخرج قبلها عادةً)
+SL_ATR_BUFFER = 0.5         # الوقف تحت قاع الشلال بنصف ATR
+
+
+def smart_levels(entry: float, cascade_low: float, atr_v: float) -> dict:
+    """الوقف = قاع الشلال - (0.5 x ATR) — مستوى حقيقي لا نسبة مخترعة.
+    الأهداف = مضاعفات المخاطرة (1.5 / 3 / 5) → النسبة ثابتة والأسعار متغيّرة.
+    الرافعة = ميزانية المخاطرة / مسافة الوقف% → الخسارة القصوى ثابتة.
+    ترجع {} إن كان الوقف أعمق مما تسمح به الرافعة الدنيا (رفض لا مضاعفة).
+    """
+    if entry <= 0:
+        return {}
+    _atr = atr_v if atr_v and atr_v > 0 else entry * 0.01
+    sl = min(cascade_low, entry) - (_atr * SL_ATR_BUFFER)
+    _floor = entry * 0.88      # لا أعمق من -12%
+    _ceil = entry * 0.99       # لا أضيق من -1%
+    if sl > _ceil:
+        sl = _ceil
+    if sl < _floor:
+        sl = _floor
+    risk = entry - sl
+    if risk <= 0:
+        return {}
+    sl_pct = risk / entry * 100
+    # 🧠 الوقف شبكة نجاة أخيرة لا أداة خروج — مدير الصفقات يخرج عند أول
+    #    انقلاب مؤكَّد (is_real_reversal + العين التكتيكية) قبل الوصول إليه.
+    #    لذلك لا نرفض صفقة لأن وقفها بعيد؛ نرفض فقط ما يتجاوز أقصى شبكة نجاة.
+    if sl_pct > MAX_SL_PCT:
+        return {}
+    lev = RISK_BUDGET_PCT / sl_pct if sl_pct > 0 else LEV_MIN
+    lev = max(LEV_MIN, min(LEV_MAX, round(lev, 1)))
+    return {
+        "sl": sl,
+        "sl_pct": sl_pct,
+        "tp1": entry + risk * RR_TARGETS[0],
+        "tp2": entry + risk * RR_TARGETS[1],
+        "tp3": entry + risk * RR_TARGETS[2],
+        "leverage": lev,
+        "atr": _atr,
+    }
