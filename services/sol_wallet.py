@@ -6,7 +6,20 @@ log = logging.getLogger("sol_wallet")
 _BASE = "/opt/whalex"
 KEY_FILE = os.path.join(_BASE, ".sol_wallet.enc")
 WALLET_DB = os.path.join(_BASE, "db", "sol_wallet.db")
-RPC_URL = os.environ.get("SOL_RPC", "https://api.mainnet-beta.solana.com")
+def _rpc_from_env() -> str:
+    v = os.environ.get("SOL_RPC", "")
+    if v:
+        return v
+    p = "/opt/whalex/.env"
+    if os.path.exists(p):
+        with open(p, encoding="utf-8") as fh:
+            for line in fh:
+                if line.startswith("SOL_RPC="):
+                    return line.split("=", 1)[1].strip()
+    return "https://api.mainnet-beta.solana.com"
+
+
+RPC_URL = _rpc_from_env()   # 🚀 Helius — أسرع وأوثق من العقدة العامة
 
 HARD_MAX_PER_TRADE = 2.0
 HARD_MAX_DAILY = 5.0
