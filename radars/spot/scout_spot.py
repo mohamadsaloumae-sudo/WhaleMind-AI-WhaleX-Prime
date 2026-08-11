@@ -24,10 +24,12 @@ _EXCLUDE = ("UP", "DOWN", "BULL", "BEAR")   # روافع سبوت المغلفة
 _STRONG = {"BTC", "ETH", "SOL", "XRP", "BNB", "ADA", "DOGE", "AVAX", "LINK",
            "SUI", "DOT", "MATIC", "POL", "LTC", "TRX", "TON", "NEAR", "ATOM",
            "UNI", "APT", "ICP", "ETC", "XLM", "HBAR", "FIL", "ARB", "OP"}
-STRONG_RSI_MIN, STRONG_RSI_MAX = 40.0, 60.0
-STRONG_RANGE_POS = 0.55          # تصحيح صحّي لا قاع عميق
-STRONG_TAKER = 0.52
-STRONG_VOL = 1.10
+# 📊 معايرة على قراءات حقيقية: BTC rsi=32 taker=50% | ETH rsi=31 taker=44%
+#    الأسواق العميقة متوازنة (44-50%) ولا تُظهر سيطرة شراء 55% كالصغيرة.
+STRONG_RSI_MIN, STRONG_RSI_MAX = 30.0, 55.0
+STRONG_RANGE_POS = 0.55
+STRONG_TAKER = 0.50      # لا نشتري والبائعون مسيطرون — التوازن يكفي
+STRONG_VOL = 1.00        # لا انكماش حجم (لا نطلب تضخّماً)
 STRONG_TP = (1.020, 1.035, 1.050)   # +2% / +3.5% / +5%
 STRONG_SL_PCT = 0.985               # -1.5%
 
@@ -121,6 +123,15 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
 
     # ① الثلث السفلي  ② RSI مضغوط  ③ قاع صامد  ④ بصمة تجميع  ⑤ شرارة
     _strong = _is_strong(sym)
+    if _strong:
+        _rsi_dbg = _rsi(closes)
+        _v8d, _t8d = sum(vols[-8:]), sum(tbuys[-8:])
+        _tkd = (_t8d / _v8d) if _v8d > 0 else 0
+        _vavgd = sum(vols[-48:-8]) / 40 if len(vols) >= 48 else 1
+        _vinfd = (_v8d / 8) / _vavgd if _vavgd > 0 else 0
+        if range_pos <= STRONG_RANGE_POS and STRONG_RSI_MIN <= _rsi_dbg <= STRONG_RSI_MAX:
+            log.info("💎 قويّة %s: pos=%.0f%% rsi=%.0f taker=%.0f%% vol=%.2fx",
+                     sym, range_pos * 100, _rsi_dbg, _tkd * 100, _vinfd)
     _max_pos = STRONG_RANGE_POS if _strong else 0.45
     if range_pos > _max_pos:
         return
