@@ -343,13 +343,18 @@ def _build_signal(symbol: str, price: float, candles: list, peak: float,
     except Exception:
         _vol_ratio = 0.0
     conf = min(92.0, 72.0 + len(ob_signals) * 5.0)
+    # 🎯 رافعة ذكية من مسافة الوقف — لا رقم جامد (كانت 3.0 ثابتة لكل عملة)
+    #    الخسارة عند الوقف تبقى ~10% من رأس المال مهما اختلفت العملة.
+    _sl_pct = abs(sl - price) / price * 100 if price > 0 else 2.0
+    _lev = 10.0 / _sl_pct if _sl_pct > 0 else 5.0
+    _lev = max(5.0, min(10.0, round(_lev, 1)))      # 5x حدّ أدنى (قرار Mohamad)
     strats = ["🔭 Explosion Scout — انهيار OB"] + ob_signals + [f"هبوط من الذروة: -{drop:.1f}%"]
     return Signal(
         symbol=symbol, direction="SHORT", grade="A",
         score=round(6.5 + len(ob_signals) * 0.3, 2),
         confidence=round(conf, 1), entry=price,
         sl=round(sl, 8), tp1=round(tp1, 8), tp2=round(tp2, 8), tp3=round(tp3, 8),
-        leverage=3.0, strategies="\n".join(strats), radar_type="futures", tier="PH",
+        leverage=_lev, strategies="\n".join(strats), radar_type="futures", tier="PH",
         rr_tp1=round(rr1, 2), rr_tp2=round(rr2, 2), rr_tp3=round(rr3, 2),
         strategy_count=len(strats), btc_trend="NEUTRAL",
         rsi=rsi_v, range_pos=round(_rng_pos, 4), volume_ratio=round(_vol_ratio, 2),
