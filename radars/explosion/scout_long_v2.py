@@ -6,8 +6,10 @@
 الطبقات الأربع (كلها إلزامية):
   1) شلال تصفية طويلة: السعر ↓ و OI ↓ معاً
   2) نضوب مؤكَّد: OI توقّف + السعر استقرّ
-  3) امتصاص في العمق: ضغط>0.3 + جدار شراء حقيقي
+  3) امتصاص في العمق: ضغط>0.3 + جدار شراء حقيقي (من WebSocket)
   4) استسلام: تمويل سلبي
+
+🛡️ كل البيانات من WebSocket أو fapi_get (كاش + حارس -1003) — صفر REST مباشر.
 """
 import asyncio
 import logging
@@ -16,22 +18,21 @@ from dataclasses import dataclass, field
 
 log = logging.getLogger("whalex_long_v2")
 
-CASCADE_OI_DROP = -3.0
-CASCADE_PRICE_DROP = -4.0
+CASCADE_OI_DROP = -2.5      # 📊 معايرة: أعلى مرشّح في سوق هادئ -2.6%
+CASCADE_PRICE_DROP = -3.0   # هبوط سعري مصاحب حقيقي
 EXHAUST_OI_STALL = 1.0
 STABILIZE_BARS = 2
 MIN_OB_PRESSURE = 0.30
 MIN_BUY_WALL_USDT = 50_000
 MAX_FUNDING = 0.0
 MIN_RSI = 38.0
-MIN_VOLUME_USD = 5_000_000
 SCAN_INTERVAL = 60
 COOLDOWN_SEC = 1800
 
 _last_signal: dict = {}
 
 LV2_STATS: dict = {}
-_LV2_KEYS = ("checked", "no_data", "dead_vol", "no_cascade", "not_exhausted",
+_LV2_KEYS = ("checked", "no_data", "no_cascade", "not_exhausted",
              "no_absorption", "weak_wall", "funding_pos", "low_rsi", "emitted")
 
 
@@ -65,14 +66,18 @@ class LongV2Reading:
 
 
 async def _oi_series(symbol: str) -> list:
-    import httpx
+    """سلسلة OI لآخر 3 ساعات (15m × 12).
+    🛡️ عبر fapi_get: كاش مشترك + حارس حظر -1003.
+       OI لا يُبثّ عبر WebSocket في Binance، فهذه الطريقة الآمنة الوحيدة.
+    """
+    from radars.futures.engine import fapi_get
+    url = ("https://fapi.binance.com/futures/data/openInterestHist"
+           f"?symbol={symbol}&period=15m&limit=12")
+    data = await fapi_get(url, ttl=240.0)
+    if not isinstance(data, list):
+        return []
     try:
-        async with httpx.AsyncClient(timeout=8) as c:
-            r = await c.get("https://fapi.binance.com/futures/data/openInterestHist",
-                            params={"symbol": symbol, "period": "15m", "limit": 12})
-            if r.status_code != 200:
-                return []
-            return [float(x["sumOpenInterest"]) for x in r.json()]
+        return [float(x["sumOpenInterest"]) for x in data]
     except Exception:
         return []
 
@@ -86,6 +91,10 @@ def _detect_cascade(oi: list, candles) -> tuple:
     px = candles[-1].close
     peak = max(highs) if highs else px
     price_drop = ((px - peak) / peak * 100) if peak > 0 else 0.0
+    # 🛡️ حارس القيم الشاذّة: OI ينهار بلا حركة سعر = انتهاء عقود أو خلل بيانات
+    #    (ACXUSDT قيست بـ OI -46.3% مع سعر +0.0% — ليست تصفية)
+    if oi_change <= -25.0 and price_drop > -2.0:
+        return False, False, oi_change, oi_recent, price_drop
     cascade = (oi_change <= CASCADE_OI_DROP) and (price_drop <= CASCADE_PRICE_DROP)
     exhausted = oi_recent > -EXHAUST_OI_STALL
     return cascade, exhausted, oi_change, oi_recent, price_drop
@@ -99,9 +108,9 @@ def _stabilized(candles) -> bool:
 
 
 async def evaluate_symbol(symbol: str):
+    """يفحص رمزاً — يرجع القراءة إن اجتاز كل الطبقات، وإلا None."""
     from radars.futures.engine import (
-        fetch_klines_async, rsi as _rsi, range_position,
-        get_funding_rate, get_oi_change,
+        fetch_klines_async, rsi as _rsi, range_position, get_funding_rate,
     )
     _hit("checked")
     r = LongV2Reading(symbol=symbol)
@@ -141,25 +150,32 @@ async def evaluate_symbol(symbol: str):
     if r.rsi < MIN_RSI:
         _hit("low_rsi"); return None
 
+    # 🌊 العمق من WebSocket — لا REST
+    _book = None
     try:
-        from quant_engine.order_book_analyzer import analyze_order_book
-        ob = await analyze_order_book(symbol, check_spoofing=True)
+        from quant_engine.ob_stream import get_book, get_signals as _obsig
+        _book = get_book(symbol)
     except Exception as e:
-        log.debug("ob error %s: %s", symbol, e); ob = None
-    if not ob:
+        log.debug("ob_stream %s: %s", symbol, e)
+    if not _book:
         _hit("no_absorption"); return None
-    r.ob_pressure = float(getattr(ob, "pressure_score", 0.0) or 0.0)
-    if r.ob_pressure < MIN_OB_PRESSURE or not getattr(ob, "safe_for_long", True):
+    _bids, _asks = _book
+    _bv = sum(p * q for p, q in _bids[:20])
+    _av = sum(p * q for p, q in _asks[:20])
+    r.ob_pressure = ((_bv - _av) / (_bv + _av)) if (_bv + _av) > 0 else 0.0
+    if r.ob_pressure < MIN_OB_PRESSURE:
         _hit("no_absorption"); return None
     try:
-        walls = getattr(ob, "bid_walls", None) or []
-        _vals = []
-        for w in walls:
-            try:
-                _vals.append(float(w[1]))
-            except Exception:
-                continue
-        r.buy_wall_usdt = max(_vals) if _vals else 0.0
+        if any(x.get("side") == "bid" for x in (_obsig(symbol).get("spoof") or [])):
+            _hit("no_absorption"); return None
+    except Exception:
+        pass
+
+    try:
+        _lv = [(p * q) for p, q in _bids[:50]]
+        _avg = (sum(_lv) / len(_lv)) if _lv else 0.0
+        _mx = max(_lv) if _lv else 0.0
+        r.buy_wall_usdt = _mx if (_avg > 0 and _mx >= _avg * 5.0) else 0.0
     except Exception:
         r.buy_wall_usdt = 0.0
     if r.buy_wall_usdt < MIN_BUY_WALL_USDT:
@@ -167,8 +183,9 @@ async def evaluate_symbol(symbol: str):
     r.reasons.append(f"امتصاص: ضغط {r.ob_pressure:+.2f} · جدار ${r.buy_wall_usdt:,.0f}")
 
     try:
-        from quant_engine.delta_engine import fetch_klines as _dk, calculate_cvd, detect_absorption
-        kl = await _dk(symbol, "15m", 50)
+        from quant_engine.delta_engine import calculate_cvd, detect_absorption
+        from quant_engine.ob_stream import get_klines as _wsk
+        kl = _wsk(symbol, "15m", 50)
         if kl:
             cvd, _series = calculate_cvd(kl)
             r.cvd_flow = float(cvd or 0.0)
