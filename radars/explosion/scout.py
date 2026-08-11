@@ -253,24 +253,11 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
         #   (peak_price = قمّة الرادار المخزّنة، أدقّ من period_high)
         _cur = closes[-1] if closes else 0
         _drop = (peak_price - _cur) / peak_price * 100 if peak_price > 0 else 0
-        # 🧠 عتبة ذكية نسبية: الهبوط يُقاس من حجم الصعود لا برقم ثابت.
-        #   عملة صعدت 100% وهبطت 10% = تصحيح (10% من الصعود) — لا شورت.
-        #   عملة صعدت 12% وهبطت 10% = انعكاس (83% من الصعود) — شورت.
-        _rise = 0.0
-        try:
-            _lows = [x.low for x in candles[-48:] if getattr(x, "low", 0) > 0]
-            if _lows and peak_price > 0:
-                _base = min(_lows)
-                if _base > 0:
-                    _rise = (peak_price - _base) / _base * 100
-        except Exception:
-            _rise = 0.0
-        # نطلب أن يرتدّ ثلث الصعود على الأقل، بحدّ أدنى 3% وأقصى 12%
-        _need = 3.0 if _rise <= 0 else max(3.0, min(12.0, _rise * 0.33))
-        if _drop < _need:
+        # 🔄 إرجاع سلوك يونيو: 3% ثابتة تكفي لتأكيد الانعكاس.
+        #   القياس: يونيو 20 رابحاً فوق +30% (+1244.7%) | يوليو 8 فقط (+494.6%)
+        if _drop < 3.0:
             hawk_ok = False
-            hawk_block_reason = (f"تصحيح لا انعكاس (هبطت {_drop:.1f}% من صعود "
-                                 f"{_rise:.0f}% — تحتاج {_need:.1f}%)")
+            hawk_block_reason = f"عند القمّة ({_drop:.1f}% — لم تؤكّد الانعكاس)"
         elif _drop > 10.0:
             hawk_ok = False
             hawk_block_reason = f"هبطت كثيراً ({_drop:.1f}% — شورت متأخّر)"
