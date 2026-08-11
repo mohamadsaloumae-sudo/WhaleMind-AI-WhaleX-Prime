@@ -248,6 +248,38 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
 
 
 _prices: dict = {}          # كاش أسعار السبوت (يحدّثه المتتبع كل دقيقة — تقرؤه الواجهة)
+# ═══ 🌊 الخروج الديناميكي: يقرأ ضغط الشراء لحظياً بدل رقم جامد ═══
+#   القياس: reversal (قراءة لحظية) = +7.52% | القفل الجامد = +2.21%
+DYN_STRONG_TAKER = 0.55
+DYN_WEAK_TAKER   = 0.48
+DYN_HARVEST_PNL  = 2.5
+DYN_MIN_PROFIT   = 2.0
+DYN_TRAIL_GIVE   = 3.0
+REENTRY_COOLDOWN = 1800
+_taker_cache: dict = {}
+
+
+async def _live_taker(c, sym: str):
+    """ضغط الشراء الآن (آخر 8 شموع 15د). كاش 90ث."""
+    _now = time.time()
+    _h = _taker_cache.get(sym)
+    if _h and _now - _h[0] < 90:
+        return _h[1]
+    try:
+        r = await c.get(f"{SPOT}/api/v3/klines?symbol={sym}&interval=15m&limit=10", timeout=8)
+        if r.status_code != 200:
+            return None
+        k = r.json()
+        v = sum(float(x[7]) for x in k[-8:])
+        tb = sum(float(x[9]) for x in k[-8:])
+        tk = (tb / v) if v > 0 else None
+        if tk is not None:
+            _taker_cache[sym] = (_now, tk)
+        return tk
+    except Exception:
+        return None
+
+
 _track: dict = {}           # sig_id -> stage (0 لم يلمس، 1/2 بعد TP1/TP2)
 _peak: dict = {}            # sig_id -> أعلى سعر بلغته الصفقة (للقفل المتحرك وكشف الانعكاس)
 _TRACK_STARTED = False
@@ -353,22 +385,34 @@ async def tracker_loop():
                         # 🧠 كشف انعكاس ذكي: في ربح، وارتد ≥1.5% عن القمة بزخم أحمر → إغلاق فوري
                         _peak_pnl = (_pk - s.entry) / s.entry * 100 if s.entry else 0
                         # 🔒 سلّم جني سريع — أرباح السبوت خفيفة فلا ننتظرها تتبخر
-                        if _peak_pnl >= 8.0:
-                            _locked_sl = max(_locked_sl, _pk * 0.97)        # انفجار: يركض بحماية 3% من القمة
-                        elif _peak_pnl >= 5.0:
-                            _locked_sl = max(_locked_sl, s.entry * 1.04)    # بلغ +5 → يحمي +4
-                        elif _peak_pnl >= 4.0:
-                            _locked_sl = max(_locked_sl, s.entry * 1.03)    # بلغ +4 → يحمي +3
-                        elif _peak_pnl >= 3.0:
-                            _locked_sl = max(_locked_sl, s.entry * 1.022)   # بلغ +3 → يحمي +2.2
-                        elif _peak_pnl >= 2.5:
-                            _locked_sl = max(_locked_sl, s.entry * 1.020)   # 💰 بلغ +2.5 → يضمن +2
                         _drop = (_pk - px) / _pk * 100 if _pk else 0
-                        _smart_rev = (pnl >= 2.0 and _peak_pnl >= 3.0 and _drop >= 1.2)   # 💰 يجني من +2
+                        _tk = None
+                        if pnl >= DYN_MIN_PROFIT or _peak_pnl >= DYN_MIN_PROFIT:
+                            try:
+                                _tk = await _live_taker(c, s.symbol)
+                            except Exception:
+                                _tk = None
+                        _dyn_exit = False
+                        _dyn_why = ""
+                        if _tk is not None and pnl >= DYN_MIN_PROFIT:
+                            if _tk >= DYN_STRONG_TAKER:
+                                if _drop >= DYN_TRAIL_GIVE:
+                                    _dyn_exit, _dyn_why = True, "trail_strong"
+                            elif _tk < DYN_WEAK_TAKER:
+                                _dyn_exit, _dyn_why = True, "flow_flip"
+                            elif pnl >= DYN_HARVEST_PNL:
+                                _dyn_exit, _dyn_why = True, "harvest"
+                        if _peak_pnl >= 2.5:
+                            _locked_sl = max(_locked_sl, s.entry * 1.020)
+                        if _peak_pnl >= 8.0:
+                            _locked_sl = max(_locked_sl, _pk * 0.97)
+                        _smart_rev = _dyn_exit or (pnl >= 2.0 and _peak_pnl >= 3.0 and _drop >= 1.2)
 
                         if _smart_rev:
-                            s.is_active = False; s.pnl_pct = round(pnl, 2); s.close_reason = "reversal"; s.closed_at = datetime.utcnow(); db.commit()
-                            _log_result(1 if pnl > 0 else 0, "reversal")
+                            s.is_active = False; s.pnl_pct = round(pnl, 2); s.close_reason = (_dyn_why or "reversal"); s.closed_at = datetime.utcnow(); db.commit()
+                            _log_result(1 if pnl > 0 else 0, (_dyn_why or "reversal"))
+                            if pnl > 0:
+                                _last_sig[s.symbol] = time.time() - (COOLDOWN - REENTRY_COOLDOWN)
                             try:
                                 from services.binance_trader import close_spot_all
                                 await close_spot_all(s.symbol, "reversal")
