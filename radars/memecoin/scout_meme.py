@@ -471,7 +471,7 @@ def _score(p):
 
 # ═══════ 🚀 الدخول المبكر: أمان أولاً ثم مراقبة تدفّق لحظي ═══════
 EARLY_MIN_LIQ        = 20_000
-EARLY_WATCH_MAX      = 0   # 🚫 مُطفأ مؤقتاً
+EARLY_WATCH_MAX      = 20  # ✅ أُعيد بعد سدّ ثغرة نسبة الشراء (FOXVSHEEP)
 EARLY_WATCH_TTL      = 2700
 EARLY_MIN_TRADES_60  = 8
 EARLY_MIN_BUY_RATIO  = 0.60
