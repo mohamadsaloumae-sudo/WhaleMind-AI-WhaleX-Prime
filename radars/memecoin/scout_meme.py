@@ -922,6 +922,8 @@ async def meme_loop():
     _init_meme_db()
     asyncio.create_task(meme_tracker_loop())
     asyncio.create_task(early_watch_loop())
+    from radars.memecoin.watchlist import watch_loop
+    asyncio.create_task(watch_loop())
     log.info("\U0001F438 Meme radar loop started")
     while True:
         try:
@@ -929,6 +931,16 @@ async def meme_loop():
             for p in survivors:
                 sc = _score(p)
                 if sc < SIGNAL_THRESHOLD:
+                    # 👁️ نظيفة (اجتازت كل بوابات الأمان) لكنها لم تنفجر بعد
+                    #    → تُراقَب لا تُرفَض، وندخل عند علامات الانطلاق
+                    try:
+                        from radars.memecoin.watchlist import add_to_watch
+                        _a = (p.get("baseToken") or {}).get("address") or ""
+                        _s = (p.get("baseToken") or {}).get("symbol") or "?"
+                        if _a and not _meme_seen(_a):
+                            add_to_watch(_a, _s, p)
+                    except Exception as _we:
+                        log.debug("watch add: %s", _we)
                     continue
                 addr = (p.get("baseToken") or {}).get("address") or ""
                 if not addr or _meme_seen(addr):
