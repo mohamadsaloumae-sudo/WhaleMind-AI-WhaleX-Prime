@@ -90,6 +90,55 @@ async def _universe_refresh(c: httpx.AsyncClient):
     log.info("🪙 كون السبوت: %d زوجاً (سيولة أعلى)", len(_universe))
 
 
+def _trend_ok(highs, lows) -> tuple:
+    """📈 الاتجاه من القمم والقيعان الفعلية.
+    قاع أعلى من سابقه = صاعد ✓ | قاع أدنى = هابط ✗ (سكين، لا ندخل)
+    ROBO خسرت 4 مرات متتالية لأننا دخلناها في ترند هابط."""
+    if len(lows) < 30:
+        return False, "بيانات قليلة"
+    # نقسم آخر 30 شمعة لثلاث نوافذ ونقارن قيعانها وقممها
+    w = 10
+    l1, l2, l3 = min(lows[-30:-20]), min(lows[-20:-10]), min(lows[-10:])
+    h1, h2, h3 = max(highs[-30:-20]), max(highs[-20:-10]), max(highs[-10:])
+    # هابط: القيعان تتناقص والقمم تتناقص
+    if l3 < l2 < l1 and h3 < h2:
+        return False, "ترند هابط (قيعان وقمم متناقصة)"
+    # القاع الأخير أدنى بكثير = ما زال ينزل
+    if l3 < l2 * 0.985:
+        return False, "قاع جديد أدنى — ما زال ينزل"
+    return True, "الاتجاه سليم"
+
+
+async def _book_ok(c: httpx.AsyncClient, sym: str, price: float) -> tuple:
+    """📖 الأوردر بوك: هل توجد طلبات شراء حقيقية تسند السعر؟
+    بلا مشترين في الكتاب، لا شيء يوقف الهبوط."""
+    try:
+        r = await c.get(f"{SPOT}/api/v3/depth?symbol={sym}&limit=100", timeout=8)
+        if r.status_code != 200:
+            return True, "لا بيانات كتاب (تساهل)"
+        d = r.json()
+        bids = [(float(p), float(q)) for p, q in d.get("bids", [])]
+        asks = [(float(p), float(q)) for p, q in d.get("asks", [])]
+        if not bids or not asks:
+            return True, "كتاب فارغ (تساهل)"
+        bv = sum(p * q for p, q in bids[:20])
+        av = sum(p * q for p, q in asks[:20])
+        if (bv + av) <= 0:
+            return True, "كتاب صفري"
+        imb = (bv - av) / (bv + av)
+        if imb < -0.25:
+            return False, f"بائعون مسيطرون في الكتاب ({imb*100:+.0f}%)"
+        # جدار شراء: أكبر مستوى مقابل المتوسط
+        lv = [p * q for p, q in bids[:50]]
+        avg = sum(lv) / len(lv) if lv else 0
+        wall = max(lv) if lv else 0
+        if avg > 0 and wall < avg * 2.0:
+            return False, "لا جدار شراء يسند"
+        return True, f"كتاب داعم (اختلال {imb*100:+.0f}%)"
+    except Exception:
+        return True, "خطأ كتاب (تساهل)"
+
+
 async def _scan_one(c: httpx.AsyncClient, sym: str):
     if time.time() - _last_sig.get(sym, 0) < COOLDOWN:
         return
@@ -122,6 +171,10 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
     range_pos = (price - lo) / rng
 
     # ① الثلث السفلي  ② RSI مضغوط  ③ قاع صامد  ④ بصمة تجميع  ⑤ شرارة
+    # 📈 الاتجاه أولاً: لا ندخل سكيناً هابطة
+    _t_ok, _t_why = _trend_ok(highs, lows)
+    if not _t_ok:
+        return
     _strong = _is_strong(sym)
     if _strong:
         _rsi_dbg = _rsi(closes)
@@ -159,6 +212,12 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
     grade = "A" if (taker >= 0.55 and v_infl >= 1.30) else "B"
     if not _strong and (taker < 0.53 or v_infl < 1.20):
         return  # نبثّ A والقوي من B — انتقاء عالٍ بفرص أكثر
+
+    # 📖 آخر فحص قبل الدخول: هل يوجد مشترون في الكتاب يسندون السعر؟
+    _b_ok, _b_why = await _book_ok(c, sym, price)
+    if not _b_ok:
+        log.info("🪙📖 %s رُفض: %s", sym, _b_why)
+        return
 
     entry = price
     if _strong:
