@@ -18,6 +18,25 @@ _universe: list = []
 _uni_ts = 0.0
 _EXCLUDE = ("UP", "DOWN", "BULL", "BEAR")   # روافع سبوت المغلفة
 # 🚫 عملات مستقرّة ومربوطة — أهداف 6-20% مستحيلة عليها
+# 💎 العملات القويّة: تتحرّك 2-4% يومياً، فأهداف 6-20% تحتاج أسابيع.
+#    القياس: 3 صفقات بالمنطق القديم = -3.3% | الصغيرة 148 صفقة = +32.1%
+#    الحل: مسار منفصل بأهداف واقعية (+2/+3.5/+5%) ونطاق RSI أوسع.
+_STRONG = {"BTC", "ETH", "SOL", "XRP", "BNB", "ADA", "DOGE", "AVAX", "LINK",
+           "SUI", "DOT", "MATIC", "POL", "LTC", "TRX", "TON", "NEAR", "ATOM",
+           "UNI", "APT", "ICP", "ETC", "XLM", "HBAR", "FIL", "ARB", "OP"}
+STRONG_RSI_MIN, STRONG_RSI_MAX = 40.0, 60.0
+STRONG_RANGE_POS = 0.55          # تصحيح صحّي لا قاع عميق
+STRONG_TAKER = 0.52
+STRONG_VOL = 1.10
+STRONG_TP = (1.020, 1.035, 1.050)   # +2% / +3.5% / +5%
+STRONG_SL_PCT = 0.985               # -1.5%
+
+
+def _is_strong(sym: str) -> bool:
+    s = (sym or "").upper()
+    return s.endswith("USDT") and s[:-4] in _STRONG
+
+
 _STABLES = {
     "USDT", "USDC", "BUSD", "TUSD", "USDP", "DAI", "FDUSD", "USDD", "USD1",
     "PYUSD", "EURI", "EUR", "AEUR", "GBP", "TRY", "BRL", "ARS", "IDRT",
@@ -101,10 +120,15 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
     range_pos = (price - lo) / rng
 
     # ① الثلث السفلي  ② RSI مضغوط  ③ قاع صامد  ④ بصمة تجميع  ⑤ شرارة
-    if range_pos > 0.45:
+    _strong = _is_strong(sym)
+    _max_pos = STRONG_RANGE_POS if _strong else 0.45
+    if range_pos > _max_pos:
         return
     rsi_v = _rsi(closes)
-    if not (25 <= rsi_v <= 48):
+    if _strong:
+        if not (STRONG_RSI_MIN <= rsi_v <= STRONG_RSI_MAX):
+            return
+    elif not (25 <= rsi_v <= 48):
         return
     if min(lows[-6:]) < lo * 0.985:
         return  # كسر قاعٍ جديد — ليس صموداً
@@ -112,7 +136,9 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
     taker = (t8 / v8) if v8 > 0 else 0
     v_avg = sum(vols[-48:-8]) / 40 if len(vols) >= 48 else (sum(vols[:-8]) / max(1, len(vols) - 8))
     v_infl = (v8 / 8) / v_avg if v_avg > 0 else 0
-    if taker < 0.52 or v_infl < 1.15:
+    _min_taker = STRONG_TAKER if _strong else 0.52
+    _min_vol = STRONG_VOL if _strong else 1.15
+    if taker < _min_taker or v_infl < _min_vol:
         return
     log.info("🪙🔎 مرشّح قريب: %s taker=%.0f%% vol=%.2fx rsi=%.0f pos=%.0f%%",
              sym, taker*100, v_infl, rsi_v, range_pos*100)
@@ -120,12 +146,16 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
         return  # لا شرارة خضراء فوق المتوسط القريب
 
     grade = "A" if (taker >= 0.55 and v_infl >= 1.30) else "B"
-    if taker < 0.53 or v_infl < 1.20:
+    if not _strong and (taker < 0.53 or v_infl < 1.20):
         return  # نبثّ A والقوي من B — انتقاء عالٍ بفرص أكثر
 
     entry = price
-    sl    = max(lo * 0.985, price * 0.98)   # أقصى خسارة 2% من الدخول (القاع قد يبعد 6%)
-    tp1, tp2, tp3 = entry * 1.06, entry * 1.12, entry * 1.20
+    if _strong:
+        sl = max(lo * 0.99, price * STRONG_SL_PCT)   # -1.5% للقويّة
+        tp1, tp2, tp3 = (entry * STRONG_TP[0], entry * STRONG_TP[1], entry * STRONG_TP[2])
+    else:
+        sl = max(lo * 0.985, price * 0.98)
+        tp1, tp2, tp3 = entry * 1.06, entry * 1.12, entry * 1.20
     conf  = min(95, 60 + (taker - 0.52) * 400 + (v_infl - 1.15) * 20)
     _last_sig[sym] = time.time()
 
