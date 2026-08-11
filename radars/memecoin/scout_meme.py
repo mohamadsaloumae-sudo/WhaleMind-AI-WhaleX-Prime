@@ -191,13 +191,27 @@ async def _gate1_evm(c, addr, chain):
         return False, "خطأ GoPlus"
     if not d:
         return False, "غير مفهرس (احترازي)"
-    checks = [("is_honeypot", "1", "honeypot"), ("is_proxy", "1", "proxy"),
+    checks = [("is_honeypot", "1", "honeypot"),
               ("is_mintable", "1", "mintable"), ("is_open_source", "0", "كود مغلق"),
               ("cannot_sell_all", "1", "منع بيع الكل"), ("hidden_owner", "1", "مالك مخفي"),
               ("can_take_back_ownership", "1", "استرجاع ملكية")]
     for field, bad, name in checks:
         if str(d.get(field)) == bad:
             return False, name
+    # 🔓 proxy مسموح بشروط: نمط معماري شائع على BSC (427 رفضاً في 12س)،
+    #    لكن الخطر أن يُغيَّر الكود بعد الشراء. نسمح به فقط إن تخلّى المالك
+    #    عن الملكية وكان الكود مفتوحاً — فلا أحد يستطيع ترقيته.
+    if str(d.get("is_proxy")) == "1":
+        _owner = str(d.get("owner_address") or "").lower()
+        _renounced = (not _owner) or _owner in (
+            "0x0000000000000000000000000000000000000000",
+            "0x000000000000000000000000000000000000dead")
+        if not _renounced:
+            return False, "proxy + مالك فعّال"
+        if str(d.get("is_open_source")) != "1":
+            return False, "proxy + كود مغلق"
+        if str(d.get("selfdestruct")) == "1":
+            return False, "proxy + selfdestruct"
     bt = float(d.get("buy_tax") or 0)
     st = float(d.get("sell_tax") or 0)
     if bt > 0.10 or st > 0.10:
