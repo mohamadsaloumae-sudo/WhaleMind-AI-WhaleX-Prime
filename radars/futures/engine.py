@@ -763,7 +763,7 @@ def guardian_leverage(
 
     # 4. حد أقصى حسب tier
     leverage = min(base_lev, tier.max_leverage)
-    leverage = max(2.0, leverage)  # حد أدنى 2x
+    leverage = max(5.0, leverage)  # 🎯 حد أدنى 5x (قرار Mohamad)
 
     # 5. SL/TP من ATR الفعلي
     sl_distance = atr_val * 1.5
