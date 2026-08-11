@@ -42,3 +42,19 @@ async def push_note(market: str, event: str, message: str, message_en: str = Non
                                   "message_en": clean_en, "data": {}})
     except Exception as e:
         log.debug("ws: %s", e)
+
+    # 🔔 Push على الهاتف والتطبيق مغلق — لكل الرادارات والأنظمة
+    #    المسار الموحّد: أي رادار ينادي push_note يصل إشعاره للهاتف تلقائياً.
+    try:
+        from routers.push import send_push_to_all
+        _icons = {"futures": "⚡", "spot": "🪙", "meme": "🐸"}
+        _titles = {
+            "signal": "إشارة جديدة", "opened": "صفقة فُتحت",
+            "closed": "صفقة أُغلقت", "position_closed": "صفقة أُغلقت",
+            "sl_warning": "تحذير وقف", "trailing_active": "تأمين ربح",
+        }
+        _title = f"{_icons.get(market, '🐋')} {_titles.get(event, 'WhaleX Prime')}"
+        _body = clean[:180] if clean else "افتح التطبيق للتفاصيل"
+        await send_push_to_all(_title, _body)
+    except Exception as e:
+        log.debug("push: %s", e)
