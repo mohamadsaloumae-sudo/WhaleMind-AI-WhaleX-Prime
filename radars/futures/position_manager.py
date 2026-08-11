@@ -319,12 +319,21 @@ PYRAMID_LEVELS = {
     3: {"leverage_mult": 5.0, "desc": "انفجار مؤكد → 10x"}, # 10x
 }
 
+PYRAMIDING_ENABLED = False   # 🚫 التعزيز الهرمي مُطفأ — غير قابل للتنفيذ حقيقياً
+
+
 async def check_pyramiding(pos: Position, price: float) -> bool:
     """
     التعزيز الهرمي:
     TP1 مُصاب + موافقة Guardian → رفع الرافعة
     يعيد True إذا تم التعزيز
     """
+    # 🚫 مُطفأ: رفع رافعة صفقة مفتوحة مستحيل على باينانس — كان رقماً ورقياً
+    #    يضخّم pnl_pct المسجَّل بما لا يمكن تنفيذه حقيقياً.
+    #    الرافعة تُضبط عند الدخول وتبقى. (نظام حقيقي لا ورقي)
+    if PYRAMIDING_ENABLED is False:
+        return False
+
     if pos.pyramid_level >= 3 or pos.force_close_lock:
         return False
 
