@@ -724,6 +724,8 @@ MEME_SELL_VOL = 0.35
 MEME_SELL_BUYRATIO = 0.50
 MEME_SELL_CONFIRM = 60.0
 MEME_HARD_FLOOR = -18.0
+MEME_WICK_PNL = -35.0        # 🕯️ أسوأ من هذا في نبضة واحدة = ذيل مشتبه به
+_WICK_SEEN: dict = {}        # id -> (وقت أول قراءة كارثية, سعرها)
 MEME_TRAIL_ARM = 12.0
 MEME_TRAIL_GIVEBACK = 8.0
 
@@ -827,6 +829,25 @@ async def _meme_track_one(cc, r):
     _trades = (_flow or {}).get("trades", 0) or 0
     _buy_ratio = (_flow or {}).get("buy_ratio", 0.0) or 0.0
     _vol_ratio = (_flow or {}).get("vol_ratio", 0.0) or 0.0
+    # 🕯️ حارس الذيل: انهيار كارثي في نبضة واحدة قد يكون ذيلاً يرتدّ.
+    #    FOXVSHEEP بِيعت عند -66.5% ثم عاد السعر 3 أضعاف — لا نبيع بلا تأكيد قراءتين.
+    if pnl <= MEME_WICK_PNL:
+        _w = _WICK_SEEN.get(_sid)
+        if not _w:
+            _WICK_SEEN[_sid] = (time.time(), px)
+            log.warning("🕯️ %s قراءة كارثية %.1f%% — انتظار تأكيد نبضة", r.get("symbol"), pnl)
+            return
+        _wt, _wpx = _w
+        if px > _wpx * 1.15:
+            # ارتدّ أكثر من 15% عن قراءة الذيل → كان ذيلاً، نتابع الصفقة
+            _WICK_SEEN.pop(_sid, None)
+            log.info("🕯️ %s كان ذيلاً — ارتدّ، نتابع", r.get("symbol"))
+            return
+        _WICK_SEEN.pop(_sid, None)
+        # مؤكَّد: انهيار حقيقي → إغلاق
+    else:
+        _WICK_SEEN.pop(_sid, None)
+
     if pnl <= MEME_HARD_FLOOR:
         reason = "🛑 أرضية أمان -18%"
         _SL_PENDING.pop(_sid, None)
