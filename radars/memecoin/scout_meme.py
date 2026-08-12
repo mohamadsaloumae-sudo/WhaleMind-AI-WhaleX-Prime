@@ -673,6 +673,8 @@ MEME_CHANNEL = "-1003918596088"
 #    بينما score 88-92 وحدها = -377.3% (فوز 26%) — أسوأ منطقة
 #    والساعات 0-6 UTC = -448.1% (ميتة) | 12-18 UTC = +56.4% (الوحيدة الموجبة)
 SIGNAL_THRESHOLD = 92
+# 📊 BSC خسرت -56.9% (11 صفقة) و ETH -36.5% (3) — عتبة أعلى للشبكات الخاسرة
+EVM_SIGNAL_THRESHOLD = 96
 DEAD_HOURS_UTC = (0, 1, 2, 3, 4, 5)   # ساعات خاسرة مثبتة
 
 
@@ -946,7 +948,8 @@ async def meme_loop():
                 # 🕐 الساعات الميتة: 0-6 UTC خسرت -448.1% على 64 صفقة
                 if datetime.utcnow().hour in DEAD_HOURS_UTC:
                     continue
-                if sc < SIGNAL_THRESHOLD:
+                _need = EVM_SIGNAL_THRESHOLD if p.get("chainId") in ("bsc", "ethereum") else SIGNAL_THRESHOLD
+                if sc < _need:
                     # 👁️ نظيفة (اجتازت كل بوابات الأمان) لكنها لم تنفجر بعد
                     #    → تُراقَب لا تُرفَض، وندخل عند علامات الانطلاق
                     try:
