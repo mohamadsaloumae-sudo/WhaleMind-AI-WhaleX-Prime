@@ -41,7 +41,8 @@ AGE_MIN_MIN = 20        # 🚀 صيد الصاروخ: 20د بدل 60
 MAX_PUMP_H1 = 200.0     # 🚀 لا نرفض الصاروخ نفسه
 MAX_DUMP = -30.0        # تحتها = العملة تنهار أصلاً
 MIN_TXNS_H1 = 30        # حياة الآن: معاملات آخر ساعة
-MIN_BUY_RATIO_H1 = 0.55 # زخم شراء حقيقي مسيطر
+# 📊 قياس 240 صفقة: 0.55-0.62 = -391.8% (أسوأ منطقة) | 0.62+ = -9.7% فوز 61%
+MIN_BUY_RATIO_H1 = 0.62 # زخم شراء مسيطر فعلاً — 0.55 كانت تُدخل أسوأ منطقة
 MIN_AVG_TRADE = 30.0    # متوسط الصفقة بالدولار — أقل = سبام بوتات
 WASH_SYMMETRY = 0.03    # تطابق شراء/بيع مريب = تدوير وهمي
 MAX_VOL_LIQ_H1 = 20.0   # حجم الساعة مقابل السيولة — فوقه مستحيل طبيعياً
@@ -740,8 +741,11 @@ MEME_SELL_CONFIRM = 60.0
 MEME_HARD_FLOOR = -18.0
 MEME_WICK_PNL = -35.0        # 🕯️ أسوأ من هذا في نبضة واحدة = ذيل مشتبه به
 _WICK_SEEN: dict = {}        # id -> (وقت أول قراءة كارثية, سعرها)
-MEME_TRAIL_ARM = 12.0
-MEME_TRAIL_GIVEBACK = 8.0
+# 📊 القياس: متوسط التراجع عن القمة قبل الخروج 18.2% · و46 صفقة تركنا فيها >25%
+MEME_TRAIL_ARM = 6.0        # نحمي من +6% بدل +12%
+MEME_TRAIL_GIVEBACK = 10.0  # تراجع 10% عن القمة يقفل
+MEME_PEAK_LOCK = 20.0       # فوق +20% نحمي بصرامة أعلى
+MEME_PEAK_LOCK_GIVE = 7.0   # تراجع 7% فقط يقفل الرابح الكبير
 
 
 def _meme_close(sid, px, pnl):
@@ -881,7 +885,8 @@ async def _meme_track_one(cc, r):
             _SL_PENDING.pop(_sid, None)
     else:
         _SL_PENDING.pop(_sid, None)
-        if peak_pnl >= MEME_TRAIL_ARM and pnl <= peak_pnl - MEME_TRAIL_GIVEBACK:
+        _give = MEME_PEAK_LOCK_GIVE if peak_pnl >= MEME_PEAK_LOCK else MEME_TRAIL_GIVEBACK
+        if peak_pnl >= MEME_TRAIL_ARM and pnl <= peak_pnl - _give:
             reason = "🔒 قفل: تراجع عن القمة"
     if not reason:
         if _age_h >= 2 and abs(pnl) < 2 and (peak_pnl or 0) < 4:
