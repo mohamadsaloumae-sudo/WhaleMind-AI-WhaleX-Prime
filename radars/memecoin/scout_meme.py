@@ -143,6 +143,17 @@ def _gate0(p):
 MIN_LOCK_DAYS = 180        # 🔒 عملات راديوم/المطلقة يدوياً: القفل ≥ 6 أشهر
 
 
+async def _gate0_lp_burned(c, p) -> tuple:
+    """🔥 الشرط الإلزامي: سيولة محروقة فقط — لا rug ممكن.
+    مثبَت: Fartcoin LP=8.97 🔥 | BOME LP=591M 🔓 | TINCAT (PumpSwap) بلا LP → -99.2%
+    """
+    from radars.memecoin.lp_burn import lp_is_burned
+    _pair = p.get("pairAddress")
+    if not _pair:
+        return False, "لا عنوان بركة"
+    return await lp_is_burned(c, _pair)
+
+
 async def _gate1_solana(c, addr):
     # منطق مزدوج: pump.fun (بلا lockers) → rugged+عمق | راديوم (لها lockers) → قفل+مدّة
     try:
@@ -678,7 +689,7 @@ MEME_CHANNEL = "-1003918596088"
 #    score ≥92 + شراء ≥0.62 = 92 صفقة · فوز 63% · صافي +87.8%
 #    بينما score 88-92 وحدها = -377.3% (فوز 26%) — أسوأ منطقة
 #    والساعات 0-6 UTC = -448.1% (ميتة) | 12-18 UTC = +56.4% (الوحيدة الموجبة)
-SIGNAL_THRESHOLD = 999   # 🛑 موقوف — لا قفل سيولة في pump.fun = مقامرة
+SIGNAL_THRESHOLD = 92   # 🔥 أُعيد — الآن بشرط حرق السيولة الإلزامي
 # 📊 BSC خسرت -56.9% (11 صفقة) و ETH -36.5% (3) — عتبة أعلى للشبكات الخاسرة
 EVM_SIGNAL_THRESHOLD = 80
 DEAD_HOURS_UTC = (0, 1, 2, 3, 4, 5)   # ساعات خاسرة مثبتة
@@ -979,6 +990,19 @@ async def meme_loop():
                 # 🕐 الساعات الميتة: 0-6 UTC خسرت -448.1% على 64 صفقة
                 if datetime.utcnow().hour in DEAD_HOURS_UTC:
                     continue
+                # 🔥 لا دخول إلا بسيولة محروقة — الشرط الإلزامي ضدّ rug pull
+                if p.get("chainId") == "solana":
+                    try:
+                        import httpx as _hx
+                        async with _hx.AsyncClient() as _bc:
+                            _bok, _bwhy = await _gate0_lp_burned(_bc, p)
+                        if not _bok:
+                            log.info("🔥🚫 %s: %s",
+                                     (p.get("baseToken") or {}).get("symbol", "?"), _bwhy)
+                            continue
+                    except Exception as _be:
+                        log.debug("lp burn check: %s", _be)
+                        continue
                 _need = EVM_SIGNAL_THRESHOLD if p.get("chainId") in ("bsc", "ethereum") else SIGNAL_THRESHOLD
                 if sc < _need:
                     # 👁️ نظيفة (اجتازت كل بوابات الأمان) لكنها لم تنفجر بعد
