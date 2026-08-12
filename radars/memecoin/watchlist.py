@@ -144,6 +144,12 @@ async def watch_loop():
                                 WATCHLIST.pop(addr, None)
                                 continue
                             sc = _score(p)
+                            # 🛡️ نفس الحارس: لا إصدار بلا عتبة
+                            from radars.memecoin.scout_meme import SIGNAL_THRESHOLD, EVM_SIGNAL_THRESHOLD
+                            _need = EVM_SIGNAL_THRESHOLD if p.get("chainId") in ("bsc", "ethereum") else SIGNAL_THRESHOLD
+                            if sc < _need:
+                                log.info("👁️🚫 %s نقاط %d < %d — يبقى تحت الترقّب", sym, sc, _need)
+                                continue
                             _meme_save(p, sc)
                             await _meme_broadcast(p, sc)
                             WATCHLIST.pop(addr, None)

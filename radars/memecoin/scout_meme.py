@@ -574,6 +574,12 @@ async def early_watch_loop():
                             log.info("🚀🚫 %s فات الوقت (h1 %+.0f%%)", sym, _h1)
                             continue
                         sc = _score(p)
+                        # 🛡️ الثغرة: كان يُصدر بلا فحص العتبة (CREPE نقاط 60)
+                        _need = EVM_SIGNAL_THRESHOLD if p.get("chainId") in ("bsc", "ethereum") else SIGNAL_THRESHOLD
+                        if sc < _need:
+                            EARLY_WATCH.pop(addr, None)
+                            log.info("🚀🚫 %s نقاط %d < %d — لا دخول", sym, sc, _need)
+                            continue
                         _meme_save(p, sc)
                         await _meme_broadcast(p, sc)
                         EARLY_WATCH.pop(addr, None)
@@ -674,7 +680,7 @@ MEME_CHANNEL = "-1003918596088"
 #    والساعات 0-6 UTC = -448.1% (ميتة) | 12-18 UTC = +56.4% (الوحيدة الموجبة)
 SIGNAL_THRESHOLD = 92
 # 📊 BSC خسرت -56.9% (11 صفقة) و ETH -36.5% (3) — عتبة أعلى للشبكات الخاسرة
-EVM_SIGNAL_THRESHOLD = 96
+EVM_SIGNAL_THRESHOLD = 80
 DEAD_HOURS_UTC = (0, 1, 2, 3, 4, 5)   # ساعات خاسرة مثبتة
 
 
