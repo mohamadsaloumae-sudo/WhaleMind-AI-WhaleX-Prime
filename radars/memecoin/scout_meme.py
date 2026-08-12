@@ -928,7 +928,7 @@ async def meme_tracker_loop():
                             log.debug("track one: %s", _e)
         except Exception as e:
             log.warning("meme tracker: %s", e)
-        await asyncio.sleep(10)
+        await asyncio.sleep(3)   # 📊 كانت 10ث — الأرضية -18% كانت تُخترق لـ-23% بين النبضات
 
 
 async def meme_loop():
