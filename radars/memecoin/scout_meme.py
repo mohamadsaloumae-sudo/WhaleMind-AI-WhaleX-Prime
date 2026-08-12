@@ -744,8 +744,9 @@ async def _meme_broadcast(p, sc):
 
 _SL_PENDING: dict = {}
 _SAFETY_LAST: dict = {}          # 🛡️ آخر فحص أمان لكل صفقة
-SAFETY_RECHECK_SEC = 60          # 📊 كل دقيقة — TINCAT سُحبت بركتها 97% في دقائق
-LIQ_DRAIN_EXIT = 0.65            # 🚨 السيولة تحت 65% من لحظة الدخول = سحب جارٍ
+SAFETY_RECHECK_SEC = 20          # 🚨 السحب يقع في دقيقة — لا مؤشّر يسبقه
+LIQ_DRAIN_EXIT = 0.85            # 🚨 أي انخفاض 15% في البركة = خروج فوري
+MAX_HOLD_MIN = 90                # ⏰ نافذة التعرّض: معظم rug pulls بعد الساعة الأولى
 
 # 🌊 عتبات الخروج التدفّقي للميم (تُضبط بالقياس)
 MEME_FLOW_WINDOW = 180.0
@@ -931,8 +932,8 @@ async def _meme_track_one(cc, r):
     if not reason:
         if _age_h >= 2 and abs(pnl) < 2 and (peak_pnl or 0) < 4:
             reason = "⏱ خروج: لا حركة في ساعتين"
-        elif time.time() - (r.get("ts") or 0) > 8 * 3600:
-            reason = "⏱ انتهاء المهلة 8س"
+        elif time.time() - (r.get("ts") or 0) > MAX_HOLD_MIN * 60:
+            reason = f"⏰ نافذة التعرّض {MAX_HOLD_MIN}د"
     if reason:
         try:
             from radars.memecoin.live_stream import unwatch_token
