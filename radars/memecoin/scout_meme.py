@@ -5,6 +5,7 @@
 import asyncio
 import time
 import logging
+from datetime import datetime
 import httpx
 import sqlite3
 import os
@@ -667,7 +668,12 @@ async def scan():
 
 MEME_DB = os.path.join(os.path.dirname(__file__), "..", "..", "db", "memecoin.db")
 MEME_CHANNEL = "-1003918596088"
-SIGNAL_THRESHOLD = 85
+# 📊 تحليل 241 صفقة — المزيج الرابح الوحيد:
+#    score ≥92 + شراء ≥0.62 = 92 صفقة · فوز 63% · صافي +87.8%
+#    بينما score 88-92 وحدها = -377.3% (فوز 26%) — أسوأ منطقة
+#    والساعات 0-6 UTC = -448.1% (ميتة) | 12-18 UTC = +56.4% (الوحيدة الموجبة)
+SIGNAL_THRESHOLD = 92
+DEAD_HOURS_UTC = (0, 1, 2, 3, 4, 5)   # ساعات خاسرة مثبتة
 
 
 def _init_meme_db():
@@ -937,6 +943,9 @@ async def meme_loop():
             survivors = await scan()
             for p in survivors:
                 sc = _score(p)
+                # 🕐 الساعات الميتة: 0-6 UTC خسرت -448.1% على 64 صفقة
+                if datetime.utcnow().hour in DEAD_HOURS_UTC:
+                    continue
                 if sc < SIGNAL_THRESHOLD:
                     # 👁️ نظيفة (اجتازت كل بوابات الأمان) لكنها لم تنفجر بعد
                     #    → تُراقَب لا تُرفَض، وندخل عند علامات الانطلاق
