@@ -744,7 +744,8 @@ async def _meme_broadcast(p, sc):
 
 _SL_PENDING: dict = {}
 _SAFETY_LAST: dict = {}          # 🛡️ آخر فحص أمان لكل صفقة
-SAFETY_RECHECK_SEC = 300         # كل 5 دقائق
+SAFETY_RECHECK_SEC = 60          # 📊 كل دقيقة — TINCAT سُحبت بركتها 97% في دقائق
+LIQ_DRAIN_EXIT = 0.65            # 🚨 السيولة تحت 65% من لحظة الدخول = سحب جارٍ
 
 # 🌊 عتبات الخروج التدفّقي للميم (تُضبط بالقياس)
 MEME_FLOW_WINDOW = 180.0
@@ -831,6 +832,29 @@ async def _meme_track_one(cc, r):
     _sid_g = r["id"]
     if time.time() - _SAFETY_LAST.get(_sid_g, 0) >= SAFETY_RECHECK_SEC:
         _SAFETY_LAST[_sid_g] = time.time()
+        # 🚨 سحب السيولة: أخطر من أي فحص — البركة تُفرَّغ في دقائق
+        try:
+            _lp = await _fetch_pairs(cc, r["address"])
+            if _lp:
+                _bp = max(_lp, key=lambda x: (x.get("liquidity") or {}).get("usd", 0) or 0)
+                _now_liq = float((_bp.get("liquidity") or {}).get("usd", 0) or 0)
+                _base_liq = float(r.get("liq") or 0)
+                if _base_liq > 0 and _now_liq < _base_liq * LIQ_DRAIN_EXIT:
+                    log.warning("🚨 %s سحب سيولة: $%.0f → $%.0f (%.0f%%) — خروج فوري",
+                                r.get("symbol"), _base_liq, _now_liq,
+                                _now_liq / _base_liq * 100)
+                    try:
+                        from radars.memecoin.live_stream import unwatch_token
+                        await unwatch_token(r["address"])
+                    except Exception:
+                        pass
+                    _meme_close(r["id"], px, pnl)
+                    await _meme_close_broadcast(r, px, pnl, "🚨 سحب سيولة")
+                    _SL_PENDING.pop(_sid_g, None)
+                    _SAFETY_LAST.pop(_sid_g, None)
+                    return
+        except Exception as _le:
+            log.debug("liq drain check: %s", _le)
         try:
             _ok_s, _why_s = await _gate1(cc, r.get("chain") or "solana", r["address"])
         except Exception:
