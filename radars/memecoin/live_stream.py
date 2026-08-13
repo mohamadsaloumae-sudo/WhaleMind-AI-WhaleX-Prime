@@ -126,7 +126,7 @@ async def _evaluate(mint: str, source: str):
             log.info("⚡🔍 %s رُفض قبل الأمان (سيولة $%.0f)", _sym0, _liq0)
             return
         log.info("⚡🔍 %s مرشّح (سيولة $%.0f · كامل=%s)", _sym0, _liq0, _full)
-        ok1, r1 = await _gate1(c, "solana", mint)
+        ok1, r1 = await _gate1(c, "solana", mint, pair.get("pairAddress"))
         if not ok1:
             log.info("⚡🐸🚫 %s بوابة1: %s", (pair.get("baseToken") or {}).get("symbol", "?"), r1)
             return

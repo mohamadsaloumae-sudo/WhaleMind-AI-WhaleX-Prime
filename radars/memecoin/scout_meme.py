@@ -669,7 +669,7 @@ async def scan():
                 best = max(pairs, key=lambda x: (x.get("liquidity") or {}).get("usd", 0) or 0)
             if not _gate0(best):
                 return None
-            ok, reason = await _gate1(c, chain, addr)
+            ok, reason = await _gate1(c, chain, addr, best.get("pairAddress"))
             if not ok:
                 log.info("🐸🚫 %s (%s) بوابة1: %s", (best.get("baseToken") or {}).get("symbol", "?"), chain, reason)
                 _mark_rejected(addr)
