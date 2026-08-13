@@ -469,8 +469,13 @@ async def _gate2_solana(cc, addr):
     _ins = sum((h.get("pct") or 0) for h in th if h.get("insider"))
     if _ins > 5:
         return False, f"داخليون يملكون {_ins:.0f}%"
-    if j.get("insiderNetworks"):
-        return False, "شبكة محافظ داخليين"
+    # 📊 insiderNetworks يرصد التحويلات لا الملكية — USELESS: 532 محفظة "شبكة"
+    #    لكن حصّة الداخليين 0.00% و136,854 حاملاً. المقياس الصحيح هو الحصّة (_ins أعلاه).
+    #    نرفض الشبكة فقط إن كانت حصّتها معتبرة أو الحاملون قليلين (عملة صغيرة مُسيطَر عليها).
+    _nets = j.get("insiderNetworks") or []
+    _holders = int(j.get("totalHolders") or 0)
+    if _nets and (_ins > 2.0 or _holders < 2000):
+        return False, f"شبكة داخليين ({_ins:.1f}% · {_holders} حامل)"
     _rest = sum((h.get("pct") or 0) for h in th[1:10])
     if _rest > 30:
         return False, f"تركيز موزّع: الحاملون 2-10 يملكون {_rest:.0f}%"
