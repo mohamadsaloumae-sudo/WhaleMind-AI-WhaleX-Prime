@@ -490,6 +490,70 @@ async def _gate1(c, chain, addr, pair=None):
     return await _gate1_evm(c, addr, chain)
 
 
+# ═══════ 💎 المسار الثاني: العملات الناضجة (تصحيح في اتجاه صاعد) ═══════
+#   مسارَان يعملان معاً: الصاروخ يُقاس بالانفجار، والناضجة بالعمق والاستمرار.
+#   Fartcoin/USELESS: سيولة بالملايين وحاملون بالآلاف — نقاطها 35 بتنقيط الصواريخ
+#   لكنها أأمن بكثير وتعيش شهوراً. ندخلها عند التصحيح لا عند القمة.
+MATURE_MIN_LIQ = 200_000
+MATURE_MIN_VOL24 = 300_000
+MATURE_MIN_HOLDERS = 2000
+MATURE_DIP_LOW = -35.0
+MATURE_DIP_HIGH = -3.0
+MATURE_MIN_BUY = 0.50
+MATURE_SCORE_MIN = 60
+
+
+def _score_mature(p, holders: int = 0) -> int:
+    """💎 تنقيط الناضجة: العمق والتوزيع والاستمرار — لا الانفجار."""
+    pts = 0.0
+    liq = (p.get("liquidity") or {}).get("usd", 0) or 0
+    vol = (p.get("volume") or {}).get("h24", 0) or 0
+    pts += min(30.0, liq / 1_000_000 * 30)
+    pts += min(25.0, vol / 2_000_000 * 25)
+    pts += min(20.0, (holders / 20000) * 20)
+    t = (p.get("txns") or {}).get("h24") or {}
+    b = t.get("buys", 0) or 0
+    s = t.get("sells", 0) or 0
+    if (b + s) > 0:
+        pts += min(10.0, (b / (b + s)) * 18)
+    pc = p.get("priceChange") or {}
+    try:
+        h24 = float(pc.get("h24") or 0)
+        h1 = float(pc.get("h1") or 0)
+    except Exception:
+        h24 = h1 = 0.0
+    if MATURE_DIP_LOW <= h24 <= MATURE_DIP_HIGH:
+        pts += 10
+        if h1 > 0:
+            pts += 5
+    return min(100, round(pts))
+
+
+def _mature_qualifies(p, holders: int = 0) -> tuple:
+    """هل هي ناضجة ومؤهّلة للدخول عند التصحيح؟"""
+    liq = (p.get("liquidity") or {}).get("usd", 0) or 0
+    vol = (p.get("volume") or {}).get("h24", 0) or 0
+    if liq < MATURE_MIN_LIQ:
+        return False, f"عمق {liq:,.0f}"
+    if vol < MATURE_MIN_VOL24:
+        return False, f"حجم {vol:,.0f}"
+    if holders and holders < MATURE_MIN_HOLDERS:
+        return False, f"حاملون {holders}"
+    pc = p.get("priceChange") or {}
+    try:
+        h24 = float(pc.get("h24") or 0)
+    except Exception:
+        h24 = 0.0
+    if not (MATURE_DIP_LOW <= h24 <= MATURE_DIP_HIGH):
+        return False, f"ليست في تصحيح (h24 {h24:+.0f}%)"
+    t = (p.get("txns") or {}).get("h24") or {}
+    b = t.get("buys", 0) or 0
+    s = t.get("sells", 0) or 0
+    if (b + s) > 0 and (b / (b + s)) < MATURE_MIN_BUY:
+        return False, "بائعون مسيطرون"
+    return True, "ناضجة مؤهّلة"
+
+
 def _score(p):
     # البوابة 3: تنقيط 0-100 من بيانات DexScreener (بلا API إضافي)
     pts = 0.0
@@ -1036,6 +1100,24 @@ async def meme_loop():
                         log.debug("lp burn check: %s", _be)
                         continue
                 _need = EVM_SIGNAL_THRESHOLD if p.get("chainId") in ("bsc", "ethereum") else SIGNAL_THRESHOLD
+                # 💎 المسار الثاني: لم تبلغ عتبة الصواريخ؟ نفحصها كناضجة
+                if sc < _need:
+                    try:
+                        _h = 0
+                        _rc = await _rugcheck_report(c, addr)
+                        if _rc:
+                            _h = int(_rc.get("totalHolders") or 0)
+                        _mok, _mwhy = _mature_qualifies(p, _h)
+                        if _mok:
+                            _msc = _score_mature(p, _h)
+                            if _msc >= MATURE_SCORE_MIN:
+                                log.info("💎 ناضجة: %s نقاط %d (عمق $%.0f · %d حامل) — %s",
+                                         (p.get("baseToken") or {}).get("symbol", "?"), _msc,
+                                         (p.get("liquidity") or {}).get("usd", 0) or 0, _h, _mwhy)
+                                sc = _msc
+                                _need = MATURE_SCORE_MIN
+                    except Exception as _me:
+                        log.debug("mature path: %s", _me)
                 if sc < _need:
                     # 👁️ نظيفة (اجتازت كل بوابات الأمان) لكنها لم تنفجر بعد
                     #    → تُراقَب لا تُرفَض، وندخل عند علامات الانطلاق
