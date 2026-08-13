@@ -154,8 +154,18 @@ async def _gate0_lp_burned(c, p) -> tuple:
     return await lp_is_burned(c, _pair)
 
 
-async def _gate1_solana(c, addr):
-    # منطق مزدوج: pump.fun (بلا lockers) → rugged+عمق | راديوم (لها lockers) → قفل+مدّة
+async def _gate1_solana(c, addr, pair=None):
+    # 🔥 السيولة المحروقة تتخطّى شرطَي القفل والتركيز — الحرق أقوى منهما
+    #    (لا يمكن سحب ما أُحرق مفتاحه). الأخطار الحقيقية تبقى مفحوصة.
+    _burned = False
+    if pair:
+        try:
+            from radars.memecoin.lp_burn import lp_is_burned
+            _burned, _bw = await lp_is_burned(c, pair)
+            if _burned:
+                log.info("🔥 %s سيولة محروقة — %s", addr[:8], _bw)
+        except Exception:
+            _burned = False
     try:
         r = await c.get(f"https://api.rugcheck.xyz/v1/tokens/{addr}/report", timeout=15)
         if r.status_code != 200:
@@ -171,7 +181,9 @@ async def _gate1_solana(c, addr):
     _liq_total = float(j.get("totalMarketLiquidity") or 0)
     lp = j.get("lpLockedPct", 0) or 0
 
-    if _lockers:
+    if _burned:
+        pass   # 🔥 محروقة → لا حاجة لقفل
+    elif _lockers:
         if lp < 80:
             return False, f"سيولة مقفلة {lp:.0f}% فقط"
         _dated = [float(v.get("unlockDate") or 0) for v in _lockers.values()]
@@ -452,9 +464,9 @@ async def _gate2_solana(cc, addr):
     return True, "نجح"
 
 
-async def _gate1(c, chain, addr):
+async def _gate1(c, chain, addr, pair=None):
     if chain == "solana":
-        return await _gate1_solana(c, addr)
+        return await _gate1_solana(c, addr, pair)
     return await _gate1_evm(c, addr, chain)
 
 
