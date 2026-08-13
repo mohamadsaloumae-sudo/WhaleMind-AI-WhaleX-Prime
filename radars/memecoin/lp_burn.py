@@ -35,7 +35,7 @@ def _rpc_url() -> str:
     return ""
 
 
-async def lp_is_burned(cc, pair_address: str) -> tuple:
+async def lp_is_burned(cc, pair_address: str, base_mint: str = "", quote_mint: str = "") -> tuple:
     """(محروقة؟, السبب) — الفحص اليقيني قبل أي دخول."""
     url = _rpc_url()
     if not url or not pair_address:
@@ -52,22 +52,43 @@ async def lp_is_burned(cc, pair_address: str) -> tuple:
         log.debug("lp acc %s: %s", pair_address[:10], e)
         return False, "خطأ قراءة البركة"
 
-    if len(raw) < LP_MINT_OFFSET + 32:
-        return False, f"بنية غير مدعومة ({len(raw)} بايت)"
+    # 📊 إزاحة lpMint تختلف بنوع البركة (مقيسة على السلسلة):
+    #    Raydium AMM v4 (752 بايت) → 464 | Raydium CPMM (637) → 136
+    #    PumpSwap (301) → لا lpMint إطلاقاً (يُرفض)
+    if len(raw) < 200:
+        return False, f"بنية بلا LP ({len(raw)} بايت — PumpSwap)"
+    # 📊 نجرّب الإزاحات المعروفة أولاً ثم نمسح الباقي (البنى تختلف: 752/637/653/1544)
+    _known = [464, 136, 400, 432, 264, 168, 200, 232, 296, 328, 360, 496, 528]
+    _offsets = [o for o in _known if o + 32 <= len(raw)]
+    _offsets += [o for o in range(8, len(raw) - 32, 8) if o not in _offsets]
 
-    try:
-        import base58
-        mint = base58.b58encode(raw[LP_MINT_OFFSET:LP_MINT_OFFSET + 32]).decode()
-        r2 = await cc.post(url, json={
-            "jsonrpc": "2.0", "id": 1, "method": "getTokenSupply",
-            "params": [mint]}, timeout=15)
-        v = ((r2.json() or {}).get("result") or {}).get("value")
-        if not v:
-            return False, "lpMint غير صالح"
-        amt = float(v.get("uiAmount") or 0)
-    except Exception as e:
-        log.debug("lp supply: %s", e)
-        return False, "خطأ قراءة lpMint"
+    import base58
+    _amt = None
+    for off in _offsets:
+        if off + 32 > len(raw):
+            continue
+        try:
+            mint = base58.b58encode(raw[off:off + 32]).decode()
+            if mint.startswith("11") or mint.startswith("So111"):
+                continue
+            if mint in (base_mint, quote_mint):
+                continue
+            r2 = await cc.post(url, json={
+                "jsonrpc": "2.0", "id": 1, "method": "getTokenSupply",
+                "params": [mint]}, timeout=15)
+            v = ((r2.json() or {}).get("result") or {}).get("value")
+            if not v:
+                continue
+            # 🔍 lpMint = أي mint في البركة ليس العملة نفسها ولا العملة المقابلة
+            #    (decimals لا يصلح مميّزاً: BOME lpMint=6 و Fartcoin=9)
+            _amt = float(v.get("uiAmount") or 0)
+            break
+        except Exception as e:
+            log.debug("lp off %d: %s", off, e)
+            continue
+    if _amt is None:
+        return False, f"lpMint غير موجود ({len(raw)} بايت)"
+    amt = _amt
 
     if amt < BURN_MAX_SUPPLY:
         return True, f"🔥 محروقة (LP={amt:.2f})"

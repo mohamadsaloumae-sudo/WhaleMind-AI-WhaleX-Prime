@@ -12,6 +12,7 @@ import os
 
 log = logging.getLogger("meme_scout")
 
+WSOL_MINT = "So11111111111111111111111111111111111111112"
 CHAINS = ("solana", "bsc", "ethereum")
 MIN_LIQ = 30_000        # سيولة دنيا — عملات راديوم المُرحّلة تجمع 20-40k (إشارتا 22k ربحتا +28% و+1.3%)
 # 🚫 كاش الرفض: عملة رُفضت لسبب بنيوي (توزيع/عقد) لا تُعاد كل دقيقة
@@ -161,7 +162,7 @@ async def _gate1_solana(c, addr, pair=None):
     if pair:
         try:
             from radars.memecoin.lp_burn import lp_is_burned
-            _burned, _bw = await lp_is_burned(c, pair)
+            _burned, _bw = await lp_is_burned(c, pair, addr, WSOL_MINT)
             if _burned:
                 log.info("🔥 %s سيولة محروقة — %s", addr[:8], _bw)
         except Exception:
