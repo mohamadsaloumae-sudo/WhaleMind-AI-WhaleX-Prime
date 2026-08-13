@@ -206,8 +206,16 @@ async def _gate1_solana(c, addr, pair=None):
             if _burned and any(k in _nm for k in _lock_risks):
                 continue
             return False, rk.get("name", "خطر عالٍ")
-    if (j.get("score_normalised", 0) or 0) > 50:
-        return False, "نقاط خطر عالية"
+    # 🔥 المحروقة: نقاط RugCheck تحتسب قفل السيولة — وهو بلا معنى لمن أحرق LP.
+    #    Fartcoin score=96 ومخاطرها كلها "LP Vault unlocked" مع 515,171 حاملاً.
+    #    نتجاهل النقاط للمحروقة فقط إن لم تكن هناك مخاطر غير قفلية.
+    _sn = j.get("score_normalised", 0) or 0
+    if _sn > 50:
+        _non_lock = [rk for rk in (j.get("risks") or [])
+                     if not any(k in (rk.get("name") or "").lower()
+                                for k in _lock_risks)]
+        if not (_burned and not _non_lock):
+            return False, f"نقاط خطر عالية ({_sn})"
     return True, "نجح"
 
 
