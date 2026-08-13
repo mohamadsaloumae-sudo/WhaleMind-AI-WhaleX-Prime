@@ -701,7 +701,9 @@ async def notify(user_id: str, msg: str, event_type: str = "alert", data: dict =
 #    انقلاب مؤكد→نغلق | فخ مكشوف→نتنفّس | صمت→نغلق (احترام الوقف).
 #  القرار يُخزَّن 60 ثانية لكل صفقة (يمنع إغراق Binance وتضارب البوّابتين).
 # ═══════════════════════════════════════════════════════════
-PNL_HARD_FLOOR = -15.0   # أرضية الخسارة المطلقة (pnl مُرفّع)
+# 📊 قياس 24س: 4 صفقات تجاوزت -15% وكلّفت -64.4% من أصل -115.8% (56%)
+#    الرابح المتوسط +17.9% — فأرضية -12% تحفظ R:R فوق 2.0
+PNL_HARD_FLOOR = -12.0   # أرضية الخسارة المطلقة (pnl مُرفّع)
 _REV_CACHE: dict = {}    # pos.id -> (ts, breathe, reason)
 
 async def _should_breathe(pos: "Position", price: float, pnl_pct: float) -> tuple:
