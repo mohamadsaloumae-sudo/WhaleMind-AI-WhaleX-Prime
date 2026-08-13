@@ -196,8 +196,15 @@ async def _gate1_solana(c, addr, pair=None):
     else:
         if _liq_total < MIN_LIQ:
             return False, f"سيولة ضعيفة ${_liq_total:,.0f} (بلا قفل)"
+    # 🔥 المحروقة تتجاهل مخاطر القفل فقط — الحرق أقوى من أي قفل.
+    #    (كان يُكتشف الحرق ثم تُرفض بـ"LP Vault unlocked" — 43 مرّة)
+    _lock_risks = ("lp vault unlocked", "large amount of lp unlocked",
+                   "low liquidity", "lp unlocked")
     for rk in (j.get("risks") or []):
         if (rk.get("level") or "").lower() in ("danger", "high"):
+            _nm = (rk.get("name") or "").lower()
+            if _burned and any(k in _nm for k in _lock_risks):
+                continue
             return False, rk.get("name", "خطر عالٍ")
     if (j.get("score_normalised", 0) or 0) > 50:
         return False, "نقاط خطر عالية"
