@@ -217,6 +217,13 @@ async def _gate1_evm(c, addr, chain):
         return False, "خطأ GoPlus"
     if not d:
         return False, "غير مفهرس (احترازي)"
+    # 🔥 قفل LP إلزامي على EVM — GoPlus يعطيه بدقّة (PIZZA و bNS كانتا 0% وخسرتا)
+    _lp = d.get("lp_holders") or []
+    _locked = sum(float(h.get("percent", 0) or 0) for h in _lp
+                  if str(h.get("is_locked")) == "1") * 100
+    if _locked < 80:
+        return False, f"LP مقفلة {_locked:.0f}% فقط (المطلوب 80%)"
+
     checks = [("is_honeypot", "1", "honeypot"),
               ("is_mintable", "1", "mintable"), ("is_open_source", "0", "كود مغلق"),
               ("cannot_sell_all", "1", "منع بيع الكل"), ("hidden_owner", "1", "مالك مخفي"),
