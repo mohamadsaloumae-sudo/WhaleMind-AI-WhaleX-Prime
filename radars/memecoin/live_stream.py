@@ -134,7 +134,7 @@ async def _evaluate(mint: str, source: str):
         if not ok2:
             log.info("⚡🐸🚫 %s بوابة2: %s", (pair.get("baseToken") or {}).get("symbol", "?"), r2)
             return
-        ok25, r25 = await _gate25_onchain(c, mint)
+        ok25, r25 = await _gate25_onchain(c, mint, pair.get("pairAddress"))
         if not ok25:
             log.info("⚡🐸🚫 %s بوابة2.5: %s", (pair.get("baseToken") or {}).get("symbol", "?"), r25)
             return

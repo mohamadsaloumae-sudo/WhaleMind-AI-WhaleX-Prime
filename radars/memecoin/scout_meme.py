@@ -331,7 +331,7 @@ async def _holder_bought_onchain(cc, ata):
         return None
 
 
-async def _gate25_onchain(cc, addr, burned: bool = False):
+async def _gate25_onchain(cc, addr, pair=None):
     # البوابة 2.5: إثبات الشراء الحقيقي على البلوكشين لأعلى الحاملين
     j = await _rugcheck_report(cc, addr)
     if not j:
@@ -340,8 +340,14 @@ async def _gate25_onchain(cc, addr, burned: bool = False):
     #    في عملة بـ515k حامل، أعلى الحاملين منصّات وصناديق تستلم تحويلات بطبيعتها.
     #    شرطان معاً: سيولة محروقة (لا سحب) + توزيع واسع (لا محفظة تُسقط السعر).
     _h = int(j.get("totalHolders") or 0)
-    if burned and _h >= 10000:
-        return True, f"ناضجة محروقة ({_h:,} حامل) — إعفاء مبرَّر"
+    if _h >= 10000 and pair:
+        try:
+            from radars.memecoin.lp_burn import lp_is_burned
+            _b, _bw = await lp_is_burned(cc, pair, addr, WSOL_MINT)
+            if _b:
+                return True, f"ناضجة محروقة ({_h:,} حامل) — إعفاء مبرَّر"
+        except Exception:
+            pass
     th = j.get("topHolders") or []
     if len(th) < 2:
         return True, "لا حاملين"
@@ -778,7 +784,7 @@ async def scan():
                 _mark_rejected(addr)
                 return None
             if chain == "solana":
-                ok25, reason25 = await _gate25_onchain(c, addr)
+                ok25, reason25 = await _gate25_onchain(c, addr, best.get("pairAddress"))
             elif chain == "bsc":
                 ok25, reason25 = await _gate25_evm(c, addr, best.get("pairAddress"), best.get("pairCreatedAt"))
             else:
