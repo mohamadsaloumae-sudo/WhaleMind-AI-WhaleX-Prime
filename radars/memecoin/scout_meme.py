@@ -909,7 +909,11 @@ _SL_PENDING: dict = {}
 _SAFETY_LAST: dict = {}          # 🛡️ آخر فحص أمان لكل صفقة
 SAFETY_RECHECK_SEC = 20          # 🚨 السحب يقع في دقيقة — لا مؤشّر يسبقه
 LIQ_DRAIN_EXIT = 0.85            # 🚨 أي انخفاض 15% في البركة = خروج فوري
-MAX_HOLD_MIN = 90                # ⏰ نافذة التعرّض: معظم rug pulls بعد الساعة الأولى
+MAX_HOLD_MIN = 90                # ⏰ نافذة التعرّض
+# 📊 تحليل 248 صفقة: 65 صفقة "لم تصعد" خسرت -1603% بفوز 2% فقط
+#    الصفقة التي لا تصعد 3% في أول 10 دقائق لن تصعد — خروج فوري
+EARLY_EXIT_MIN = 10              # مهلة إثبات الحركة
+EARLY_EXIT_MIN_RISE = 3.0        # الحد الأدنى للصعود خلال المهلة
 
 # 🌊 عتبات الخروج التدفّقي للميم (تُضبط بالقياس)
 MEME_FLOW_WINDOW = 180.0
@@ -1095,6 +1099,9 @@ async def _meme_track_one(cc, r):
     if not reason:
         if _age_h >= 2 and abs(pnl) < 2 and (peak_pnl or 0) < 4:
             reason = "⏱ خروج: لا حركة في ساعتين"
+        elif (time.time() - (r.get("ts") or 0) > EARLY_EXIT_MIN * 60
+              and peak_pnl < EARLY_EXIT_MIN_RISE):
+            reason = f"⏱ لم تصعد {EARLY_EXIT_MIN_RISE:.0f}% في {EARLY_EXIT_MIN}د"
         elif time.time() - (r.get("ts") or 0) > MAX_HOLD_MIN * 60:
             reason = f"⏰ نافذة التعرّض {MAX_HOLD_MIN}د"
     if reason:
