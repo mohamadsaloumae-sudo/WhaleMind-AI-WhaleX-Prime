@@ -771,8 +771,15 @@ async def scan():
                 if not pairs:
                     return None
                 best = max(pairs, key=lambda x: (x.get("liquidity") or {}).get("usd", 0) or 0)
+            # 💎 مساران: الصاروخ يُقاس بالزخم، والناضجة بالعمق والتصحيح.
+            #    كانت الناضجة تُرفض عند _gate0 فلا تصل لمسارها أبداً
+            #    (USELESS $1.5M · MUSHU · aura — كلها محروقة ونظيفة ومُهدرة).
             if not _gate0(best):
-                return None
+                _mok, _mwhy = _mature_qualifies(best, 0)
+                if not _mok:
+                    return None
+                log.info("💎 %s: هادئة لكن ناضجة — تُفحص كناضجة (%s)",
+                         (best.get("baseToken") or {}).get("symbol", "?"), _mwhy)
             ok, reason = await _gate1(c, chain, addr, best.get("pairAddress"))
             if not ok:
                 log.info("🐸🚫 %s (%s) بوابة1: %s", (best.get("baseToken") or {}).get("symbol", "?"), chain, reason)
