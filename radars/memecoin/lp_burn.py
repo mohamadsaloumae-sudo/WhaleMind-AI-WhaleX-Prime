@@ -70,9 +70,14 @@ async def lp_is_burned(cc, pair_address: str, base_mint: str = "", quote_mint: s
     if len(raw) < 200:
         return False, f"بنية بلا LP ({len(raw)} بايت — PumpSwap)"
     # 📊 نجرّب الإزاحات المعروفة أولاً ثم نمسح الباقي (البنى تختلف: 752/637/653/1544)
-    _known = [464, 136, 400, 432, 264, 168, 200, 232, 296, 328, 360, 496, 528]
-    _offsets = [o for o in _known if o + 32 <= len(raw)]
-    _offsets += [o for o in range(8, len(raw) - 32, 8) if o not in _offsets]
+    # 📊 إزاحة lpMint مقيسة لكل بنية — نجرّبها أولاً ولا نمسح عشوائياً
+    #    (المسح الأعمى كان يلتقط عملة الأساس: ALON قُرئت 997M بدل 0.197)
+    _exact = {752: [464], 637: [136], 904: [136, 168], 653: [136, 168]}
+    _offsets = _exact.get(len(raw))
+    if _offsets:
+        _offsets = [o for o in _offsets if o + 32 <= len(raw)]
+    else:
+        _offsets = [o for o in (464, 136, 400, 432) if o + 32 <= len(raw)]
 
     import base58
     _amt = None
