@@ -472,6 +472,67 @@ def _fmt_qty(client, symbol: str, qty: float) -> float:
     return round(float(qty), q)
 
 
+async def close_position_for_user(user_id: str, symbol: str, direction: str) -> dict:
+    """🔴 إغلاق حقيقي على باينانس بأمر سوق reduceOnly.
+    كان المدير يُغلق ورقياً فقط — فالقفل التدريجي والخروج التكتيكي بلا أثر.
+    """
+    creds = get_credentials(user_id)
+    if not creds or not creds.get("auto_trade_enabled"):
+        return {"success": False, "error": "التداول الآلي غير مفعّل"}
+    try:
+        client = _client(creds)
+    except Exception as e:
+        return {"success": False, "error": f"عميل: {e}"}
+    try:
+        # الكمية الفعلية المفتوحة من البورصة نفسها
+        _pos = client.futures_position_information(symbol=symbol)
+        _amt = 0.0
+        for p in (_pos if isinstance(_pos, list) else [_pos]):
+            _amt = float(p.get("positionAmt") or 0)
+            if abs(_amt) > 0:
+                break
+        if abs(_amt) <= 0:
+            return {"success": False, "error": "لا مركز مفتوح"}
+        _side = "SELL" if _amt > 0 else "BUY"
+        _order = client.futures_create_order(
+            symbol=symbol, side=_side, type="MARKET",
+            quantity=abs(_amt), reduceOnly=True,
+        )
+        # نلغي أوامر الوقف المعلّقة حتى لا تبقى يتيمة
+        try:
+            client.futures_cancel_all_open_orders(symbol=symbol)
+        except Exception:
+            pass
+        log.info("🔴 إغلاق حقيقي: %s %s qty=%s (user %s)", symbol, _side, abs(_amt), user_id)
+        return {"success": True, "order_id": str(_order.get("orderId", "")),
+                "qty": abs(_amt)}
+    except Exception as e:
+        log.error("close real %s: %s", symbol, e)
+        return {"success": False, "error": str(e)}
+
+
+async def close_all_real_users(symbol: str, direction: str) -> int:
+    """يُغلق المركز حقيقياً لكل مستخدم عليه تداول آلي مفعّل."""
+    n = 0
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT user_id FROM user_binance_credentials WHERE auto_trade_enabled=1").fetchall()
+        conn.close()
+    except Exception as e:
+        log.debug("close_all users: %s", e)
+        return 0
+    for r in rows:
+        try:
+            res = await close_position_for_user(r["user_id"], symbol, direction)
+            if res.get("success"):
+                n += 1
+        except Exception as e:
+            log.debug("close user %s: %s", r["user_id"], e)
+    return n
+
+
 async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
     """
     ينفّذ إشارة على حساب المستخدم

@@ -954,6 +954,17 @@ async def monitor_position(pos: Position):
 
 async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_pct: float):
     """إغلاق الصفقة وإرسال الإشعار"""
+    # 🔴 الإغلاق الحقيقي على باينانس أولاً — كان ورقياً فقط، فكل ذكاء الخروج
+    #    (القفل التدريجي · التكتيكي · الأرضية) لم يكن ينفَّذ على البورصة.
+    try:
+        from services.binance_trader import close_all_real_users
+        _n = await close_all_real_users(pos.symbol, pos.direction)
+        if _n:
+            log.info("🔴 أُغلق حقيقياً لـ%d مستخدم: %s %s (%s)",
+                     _n, pos.symbol, pos.direction, reason.value if hasattr(reason, "value") else reason)
+    except Exception as _ce:
+        log.error("🔴 فشل الإغلاق الحقيقي %s: %s", pos.symbol, _ce)
+
     pos.status = "closed"
     await remove_position(pos.id)
     update_stats(reason, pnl_pct)
