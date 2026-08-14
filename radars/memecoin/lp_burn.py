@@ -50,7 +50,19 @@ async def lp_is_burned(cc, pair_address: str, base_mint: str = "", quote_mint: s
         raw = base64.b64decode(val["data"][0])
     except Exception as e:
         log.debug("lp acc %s: %s", pair_address[:10], e)
-        return False, "خطأ قراءة البركة"
+        # 🔁 محاولة ثانية — انقطاعات RPC اللحظية لا يجب أن تُرفض عملة آمنة
+        try:
+            import asyncio
+            await asyncio.sleep(1.5)
+            r = await cc.post(url, json={
+                "jsonrpc": "2.0", "id": 1, "method": "getAccountInfo",
+                "params": [pair_address, {"encoding": "base64"}]}, timeout=20)
+            val = ((r.json() or {}).get("result") or {}).get("value")
+            if not val:
+                return False, "لا حساب بركة"
+            raw = base64.b64decode(val["data"][0])
+        except Exception:
+            return False, "خطأ قراءة البركة (محاولتان)"
 
     # 📊 إزاحة lpMint تختلف بنوع البركة (مقيسة على السلسلة):
     #    Raydium AMM v4 (752 بايت) → 464 | Raydium CPMM (637) → 136
