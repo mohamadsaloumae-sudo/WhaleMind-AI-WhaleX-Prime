@@ -971,9 +971,15 @@ async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_p
     try:
         import sqlite3 as _sq
         _pk = float(getattr(pos, "peak_pnl", 0.0) or 0.0)
+        from datetime import datetime as _dt
         _cx = _sq.connect("/opt/whalex/db/whalex.db")
-        _cx.execute("UPDATE signals SET peak_pnl=? WHERE symbol=? AND direction=? "
-                    "AND is_active=1", (round(_pk, 2), pos.symbol, pos.direction))
+        # 📊 إغلاق الإشارة فعلياً — كانت تبقى is_active=1 للأبد فتتراكم في الواجهة
+        _cx.execute("UPDATE signals SET peak_pnl=?, pnl_pct=?, close_reason=?, "
+                    "closed_at=?, is_active=0 "
+                    "WHERE symbol=? AND direction=? AND is_active=1",
+                    (round(_pk, 2), round(pnl_pct, 2),
+                     (reason.value if hasattr(reason, "value") else str(reason)),
+                     _dt.utcnow(), pos.symbol, pos.direction))
         _cx.commit(); _cx.close()
     except Exception as _pe:
         log.debug("peak save: %s", _pe)
