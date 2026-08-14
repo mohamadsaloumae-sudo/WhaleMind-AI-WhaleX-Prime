@@ -966,6 +966,17 @@ async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_p
         log.error("🔴 فشل الإغلاق الحقيقي %s: %s", pos.symbol, _ce)
 
     pos.status = "closed"
+    # 📊 حفظ أعلى ربح بلغته الصفقة — يمكّن قياس: كم ربحنا ثم انعكس؟
+    #    (ACEUSDT بلغت +10% ثم -13.2% ولم نعرف إلا من ملاحظة Mohamad)
+    try:
+        import sqlite3 as _sq
+        _pk = float(getattr(pos, "peak_pnl", 0.0) or 0.0)
+        _cx = _sq.connect("/opt/whalex/db/whalex.db")
+        _cx.execute("UPDATE signals SET peak_pnl=? WHERE symbol=? AND direction=? "
+                    "AND is_active=1", (round(_pk, 2), pos.symbol, pos.direction))
+        _cx.commit(); _cx.close()
+    except Exception as _pe:
+        log.debug("peak save: %s", _pe)
     await remove_position(pos.id)
     update_stats(reason, pnl_pct)
     # ═══ ربط النتيجة بالنموذج (يكمل درس التعلّم: فتح + نتيجة) ═══
