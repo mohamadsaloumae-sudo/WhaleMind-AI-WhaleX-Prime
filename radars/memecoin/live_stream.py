@@ -130,6 +130,8 @@ async def _evaluate(mint: str, source: str):
         if not ok1:
             log.info("⚡🐸🚫 %s بوابة1: %s", (pair.get("baseToken") or {}).get("symbol", "?"), r1)
             return
+        from radars.memecoin.scout_meme import mark_verified
+        mark_verified(mint, "بوابة1-تيار")
         ok2, r2 = await _gate2_solana(c, mint)
         if not ok2:
             log.info("⚡🐸🚫 %s بوابة2: %s", (pair.get("baseToken") or {}).get("symbol", "?"), r2)

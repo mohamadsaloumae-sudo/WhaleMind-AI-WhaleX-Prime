@@ -778,6 +778,7 @@ async def scan():
                 log.info("🐸🚫 %s (%s) بوابة1: %s", (best.get("baseToken") or {}).get("symbol", "?"), chain, reason)
                 _mark_rejected(addr)
                 return None
+            mark_verified(addr, "بوابة1")
             ok2, reason2 = (await _gate2_solana(c, addr)) if chain == "solana" else (await _gate2_evm(c, addr, chain))
             if not ok2:
                 log.info("🐸🚫 %s (%s) بوابة2: %s", (best.get("baseToken") or {}).get("symbol", "?"), chain, reason2)
@@ -831,7 +832,35 @@ def _meme_seen(addr):
         return False
 
 
+# ═══ 🛡️ الحارس الموحّد: لا إصدار بلا تحقّق مسبق ═══
+#   المشكلة التي يحلّها: 5 مسارات تُصدر إشارات، وكلٌّ بحراسته الخاصة —
+#   فثغرة في واحد تُبطل كل الحماية. الآن نقطة تحكّم واحدة لا تُتجاوز.
+_VERIFIED: dict = {}          # address -> (وقت التحقّق, سبب)
+VERIFY_TTL = 600              # صلاحية التحقّق 10 دقائق
+
+
+def mark_verified(addr: str, why: str = ""):
+    """تُستدعى بعد اجتياز بوابة1 (التي تفحص الحرق/القفل)."""
+    if addr:
+        _VERIFIED[addr] = (time.time(), why)
+        if len(_VERIFIED) > 500:
+            _now = time.time()
+            for k in [k for k, v in _VERIFIED.items() if _now - v[0] > 3600]:
+                _VERIFIED.pop(k, None)
+
+
+def is_verified(addr: str) -> bool:
+    v = _VERIFIED.get(addr or "")
+    return bool(v and (time.time() - v[0]) < VERIFY_TTL)
+
+
 def _meme_save(p, sc):
+    # 🛡️ الحارس: لا تُسجَّل إشارة لعملة لم تجتز بوابة الأمان (حرق/قفل)
+    _a = (p.get("baseToken") or {}).get("address", "")
+    if not is_verified(_a):
+        log.warning("🛡️🚫 %s: إصدار بلا تحقّق أمان — مُنع",
+                    (p.get("baseToken") or {}).get("symbol", "?"))
+        return
     b = p.get("baseToken") or {}
     try:
         conn = sqlite3.connect(MEME_DB)
