@@ -912,7 +912,8 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
     ALL_SYMBOLS = await fetch_all_symbols()
 
     from shadow_tracker import shadow_loop
-    from radars.explosion.scout_long import scout_long_loop  # مُفعّل: تصحيح صاعد (لا هابطة)
+    from radars.explosion.scout_long_v2 import scout_long_v2_loop  # 🔬 نضوب الرافعة
+    # 🚫 Long القديم مُطفأ: خسر -228% على 424 صفقة (منطق صيد القاع مُثبت الفشل)
 
     from quant_engine.ob_stream import run as ob_stream_run
     from quant_engine.ml_brain import retrain_loop as ml_retrain_loop
@@ -935,7 +936,7 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
         _meme_live_guard(),  # ⚡🐸 تيار الميم اللحظي
         _membership_guard(),  # 🎟️ دورة حياة الاشتراك
         shadow_loop(),
-        scout_long_loop(position_manager_fn=position_manager_fn),
+        scout_long_v2_loop(position_manager_fn=position_manager_fn),
         ob_stream_run(list(dict.fromkeys([t.symbol for t in ALL_SYMBOLS] + _open_position_syms()))),
         ml_retrain_loop(),  # 🧠 إعادة تدريب العقل يومياً
         watchdog_loop(),   # 🚨 حارس الحلقات

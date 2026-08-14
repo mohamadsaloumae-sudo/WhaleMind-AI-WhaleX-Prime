@@ -245,3 +245,127 @@ def smart_levels(entry: float, cascade_low: float, atr_v: float) -> dict:
         "leverage": lev,
         "atr": _atr,
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# 🔄 حلقة المسح + بناء الإشارة + التوصيل بالمدير
+# ═══════════════════════════════════════════════════════════════
+async def _build_and_open(r: LongV2Reading, position_manager_fn):
+    """يبني إشارة LONG بمستويات ذكية ويمرّرها للمدير (تنفيذ حقيقي)."""
+    from radars.futures.engine import Signal, fetch_klines_async, atr as _atr
+
+    # منع التكرار: صفقة مفتوحة على نفس الرمز
+    try:
+        from radars.futures.position_manager import ACTIVE as _ACTIVE
+        for _ex in _ACTIVE.values():
+            if getattr(_ex, "status", "") == "open" and _ex.symbol == r.symbol:
+                log.info("🔬 %s: صفقة مفتوحة بالفعل — تخطّي", r.symbol)
+                return
+    except Exception:
+        pass
+
+    # التهدئة
+    _now = time.time()
+    if _now - _last_signal.get(r.symbol, 0) < COOLDOWN_SEC:
+        return
+
+    candles = await fetch_klines_async(r.symbol, "15m", 60)
+    if not candles or len(candles) < 20:
+        return
+    _atr_v = _atr(candles)
+    _lows = [c.low for c in candles[-12:] if getattr(c, "low", 0) > 0]
+    _cascade_low = min(_lows) if _lows else r.price
+
+    lv = smart_levels(r.price, _cascade_low, _atr_v)
+    if not lv:
+        log.info("🔬 %s: وقف أوسع من حدّ الإدارة — تخطّي", r.symbol)
+        return
+
+    _risk = r.price - lv["sl"]
+    sig = Signal(
+        symbol=r.symbol, direction="LONG", grade="A",
+        score=round(7.0 + min(2.0, abs(r.oi_change) / 5), 2),
+        confidence=round(min(90.0, 70.0 + len(r.reasons) * 5), 1),
+        entry=r.price,
+        sl=round(lv["sl"], 8), tp1=round(lv["tp1"], 8),
+        tp2=round(lv["tp2"], 8), tp3=round(lv["tp3"], 8),
+        leverage=lv["leverage"],
+        strategies="\n".join(["🔬 نضوب الرافعة"] + r.reasons),
+        radar_type="futures", tier="LV2",
+        rr_tp1=1.5, rr_tp2=3.0, rr_tp3=5.0,
+        strategy_count=len(r.reasons), btc_trend="NEUTRAL",
+        rsi=r.rsi, range_pos=round(r.range_pos, 4),
+        volume_ratio=round(r.volume_ratio, 2),
+    )
+
+    try:
+        from ml_recorder import record_signal
+        record_signal(sig)
+    except Exception as e:
+        log.debug("LV2 ml_record: %s", e)
+
+    log.info("🔬📈 LONG V2 SIGNAL: %s @%.6g lev=%.1fx وقف=%.2f%% [%s]",
+             r.symbol, r.price, lv["leverage"], lv["sl_pct"], " · ".join(r.reasons))
+
+    msg = (
+        f"🔬 <b>WhaleX Long V2</b> — نضوب الرافعة\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"⚡ <code>{r.symbol}</code>\n\n"
+        f"Entry   <code>{sig.entry:.6g}</code>\n"
+        f"Stop    <code>{sig.sl:.6g}</code>  ({lv['sl_pct']:.1f}%)\n"
+        f"TP1     <code>{sig.tp1:.6g}</code>\n"
+        f"TP2     <code>{sig.tp2:.6g}</code>\n"
+        f"TP3     <code>{sig.tp3:.6g}</code>\n\n"
+        f"Lev <b>{lv['leverage']:.1f}x</b>  ·  R:R 1.5/3/5\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        + "\n".join(f"✅ {x}" for x in r.reasons) +
+        f"\n━━━━━━━━━━━━━━━━━━━\n🐋 <i>WhaleMind Prime</i>"
+    )
+    try:
+        from services.telegram import send_message
+        from core.config import get_settings
+        ch = get_settings().telegram_channel_futures
+        if ch:
+            await send_message(ch, msg)
+    except Exception as e:
+        log.error("LV2 broadcast: %s", e)
+
+    _last_signal[r.symbol] = _now
+    if position_manager_fn:
+        try:
+            await position_manager_fn(sig)
+            log.info("🔬📈 Long V2 → manager: %s (opened)", r.symbol)
+        except Exception as e:
+            log.error("LV2 open %s: %s", r.symbol, e)
+
+
+async def scout_long_v2_loop(position_manager_fn=None):
+    """🔬 حلقة WhaleX Long V2 — نضوب الرافعة."""
+    import sqlite3
+    log.info("🔬📈 WhaleX Long V2 بدأ — منطق نضوب الرافعة")
+    while True:
+        try:
+            try:
+                cn = sqlite3.connect("/opt/whalex/coin_profiles.db")
+                syms = [x[0] for x in cn.execute(
+                    "SELECT symbol FROM coin_profiles ORDER BY avg_daily_volume DESC LIMIT 80")]
+                cn.close()
+            except Exception as e:
+                log.warning("LV2 universe: %s", e)
+                syms = []
+            for s in syms:
+                try:
+                    r = await evaluate_symbol(s)
+                    if r:
+                        await _build_and_open(r, position_manager_fn)
+                except Exception as e:
+                    log.debug("LV2 %s: %s", s, e)
+            _st = lv2_stats_snapshot()
+            if _st.get("checked"):
+                log.info("🔬 Long V2: فُحص %d | لا شلال %d | لم ينضب %d | لا امتصاص %d | جدار %d | تمويل+ %d | RSI %d | صدر %d",
+                         _st["checked"], _st["no_cascade"], _st["not_exhausted"],
+                         _st["no_absorption"], _st["weak_wall"], _st["funding_pos"],
+                         _st["low_rsi"], _st["emitted"])
+        except Exception as e:
+            log.warning("LV2 loop: %s", e)
+        await asyncio.sleep(SCAN_INTERVAL)
