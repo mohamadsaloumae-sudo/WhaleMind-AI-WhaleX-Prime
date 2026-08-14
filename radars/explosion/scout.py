@@ -494,14 +494,14 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
 # الحلقة الجديدة: مراقبة صارمة دائمة (فلسفة المستخدم)
 #   • القائمة صغيرة (3-25) → نراقبها كلها كل 10s (صرامة)
 #   • الفرز كل 60s (تحديث القائمة سريعاً)
-#   • العملة لا تموت: بعد إشارة → cooldown 10د → تعود للمراقبة
+#   • العملة لا تموت: بعد إشارة → تهدئة 90د → تعود للمراقبة
 #   • depth ذكي: فقط للقريبة من القمة (توفير API)
 # ═══════════════════════════════════════════════════════════════
 
 # الإعدادات الجديدة (تستبدل القديمة):
 #   LEVEL1_INTERVAL = 60   (فرز كل دقيقة بدل 5 دقائق)
 #   MONITOR_INTERVAL = 10  (مراقبة صارمة كل 10 ثوانٍ)
-#   SIGNAL_COOLDOWN = 600  (10 دقائق بعد إشارة ثم تعود)
+#   SIGNAL_COOLDOWN = 5400  (90 دقيقة بعد إشارة ثم تعود)
 
 async def scout_loop(broadcast_fn=None, position_manager_fn=None):
     """مراقبة صارمة دائمة: لا عملة تموت، القائمة الصغيرة تُراقب كل 10s."""
@@ -510,7 +510,9 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
     last_level1 = 0
     MONITOR_INTERVAL = 15   # صرامة: كل 15 ثانية (آمن من rate limit، 20× أسرع من القديم)
     FRESH_INTERVAL = 60     # فرز القائمة كل دقيقة
-    SIGNAL_COOLDOWN = 1800  # بعد إشارة: 30 دقيقة ثم تعود (يمنع يغلق/يفتح المتكرر)
+    # 📊 AVAAIUSDT: ربحت +14.5% ثم أُعيد دخولها بعد 13 دقيقة فخسرت -12.2%
+    #    العملة التي استهلكت حركتها تحتاج وقتاً لتُكوّن قمة جديدة
+    SIGNAL_COOLDOWN = 5400  # 90 دقيقة بعد إشارة
 
     while True:
         try:
@@ -608,7 +610,7 @@ async def scout_loop(broadcast_fn=None, position_manager_fn=None):
                         conn.execute("UPDATE watchlist SET signal_sent=1, status='signaled', last_check=? WHERE symbol=?", (int(now), symbol))
                         conn.commit()
                         conn.close()
-                        log.info("🔭 %s: انهيار OB → إشارة (ثم cooldown 10د)", symbol)
+                        log.info("🔭 %s: انهيار OB → إشارة (ثم تهدئة 90د)", symbol)
                 except Exception as e:
                     log.debug("scout monitor %s: %s", symbol, e)
                 await asyncio.sleep(0.2)  # فاصل صغير بين العملات (تخفيف API)
