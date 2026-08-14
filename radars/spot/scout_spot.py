@@ -175,6 +175,13 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
     _t_ok, _t_why = _trend_ok(highs, lows)
     if not _t_ok:
         return
+    # 📊 تحليل 124 صفقة: 6-12 UTC = +74.9% (فوز 58%) | 18-24 = -36.5% | 0-6 = -7%
+    from datetime import datetime as _dt
+    if _dt.utcnow().hour >= 18 or _dt.utcnow().hour < 6:
+        return
+    # 📊 الموقع 25-45% = -1.2% (فوز 37%) | 0-25% = +47.2%
+    if range_pos > 0.25:
+        return
     _strong = _is_strong(sym)
     if _strong:
         _rsi_dbg = _rsi(closes)
