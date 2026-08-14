@@ -331,11 +331,17 @@ async def _holder_bought_onchain(cc, ata):
         return None
 
 
-async def _gate25_onchain(cc, addr):
+async def _gate25_onchain(cc, addr, burned: bool = False):
     # البوابة 2.5: إثبات الشراء الحقيقي على البلوكشين لأعلى الحاملين
     j = await _rugcheck_report(cc, addr)
     if not j:
         return True, "تعذّر التقرير"
+    # 💎 إعفاء الناضجة المحروقة: البوابة تكشف "توزيع المطوّر على محافظ الإطلاق".
+    #    في عملة بـ515k حامل، أعلى الحاملين منصّات وصناديق تستلم تحويلات بطبيعتها.
+    #    شرطان معاً: سيولة محروقة (لا سحب) + توزيع واسع (لا محفظة تُسقط السعر).
+    _h = int(j.get("totalHolders") or 0)
+    if burned and _h >= 10000:
+        return True, f"ناضجة محروقة ({_h:,} حامل) — إعفاء مبرَّر"
     th = j.get("topHolders") or []
     if len(th) < 2:
         return True, "لا حاملين"
