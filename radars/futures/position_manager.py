@@ -59,6 +59,7 @@ class Position:
     tp2_hit: bool = False
     tp3_hit: bool = False
     # Trailing
+    peak_pnl: float = 0.0        # 🔒 أعلى ربح بلغته الصفقة (لسلّم القفل)
     trailing_active: bool = False
     trailing_sl: float = 0.0
     # Pyramiding
@@ -704,6 +705,10 @@ async def notify(user_id: str, msg: str, event_type: str = "alert", data: dict =
 # 📊 قياس 24س: 4 صفقات تجاوزت -15% وكلّفت -64.4% من أصل -115.8% (56%)
 #    الرابح المتوسط +17.9% — فأرضية -12% تحفظ R:R فوق 2.0
 PNL_HARD_FLOOR = -12.0   # أرضية الخسارة المطلقة (pnl مُرفّع)
+# 🔒 سلّم قفل الربح التدريجي — لا ينتظر TP1
+#    ACEUSDT بلغت +10% ثم أُغلقت -13.2% بلا أي قفل (TP1 يحتاج 5% سعرياً = 25% بالرافعة)
+#    (أعلى ربح بلغته, الحد المضمون)
+PROFIT_LOCK_LADDER = ((40.0, 25.0), (25.0, 15.0), (15.0, 8.0), (10.0, 5.0))
 _REV_CACHE: dict = {}    # pos.id -> (ts, breathe, reason)
 
 async def _should_breathe(pos: "Position", price: float, pnl_pct: float) -> tuple:
@@ -814,6 +819,23 @@ async def monitor_position(pos: Position):
         else:
             log.info("SL إغلاق %s: %s | pnl=%.1f%%", pos.symbol, _why, pnl_pct)
             await _close_position(pos, price, ExitReason.SL_HIT, pnl_pct)
+            return
+
+    # 🔒 قفل الربح التدريجي — يعمل قبل TP1 وبلا انتظار
+    _pk_pnl = getattr(pos, "peak_pnl", 0.0) or 0.0
+    if pnl_pct > _pk_pnl:
+        _pk_pnl = pnl_pct
+        pos.peak_pnl = _pk_pnl
+    if _pk_pnl >= 10.0:
+        _guard = 0.0
+        for _lvl, _keep in PROFIT_LOCK_LADDER:
+            if _pk_pnl >= _lvl:
+                _guard = _keep
+                break
+        if _guard > 0 and pnl_pct <= _guard:
+            log.warning("🔒 %s %s: قمة %.1f%% → إغلاق مضمون عند %.1f%% (pnl=%.1f%%)",
+                        pos.symbol, pos.direction, _pk_pnl, _guard, pnl_pct)
+            await _close_position(pos, price, ExitReason.TP1_HIT, pnl_pct)
             return
 
     # ─ TP1 ─
