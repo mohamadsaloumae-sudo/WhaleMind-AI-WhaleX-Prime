@@ -28,6 +28,9 @@ MAX_PUMP_H1 = 200.0
 MAX_RUN_H6 = 150.0
 MAX_DUMP = -30.0
 SCORE_MIN = 92
+# 📊 قياس 248 صفقة: 92-95 = +2.42% فوز 57% (الوحيدة الرابحة)
+#    88-92 = -19.9% | 95-98 = -3.28% | 98+ = -0.92% (انفجرت أصلاً = دخول متأخّر)
+SCORE_MAX = 95
 DEAD_HOURS = (0, 1, 2, 3, 4, 5)
 
 SCAN_INTERVAL = 60
@@ -115,7 +118,10 @@ async def evaluate(cc, addr: str, p: dict) -> tuple:
     sc = _score(p)
     if sc < SCORE_MIN:
         _hit("low_score")
-        return False, f"نقاط {sc}", sc
+        return False, f"نقاط {sc} (منخفض)", sc
+    if sc > SCORE_MAX:
+        _hit("low_score")
+        return False, f"نقاط {sc} (انفجرت أصلاً)", sc
     _hit("emitted")
     return True, f"🔥 {bwhy}", sc
 
