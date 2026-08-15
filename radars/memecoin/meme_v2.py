@@ -21,9 +21,9 @@ log = logging.getLogger("meme_v2")
 MIN_LIQ = 30_000
 MIN_VOL24 = 50_000
 MIN_TXNS_H1 = 25
-MIN_BUY_RATIO = 0.62
+MIN_BUY_RATIO = 0.58
 # 📊 قياس 248 صفقة: 0.45-0.62 = -632.1% | 0.62-0.68 = +173.5% فوز 79% | 0.68+ = -284.2%
-MAX_BUY_RATIO = 0.68        # الشراء المفرط = تلاعب أو ذروة استهلكت الطلب
+MAX_BUY_RATIO = 0.72        # الشراء المفرط = تلاعب أو ذروة استهلكت الطلب
 MAX_PUMP_H1 = 200.0
 MAX_RUN_H6 = 150.0
 MAX_DUMP = -30.0
@@ -94,7 +94,17 @@ async def evaluate(cc, addr: str, p: dict) -> tuple:
     if not ok:
         _hit("weak_buy" if "شراء" in why else "old_wave" if "موجة" in why else "no_flow")
         return False, why, 0
-    burned, bwhy = await lp_is_burned(cc, p.get("pairAddress"), addr, WSOL_MINT)
+    # 🔥 على أعلى بركة سيولةً حصراً — KM محروقة على raydium ($162K)
+    #    وغير محروقة على meteora ($11)؛ الفحص العشوائي كان يتذبذب.
+    from radars.memecoin.scout_meme import _fetch_pairs as _fp
+    _best = p
+    try:
+        _all = await _fp(cc, addr)
+        if _all:
+            _best = max(_all, key=lambda x: (x.get("liquidity") or {}).get("usd", 0) or 0)
+    except Exception:
+        pass
+    burned, bwhy = await lp_is_burned(cc, _best.get("pairAddress"), addr, WSOL_MINT)
     if not burned:
         _hit("not_burned")
         return False, bwhy, 0
