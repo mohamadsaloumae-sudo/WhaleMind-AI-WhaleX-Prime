@@ -830,10 +830,18 @@ def _init_meme_db():
     conn.commit(); conn.close()
 
 
+SEEN_TTL = 86400   # 🕐 الحظر 24 ساعة لا للأبد
+
+
 def _meme_seen(addr):
+    """محظورة إن كانت مفتوحة الآن، أو صدرت خلال 24 ساعة.
+    كان الحظر أبدياً: 294 عملة مُستبعدة نهائياً حتى لو انفجرت لاحقاً."""
     try:
         conn = sqlite3.connect(MEME_DB)
-        r = conn.execute("SELECT 1 FROM meme_signals WHERE address=?", (addr,)).fetchone()
+        r = conn.execute(
+            "SELECT 1 FROM meme_signals WHERE address=? AND "
+            "(status='open' OR ts > ?)",
+            (addr, int(time.time()) - SEEN_TTL)).fetchone()
         conn.close(); return bool(r)
     except Exception:
         return False
