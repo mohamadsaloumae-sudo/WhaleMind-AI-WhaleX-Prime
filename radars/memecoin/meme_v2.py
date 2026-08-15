@@ -22,6 +22,8 @@ MIN_LIQ = 30_000
 MIN_VOL24 = 50_000
 MIN_TXNS_H1 = 25
 MIN_BUY_RATIO = 0.62
+# 📊 قياس 248 صفقة: 0.45-0.62 = -632.1% | 0.62-0.68 = +173.5% فوز 79% | 0.68+ = -284.2%
+MAX_BUY_RATIO = 0.68        # الشراء المفرط = تلاعب أو ذروة استهلكت الطلب
 MAX_PUMP_H1 = 200.0
 MAX_RUN_H6 = 150.0
 MAX_DUMP = -30.0
@@ -61,7 +63,9 @@ def _flow_ok(p) -> tuple:
         return False, f"معاملات {b+s}"
     br = b / (b + s) if (b + s) > 0 else 0
     if br < MIN_BUY_RATIO:
-        return False, f"شراء {br*100:.0f}%"
+        return False, f"شراء {br*100:.0f}% (منخفض)"
+    if br > MAX_BUY_RATIO:
+        return False, f"شراء {br*100:.0f}% (مفرط)"
     pc = p.get("priceChange") or {}
     try:
         h1 = float(pc.get("h1") or 0)
