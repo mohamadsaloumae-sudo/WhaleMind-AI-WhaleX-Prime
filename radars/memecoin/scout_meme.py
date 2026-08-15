@@ -1033,10 +1033,16 @@ async def _meme_track_one(cc, r):
                     return
         except Exception as _le:
             log.debug("liq drain check: %s", _le)
+        # 🛡️ الحارس يفحص ما يتغيّر فقط (سحب السيولة أعلاه · rugged) —
+        #    لا شروط الدخول التي قبلناها. كان يُغلق KM بعد ثانية بـ"قفل 0%"
+        #    بينما الرادار قبلها كمحروقة (LP=11.23).
+        _ok_s, _why_s = True, ""
         try:
-            _ok_s, _why_s = await _gate1(cc, r.get("chain") or "solana", r["address"])
+            _rc = await _rugcheck_report(cc, r["address"])
+            if _rc and _rc.get("rugged"):
+                _ok_s, _why_s = False, "rugged مؤكَّد"
         except Exception:
-            _ok_s, _why_s = True, ""
+            pass
         if not _ok_s:
             log.warning("🛡️🚨 %s خطر أمان بعد الدخول: %s — إغلاق فوري", r.get("symbol"), _why_s)
             try:
