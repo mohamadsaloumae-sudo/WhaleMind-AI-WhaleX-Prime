@@ -882,7 +882,12 @@ async def _meme_guard():
     while True:
         try:
             from radars.memecoin.scout_meme import meme_loop
-            await meme_loop()
+            # 🐸 النسخة النظيفة: 12 شرطاً بدل 52 · مسار واحد بدل 4
+            #    التتبّع والخروج يبقيان كما هما (مُثبتان)
+            from radars.memecoin.scout_meme import meme_tracker_loop as _mtl
+            from radars.memecoin.meme_v2 import scan_loop as _mscan
+            asyncio.create_task(_mtl())
+            await _mscan()
         except Exception as _e:
             import logging as _lg
             _lg.getLogger("meme_scout").error("meme guard: %s", _e)
