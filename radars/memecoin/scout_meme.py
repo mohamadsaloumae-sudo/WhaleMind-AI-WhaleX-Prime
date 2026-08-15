@@ -883,7 +883,9 @@ def _meme_save(p, sc):
         _tt = (_t.get("buys", 0) or 0) + (_t.get("sells", 0) or 0)
         _ratio = ((_t.get("buys", 0) or 0) / _tt) if _tt else 0
         _px = float(p.get("priceUsd") or 0)
-        conn.execute("INSERT OR IGNORE INTO meme_signals(symbol,address,chain,score,liq,vol,url,ts,entry_price,status,peak_price,buys_ratio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+        # 📊 كان INSERT OR IGNORE يتجاهل الإشارة الجديدة بصمت لأن address UNIQUE
+        #    (KM بُثَّت 22:42 ولم تُحفَظ لوجود سجلّ من 10:32) — REPLACE يحدّث السجل
+        conn.execute("INSERT OR REPLACE INTO meme_signals(symbol,address,chain,score,liq,vol,url,ts,entry_price,status,peak_price,buys_ratio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                      (b.get("symbol", "?"), b.get("address", ""), p.get("chainId"), sc,
                       (p.get("liquidity") or {}).get("usd", 0), (p.get("volume") or {}).get("h24", 0),
                       p.get("url", ""), int(time.time()), _px, "open", _px, _ratio))
