@@ -46,6 +46,33 @@ def record_signal(trade) -> Optional[int]:
             _lc = live_context(trade.symbol)
         except Exception:
             _lc = {"ob_pressure": None, "cvd_flow": None}
+
+        # 📊 الحقول التمييزية: كانت تُسجَّل أصفاراً في 3084 صفقة لأن Signal لا يحملها.
+        #    نحسبها هنا من الشموع الحيّة — بلا لمس منطق أي رادار.
+        _ind = {"stoch_k": 0.0, "stoch_d": 0.0, "macd_hist": 0.0,
+                "funding": 0.0, "oi_change": 0.0, "regime": ""}
+        try:
+            from quant_engine.ob_stream import get_klines as _wsk
+            _kl = _wsk(trade.symbol, "15m", 60)
+            if _kl and len(_kl) >= 30:
+                _cl = [float(k[4]) for k in _kl]
+                from radars.futures.engine import stoch_rsi as _sr, macd as _mc
+                _sk, _sd = _sr(_cl)
+                _ind["stoch_k"], _ind["stoch_d"] = round(_sk, 2), round(_sd, 2)
+                _m = _mc(_cl)
+                _ind["macd_hist"] = round(_m[2] if isinstance(_m, (list, tuple)) and len(_m) > 2 else 0.0, 6)
+        except Exception as _ie:
+            log.debug("ind calc: %s", _ie)
+        try:
+            import asyncio as _aio
+            from radars.futures.engine import get_funding_rate as _gf, get_oi_change as _go
+            _loop = _aio.get_event_loop()
+            if _loop.is_running():
+                _ind["funding"] = 0.0   # لا نحجب الحلقة — يُملأ من live_context لاحقاً
+            else:
+                _ind["funding"] = round(_loop.run_until_complete(_gf(trade.symbol)) or 0.0, 6)
+        except Exception:
+            pass
         conn = sqlite3.connect(DB_PATH)
         cur = conn.execute("""
             INSERT INTO training_signals (
@@ -61,9 +88,12 @@ def record_signal(trade) -> Optional[int]:
             trade.score, trade.confidence,
             getattr(trade, "grade", "B"), getattr(trade, "tier", "B"), trade.strategies,
             getattr(trade, "regime", ""), getattr(trade, "range_pos", 0.0),
-            getattr(trade, "rsi", 0.0), getattr(trade, "stoch_k", 0.0),
-            getattr(trade, "stoch_d", 0.0), getattr(trade, "macd_hist", 0.0),
-            getattr(trade, "funding", 0.0), getattr(trade, "oi_change", 0.0),
+            getattr(trade, "rsi", 0.0),
+            getattr(trade, "stoch_k", 0.0) or _ind["stoch_k"],
+            getattr(trade, "stoch_d", 0.0) or _ind["stoch_d"],
+            getattr(trade, "macd_hist", 0.0) or _ind["macd_hist"],
+            getattr(trade, "funding", 0.0) or _ind["funding"],
+            getattr(trade, "oi_change", 0.0) or _ind["oi_change"],
             getattr(trade, "btc_trend", ""), getattr(trade, "hawk_phase", ""),
             getattr(trade, "hawk_modifier", 1.0), getattr(trade, "volume_ratio", 0.0),
             getattr(trade, "key_strat_count", 0),
