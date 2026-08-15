@@ -19,6 +19,10 @@ from datetime import datetime
 log = logging.getLogger("meme_v2")
 
 MIN_LIQ = 30_000
+# 🔥 الحرق صار مفضَّلاً لا إلزامياً: كان يقصّ 77% ممّن يصله (10 من 13).
+#    البديل: حارس السحب اللحظي (كل 20ث · خروج عند -15% في البركة) + سيولة أعمق.
+#    TINCAT فقدت -99% لأن الحارس كان كل 5 دقائق — الآن كل 20 ثانية.
+UNBURNED_MIN_LIQ = 60_000   # البركة الأكبر أصعب سحباً
 MIN_VOL24 = 50_000
 MIN_TXNS_H1 = 25
 MIN_BUY_RATIO = 0.55
@@ -109,8 +113,11 @@ async def evaluate(cc, addr: str, p: dict) -> tuple:
         pass
     burned, bwhy = await lp_is_burned(cc, _best.get("pairAddress"), addr, WSOL_MINT)
     if not burned:
-        _hit("not_burned")
-        return False, bwhy, 0
+        _liq = (p.get("liquidity") or {}).get("usd", 0) or 0
+        if _liq < UNBURNED_MIN_LIQ:
+            _hit("not_burned")
+            return False, f"{bwhy} + سيولة {_liq:,.0f} < {UNBURNED_MIN_LIQ:,}", 0
+        bwhy = f"🔓 غير محروقة (سيولة ${_liq:,.0f}) — حارس السحب يحميها"
     ok2, why2 = await _gate2_solana(cc, addr)
     if not ok2:
         _hit("bad_holders")
