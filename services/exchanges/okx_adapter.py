@@ -5,6 +5,7 @@ from .base import ExchangeAdapter
 class OkxAdapter(ExchangeAdapter):
     id = "okx"
     name_ar = "أوكي إكس"
+    name_en = "OKX"
     needs_passphrase = True
 
     def _open_params(self, futures: bool) -> dict:

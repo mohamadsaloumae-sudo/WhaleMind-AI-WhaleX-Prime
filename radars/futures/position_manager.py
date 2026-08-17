@@ -277,7 +277,44 @@ async def force_close_all(reason: str = "kill_switch"):
 # ─── PRICE FETCHER ──────────────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
+# 🌐 ذاكرة كون المنصّات — نقرأها مرّة كل 10 دقائق لا كل نبضة
+_MX_MAP: dict = {}
+_MX_TS = [0.0]
+
+
+def _mx_lookup(symbol: str):
+    """هل العملة حصرية على منصّة أخرى؟ يُرجع (exchange, ccxt_symbol) أو None."""
+    import sqlite3, time as _t
+    if _t.time() - _MX_TS[0] > 600:
+        try:
+            cn = sqlite3.connect("/opt/whalex/multi_universe.db")
+            _MX_MAP.clear()
+            for s, ex, ck in cn.execute("SELECT symbol,exchange,ccxt_symbol FROM universe"):
+                _MX_MAP[s] = (ex, ck)
+            cn.close()
+            _MX_TS[0] = _t.time()
+        except Exception:
+            pass
+    return _MX_MAP.get(symbol)
+
+
 async def get_price(symbol: str) -> Optional[float]:
+    # 🌐 العملات الحصرية: سعرها من منصّتها لا من باينانس.
+    #    درس NESAUSDT: باينانس ترجع Invalid symbol → السعر 0 → -300% وهمية.
+    _mx = _mx_lookup(symbol)
+    if _mx:
+        try:
+            import asyncio as _aio
+            from services.exchanges import get as _get_ex
+            _ad = _get_ex(_mx[0])
+            _cl = _ad.client("", "", futures=True)
+            _t = await _aio.to_thread(_cl.fetch_ticker, _mx[1])
+            _px = float((_t or {}).get("last") or 0)
+            if _px > 0:
+                return _px
+        except Exception as _e:
+            log.debug("🌐 سعر %s من %s: %s", symbol, _mx[0], _e)
+        return None      # لا نُرجع صفراً — أفضل من خسارة وهمية
     try:
         import httpx
         sym = symbol.replace("/", "").replace("-", "")

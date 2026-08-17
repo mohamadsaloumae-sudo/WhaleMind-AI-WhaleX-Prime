@@ -19,7 +19,7 @@ BATCH = 12
 BATCH_PAUSE = 3.0
 COOLDOWN = 5400
 
-SCORE_MIN = 5.5
+SCORE_MIN = 99.0  # 🛑 موقوف: المتتبّع يقرأ السعر من باينانس فيُرجع صفراً للعملات الحصرية → -300% وهمية
 MIN_ATR_PCT = 0.5
 MAX_SL_PCT = 8.0
 
@@ -166,7 +166,7 @@ async def _emit(row, sc, direction, reasons, price, lv, rsi, rpos, vr, pm_fn):
         score=sc, confidence=round(min(92.0, 60.0 + sc * 4), 1),
         entry=price, sl=round(lv["sl"], 8), tp1=round(lv["tp1"], 8),
         tp2=round(lv["tp2"], 8), tp3=round(lv["tp3"], 8), leverage=lev,
-        strategies="\n".join([f"🌐 {ad.name_ar}"] + reasons),
+        strategies="\n".join([f"🌐 {ad.name_en} · {ad.name_ar}"] + reasons),
         radar_type="futures", tier="MX",
         rr_tp1=1.5, rr_tp2=3.0, rr_tp3=5.0,
         strategy_count=len(reasons), btc_trend="NEUTRAL",
@@ -177,13 +177,19 @@ async def _emit(row, sc, direction, reasons, price, lv, rsi, rpos, vr, pm_fn):
         record_signal(sig)
     except Exception as e:
         log.debug("MX record: %s", e)
+    # 📱 حفظ في جدول signals — بلاه لا تظهر في «الإشارات الحيّة» بالتطبيق
+    try:
+        from radars.futures.service import save_signal
+        await save_signal(sig)
+    except Exception as e:
+        log.error("MX save_signal: %s", e)
     log.info("🌐📡 إشارة: %s %s @%.6g | %s | نقاط %.1f | %s",
-             row["symbol"], direction, price, ad.name_ar, sc, " · ".join(reasons))
+             row["symbol"], direction, price, ad.name_en, sc, " · ".join(reasons))
     msg = (
         f"🌐 <b>WhaleX Multi</b> — عملة حصرية\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"⚡ <code>{row['symbol']}</code>  {direction}\n"
-        f"📍 المنصّة: <b>{ad.name_ar}</b>\n\n"
+        f"📍 <b>{ad.name_en}</b> ({ad.name_ar})\n\n"
         f"Entry   <code>{price:.6g}</code>\n"
         f"Stop    <code>{lv['sl']:.6g}</code>  ({lv['sl_pct']:.1f}%)\n"
         f"TP1     <code>{lv['tp1']:.6g}</code>\n"

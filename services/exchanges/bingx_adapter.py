@@ -5,3 +5,4 @@ from .base import ExchangeAdapter
 class BingxAdapter(ExchangeAdapter):
     id = "bingx"
     name_ar = "بينج إكس"
+    name_en = "BingX"

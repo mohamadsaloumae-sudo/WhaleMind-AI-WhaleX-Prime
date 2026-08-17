@@ -16,6 +16,7 @@ log = logging.getLogger("exchange")
 class ExchangeAdapter(ABC):
     id: str = ""
     name_ar: str = ""
+    name_en: str = ""      # 🌐 أوضح في الإشارات
     needs_passphrase: bool = False
     supports_spot: bool = True
     supports_futures: bool = True
