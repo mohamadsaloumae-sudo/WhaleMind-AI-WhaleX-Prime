@@ -6,6 +6,11 @@ import { Bot, Hand, Link2, Unlink, Save } from "lucide-react";
 import Paywall from "../components/Paywall.jsx";
 
 // 🖼️ شعارات المنصّات
+const EX_NAME_EN = {
+  binance: "Binance", bybit: "Bybit", mexc: "MEXC", bingx: "BingX",
+  bitget: "Bitget", gate: "Gate.io", okx: "OKX",
+};
+
 const EX_LOGO = {
   binance: "https://cryptologos.cc/logos/bnb-bnb-logo.png",
   bybit: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/521.png",
@@ -269,7 +274,7 @@ export default function AutoTrade() {
         ) : (
           <form onSubmit={connect}>
             <div className="field">
-              <label>🔌 اختر المنصّة</label>
+              <label style={{ color: "#fff", fontWeight: 600 }}>🔌 {lang === "en" ? "Select Exchange" : "اختر المنصّة"}</label>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))",
                             gap: "10px", marginTop: "8px" }}>
                 {(exchanges.length ? exchanges : [{ id: "binance", name: "باينانس" }]).map((x) => (
@@ -285,8 +290,9 @@ export default function AutoTrade() {
                     <img src={EX_LOGO[x.id]} alt={x.name} width="34" height="34"
                          style={{ borderRadius: "8px" }}
                          onError={(e) => { e.target.style.display = "none"; }} />
-                    <span style={{ fontSize: "12px", fontWeight: exchange === x.id ? 700 : 500 }}>
-                      {x.name}
+                    <span style={{ fontSize: "12px", color: "#fff",
+                                   fontWeight: exchange === x.id ? 700 : 500 }}>
+                      {lang === "en" ? (EX_NAME_EN[x.id] || x.name) : x.name}
                     </span>
                     {x.needs_passphrase && <span style={{ fontSize: "10px", opacity: .6 }}>🔑</span>}
                   </button>
@@ -303,10 +309,10 @@ export default function AutoTrade() {
             </div>
             {exchanges.find((x) => x.id === exchange)?.needs_passphrase && (
               <div className="field">
-                <label>🔑 Passphrase</label>
+                <label style={{ color: "#fff", fontWeight: 600 }}>🔑 Passphrase</label>
                 <input type="password" value={passphrase} required
                        onChange={(e) => setPassphrase(e.target.value)}
-                       placeholder="كلمة مرور API (مطلوبة لهذه المنصّة)" />
+                       placeholder={lang === "en" ? "API passphrase (required)" : "كلمة مرور API (مطلوبة لهذه المنصّة)"} />
               </div>
             )}
             <div className="toggle-row">
