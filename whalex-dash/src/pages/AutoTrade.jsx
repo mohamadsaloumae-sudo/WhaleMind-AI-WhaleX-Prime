@@ -12,7 +12,7 @@ const EX_NAME_EN = {
 };
 
 const EX_LOGO = {
-  binance: "https://cryptologos.cc/logos/bnb-bnb-logo.png",
+  binance: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/270.png",
   bybit: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/521.png",
   mexc: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/544.png",
   bingx: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/1064.png",
