@@ -173,6 +173,11 @@ def get_credentials(user_id: str) -> Optional[dict]:
             "leverage": row["leverage"] if "leverage" in row.keys() else None,
             "account_type": row["account_type"],
             "disabled_reason": row["disabled_reason"],
+            # 🔌 المنصّة المختارة — باينانس افتراضياً للمستخدمين القدامى
+            "exchange": (row["exchange"] if "exchange" in row.keys() else None) or "binance",
+            "passphrase": (decrypt(row["api_passphrase_encrypted"])
+                           if "api_passphrase_encrypted" in row.keys()
+                           and row["api_passphrase_encrypted"] else ""),
         }
     except Exception as e:
         log.error("get_credentials error for %s: %s", user_id, e)
@@ -570,6 +575,32 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
         return {"success": False, "error": f"max positions reached ({len(_open)})"}
     if any(p.get("symbol") == signal["symbol"] for p in _open):
         return {"success": False, "error": f"position already open for {signal['symbol']}"}
+    
+    # ═══ 🔌 توجيه المنصّة — بعد كل الحمايات وقبل التنفيذ ═══
+    #   باينانس تكمل على مسارها المُثبت أدناه. غيرها يمرّ بالمُهايئ المعزول.
+    _ex_id = (creds.get("exchange") or "binance").lower()
+    if _ex_id != "binance":
+        import asyncio as _aio
+        from services.exchanges import get as _get_adapter
+        _ad = _get_adapter(_ex_id)
+        try:
+            _cl = _ad.client(creds["api_key"], creds["api_secret"],
+                             creds.get("passphrase", ""), futures=True)
+            _lev = int(creds.get("leverage") or signal.get("leverage") or 5)
+            _r = await _aio.to_thread(
+                _ad.open, _cl, signal["symbol"], signal["direction"],
+                float(creds["trade_amount_usdt"]), _lev, True)
+        except Exception as _ee:
+            log.error("🔌 %s فتح %s: %s", _ad.name_ar, signal["symbol"], _ee)
+            return {"success": False, "error": str(_ee)[:150]}
+        if not _r.get("ok"):
+            return {"success": False, "error": _r.get("error", "فشل الفتح")}
+        log.info("🔌✅ %s: %s %s فُتحت", _ad.name_ar,
+                 signal["symbol"], signal["direction"])
+        return {"success": True, "order_id": str(_r.get("id", "")),
+                "symbol": signal["symbol"], "direction": signal["direction"],
+                "quantity": _r.get("qty"), "leverage": _lev,
+                "exchange": _ad.name_ar}
     
     client = get_client(user_id)
     if not client:
