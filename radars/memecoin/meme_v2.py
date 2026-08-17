@@ -118,12 +118,14 @@ async def evaluate(cc, addr: str, p: dict) -> tuple:
     except Exception:
         pass
     burned, bwhy = await lp_is_burned(cc, _best.get("pairAddress"), addr, WSOL_MINT)
+    _hi_risk = False
     if not burned:
         _liq = (p.get("liquidity") or {}).get("usd", 0) or 0
         if _liq < UNBURNED_MIN_LIQ:
             _hit("not_burned")
             return False, f"{bwhy} + سيولة {_liq:,.0f} < {UNBURNED_MIN_LIQ:,}", 0
-        bwhy = f"🔓 غير محروقة (سيولة ${_liq:,.0f}) — حارس السحب يحميها"
+        _hi_risk = True
+        bwhy = f"⚠️ عالية المخاطر — غير محروقة (${_liq:,.0f}) · حارس لحظي"
     ok2, why2 = await _gate2_solana(cc, addr)
     if not ok2:
         _hit("bad_holders")
@@ -136,7 +138,7 @@ async def evaluate(cc, addr: str, p: dict) -> tuple:
         _hit("low_score")
         return False, f"نقاط {sc} (انفجرت أصلاً)", sc
     _hit("emitted")
-    return True, f"🔥 {bwhy}", sc
+    return True, (f"⚠️ {bwhy}" if _hi_risk else f"🔥 {bwhy}"), sc
 
 
 async def scan_loop():
