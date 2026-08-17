@@ -5,3 +5,4 @@ from .base import ExchangeAdapter
 class MexcAdapter(ExchangeAdapter):
     id = "mexc"
     name_ar = "مكسي"
+    supports_testnet = False   # 📊 الوحيدة بلا شبكة تجريبية

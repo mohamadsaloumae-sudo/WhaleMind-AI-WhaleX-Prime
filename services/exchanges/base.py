@@ -35,8 +35,10 @@ class ExchangeAdapter(ABC):
     def _options(self, futures: bool) -> dict:
         return {"defaultType": "swap" if futures else "spot"}
 
+    supports_testnet: bool = True   # 📊 مقيس: 6 من 7 تدعمها (مكسي لا)
+
     def client(self, key: str, secret: str, passphrase: str = "",
-               futures: bool = True):
+               futures: bool = True, testnet: bool = False):
         import ccxt
         cfg = {
             "apiKey": key, "secret": secret,
@@ -45,7 +47,15 @@ class ExchangeAdapter(ABC):
         }
         if self.needs_passphrase and passphrase:
             cfg["password"] = passphrase
-        return getattr(ccxt, self.id)(cfg)
+        c = getattr(ccxt, self.id)(cfg)
+        # 🧪 الوضع التجريبي — مال وهمي، تنفيذ حقيقي
+        if testnet and self.supports_testnet:
+            try:
+                c.set_sandbox_mode(True)
+                log.info("🧪 %s: وضع تجريبي", self.name_ar)
+            except Exception as e:
+                log.warning("🧪 %s لا يدعم التجريبي: %s", self.name_ar, e)
+        return c
 
     def set_leverage(self, c, sym: str, lev: float, futures: bool = True) -> bool:
         if not futures:
@@ -119,9 +129,10 @@ class ExchangeAdapter(ABC):
     def _close_params(self) -> dict:
         return {"reduceOnly": True}
 
-    def test(self, key: str, secret: str, passphrase: str = "") -> dict:
+    def test(self, key: str, secret: str, passphrase: str = "",
+             testnet: bool = False) -> dict:
         try:
-            c = self.client(key, secret, passphrase, futures=True)
+            c = self.client(key, secret, passphrase, futures=True, testnet=testnet)
             b = c.fetch_balance()
             return {"ok": True, "usdt": float((b.get("USDT") or {}).get("free") or 0),
                     "exchange": self.name_ar}
