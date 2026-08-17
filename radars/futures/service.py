@@ -869,8 +869,9 @@ async def _meme_live_guard():
     while True:
         try:
             from radars.memecoin.live_stream import live_loop
-            from radars.memecoin.raydium_stream import raydium_loop
-            asyncio.create_task(raydium_loop())   # 🌊 مصدر راديوم بجانب pump.fun
+            # 🛑 راديوم مُطفأ: صفر بِرَك جديدة في يومين (الإطلاقات في pump.fun)
+            #    وكان يزاحم حارس السحب على اتصال Helius فيُرفض الاثنان (HTTP 429).
+            #    الاتصال مُنح للحارس اللحظي الذي يمنع -1,085% (17 كارثة).
             await live_loop()
         except Exception as _e:
             import logging as _lg

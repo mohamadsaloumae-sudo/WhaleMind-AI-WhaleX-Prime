@@ -23,7 +23,8 @@ _SKIP_MINTS = {
 }
 
 _seen_sigs: dict = {}
-RAYDIUM_ENABLED = True
+RAYDIUM_ENABLED = False  # 🛑 مُطفأ: صفر بِرَك جديدة في يومين (الإطلاقات في pump.fun)
+#    والاتصال مُنح لحارس السحب اللحظي الذي يمنع -1,085%
 
 
 def _env(key: str) -> str:
