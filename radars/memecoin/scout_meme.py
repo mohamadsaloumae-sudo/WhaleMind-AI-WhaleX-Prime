@@ -885,10 +885,17 @@ def _meme_save(p, sc):
         _px = float(p.get("priceUsd") or 0)
         # 📊 كان INSERT OR IGNORE يتجاهل الإشارة الجديدة بصمت لأن address UNIQUE
         #    (KM بُثَّت 22:42 ولم تُحفَظ لوجود سجلّ من 10:32) — REPLACE يحدّث السجل
-        conn.execute("INSERT INTO meme_signals(symbol,address,chain,score,liq,vol,url,ts,entry_price,status,peak_price,buys_ratio) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+        # 📊 حالة العملة لحظة الدخول — بلا هذا لا نعرف إن دخلنا في البداية أم الذروة
+        _pc = p.get("priceChange") or {}
+        _t1 = (p.get("txns") or {}).get("h1") or {}
+        _tx1 = (_t1.get("buys", 0) or 0) + (_t1.get("sells", 0) or 0)
+        conn.execute("INSERT INTO meme_signals(symbol,address,chain,score,liq,vol,url,ts,entry_price,status,peak_price,buys_ratio,h1_at_entry,h6_at_entry,h24_at_entry,vol_h1,txns_h1) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                      (b.get("symbol", "?"), b.get("address", ""), p.get("chainId"), sc,
                       (p.get("liquidity") or {}).get("usd", 0), (p.get("volume") or {}).get("h24", 0),
-                      p.get("url", ""), int(time.time()), _px, "open", _px, _ratio))
+                      p.get("url", ""), int(time.time()), _px, "open", _px, _ratio,
+                      float(_pc.get("h1") or 0), float(_pc.get("h6") or 0),
+                      float(_pc.get("h24") or 0),
+                      (p.get("volume") or {}).get("h1", 0) or 0, _tx1))
         conn.commit(); conn.close()
     except Exception as e:
         log.warning("meme save: %s", e)
