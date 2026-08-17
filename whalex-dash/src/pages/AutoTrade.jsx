@@ -5,6 +5,17 @@ import { useLang } from "../context/LangContext.jsx";
 import { Bot, Hand, Link2, Unlink, Save } from "lucide-react";
 import Paywall from "../components/Paywall.jsx";
 
+// 🖼️ شعارات المنصّات
+const EX_LOGO = {
+  binance: "https://cryptologos.cc/logos/bnb-bnb-logo.png",
+  bybit: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/521.png",
+  mexc: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/544.png",
+  bingx: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/1064.png",
+  bitget: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/513.png",
+  gate: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/302.png",
+  okx: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/294.png",
+};
+
 export default function AutoTrade() {
   const { t, lang } = useLang();
   const [status, setStatus] = useState(null);
@@ -52,6 +63,10 @@ export default function AutoTrade() {
       if (r?.success) { setSettings((s) => ({ ...s, ...patch })); setSpotSaved(true); setTimeout(() => setSpotSaved(false), 1800); }
     } catch { /* */ }
   }
+  // 🔌 المنصّات المدعومة — تُحمَّل من الخلفية
+  const [exchanges, setExchanges] = useState([]);
+  const [exchange, setExchange] = useState("binance");
+  const [passphrase, setPassphrase] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [testnet, setTestnet] = useState(true);
@@ -81,6 +96,12 @@ export default function AutoTrade() {
     } catch { setStatus({ connected: false }); }
   }
   useEffect(() => { loadStatus(); }, []);
+  // 🔌 تحميل المنصّات المدعومة — تظهر تلقائياً عند إضافة منصّة في الخلفية
+  useEffect(() => {
+    binance.exchanges()
+      .then((r) => setExchanges(r?.exchanges || []))
+      .catch(() => setExchanges([]));
+  }, []);
 
   // تحديث الرصيد تلقائياً كل 10 ثوانٍ
   useEffect(() => {
@@ -97,9 +118,9 @@ export default function AutoTrade() {
     e.preventDefault();
     setBusy(true); setMsg(null);
     try {
-      await binance.connect({ api_key: apiKey, api_secret: apiSecret, is_testnet: testnet, account_type: "futures" });
+      await binance.connect({ api_key: apiKey, api_secret: apiSecret, is_testnet: testnet, account_type: "futures", exchange, passphrase });
       setMsg({ type: "success", text: t("connectSuccess") });
-      setApiKey(""); setApiSecret("");
+      setApiKey(""); setApiSecret(""); setPassphrase("");
       loadStatus();
     } catch (e) { setMsg({ type: "error", text: e.message }); }
     finally { setBusy(false); }
@@ -248,6 +269,31 @@ export default function AutoTrade() {
         ) : (
           <form onSubmit={connect}>
             <div className="field">
+              <label>🔌 اختر المنصّة</label>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))",
+                            gap: "10px", marginTop: "8px" }}>
+                {(exchanges.length ? exchanges : [{ id: "binance", name: "باينانس" }]).map((x) => (
+                  <button key={x.id} type="button"
+                          onClick={() => { setExchange(x.id); setPassphrase(""); }}
+                          style={{
+                            display: "flex", flexDirection: "column", alignItems: "center",
+                            gap: "6px", padding: "12px 8px", borderRadius: "12px",
+                            cursor: "pointer", transition: "all .15s",
+                            background: exchange === x.id ? "rgba(45,212,191,.12)" : "var(--bg-2, #131a2a)",
+                            border: exchange === x.id ? "2px solid var(--green, #2dd4bf)" : "1px solid var(--border, #223)",
+                          }}>
+                    <img src={EX_LOGO[x.id]} alt={x.name} width="34" height="34"
+                         style={{ borderRadius: "8px" }}
+                         onError={(e) => { e.target.style.display = "none"; }} />
+                    <span style={{ fontSize: "12px", fontWeight: exchange === x.id ? 700 : 500 }}>
+                      {x.name}
+                    </span>
+                    {x.needs_passphrase && <span style={{ fontSize: "10px", opacity: .6 }}>🔑</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="field">
               <label>{t("apiKey")}</label>
               <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} required placeholder={t("binanceKeyPlaceholder")} />
             </div>
@@ -255,6 +301,14 @@ export default function AutoTrade() {
               <label>{t("apiSecret")}</label>
               <input type="password" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} required placeholder={t("secretPlaceholder")} />
             </div>
+            {exchanges.find((x) => x.id === exchange)?.needs_passphrase && (
+              <div className="field">
+                <label>🔑 Passphrase</label>
+                <input type="password" value={passphrase} required
+                       onChange={(e) => setPassphrase(e.target.value)}
+                       placeholder="كلمة مرور API (مطلوبة لهذه المنصّة)" />
+              </div>
+            )}
             <div className="toggle-row">
               <span>{t("testnetToggle")}</span>
               <label className="switch">
