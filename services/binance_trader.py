@@ -489,6 +489,26 @@ async def close_position_for_user(user_id: str, symbol: str, direction: str) -> 
     creds = get_credentials(user_id)
     if not creds or not creds.get("auto_trade_enabled"):
         return {"success": False, "error": "التداول الآلي غير مفعّل"}
+    # ═══ 🔌 توجيه الإغلاق — نفس منطق الفتح ═══
+    #   باينانس تكمل أدناه. غيرها يُغلق عبر مُهايئها المعزول (reduceOnly).
+    _ex_id = (creds.get("exchange") or "binance").lower()
+    if _ex_id != "binance":
+        import asyncio as _aio
+        from services.exchanges import get as _get_adapter
+        _ad = _get_adapter(_ex_id)
+        try:
+            _cl = _ad.client(creds["api_key"], creds["api_secret"],
+                             creds.get("passphrase", ""), futures=True)
+            _r = await _aio.to_thread(_ad.close, _cl, symbol, True)
+        except Exception as _ee:
+            log.error("🔌 %s إغلاق %s: %s", _ad.name_ar, symbol, _ee)
+            return {"success": False, "error": str(_ee)[:150]}
+        if _r.get("ok"):
+            log.info("🔌🔴 %s: أُغلق %s", _ad.name_ar, symbol)
+            return {"success": True, "order_id": str(_r.get("id", "")),
+                    "exchange": _ad.name_ar}
+        return {"success": False, "error": _r.get("error", "فشل الإغلاق")}
+    
     try:
         client = _client(creds)
     except Exception as e:
