@@ -1146,6 +1146,55 @@ async def _meme_track_one(cc, r):
         log.info("\U0001F438 closed %s %+.1f%% (%s)", r.get("symbol"), pnl, reason)
 
 
+async def force_close_by_address(addr: str, reason: str):
+    """🚨 إغلاق فوري بعنوان العملة — يستدعيه حارس السحب اللحظي.
+    لا ينتظر نبضة المتتبّع (20ث) لأن السحب يقع في بلوك واحد (~400ms).
+    """
+    import httpx
+    try:
+        conn = sqlite3.connect(MEME_DB)
+        conn.row_factory = sqlite3.Row
+        rows = [dict(x) for x in conn.execute(
+            "SELECT * FROM meme_signals WHERE address=? AND status='open'", (addr,))]
+        conn.close()
+    except Exception as e:
+        log.error("🚨 قراءة الصفقة %s: %s", addr[:8], e)
+        return
+    if not rows:
+        return
+    for r in rows:
+        px = 0.0
+        try:
+            from radars.memecoin.live_stream import get_live_price
+            _lp = get_live_price(addr)
+            if _lp:
+                px = float(_lp)
+        except Exception:
+            px = 0.0
+        if px <= 0:
+            try:
+                async with httpx.AsyncClient() as cc:
+                    pairs = await _fetch_pairs(cc, addr)
+                if pairs:
+                    best = max(pairs, key=lambda x: (x.get("liquidity") or {}).get("usd", 0) or 0)
+                    px = float(best.get("priceUsd") or 0)
+            except Exception:
+                px = 0.0
+        entry = float(r.get("entry_price") or 0)
+        if px <= 0 or entry <= 0:
+            px = float(r.get("last_price") or entry or 0)
+        pnl = ((px - entry) / entry * 100) if entry > 0 and px > 0 else 0.0
+        log.warning("🚨🔴 إغلاق لحظي: %s @%.10g pnl=%.2f%% | %s",
+                    r.get("symbol"), px, pnl, reason)
+        try:
+            from radars.memecoin.live_stream import unwatch_token
+            await unwatch_token(addr)
+        except Exception:
+            pass
+        _meme_close(r["id"], px, pnl)
+        await _meme_close_broadcast(r, px, pnl, reason)
+
+
 async def meme_tracker_loop():
     log.info("\U0001F438\U0001F4E1 Meme paper-tracker started")
     while True:

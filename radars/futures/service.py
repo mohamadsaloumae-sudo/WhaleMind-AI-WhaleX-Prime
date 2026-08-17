@@ -886,7 +886,9 @@ async def _meme_guard():
             #    التتبّع والخروج يبقيان كما هما (مُثبتان)
             from radars.memecoin.scout_meme import meme_tracker_loop as _mtl
             from radars.memecoin.meme_v2 import scan_loop as _mscan
+            from radars.memecoin.drain_watch import drain_watch_loop as _dwl
             asyncio.create_task(_mtl())
+            asyncio.create_task(_dwl())   # 🚨 حارس السحب اللحظي (نفس البلوك)
             await _mscan()
         except Exception as _e:
             import logging as _lg

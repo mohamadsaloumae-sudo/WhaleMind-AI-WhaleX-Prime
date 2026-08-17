@@ -168,6 +168,13 @@ async def scan_loop():
                         _meme_save(p, sc)
                         await _meme_broadcast(p, sc)
                         _last[addr] = time.time()
+                        # 🚨 مراقبة لحظية لخزائن البركة — الإغلاق في نفس بلوك السحب
+                        try:
+                            from radars.memecoin.drain_watch import watch_pool
+                            _pa = _best.get("pairAddress") if "_best" in dir() else p.get("pairAddress")
+                            await watch_pool(p.get("pairAddress"), addr, sym)
+                        except Exception as _we:
+                            log.debug("drain watch: %s", _we)
                         log.info("🐸✅ إشارة: %s | نقاط %d | %s", sym, sc, why)
                     except Exception as e:
                         log.debug("eval %s: %s", addr[:8], e)
