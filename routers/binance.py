@@ -111,7 +111,16 @@ async def connect(body: ConnectBody, user=Depends(get_current_user)):
     يختبر أولاً ثم يحفظ
     """
     # 1. اختبار
-    test = await test_connection(body.api_key, body.api_secret, body.is_testnet)
+    _ex = (body.exchange or "binance").lower()
+    if _ex == "binance":
+        test = await test_connection(body.api_key, body.api_secret, body.is_testnet)
+    else:
+        import asyncio as _aio
+        from services.exchanges import get as _gx
+        _rr = await _aio.to_thread(_gx(_ex).test, body.api_key,
+                                   body.api_secret, body.passphrase)
+        test = ({"success": True, "permissions": {"exchange": _rr.get("exchange")}}
+                if _rr.get("ok") else {"success": False, "error": _rr.get("error")})
     if not test.get("success"):
         raise HTTPException(status_code=400, detail=test.get("error", "فشل الاتصال"))
     
@@ -122,7 +131,9 @@ async def connect(body: ConnectBody, user=Depends(get_current_user)):
         api_key=body.api_key,
         api_secret=body.api_secret,
         is_testnet=body.is_testnet,
-        account_type=body.account_type
+        account_type=body.account_type,
+        exchange=body.exchange,
+        passphrase=body.passphrase,
     )
     
     if not ok:
