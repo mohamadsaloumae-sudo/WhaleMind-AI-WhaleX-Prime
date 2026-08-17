@@ -35,8 +35,47 @@ def _rpc_url() -> str:
     return ""
 
 
+# 💾 ذاكرة دائمة: نتيجة الحرق لا تتغيّر أبداً (المحروق يبقى محروقاً).
+#    كنّا نفحص نفس العملة 1,440 مرّة يومياً = ~720,000 نداء/شهر → "max usage reached"
+_BURN_CACHE: dict = {}
+_CACHE_DB = "/opt/whalex/db/lp_burn_cache.db"
+
+
+def _cache_init():
+    import sqlite3
+    try:
+        cn = sqlite3.connect(_CACHE_DB)
+        cn.execute("CREATE TABLE IF NOT EXISTS burn_cache("
+                   "pair TEXT PRIMARY KEY, burned INTEGER, why TEXT, ts INTEGER)")
+        cn.commit()
+        for p, b, w in cn.execute("SELECT pair,burned,why FROM burn_cache"):
+            _BURN_CACHE[p] = (bool(b), w)
+        cn.close()
+    except Exception as e:
+        log.debug("cache init: %s", e)
+
+
+def _cache_put(pair: str, burned: bool, why: str):
+    import sqlite3, time as _t
+    _BURN_CACHE[pair] = (burned, why)
+    try:
+        cn = sqlite3.connect(_CACHE_DB)
+        cn.execute("INSERT OR REPLACE INTO burn_cache(pair,burned,why,ts) VALUES(?,?,?,?)",
+                   (pair, 1 if burned else 0, why, int(_t.time())))
+        cn.commit(); cn.close()
+    except Exception:
+        pass
+
+
+_cache_init()
+
+
 async def lp_is_burned(cc, pair_address: str, base_mint: str = "", quote_mint: str = "") -> tuple:
     """(محروقة؟, السبب) — الفحص اليقيني قبل أي دخول."""
+    # 💾 الذاكرة أولاً — لا نعيد فحص ما فحصناه
+    _c = _BURN_CACHE.get(pair_address or "")
+    if _c is not None:
+        return _c[0], _c[1]
     url = _rpc_url()
     if not url or not pair_address:
         return False, "لا RPC/بركة"
@@ -108,5 +147,9 @@ async def lp_is_burned(cc, pair_address: str, base_mint: str = "", quote_mint: s
     amt = _amt
 
     if amt < BURN_MAX_SUPPLY:
-        return True, f"🔥 محروقة (LP={amt:.2f})"
-    return False, f"🔓 مفتوحة (LP={amt:,.0f}) — قابلة للسحب"
+        _w = f"🔥 محروقة (LP={amt:.2f})"
+        _cache_put(pair_address, True, _w)
+        return True, _w
+    _w = f"🔓 مفتوحة (LP={amt:,.0f}) — قابلة للسحب"
+    _cache_put(pair_address, False, _w)
+    return False, _w
