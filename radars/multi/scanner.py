@@ -19,7 +19,7 @@ BATCH = 12
 BATCH_PAUSE = 3.0
 COOLDOWN = 5400
 
-SCORE_MIN = 99.0  # 🛑 موقوف: المتتبّع يقرأ السعر من باينانس فيُرجع صفراً للعملات الحصرية → -300% وهمية
+SCORE_MIN = 5.5
 MIN_ATR_PCT = 0.5
 MAX_SL_PCT = 8.0
 
