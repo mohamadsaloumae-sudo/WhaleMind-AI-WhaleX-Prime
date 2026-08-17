@@ -114,22 +114,27 @@ def save_credentials(
     api_key: str,
     api_secret: str,
     is_testnet: bool = True,
-    account_type: str = "futures"
+    account_type: str = "futures",
+    exchange: str = "binance",
+    passphrase: str = ""
 ) -> bool:
-    """يحفظ مفاتيح API مشفّرة"""
+    """يحفظ مفاتيح API مشفّرة — مع المنصّة وpassphrase (أوكي إكس · بيتجت)."""
     try:
         api_key_enc = encrypt(api_key)
         api_secret_enc = encrypt(api_secret)
+        pass_enc = encrypt(passphrase) if passphrase else None
         now = datetime.utcnow().isoformat()
         
         conn = sqlite3.connect(DB_PATH)
         conn.execute("""
             INSERT OR REPLACE INTO user_binance_credentials
             (user_id, api_key_encrypted, api_secret_encrypted, is_testnet,
-             account_type, created_at, updated_at, auto_trade_enabled)
-            VALUES (?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM user_binance_credentials WHERE user_id=?), ?), ?, 0)
+             account_type, created_at, updated_at, auto_trade_enabled,
+             exchange, api_passphrase_encrypted)
+            VALUES (?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM user_binance_credentials WHERE user_id=?), ?), ?, 0, ?, ?)
         """, (str(user_id), api_key_enc, api_secret_enc, int(is_testnet),
-              account_type, str(user_id), now, now))
+              account_type, str(user_id), now, now,
+              (exchange or "binance").lower(), pass_enc))
         conn.commit()
         conn.close()
         log.info("✅ Credentials saved for user %s (testnet=%s)", user_id, is_testnet)
