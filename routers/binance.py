@@ -43,6 +43,8 @@ class TestBody(BaseModel):
     api_key: str = Field(..., min_length=10)
     api_secret: str = Field(..., min_length=10)
     is_testnet: bool = True
+    exchange: str = "binance"        # 🔌 اختياري — باينانس افتراضياً
+    passphrase: str = ""             # 🔑 لأوكي إكس وبيتجت فقط
 
 
 class ConnectBody(BaseModel):
@@ -50,6 +52,8 @@ class ConnectBody(BaseModel):
     api_secret: str = Field(..., min_length=10)
     is_testnet: bool = True
     account_type: str = Field(default="futures", pattern="^(spot|futures|both)$")
+    exchange: str = "binance"        # 🔌 اختياري — باينانس افتراضياً
+    passphrase: str = ""             # 🔑 لأوكي إكس وبيتجت فقط
 
 
 class AutoTradeBody(BaseModel):
@@ -67,6 +71,15 @@ class AutoTradeBody(BaseModel):
 # ─── ENDPOINTS ────────────────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
+@router.get("/exchanges")
+async def exchanges():
+    """🔌 المنصّات المدعومة — للواجهة.
+    إضافة منصّة في services/exchanges/ تظهر هنا تلقائياً.
+    """
+    from services.exchanges import list_exchanges
+    return {"success": True, "exchanges": list_exchanges()}
+
+
 @router.post("/test")
 async def test_keys(body: TestBody, user=Depends(get_current_user)):
     """
@@ -74,8 +87,21 @@ async def test_keys(body: TestBody, user=Depends(get_current_user)):
     - يرفض إذا فيه صلاحية Withdraw
     - يتحقق من صلاحيات Trade
     """
-    result = await test_connection(body.api_key, body.api_secret, body.is_testnet)
-    return result
+    _ex = (body.exchange or "binance").lower()
+    if _ex == "binance":
+        # 🔒 مسار باينانس المُثبت لا يُمسّ
+        return await test_connection(body.api_key, body.api_secret, body.is_testnet)
+    # 🔌 المنصّات الأخرى عبر المُهايئ المعزول
+    import asyncio
+    from services.exchanges import get as _get_ex
+    _ad = _get_ex(_ex)
+    _r = await asyncio.to_thread(_ad.test, body.api_key, body.api_secret,
+                                 body.passphrase)
+    if _r.get("ok"):
+        return {"success": True, "exchange": _r.get("exchange"),
+                "usdt_balance": _r.get("usdt", 0),
+                "message": f"تم الاتصال بـ{_r.get('exchange')}"}
+    return {"success": False, "error": _r.get("error", "فشل الاتصال")}
 
 
 @router.post("/connect")
