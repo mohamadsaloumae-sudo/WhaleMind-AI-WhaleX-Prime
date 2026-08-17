@@ -27,6 +27,7 @@ _fired: dict = {}
 _sub_map: dict = {}
 _ws = None
 _counter = [100]
+_retry = [0]
 
 DRAIN_STATS: dict = {"watching": 0, "drains": 0, "updates": 0}
 
@@ -202,6 +203,13 @@ async def drain_watch_loop():
                         continue
                     await _on_update(vault, float(ui))
         except Exception as e:
-            log.warning("🚨 drain ws: %s — إعادة اتصال بعد 5ث", e)
             _ws = None
-            await asyncio.sleep(5)
+            # ⏳ تراجع تدريجي: المحاولات المتسارعة تحرق حدّ Helius فيصير 429 دائماً
+            _wait = min(300, 15 * (2 ** min(_retry[0], 4)))
+            _retry[0] += 1
+            if _retry[0] <= 3 or _retry[0] % 10 == 0:
+                log.warning("🚨 drain ws: %s — إعادة بعد %dث (محاولة %d)",
+                            str(e)[:60], _wait, _retry[0])
+            await asyncio.sleep(_wait)
+        else:
+            _retry[0] = 0
