@@ -946,6 +946,10 @@ _WICK_SEEN: dict = {}        # id -> (وقت أول قراءة كارثية, س�
 # 📊 القياس: متوسط التراجع عن القمة قبل الخروج 18.2% · و46 صفقة تركنا فيها >25%
 MEME_TRAIL_ARM = 6.0        # نحمي من +6% بدل +12%
 MEME_TRAIL_GIVEBACK = 10.0  # تراجع 10% عن القمة يقفل
+# 📊 146 صفقة صعدت +10%+ وربحت 84% منها (+1,737.9%)
+#    لكن تراجع 10% ثابت يبتلع كل ربح صفقة بلغت +10% (تُغلق عند 0.0%)
+#    سلّم متدرّج: كلّما علت القمة زاد المسموح — ويُحفظ دائماً نصفها على الأقل
+MEME_GIVE_LADDER = ((25.0, 8.0), (18.0, 6.0), (12.0, 5.0), (6.0, 3.0))
 MEME_PEAK_LOCK = 20.0       # فوق +20% نحمي بصرامة أعلى
 MEME_PEAK_LOCK_GIVE = 7.0   # تراجع 7% فقط يقفل الرابح الكبير
 
@@ -1116,7 +1120,11 @@ async def _meme_track_one(cc, r):
             _SL_PENDING.pop(_sid, None)
     else:
         _SL_PENDING.pop(_sid, None)
-        _give = MEME_PEAK_LOCK_GIVE if peak_pnl >= MEME_PEAK_LOCK else MEME_TRAIL_GIVEBACK
+        _give = MEME_TRAIL_GIVEBACK
+        for _lvl, _g in MEME_GIVE_LADDER:
+            if peak_pnl >= _lvl:
+                _give = _g
+                break
         if peak_pnl >= MEME_TRAIL_ARM and pnl <= peak_pnl - _give:
             reason = "🔒 قفل: تراجع عن القمة"
     if not reason:
