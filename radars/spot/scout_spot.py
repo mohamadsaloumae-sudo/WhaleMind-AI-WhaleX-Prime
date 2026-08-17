@@ -322,6 +322,10 @@ DYN_HARVEST_PNL  = 2.5
 DYN_MIN_PROFIT   = 2.0
 DYN_TRAIL_GIVE   = 3.0
 REENTRY_COOLDOWN = 1800
+# 🚪 قطع الخسارة بالتدفّق (لا بالسعر وحده)
+FLOW_CHECK_LOSS = -0.6      # نبدأ استشارة الأوردر بوك من هذه الخسارة
+FLOW_EXIT_TAKER = 0.45      # تدفّق أضعف من هذا = بائعون مسيطرون
+FLOW_MAX_LOSS = -2.0        # دون هذا يتولّى الوقف
 _taker_cache: dict = {}
 
 
@@ -453,7 +457,11 @@ async def tracker_loop():
                         # 🔒 سلّم جني سريع — أرباح السبوت خفيفة فلا ننتظرها تتبخر
                         _drop = (_pk - px) / _pk * 100 if _pk else 0
                         _tk = None
-                        if pnl >= DYN_MIN_PROFIT or _peak_pnl >= DYN_MIN_PROFIT:
+                        # 📊 161 صفقة: الخروج بالأوردر بوك أربح مسار (+7.26% متوسطاً · 21 صفقة)
+                        #    لكنه كان يُستشار عند الربح فقط — فالخاسرة تنزف للوقف (-2.53% · 72 صفقة)
+                        #    الآن نستشيره في الخسارة أيضاً من -0.6%: إن انقلب التدفّق نخرج مبكراً
+                        if (pnl >= DYN_MIN_PROFIT or _peak_pnl >= DYN_MIN_PROFIT
+                                or pnl <= FLOW_CHECK_LOSS):
                             try:
                                 _tk = await _live_taker(c, s.symbol)
                             except Exception:
@@ -472,6 +480,10 @@ async def tracker_loop():
                             _locked_sl = max(_locked_sl, s.entry * 1.020)
                         if _peak_pnl >= 8.0:
                             _locked_sl = max(_locked_sl, _pk * 0.97)
+                        # 🚪 التدفّق انقلب ونحن خاسرون → خروج فوري بخسارة صغيرة
+                        if (_tk is not None and _tk < FLOW_EXIT_TAKER
+                                and FLOW_MAX_LOSS <= pnl <= FLOW_CHECK_LOSS):
+                            _dyn_exit, _dyn_why = True, "flow_cut"
                         _smart_rev = _dyn_exit or (pnl >= 2.0 and _peak_pnl >= 3.0 and _drop >= 1.2)
 
                         if _smart_rev:
