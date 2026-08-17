@@ -68,7 +68,13 @@ def _flow_ok(p) -> tuple:
     s = t1.get("sells", 0) or 0
     if (b + s) < MIN_TXNS_H1:
         return False, f"معاملات {b+s}"
-    br = b / (b + s) if (b + s) > 0 else 0
+    # 🚨 عطل جذري: كنّا نفلتر على h1 ونسجّل h24 — مقياسان مختلفان.
+    #    وتحليل 248 صفقة (النافذة 0.62-0.68 = +173.5%) كان على h24.
+    #    فنفلتر الآن على نفس المقياس المقيس.
+    t24 = (p.get("txns") or {}).get("h24") or {}
+    b24 = t24.get("buys", 0) or 0
+    s24 = t24.get("sells", 0) or 0
+    br = b24 / (b24 + s24) if (b24 + s24) > 0 else (b / (b + s) if (b + s) > 0 else 0)
     if br < MIN_BUY_RATIO:
         return False, f"شراء {br*100:.0f}% (منخفض)"
     if br > MAX_BUY_RATIO:
