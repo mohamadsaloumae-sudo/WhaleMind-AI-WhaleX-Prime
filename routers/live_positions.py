@@ -36,6 +36,16 @@ async def _get_price(symbol: str) -> float:
         async with httpx.AsyncClient(timeout=5) as c:
             r = await c.get(f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={symbol}")
             price = float(r.json().get("price", 0))
+        # 🌐 عملة حصرية على منصّة أخرى؟ سعرها من منصّتها لا من باينانس.
+        #    درس NESAUSDT: باينانس ترجع Invalid symbol → 0 → ±500% وهمية في الواجهة.
+        if price <= 0:
+            try:
+                from radars.futures.position_manager import get_price as _mxp
+                _p = await _mxp(symbol)
+                if _p and _p > 0:
+                    price = float(_p)
+            except Exception as _e:
+                log.debug("🌐 سعر %s: %s", symbol, _e)
         if price > 0:
             _price_cache[symbol] = price; _price_ts[symbol] = now
             return price
