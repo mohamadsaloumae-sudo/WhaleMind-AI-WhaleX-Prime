@@ -159,6 +159,50 @@ async def disconnect(user=Depends(get_current_user)):
     return {"success": True, "message": "تم قطع الاتصال"}
 
 
+@router.get("/accounts")
+async def accounts(user=Depends(get_current_user)):
+    """🔌 كل حسابات المستخدم المربوطة — حساب لكل منصّة.
+    يمكّنه من ربط 7 حسابات وأخذ كل الإشارات على منصّاتها.
+    """
+    from services.binance_trader import get_user_exchanges
+    from services.exchanges import REGISTRY
+    rows = get_user_exchanges(user["sub"])
+    out = []
+    for r in rows:
+        ex = (r.get("exchange") or "binance").lower()
+        ad = REGISTRY.get(ex)
+        out.append({
+            "exchange": ex,
+            "name_ar": ad.name_ar if ad else ex,
+            "name_en": ad.name_en if ad else ex,
+            "auto_trade_enabled": bool(r.get("auto_trade_enabled")),
+            "trade_amount_usdt": r.get("trade_amount_usdt"),
+            "max_open_positions": r.get("max_open_positions"),
+            "account_type": r.get("account_type"),
+        })
+    return {"success": True, "accounts": out, "count": len(out)}
+
+
+@router.delete("/disconnect/{exchange}")
+async def disconnect_one(exchange: str, user=Depends(get_current_user)):
+    """يفصل منصّة بعينها — الباقي يبقى مربوطاً."""
+    import sqlite3
+    from services.binance_trader import DB_PATH
+    try:
+        cn = sqlite3.connect(DB_PATH)
+        n = cn.execute("DELETE FROM user_binance_credentials WHERE user_id=? AND exchange=?",
+                       (str(user["sub"]), exchange.lower())).rowcount
+        cn.commit(); cn.close()
+        if not n:
+            raise HTTPException(status_code=404, detail="لا حساب على هذه المنصّة")
+        log.info("🔌 User %s disconnected %s", user["sub"], exchange)
+        return {"success": True, "exchange": exchange}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)[:120])
+
+
 @router.get("/status")
 async def status(user=Depends(get_current_user)):
     """يتحقق هل المستخدم مربوط"""
