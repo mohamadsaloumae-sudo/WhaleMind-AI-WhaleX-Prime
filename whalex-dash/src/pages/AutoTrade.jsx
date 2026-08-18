@@ -70,6 +70,8 @@ export default function AutoTrade() {
   }
   // 🔌 المنصّات المدعومة — تُحمَّل من الخلفية
   const [exchanges, setExchanges] = useState([]);
+  const [accounts, setAccounts] = useState([]);   // 🔌 الحسابات المربوطة
+  const [addMode, setAddMode] = useState(false);  // نموذج ربط جديد
   const [exchange, setExchange] = useState("binance");
   const [passphrase, setPassphrase] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -106,7 +108,25 @@ export default function AutoTrade() {
     binance.exchanges()
       .then((r) => setExchanges(r?.exchanges || []))
       .catch(() => setExchanges([]));
+    loadAccounts();
   }, []);
+
+  async function loadAccounts() {
+    try {
+      const r = await binance.accounts();
+      setAccounts(r?.accounts || []);
+    } catch { setAccounts([]); }
+  }
+
+  async function unlinkOne(ex) {
+    setBusy(true);
+    try {
+      await binance.unlink(ex);
+      setMsg({ type: "info", text: lang === "en" ? "Account removed" : "أُزيل الحساب" });
+      loadAccounts(); loadStatus();
+    } catch (e) { setMsg({ type: "error", text: e.message }); }
+    finally { setBusy(false); }
+  }
 
   // تحديث الرصيد تلقائياً كل 10 ثوانٍ
   useEffect(() => {
@@ -125,7 +145,7 @@ export default function AutoTrade() {
     try {
       await binance.connect({ api_key: apiKey, api_secret: apiSecret, is_testnet: testnet, account_type: "futures", exchange, passphrase });
       setMsg({ type: "success", text: t("connectSuccess") });
-      setApiKey(""); setApiSecret(""); setPassphrase("");
+      setApiKey(""); setApiSecret(""); setPassphrase(""); setAddMode(false); loadAccounts();
       loadStatus();
     } catch (e) { setMsg({ type: "error", text: e.message }); }
     finally { setBusy(false); }
@@ -273,6 +293,48 @@ export default function AutoTrade() {
           </div>
         ) : (
           <form onSubmit={connect}>
+            {accounts.length > 0 && (
+              <div className="field">
+                <label style={{ color: "#fff", fontWeight: 600 }}>
+                  🔌 {lang === "en" ? `Linked accounts (${accounts.length})` : `حساباتك المربوطة (${accounts.length})`}
+                </label>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
+                  {accounts.map((a) => (
+                    <div key={a.exchange} style={{
+                      display: "flex", alignItems: "center", gap: "10px",
+                      padding: "10px 12px", borderRadius: "10px",
+                      background: "var(--bg-2, #131a2a)",
+                      border: "1px solid var(--border, #223)",
+                    }}>
+                      <img src={EX_LOGO[a.exchange]} alt={a.name_en} width="26" height="26"
+                           style={{ borderRadius: "6px" }}
+                           onError={(e) => { e.target.style.display = "none"; }} />
+                      <span style={{ color: "#fff", fontWeight: 600, flex: 1 }}>
+                        {lang === "en" ? a.name_en : a.name_ar}
+                      </span>
+                      <span style={{ fontSize: "11px", opacity: .75 }}>
+                        {a.auto_trade_enabled
+                          ? (lang === "en" ? "✅ active" : "✅ مفعّل")
+                          : (lang === "en" ? "⏸️ paused" : "⏸️ موقوف")}
+                      </span>
+                      <button type="button" onClick={() => unlinkOne(a.exchange)} disabled={busy}
+                              style={{
+                                background: "transparent", border: "none", cursor: "pointer",
+                                color: "var(--red, #f87171)", fontSize: "17px", padding: "0 4px",
+                              }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+                {!addMode && (
+                  <button type="button" onClick={() => setAddMode(true)}
+                          className="btn btn-primary btn-block" style={{ marginTop: "12px" }}>
+                    + {lang === "en" ? "Link another account" : "ربط حساب آخر"}
+                  </button>
+                )}
+              </div>
+            )}
+            {(accounts.length === 0 || addMode) && (
+            <>
             <div className="field">
               <label style={{ color: "#fff", fontWeight: 600 }}>🔌 {lang === "en" ? "Select Exchange" : "اختر المنصّة"}</label>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))",
@@ -325,6 +387,8 @@ export default function AutoTrade() {
             <button className="btn btn-primary btn-block" disabled={busy}>
               <Link2 size={16} /> {busy ? t("processing") : t("connectAccount")}
             </button>
+            </>
+            )}
           </form>
         )}
       </div>

@@ -56,6 +56,8 @@ export const auth = {
 
 export const binance = {
   exchanges:  ()     => api.get("/api/binance/exchanges"),
+  accounts:   ()     => api.get("/api/binance/accounts"),
+  unlink:     (ex)   => api.del(`/api/binance/disconnect/${ex}`),
   status:     ()     => api.get("/api/binance/status"),
   connect:    (b)    => api.post("/api/binance/connect", b),
   disconnect: ()     => api.del("/api/binance/disconnect"),
