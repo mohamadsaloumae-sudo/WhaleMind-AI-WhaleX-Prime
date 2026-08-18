@@ -120,8 +120,25 @@ def refresh() -> dict:
         cn.execute("INSERT OR REPLACE INTO universe"
                    "(symbol,exchange,ccxt_symbol,volume_24h,supports_oi,updated_at)"
                    " VALUES(?,?,?,?,?,?)", (sym, ex, ck, vol, oi, now))
-    # نحذف ما لم يُحدَّث (شُطب من المنصّة أو هبط حجمه)
-    cn.execute("DELETE FROM universe WHERE updated_at < ?", (now - 3 * REFRESH_SEC,))
+    # نحذف ما لم يُحدَّث — إلا ما له صفقة مفتوحة (NESAUSDT خرجت فضاع سعرها)
+    _open = set()
+    try:
+        import json as _js
+        _pc = sqlite3.connect("/opt/whalex/positions.db")
+        for (_d,) in _pc.execute("SELECT data FROM active_positions WHERE status!='closed'"):
+            try:
+                _open.add(_js.loads(_d).get("symbol"))
+            except Exception:
+                pass
+        _pc.close()
+    except Exception:
+        pass
+    if _open:
+        _ph = ",".join("?" * len(_open))
+        cn.execute(f"DELETE FROM universe WHERE updated_at < ? AND symbol NOT IN ({_ph})",
+                   [now - 3 * REFRESH_SEC, *_open])
+    else:
+        cn.execute("DELETE FROM universe WHERE updated_at < ?", (now - 3 * REFRESH_SEC,))
     cn.commit()
     total = cn.execute("SELECT COUNT(*) FROM universe").fetchone()[0]
     cn.close()
