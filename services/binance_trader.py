@@ -144,6 +144,79 @@ def save_credentials(
         return False
 
 
+_SYM_EX_CACHE: dict = {}
+_SYM_EX_TS = [0.0]
+
+
+def symbol_exchange(symbol: str) -> str:
+    """🎯 على أي منصّة تُتداول هذه العملة؟
+    العملات الحصرية على منصّاتها · والباقي على باينانس.
+    """
+    import time as _t
+    if _t.time() - _SYM_EX_TS[0] > 600:
+        try:
+            _cn = sqlite3.connect("/opt/whalex/multi_universe.db")
+            _SYM_EX_CACHE.clear()
+            for s, ex in _cn.execute("SELECT symbol, exchange FROM universe"):
+                _SYM_EX_CACHE[s] = ex
+            _cn.close()
+            _SYM_EX_TS[0] = _t.time()
+        except Exception:
+            pass
+    return _SYM_EX_CACHE.get(symbol, "binance")
+
+
+def get_user_exchanges(user_id: str) -> list:
+    """🔌 كل منصّات المستخدم المربوطة — للواجهة والتوجيه."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT exchange, auto_trade_enabled, trade_amount_usdt, "
+            "max_open_positions, account_type FROM user_binance_credentials "
+            "WHERE user_id=?", (str(user_id),)).fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        log.error("get_user_exchanges %s: %s", user_id, e)
+        return []
+
+
+def get_credentials_for(user_id: str, exchange: str) -> Optional[dict]:
+    """🎯 اعتماديات منصّة بعينها — الأساس للتنفيذ متعدّد المنصّات.
+    إشارة على Bitget تُنفَّذ بحساب Bitget، لا بأي حساب آخر.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM user_binance_credentials WHERE user_id=? AND exchange=?",
+            (str(user_id), (exchange or "binance").lower())).fetchone()
+        conn.close()
+        if not row:
+            return None
+        return {
+            "user_id": row["user_id"],
+            "api_key": decrypt(row["api_key_encrypted"]),
+            "api_secret": decrypt(row["api_secret_encrypted"]),
+            "is_testnet": bool(row["is_testnet"]),
+            "auto_trade_enabled": bool(row["auto_trade_enabled"]),
+            "trade_amount_usdt": row["trade_amount_usdt"],
+            "max_open_positions": row["max_open_positions"],
+            "allowed_grades": (row["allowed_grades"] or "A,S"),
+            "leverage": row["leverage"] if "leverage" in row.keys() else None,
+            "account_type": row["account_type"],
+            "disabled_reason": row["disabled_reason"],
+            "exchange": row["exchange"] or "binance",
+            "passphrase": (decrypt(row["api_passphrase_encrypted"])
+                           if "api_passphrase_encrypted" in row.keys()
+                           and row["api_passphrase_encrypted"] else ""),
+        }
+    except Exception as e:
+        log.error("get_credentials_for %s/%s: %s", user_id, exchange, e)
+        return None
+
+
 def get_credentials(user_id: str) -> Optional[dict]:
     """يجلب مفاتيح API مفكوكة"""
     try:
@@ -579,7 +652,13 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
     
     Returns: {"success": bool, "order_id": str, "error": str}
     """
-    creds = get_credentials(user_id)
+    # 🎯 التوجيه: الإشارة تُنفَّذ على حساب منصّتها لا على أي حساب.
+    #    KORUUSDT على بيتجت → يبحث عن حساب بيتجت للمستخدم.
+    #    من لا حساب له على تلك المنصّة يتخطّى الإشارة بهدوء.
+    _sig_ex = symbol_exchange(signal["symbol"])
+    creds = get_credentials_for(user_id, _sig_ex)
+    if not creds and _sig_ex == "binance":
+        creds = get_credentials(user_id)   # توافق خلفي
     if not creds:
         return {"success": False, "error": "no_credentials"}
     
