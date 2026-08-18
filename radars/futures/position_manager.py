@@ -267,6 +267,10 @@ async def force_close_all(reason: str = "kill_switch"):
     for pos in positions:
         pos.force_close_lock = True
         price = await get_price(pos.symbol)
+    # 🛡️ سعر غير صالح = لا حساب. صفر واحد يعني ±300% وهمية تفسد الإحصاءات.
+    if not price or price <= 0:
+        log.debug("⏭️ %s: سعر غير متاح — تخطّي هذه النبضة", pos.symbol)
+        return
         if price:
             pnl_pct = calc_pnl(pos, price)
             await _close_position(pos, price, ExitReason.KILL_SWITCH, pnl_pct)
@@ -774,6 +778,10 @@ async def monitor_position(pos: Position):
     SL/TP → Trailing → Pyramiding → Claude AI → Tactical Exit
     """
     price = await get_price(pos.symbol)
+    # 🛡️ سعر غير صالح = لا حساب. صفر واحد يعني ±300% وهمية تفسد الإحصاءات.
+    if not price or price <= 0:
+        log.debug("⏭️ %s: سعر غير متاح — تخطّي هذه النبضة", pos.symbol)
+        return
     if not price:
         return
 
@@ -1111,6 +1119,10 @@ async def force_close(pos_id: str, user_id: str) -> dict:
     pos.force_close_lock = True  # ← يمنع AI من التدخل
 
     price = await get_price(pos.symbol)
+    # 🛡️ سعر غير صالح = لا حساب. صفر واحد يعني ±300% وهمية تفسد الإحصاءات.
+    if not price or price <= 0:
+        log.debug("⏭️ %s: سعر غير متاح — تخطّي هذه النبضة", pos.symbol)
+        return
     if not price:
         return {"error": "Could not fetch price"}
 
