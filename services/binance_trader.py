@@ -556,10 +556,13 @@ def _fmt_qty(client, symbol: str, qty: float) -> float:
 
 
 async def close_position_for_user(user_id: str, symbol: str, direction: str) -> dict:
-    """🔴 إغلاق حقيقي على باينانس بأمر سوق reduceOnly.
-    كان المدير يُغلق ورقياً فقط — فالقفل التدريجي والخروج التكتيكي بلا أثر.
+    """🔴 إغلاق حقيقي بأمر سوق reduceOnly — على منصّة العملة نفسها.
+    🎯 صفقة بيتجت تُغلق بمفاتيح بيتجت. وبلا هذا التوجيه تبقى مفتوحة بلا حماية.
     """
-    creds = get_credentials(user_id)
+    _sig_ex = symbol_exchange(symbol)
+    creds = get_credentials_for(user_id, _sig_ex)
+    if not creds and _sig_ex == "binance":
+        creds = get_credentials(user_id)   # توافق خلفي
     if not creds or not creds.get("auto_trade_enabled"):
         return {"success": False, "error": "التداول الآلي غير مفعّل"}
     # ═══ 🔌 توجيه الإغلاق — نفس منطق الفتح ═══
