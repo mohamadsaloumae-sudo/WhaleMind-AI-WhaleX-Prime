@@ -196,27 +196,45 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
     if range_pos > _max_pos:
         return
     rsi_v = _rsi(closes)
-    if _strong:
-        if not (STRONG_RSI_MIN <= rsi_v <= STRONG_RSI_MAX):
-            return
-    elif not (25 <= rsi_v <= 48):
-        return
+    # 🧠 RSI لم يعد إقصائياً — يُحسب ضمن النقاط أدناه.
+    #    كانت عملة بـRSI 62 وجدار شراء وحجم x3 تُرفض هنا فوراً.
     if min(lows[-6:]) < lo * 0.985:
         return  # كسر قاعٍ جديد — ليس صموداً
     v8, t8 = sum(vols[-8:]), sum(tbuys[-8:])
     taker = (t8 / v8) if v8 > 0 else 0
     v_avg = sum(vols[-48:-8]) / 40 if len(vols) >= 48 else (sum(vols[:-8]) / max(1, len(vols) - 8))
     v_infl = (v8 / 8) / v_avg if v_avg > 0 else 0
-    _min_taker = STRONG_TAKER if _strong else 0.52
-    _min_vol = STRONG_VOL if _strong else 1.15
-    if taker < _min_taker or v_infl < _min_vol:
+    # ═══ 🧠 نظام النقاط: الأدلّة تجتمع، ولا مؤشّر واحد يحكم ═══
+    _pts, _why = 0.0, []
+    if 30 <= rsi_v <= 55:
+        _pts += 2.5; _why.append(f"RSI {rsi_v:.0f}")
+    elif 55 < rsi_v <= 68 and v_infl >= 1.5:
+        _pts += 2.0; _why.append(f"زخم RSI {rsi_v:.0f}")
+    elif 25 <= rsi_v < 30:
+        _pts += 1.5; _why.append(f"مُشبع {rsi_v:.0f}")
+    if taker >= 0.60:
+        _pts += 2.5; _why.append(f"ضغط {taker*100:.0f}%")
+    elif taker >= 0.52:
+        _pts += 1.5; _why.append(f"شراء {taker*100:.0f}%")
+    if v_infl >= 2.0:
+        _pts += 2.0; _why.append(f"حجم x{v_infl:.1f}")
+    elif v_infl >= 1.3:
+        _pts += 1.2; _why.append(f"حجم x{v_infl:.1f}")
+    if range_pos <= 0.35:
+        _pts += 1.5; _why.append(f"قاع {range_pos*100:.0f}%")
+    elif range_pos <= 0.55:
+        _pts += 0.8
+    if closes[-1] > sum(closes[-6:-1]) / 5:
+        _pts += 1.0; _why.append("شرارة")
+    SPOT_SCORE_MIN = 6.0
+    if _pts < SPOT_SCORE_MIN:
         return
     log.info("🪙🔎 مرشّح قريب: %s taker=%.0f%% vol=%.2fx rsi=%.0f pos=%.0f%%",
              sym, taker*100, v_infl, rsi_v, range_pos*100)
     if closes[-1] < sum(closes[-6:-1]) / 5 * 0.99:
         return  # لا شرارة خضراء فوق المتوسط القريب
 
-    grade = "A" if (taker >= 0.55 and v_infl >= 1.30) else "B"
+    grade = "A" if _pts >= 7.5 else "B"
     if not _strong and (taker < 0.53 or v_infl < 1.20):
         return  # نبثّ A والقوي من B — انتقاء عالٍ بفرص أكثر
 
