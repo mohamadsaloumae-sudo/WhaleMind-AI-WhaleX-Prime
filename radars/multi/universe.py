@@ -101,7 +101,14 @@ def refresh() -> dict:
                 sym = f"{_norm}USDT"
                 if sym in bn or NOT_CRYPTO.search(base):
                     continue
-                vol = float((tk.get(k) or {}).get("quoteVolume") or 0)
+                # 💱 أوكي إكس لا تُرجع quoteVolume — نحسبه من baseVolume × السعر.
+                #    كان الحجم يُقرأ صفراً فتُقصّ كل عملاتها (179 حصرية!).
+                _t = tk.get(k) or {}
+                vol = float(_t.get("quoteVolume") or 0)
+                if vol <= 0:
+                    _bv = float(_t.get("baseVolume") or 0)
+                    _px = float(_t.get("last") or _t.get("close") or 0)
+                    vol = _bv * _px
                 if vol < MIN_VOL_24H:
                     continue
                 # عند وجودها على عدّة منصّات نأخذ الأعمق سيولةً
