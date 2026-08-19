@@ -1184,14 +1184,16 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
 
     # ═══ شرط 4: حد أقصى للصفقات المتزامنة بنفس الاتجاه + نفس الرادار ═══
     #   يمنع رهاناً واحداً مكرّراً (مثل 6 شورت متزامنة على عملات مرتبطة بـ BTC)
-    MAX_CONCURRENT = 5  # خُفِض من 50: سقف المخاطرة — يمنع تكدّس الصفقات (كارثة الـ14)
-    sig_is_ph = (sig.radar_type == "futures" and getattr(sig, "tier", "") == "PH")
+    # 📊 حصّة مستقلّة لكل رادار — كان التصنيف ثنائياً (PH / غير PH)
+    #    فرادار المنصّات (MX) ملأ حصّة Predator وحجبه تماماً: 5 MX = صفر Predator.
+    MAX_PER_RADAR = {"PH": 5, "MX": 5, "LV2": 3}
+    _tier = (getattr(sig, "tier", "") or "").upper()
+    MAX_CONCURRENT = MAX_PER_RADAR.get(_tier, 5)   # الافتراضي (Predator) = 5
     same = 0
     for _ex in ACTIVE.values():
         if _ex.status != "open" or _ex.direction != sig.direction:
             continue
-        ex_is_ph = (_ex.radar_type == "futures" and getattr(_ex, "tier", "") == "PH")
-        if ex_is_ph == sig_is_ph:
+        if ((getattr(_ex, "tier", "") or "").upper()) == _tier:
             same += 1
     if same >= MAX_CONCURRENT:
         log.info("Position skip: %s %s — بلغ الحد %d/%d لنفس الاتجاه/الرادار",
