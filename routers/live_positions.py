@@ -107,32 +107,37 @@ async def radar_positions(market: str = "futures"):
         log.debug("radar db: %s", e)
         return {"positions": []}
 
-    # ⚡ نجلب كل الأسعار معاً — بالتسلسل كانت 11 صفقة تستغرق 5 ثوانٍ
-    _parsed = []
+    # ⚡ نُسخّن الأسعار معاً أولاً — الحلقة تبقى كما هي بلا تغيير سلوكي
+    _prices = {}
+    try:
+        _syms = []
+        for (_dd,) in rows:
+            try:
+                _j = json.loads(_dd)
+                if _j.get("symbol"):
+                    _syms.append(_j["symbol"])
+            except Exception:
+                pass
+        _syms = list(dict.fromkeys(_syms))
+        if _syms:
+            _rr = await asyncio.gather(*[_get_price(s) for s in _syms],
+                                       return_exceptions=True)
+            for _s, _p in zip(_syms, _rr):
+                if isinstance(_p, (int, float)) and _p > 0:
+                    _prices[_s] = _p
+    except Exception as _e:
+        log.debug("تسخين الأسعار: %s", _e)
+
     for (data,) in rows:
         try:
-            _d = json.loads(data)
-            if _d.get("symbol") and float(_d.get("entry", 0)) > 0:
-                _parsed.append(_d)
-        except Exception:
-            continue
-    _prices = {}
-    if _parsed:
-        _syms = list({x["symbol"] for x in _parsed})
-        _res = await asyncio.gather(*[_get_price(s) for s in _syms],
-                                    return_exceptions=True)
-        for _s, _p in zip(_syms, _res):
-            _prices[_s] = _p if isinstance(_p, (int, float)) else 0.0
-
-    for d in _parsed:
-        try:
+            d = json.loads(data)
             symbol = d.get("symbol")
             entry = float(d.get("entry", 0))
             direction = d.get("direction", "")
             leverage = float(d.get("leverage", 1))
-            cur = _prices.get(symbol) or 0.0
-            if cur <= 0:
+            if not symbol or entry <= 0:
                 continue
+            cur = _prices.get(symbol) or await _get_price(symbol)
             if direction == "LONG":
                 pnl = (cur - entry) / entry * 100 * leverage
             else:
