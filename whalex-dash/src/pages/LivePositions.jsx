@@ -80,14 +80,14 @@ export default function LivePositions() {
       <div className="card" onClick={() => setChartPos(p)}
            style={{ marginBottom: 10, padding: 14, cursor: "pointer" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", flex: 1, minWidth: 0 }}>
             <img src={EX_LOGO[(p.exchange || "binance").toLowerCase()]}
                  alt={p.exchange} width="20" height="20"
                  style={{ borderRadius: 5, flexShrink: 0 }}
                  onError={(e) => { e.target.style.display = "none"; }} />
             <span style={{
-              fontWeight: 700, fontSize: 15, overflow: "hidden",
-              textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0,
+              fontWeight: 700, fontSize: 15, whiteSpace: "nowrap",
+              flexShrink: 0, direction: "ltr",
             }}>{p.symbol}</span>
             <LineChart size={15} style={{ color: "var(--brand, #2dd4bf)", flexShrink: 0 }} />
             <span style={{
