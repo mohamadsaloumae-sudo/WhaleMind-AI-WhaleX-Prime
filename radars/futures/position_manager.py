@@ -1184,17 +1184,35 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
 
     # ═══ شرط 4: حد أقصى للصفقات المتزامنة بنفس الاتجاه + نفس الرادار ═══
     #   يمنع رهاناً واحداً مكرّراً (مثل 6 شورت متزامنة على عملات مرتبطة بـ BTC)
-    # 📊 حصّة مستقلّة لكل رادار — كان التصنيف ثنائياً (PH / غير PH)
-    #    فرادار المنصّات (MX) ملأ حصّة Predator وحجبه تماماً: 5 MX = صفر Predator.
+    # 📊 حصّة مستقلّة لكل رادار — وللمنصّات: حصّة لكل منصّة على حدة.
+    #    كان التصنيف ثنائياً (PH / غير PH) فرادار المنصّات حجب Predator تماماً.
+    #    ودرس "كارثة الـ14": الخطر من الارتباط لا من العدد — 14 شورت على
+    #    عملات تتحرّك مع BTC = رهان واحد. أمّا 5 لكل منصّة فموزّعة فعلاً.
     MAX_PER_RADAR = {"PH": 5, "MX": 5, "LV2": 3}
     _tier = (getattr(sig, "tier", "") or "").upper()
-    MAX_CONCURRENT = MAX_PER_RADAR.get(_tier, 5)   # الافتراضي (Predator) = 5
+    MAX_CONCURRENT = MAX_PER_RADAR.get(_tier, 5)
+    # 🌐 لعملات المنصّات نعدّ داخل المنصّة نفسها فقط
+    _sig_ex = None
+    if _tier == "MX":
+        try:
+            from services.binance_trader import symbol_exchange as _sx
+            _sig_ex = _sx(sig.symbol)
+        except Exception:
+            _sig_ex = None
     same = 0
     for _ex in ACTIVE.values():
         if _ex.status != "open" or _ex.direction != sig.direction:
             continue
-        if ((getattr(_ex, "tier", "") or "").upper()) == _tier:
-            same += 1
+        if ((getattr(_ex, "tier", "") or "").upper()) != _tier:
+            continue
+        if _sig_ex:
+            try:
+                from services.binance_trader import symbol_exchange as _sx2
+                if _sx2(_ex.symbol) != _sig_ex:
+                    continue
+            except Exception:
+                pass
+        same += 1
     if same >= MAX_CONCURRENT:
         log.info("Position skip: %s %s — بلغ الحد %d/%d لنفس الاتجاه/الرادار",
                  sig.symbol, sig.direction, same, MAX_CONCURRENT)
