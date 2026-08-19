@@ -283,6 +283,8 @@ async def force_close_all(reason: str = "kill_switch"):
 
 # 🌐 ذاكرة كون المنصّات — نقرأها مرّة كل 10 دقائق لا كل نبضة
 _MX_MAP: dict = {}
+_MX_PX: dict = {}       # 💾 سعر مؤقّت 30ث
+_MX_CLIENTS: dict = {}  # ♻️ عملاء دائمون
 _MX_TS = [0.0]
 
 
@@ -307,18 +309,27 @@ async def get_price(symbol: str) -> Optional[float]:
     #    درس NESAUSDT: باينانس ترجع Invalid symbol → السعر 0 → -300% وهمية.
     _mx = _mx_lookup(symbol)
     if _mx:
+        # 💾 تخزين مؤقّت 30ث — بلاه كانت الواجهة تستغرق 23.7 ثانية لـ11 صفقة
+        import time as _tt
+        _c = _MX_PX.get(symbol)
+        if _c and (_tt.time() - _c[1]) < 30:
+            return _c[0]
         try:
             import asyncio as _aio
             from services.exchanges import get as _get_ex
-            _ad = _get_ex(_mx[0])
-            _cl = _ad.client("", "", futures=True)
+            # ♻️ عميل دائم لكل منصّة — بناؤه في كل نداء كان يكلّف ثوانٍ
+            _cl = _MX_CLIENTS.get(_mx[0])
+            if _cl is None:
+                _cl = _get_ex(_mx[0]).client("", "", futures=True)
+                _MX_CLIENTS[_mx[0]] = _cl
             _t = await _aio.to_thread(_cl.fetch_ticker, _mx[1])
             _px = float((_t or {}).get("last") or 0)
             if _px > 0:
+                _MX_PX[symbol] = (_px, _tt.time())
                 return _px
         except Exception as _e:
             log.debug("🌐 سعر %s من %s: %s", symbol, _mx[0], _e)
-        return None      # لا نُرجع صفراً — أفضل من خسارة وهمية
+        return _c[0] if _c else None
     try:
         import httpx
         sym = symbol.replace("/", "").replace("-", "")

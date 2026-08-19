@@ -107,16 +107,32 @@ async def radar_positions(market: str = "futures"):
         log.debug("radar db: %s", e)
         return {"positions": []}
 
+    # ⚡ نجلب كل الأسعار معاً — بالتسلسل كانت 11 صفقة تستغرق 5 ثوانٍ
+    _parsed = []
     for (data,) in rows:
         try:
-            d = json.loads(data)
+            _d = json.loads(data)
+            if _d.get("symbol") and float(_d.get("entry", 0)) > 0:
+                _parsed.append(_d)
+        except Exception:
+            continue
+    _prices = {}
+    if _parsed:
+        _syms = list({x["symbol"] for x in _parsed})
+        _res = await asyncio.gather(*[_get_price(s) for s in _syms],
+                                    return_exceptions=True)
+        for _s, _p in zip(_syms, _res):
+            _prices[_s] = _p if isinstance(_p, (int, float)) else 0.0
+
+    for d in _parsed:
+        try:
             symbol = d.get("symbol")
             entry = float(d.get("entry", 0))
             direction = d.get("direction", "")
             leverage = float(d.get("leverage", 1))
-            if not symbol or entry <= 0:
+            cur = _prices.get(symbol) or 0.0
+            if cur <= 0:
                 continue
-            cur = await _get_price(symbol)
             if direction == "LONG":
                 pnl = (cur - entry) / entry * 100 * leverage
             else:
