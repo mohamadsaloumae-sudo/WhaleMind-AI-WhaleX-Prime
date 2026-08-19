@@ -3,6 +3,18 @@ import { useEffect, useState } from "react";
 import { livePositions } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
 import ChartModal from "../components/ChartModal.jsx";
+import { LineChart } from "lucide-react";
+
+// 🖼️ شعارات المنصّات (CoinMarketCap)
+const EX_LOGO = {
+  binance: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/270.png",
+  bybit: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/521.png",
+  mexc: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/544.png",
+  bingx: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/1064.png",
+  bitget: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/513.png",
+  gate: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/302.png",
+  okx: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/294.png",
+};
 import { getMarket } from "../hooks/useMarket.js";
 import Paywall from "../components/Paywall.jsx";
 
@@ -69,7 +81,12 @@ export default function LivePositions() {
            style={{ marginBottom: 10, padding: 14, cursor: "pointer" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <img src={EX_LOGO[(p.exchange || "binance").toLowerCase()]}
+                 alt={p.exchange} width="20" height="20"
+                 style={{ borderRadius: 5, flexShrink: 0 }}
+                 onError={(e) => { e.target.style.display = "none"; }} />
             <span style={{ fontWeight: 700, fontSize: 15 }}>{p.symbol}</span>
+            <LineChart size={15} style={{ color: "var(--brand, #2dd4bf)", flexShrink: 0 }} />
             <span style={{
               fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
               background: isLong ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
@@ -98,6 +115,13 @@ export default function LivePositions() {
             {fmtAge(p.opened_at, lang)}
           </div>
         ) : null}
+        <div style={{
+          marginTop: 8, fontSize: 11, color: "var(--brand, #2dd4bf)",
+          display: "flex", alignItems: "center", gap: 5, opacity: .85,
+        }}>
+          <LineChart size={12} />
+          {lang === "ar" ? "اضغط لعرض الشارت الحيّ" : "Tap to view live chart"}
+        </div>
       </div>
     );
   }
