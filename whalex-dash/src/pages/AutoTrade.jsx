@@ -153,7 +153,13 @@ export default function AutoTrade() {
 
   async function disconnect() {
     setBusy(true);
-    try { await binance.disconnect(); setMsg({ type: "info", text: t("disconnectDone") }); setSettings(null); loadStatus(); }
+    // 🔌 نفصل المنصّة الحالية فقط — لا كل الحسابات
+    try {
+      const _ex = accounts[0]?.exchange || "binance";
+      await binance.unlink(_ex);
+      setMsg({ type: "info", text: t("disconnectDone") });
+      setSettings(null); loadStatus(); loadAccounts();
+    }
     catch (e) { setMsg({ type: "error", text: e.message }); }
     finally { setBusy(false); }
   }
@@ -284,7 +290,48 @@ export default function AutoTrade() {
       {mode !== "meme" && (
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-title">{t("binanceStatus")}</div>
-        {connected ? (
+        {/* 🔌 حساباتك المربوطة — خارج شرط الاتصال لتظهر دائماً */}
+        {accounts.length > 0 && (
+          <div className="field" style={{ marginBottom: "14px" }}>
+            <label style={{ color: "#fff", fontWeight: 600 }}>
+              🔌 {lang === "en" ? `Linked accounts (${accounts.length})` : `حساباتك المربوطة (${accounts.length})`}
+            </label>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
+              {accounts.map((a) => (
+                <div key={a.exchange} style={{
+                  display: "flex", alignItems: "center", gap: "10px",
+                  padding: "10px 12px", borderRadius: "10px",
+                  background: "var(--bg-2, #131a2a)",
+                  border: "1px solid var(--border, #223)",
+                }}>
+                  <img src={EX_LOGO[a.exchange]} alt={a.name_en} width="26" height="26"
+                       style={{ borderRadius: "6px" }}
+                       onError={(e) => { e.target.style.display = "none"; }} />
+                  <span style={{ color: "#fff", fontWeight: 600, flex: 1 }}>
+                    {lang === "en" ? a.name_en : a.name_ar}
+                  </span>
+                  <span style={{ fontSize: "11px", opacity: .75 }}>
+                    {a.auto_trade_enabled
+                      ? (lang === "en" ? "✅ active" : "✅ مفعّل")
+                      : (lang === "en" ? "⏸️ paused" : "⏸️ موقوف")}
+                  </span>
+                  <button type="button" onClick={() => unlinkOne(a.exchange)} disabled={busy}
+                          style={{
+                            background: "transparent", border: "none", cursor: "pointer",
+                            color: "var(--red, #f87171)", fontSize: "17px", padding: "0 4px",
+                          }}>✕</button>
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={() => setAddMode(!addMode)}
+                    className="btn btn-primary btn-block" style={{ marginTop: "12px" }}>
+              {addMode
+                ? (lang === "en" ? "Cancel" : "إلغاء")
+                : "+ " + (lang === "en" ? "Link another account" : "ربط حساب آخر")}
+            </button>
+          </div>
+        )}
+        {connected && !addMode ? (
           <div className="toggle-row">
             <span style={{ color: "var(--green)", fontWeight: 700 }}>● {t("connected")} {status.is_testnet ? `(${t("testnetMode")})` : `(${t("realMode")})`}</span>
             <button className="btn btn-danger" onClick={disconnect} disabled={busy}>
@@ -293,46 +340,6 @@ export default function AutoTrade() {
           </div>
         ) : (
           <form onSubmit={connect}>
-            {accounts.length > 0 && (
-              <div className="field">
-                <label style={{ color: "#fff", fontWeight: 600 }}>
-                  🔌 {lang === "en" ? `Linked accounts (${accounts.length})` : `حساباتك المربوطة (${accounts.length})`}
-                </label>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
-                  {accounts.map((a) => (
-                    <div key={a.exchange} style={{
-                      display: "flex", alignItems: "center", gap: "10px",
-                      padding: "10px 12px", borderRadius: "10px",
-                      background: "var(--bg-2, #131a2a)",
-                      border: "1px solid var(--border, #223)",
-                    }}>
-                      <img src={EX_LOGO[a.exchange]} alt={a.name_en} width="26" height="26"
-                           style={{ borderRadius: "6px" }}
-                           onError={(e) => { e.target.style.display = "none"; }} />
-                      <span style={{ color: "#fff", fontWeight: 600, flex: 1 }}>
-                        {lang === "en" ? a.name_en : a.name_ar}
-                      </span>
-                      <span style={{ fontSize: "11px", opacity: .75 }}>
-                        {a.auto_trade_enabled
-                          ? (lang === "en" ? "✅ active" : "✅ مفعّل")
-                          : (lang === "en" ? "⏸️ paused" : "⏸️ موقوف")}
-                      </span>
-                      <button type="button" onClick={() => unlinkOne(a.exchange)} disabled={busy}
-                              style={{
-                                background: "transparent", border: "none", cursor: "pointer",
-                                color: "var(--red, #f87171)", fontSize: "17px", padding: "0 4px",
-                              }}>✕</button>
-                    </div>
-                  ))}
-                </div>
-                {!addMode && (
-                  <button type="button" onClick={() => setAddMode(true)}
-                          className="btn btn-primary btn-block" style={{ marginTop: "12px" }}>
-                    + {lang === "en" ? "Link another account" : "ربط حساب آخر"}
-                  </button>
-                )}
-              </div>
-            )}
             {(accounts.length === 0 || addMode) && (
             <>
             <div className="field">
