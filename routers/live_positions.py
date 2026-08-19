@@ -18,6 +18,15 @@ _price_cache = {}
 _price_ts = {}
 
 
+def _sym_ex(symbol: str) -> str:
+    """منصّة العملة — للشارت. الحصرية على منصّاتها والباقي باينانس."""
+    try:
+        from services.binance_trader import symbol_exchange
+        return symbol_exchange(symbol)
+    except Exception:
+        return "binance"
+
+
 async def _get_price(symbol: str) -> float:
     """سعر حيّ من Binance Futures (عام، بلا مفاتيح) — كاش ثانية واحدة."""
     # 🌊 الستريم أولاً — صفر REST للعملات المبثوثة (كل الصفقات المفتوحة مبثوثة)
@@ -150,6 +159,8 @@ async def radar_positions(market: str = "futures"):
                 "opened_at": d.get("opened_at", 0),
                 "radar_type": d.get("radar_type", "futures"),
                 "tier": d.get("tier", ""),
+                # 📊 منصّة العملة — يحتاجها الشارت لبناء رمز TradingView الصحيح
+                "exchange": _sym_ex(symbol),
             })
         except Exception as e:
             log.debug("radar parse: %s", e)

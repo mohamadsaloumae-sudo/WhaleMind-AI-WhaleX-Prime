@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { livePositions } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
+import ChartModal from "../components/ChartModal.jsx";
 import { getMarket } from "../hooks/useMarket.js";
 import Paywall from "../components/Paywall.jsx";
 
@@ -23,6 +24,7 @@ export default function LivePositions() {
   const { t, lang } = useLang();
   const [radar, setRadar] = useState([]);
   const [loaded, setLoaded] = useState(false);
+  const [chartPos, setChartPos] = useState(null);   // 📊 الصفقة المعروض شارتها
 
   async function loadRadar() {
     try {
@@ -63,7 +65,8 @@ export default function LivePositions() {
     const isLong = p.direction === "LONG";
     const isProfit = p.pnl_pct >= 0;
     return (
-      <div className="card" style={{ marginBottom: 10, padding: 14 }}>
+      <div className="card" onClick={() => setChartPos(p)}
+           style={{ marginBottom: 10, padding: 14, cursor: "pointer" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontWeight: 700, fontSize: 15 }}>{p.symbol}</span>
@@ -114,6 +117,7 @@ export default function LivePositions() {
       ) : (
         radar.map((p, i) => <Card key={`r-${i}`} p={p} />)
       )}
+      {chartPos && <ChartModal pos={chartPos} onClose={() => setChartPos(null)} />}
     </>
     </Paywall>
   );
