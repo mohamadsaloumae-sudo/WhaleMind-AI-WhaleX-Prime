@@ -464,3 +464,8 @@ table, pre, code { max-width: 100%; overflow-x: auto; }
   from { opacity: 0; transform: translateY(-14px) scale(.96); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* ☰ زرّ القائمة — للجوّال فقط، فالكمبيوتر له قائمة جانبية دائمة */
+@media (min-width: 981px) {
+  .wx-drawer-btn { display: none !important; }
+}

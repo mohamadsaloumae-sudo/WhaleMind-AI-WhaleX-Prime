@@ -16,7 +16,8 @@ export default function DrawerMenu() {
   const [open, setOpen] = useState(false);
   const [shown, setShown] = useState(false);
   // 🏁 «عن المنصّة» أوّل القائمة — بصرياً فقط، فترتيب PAGES يحكم الشريط السفلي
-  const _rest = PAGES.filter((p) => !p.adminOnly).slice(5);
+  // 📱 كل الصفحات — القائمة المرجع الكامل، والشريط السفلي اختصار للخمس الأولى
+  const _rest = PAGES.filter((p) => !p.adminOnly);
   const _about = _rest.find((p) => p.path === "/landing");
   const pages = _about
     ? [_about, ..._rest.filter((p) => p.path !== "/landing")]
@@ -40,6 +41,7 @@ export default function DrawerMenu() {
   return (
     <>
       <button
+        className="wx-drawer-btn"
         onClick={() => setOpen(true)}
         title={t("more")}
         aria-label="menu"
