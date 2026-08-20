@@ -45,6 +45,8 @@ _STABLES = {
     "UAH", "ZAR", "NGN", "RUB", "PLN", "RON", "CZK", "JPY", "MXN", "COP",
     "USDS", "USDE", "USDF", "SUSD", "LUSD", "GUSD", "USDX", "XUSD", "USTC",
     "WBTC", "WBETH", "BETH", "WBNB", "PAXG", "XAUT",
+    # 📊 رُصدت تمرّ رغم أنها مستقرّة (RLUSD أعطت إشارة بحركة 0.03%)
+    "RLUSD", "USDG", "USDY", "USDB", "EURC", "EURT", "CHF", "CAD", "AUD",
 }
 
 
