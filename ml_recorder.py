@@ -37,6 +37,15 @@ def _init_db():
     conn.close()
 
 
+def _sym_exchange(symbol: str) -> str:
+    """منصّة العملة — الحصرية على منصّاتها والباقي باينانس."""
+    try:
+        from services.binance_trader import symbol_exchange
+        return symbol_exchange(symbol)
+    except Exception:
+        return "binance"
+
+
 def record_signal(trade) -> Optional[int]:
     try:
         _init_db()
@@ -80,8 +89,9 @@ def record_signal(trade) -> Optional[int]:
                 score, confidence, grade, tier, strategies,
                 regime, range_pos, rsi, stoch_k, stoch_d, macd_hist,
                 funding, oi_change, btc_trend, hawk_phase, hawk_modifier,
-                volume_ratio, key_strat_count, ob_pressure, cvd_flow
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                volume_ratio, key_strat_count, ob_pressure, cvd_flow,
+                leverage, exchange
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             getattr(trade, "timestamp", int(time.time())),
             trade.symbol, trade.direction, trade.entry, trade.sl, trade.tp1,
@@ -98,6 +108,9 @@ def record_signal(trade) -> Optional[int]:
             getattr(trade, "hawk_modifier", 1.0), getattr(trade, "volume_ratio", 0.0),
             getattr(trade, "key_strat_count", 0),
             _lc["ob_pressure"], _lc["cvd_flow"],
+            # 📊 للشفافية: الرافعة والمنصّة — يراهما المستخدم في الصفقات المغلقة
+            float(getattr(trade, "leverage", 0) or 0),
+            _sym_exchange(trade.symbol),
         ))
         conn.commit()
         row_id = cur.lastrowid

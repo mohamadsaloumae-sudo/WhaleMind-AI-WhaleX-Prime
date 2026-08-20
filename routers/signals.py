@@ -114,7 +114,8 @@ def signals_history(market: str = "futures"):
         con.row_factory = sqlite3.Row
         rows = con.execute("""
             SELECT symbol, direction, entry, exit_price, grade, tier,
-                   result, pnl_pct, outcome, closed_at, strategies
+                   result, pnl_pct, outcome, closed_at, strategies,
+                   leverage, exchange
             FROM training_signals
             WHERE pnl_pct IS NOT NULL AND closed_at IS NOT NULL
               AND result IN ('win','loss')
@@ -131,6 +132,8 @@ def signals_history(market: str = "futures"):
                 "result": r["result"], "pnl_pct": r["pnl_pct"],
                 "is_win": bool(r["outcome"]), "closed_at": r["closed_at"],
                 "strategies": r["strategies"],
+                "leverage": r["leverage"] if "leverage" in r.keys() else None,
+                "exchange": (r["exchange"] if "exchange" in r.keys() else None) or "binance",
             })
         return {"history": out}
     except Exception as e:
