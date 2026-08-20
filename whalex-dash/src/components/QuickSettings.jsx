@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Globe, Volume2, VolumeX } from "lucide-react";
+import { Globe, Volume2, VolumeX, Share2, ChevronDown } from "lucide-react";
 import { useLang } from "../context/LangContext.jsx";
 
 // شعارات التواصل — منقولة كما هي من الصفحة الرئيسية بلا مربعات
@@ -52,6 +52,7 @@ const SOCIALS = [
 export default function QuickSettings() {
   const { lang, setLang } = useLang();
   const ar = lang !== "en";
+  const [showSocial, setShowSocial] = useState(false);
   const [muted, setMuted] = useState(
     () => localStorage.getItem("wx_sound") === "off"
   );
@@ -68,26 +69,46 @@ export default function QuickSettings() {
       borderTop: "1px solid rgba(255,255,255,.06)",
       display: "flex", flexDirection: "column", gap: 12,
     }}>
-      <div style={{
-        display: "flex", justifyContent: "center", gap: 22,
-        marginBottom: 14, paddingBottom: 14,
-        borderBottom: "1px solid rgba(255,255,255,.06)",
-      }}>
-        {SOCIALS.map((s) => (
-          <a key={s.id} href={s.url} target="_blank" rel="noreferrer" title={s.label}
-             style={{ width: 22, height: 22, display: "flex", opacity: .62,
-                      transition: "opacity .2s, transform .2s" }}
-             onMouseEnter={(e) => {
-               e.currentTarget.style.opacity = 1;
-               e.currentTarget.style.transform = "translateY(-2px)";
-             }}
-             onMouseLeave={(e) => {
-               e.currentTarget.style.opacity = .62;
-               e.currentTarget.style.transform = "none";
-             }}>
-            {ICONS[s.id]}
-          </a>
-        ))}
+      {/* 🌐 قنواتنا — أيقونة واحدة تفتح الباقي */}
+      <div style={{ marginBottom: 14, paddingBottom: 14,
+                    borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+        <div
+          onClick={() => setShowSocial((v) => !v)}
+          style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
+        >
+          <Share2 size={15} style={{ color: "var(--txt-3, #6b7688)", flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: "var(--txt-3, #6b7688)", flex: 1 }}>
+            {ar ? "قنواتنا" : "Our channels"}
+          </span>
+          <ChevronDown size={15} style={{
+            color: "var(--txt-3, #6b7688)",
+            transform: showSocial ? "rotate(180deg)" : "none",
+            transition: "transform .22s",
+          }} />
+        </div>
+
+        <div style={{
+          display: "flex", justifyContent: "center", gap: 22,
+          maxHeight: showSocial ? 46 : 0, opacity: showSocial ? 1 : 0,
+          marginTop: showSocial ? 13 : 0, overflow: "hidden",
+          transition: "all .26s cubic-bezier(.4,0,.2,1)",
+        }}>
+          {SOCIALS.map((s) => (
+            <a key={s.id} href={s.url} target="_blank" rel="noreferrer" title={s.label}
+               style={{ width: 22, height: 22, display: "flex", opacity: .75,
+                        transition: "opacity .2s, transform .2s" }}
+               onMouseEnter={(e) => {
+                 e.currentTarget.style.opacity = 1;
+                 e.currentTarget.style.transform = "translateY(-2px)";
+               }}
+               onMouseLeave={(e) => {
+                 e.currentTarget.style.opacity = .75;
+                 e.currentTarget.style.transform = "none";
+               }}>
+              {ICONS[s.id]}
+            </a>
+          ))}
+        </div>
       </div>
       {/* 🌐 اللغة — مبدّل منزلق */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
