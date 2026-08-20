@@ -38,6 +38,19 @@ export default function LivePositions() {
   const [loaded, setLoaded] = useState(false);
   const [chartPos, setChartPos] = useState(null);   // 📊 الصفقة المعروض شارتها
 
+  // 🔄 عند التحديث أو زرّ الرجوع: نستعيد الشارت من الرابط بدل الخروج منه
+  useEffect(() => {
+    const sync = () => {
+      const m = String(window.location.hash || "").match(/chart=([A-Za-z0-9]+)/);
+      if (!m) { setChartPos(null); return; }
+      const p = radar.find((x) => x.symbol === m[1]);
+      if (p) setChartPos(p);
+    };
+    sync();
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
+  }, [radar]);
+
   async function loadRadar() {
     try {
       const r = await fetch(`/api/live/radar-positions?market=${getMarket()}`, { headers: { Authorization: `Bearer ${localStorage.getItem("wx_token") || ""}` } }).then((x) => x.json());
@@ -77,7 +90,10 @@ export default function LivePositions() {
     const isLong = p.direction === "LONG";
     const isProfit = p.pnl_pct >= 0;
     return (
-      <div className="card" onClick={() => setChartPos(p)}
+      <div className="card" onClick={() => {
+             setChartPos(p);
+             try { window.history.pushState({ chart: p.symbol }, "", `#chart=${p.symbol}`); } catch {}
+           }}
            style={{ marginBottom: 10, padding: 14, cursor: "pointer" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", flex: 1, minWidth: 0 }}>
@@ -170,7 +186,10 @@ export default function LivePositions() {
       ) : (
         radar.map((p, i) => <Card key={`r-${i}`} p={p} />)
       )}
-      {chartPos && <ChartModal pos={chartPos} lang={lang} onClose={() => setChartPos(null)} />}
+      {chartPos && <ChartModal pos={chartPos} lang={lang} onClose={() => {
+        setChartPos(null);
+        try { window.history.pushState({}, "", window.location.pathname); } catch {}
+      }} />}
     </>
     </Paywall>
   );
