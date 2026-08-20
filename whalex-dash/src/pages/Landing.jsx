@@ -22,15 +22,28 @@ export default function Landing() {
 
   const props = {
     lang,
-    onStart: () => nav(guest ? "/login" : paid ? "/live" : "/subscription"),
-    onPerf: () => nav(guest ? "/login" : "/positions"),
+    onStart: () => {
+      if (guest) { nav("/login"); return; }
+      try { sessionStorage.setItem("wx_seen_intro", "1"); } catch {}
+      nav(paid ? "/live" : "/subscription");
+    },
+    onPerf: () => {
+      if (guest) { nav("/login"); return; }
+      try { sessionStorage.setItem("wx_seen_intro", "1"); } catch {}
+      nav("/positions");
+    },
   };
 
   return (
     <div style={{ background: T.bg, minHeight: "100vh", marginInline: -16 }}>
       <TopBar
         lang={lang}
-        onEnter={() => nav(guest ? "/login" : "/")}
+        guest={guest}
+        onEnter={() => {
+          if (guest) { nav("/login"); return; }
+          try { sessionStorage.setItem("wx_seen_intro", "1"); } catch {}
+          nav("/");
+        }}
         onLang={() => setLang(lang === "en" ? "ar" : "en")}
       />
       {SECTIONS.filter((s) => s.enabled).map(({ id, Component }) => (

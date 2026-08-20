@@ -6,7 +6,7 @@ import { T } from "./sections.js";
  * شريط علوي ثابت — مخرج دائم من المقدّمة.
  * المشترك يدخل التطبيق مباشرةً · وغيره يبدأ التجربة.
  */
-export default function TopBar({ lang = "ar", onEnter, onLang }) {
+export default function TopBar({ lang = "ar", onEnter, onLang, guest = true }) {
   const ar = lang !== "en";
   const [solid, setSolid] = useState(false);
 
@@ -49,7 +49,9 @@ export default function TopBar({ lang = "ar", onEnter, onLang }) {
         color: T.brand, fontSize: 12, fontWeight: 800,
       }}>
         <LayoutDashboard size={14} />
-        {ar ? "تسجيل الدخول" : "Sign in"}
+        {guest
+          ? (ar ? "تسجيل الدخول" : "Sign in")
+          : (ar ? "تخطّي" : "Skip")}
       </button>
     </div>
   );

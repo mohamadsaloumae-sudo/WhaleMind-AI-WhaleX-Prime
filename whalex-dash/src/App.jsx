@@ -53,7 +53,9 @@ function Root() {
         element={
           ready && !user
             ? <Navigate to="/landing" replace />
-            : <DeviceGuard><Protected /></DeviceGuard>
+            : ready && user && !sessionStorage.getItem("wx_seen_intro")
+              ? <Navigate to="/landing" replace />
+              : <DeviceGuard><Protected /></DeviceGuard>
         }
       />
     </Routes>
