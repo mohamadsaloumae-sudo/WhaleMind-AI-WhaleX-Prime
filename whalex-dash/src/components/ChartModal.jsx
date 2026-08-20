@@ -47,11 +47,21 @@ export default function ChartModal({ pos, onClose, lang = "ar" }) {
   const pnl = Number(pos.pnl_pct) || 0;
   const up = pnl >= 0;
 
-  const Cell = ({ label, value, color }) => (
+  // 🎯 هل أُصيب هذا المستوى؟ (لونج: السعر تجاوزه · شورت: نزل تحته)
+  const hit = (lvl) => {
+    const v = Number(lvl), c = Number(cur);
+    if (!v || !c) return false;
+    return pos.direction === "LONG" ? c >= v : c <= v;
+  };
+
+  const Cell = ({ label, value, color, glow }) => (
     <div style={{
-      background: "rgba(255,255,255,.03)", borderRadius: 10,
-      border: "1px solid rgba(255,255,255,.06)",
+      background: glow ? `${color}1a` : "rgba(255,255,255,.03)",
+      borderRadius: 10,
+      border: glow ? `1.5px solid ${color}` : "1px solid rgba(255,255,255,.06)",
+      boxShadow: glow ? `0 0 14px ${color}55` : "none",
       padding: "7px 6px", textAlign: "center", minWidth: 0,
+      transition: "all .3s ease",
     }}>
       <div style={{ fontSize: 9.5, color: "var(--txt-3, #7c8798)", marginBottom: 3 }}>{label}</div>
       <div style={{
@@ -113,10 +123,14 @@ export default function ChartModal({ pos, onClose, lang = "ar" }) {
                   value={pos.leverage ? `${Math.round(pos.leverage)}x` : "—"} color="#c7d2fe" />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
-            <Cell label={lang === "en" ? "Stop" : "الوقف"} value={pos.sl || "—"} color="#ef4444" />
-            <Cell label="TP1" value={pos.tp1 || "—"} color="#22c55e" />
-            <Cell label="TP2" value={pos.tp2 || "—"} color="#22c55e" />
-            <Cell label="TP3" value={pos.tp3 || "—"} color="#22c55e" />
+            <Cell label={lang === "en" ? "Stop" : "الوقف"} value={pos.sl || "—"}
+                  color="#ef4444" />
+            <Cell label={hit(pos.tp1) ? "TP1 ✓" : "TP1"} value={pos.tp1 || "—"}
+                  color="#22c55e" glow={hit(pos.tp1)} />
+            <Cell label={hit(pos.tp2) ? "TP2 ✓" : "TP2"} value={pos.tp2 || "—"}
+                  color="#38bdf8" glow={hit(pos.tp2)} />
+            <Cell label={hit(pos.tp3) ? "TP3 ✓" : "TP3"} value={pos.tp3 || "—"}
+                  color="#fbbf24" glow={hit(pos.tp3)} />
           </div>
         </div>
 
