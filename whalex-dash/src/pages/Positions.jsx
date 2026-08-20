@@ -143,6 +143,12 @@ export default function Positions() {
                       <div style={{ fontSize: 11, color: "var(--accent)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {radar}
                       </div>
+                      <div style={{
+                        fontSize: 10.5, color: "var(--brand, #2dd4bf)",
+                        marginTop: 4, opacity: .9, fontWeight: 600,
+                      }}>
+                        {lang === "en" ? "📋 Tap for details" : "📋 اضغط للتفاصيل"}
+                      </div>
                       {(x.entry && x.exit_price) ? (
                         <div style={{ fontSize: 11, color: "var(--txt-3)", marginTop: 3, direction: "ltr", textAlign: "start" }}>
                           {x.entry} → {x.exit_price}
