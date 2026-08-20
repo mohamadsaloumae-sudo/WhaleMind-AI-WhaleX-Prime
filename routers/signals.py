@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends
+from routers.auth import get_current_user
+from services.signal_masking import mask_for
 from db.database import get_session, Signal
 from routers.auth import require_pro
 from typing import List
@@ -20,7 +22,7 @@ def _fmt(sigs):
     } for s in sigs]
 
 @router.get("/futures", )
-def futures_signals():
+def futures_signals(user=Depends(get_current_user)):
     db = get_session()
     try:
         sigs = db.query(Signal).filter(Signal.radar_type.in_(["futures","explosion"]), Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
@@ -30,7 +32,7 @@ def futures_signals():
         db.close()
 
 @router.get("/spot", )
-def spot_signals():
+def spot_signals(user=Depends(get_current_user)):
     db = get_session()
     try:
         sigs = db.query(Signal).filter(Signal.radar_type=="spot", Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
@@ -39,7 +41,7 @@ def spot_signals():
         db.close()
 
 @router.get("/meme", )
-def meme_signals():
+def meme_signals(user=Depends(get_current_user)):
     db = get_session()
     try:
         sigs = db.query(Signal).filter(Signal.radar_type=="meme", Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
@@ -48,7 +50,7 @@ def meme_signals():
         db.close()
 
 @router.get("/all", )
-def all_signals(market: str = "futures"):
+def all_signals(market: str = "futures", user=Depends(get_current_user)):
     db = get_session()
     try:
         if market == "meme":
@@ -87,7 +89,7 @@ def _hist_ex(symbol: str) -> str:
 
 
 @router.get("/history")
-def signals_history(market: str = "futures"):
+def signals_history(market: str = "futures", user=Depends(get_current_user)):
     if market == "meme":
         import sqlite3 as _sq, os as _os
         _mdb = _os.path.join(_os.path.dirname(__file__), "..", "db", "memecoin.db")
@@ -162,7 +164,7 @@ def signals_history(market: str = "futures"):
 
 
 @router.get("/monthly")
-def signals_monthly(market: str = "futures"):
+def signals_monthly(market: str = "futures", user=Depends(get_current_user)):
     """ملخّص الشهر (من تاريخ 1 بتوقيت دبي): رابحة/خاسرة + المجاميع"""
     import sqlite3
     if market == "meme":
