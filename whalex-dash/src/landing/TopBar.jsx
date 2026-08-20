@@ -49,7 +49,7 @@ export default function TopBar({ lang = "ar", onEnter, onLang }) {
         color: T.brand, fontSize: 12, fontWeight: 800,
       }}>
         <LayoutDashboard size={14} />
-        {ar ? "دخول التطبيق" : "Open app"}
+        {ar ? "تسجيل الدخول" : "Sign in"}
       </button>
     </div>
   );

@@ -9,6 +9,7 @@ import { PAGES } from "./lib/pages.js";
 import Layout from "./components/Layout.jsx";
 import DeviceGuard from "./components/DeviceGuard.jsx";
 import Login from "./pages/Login.jsx";
+import Landing from "./pages/Landing.jsx";
 
 function Protected() {
   const { user, ready } = useAuth();
@@ -40,6 +41,8 @@ function Root() {
   const { user, ready } = useAuth();
   return (
     <Routes>
+      {/* 🏁 المقدّمة عامّة — الزائر يقرأها قبل أن يسجّل */}
+      <Route path="/landing" element={<Landing />} />
       <Route
         path="/login"
         element={ready && user ? <Navigate to="/" replace /> : <Login />}
