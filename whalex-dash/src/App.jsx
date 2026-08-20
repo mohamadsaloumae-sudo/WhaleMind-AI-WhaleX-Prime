@@ -47,7 +47,15 @@ function Root() {
         path="/login"
         element={ready && user ? <Navigate to="/" replace /> : <Login />}
       />
-      <Route path="/*" element={<DeviceGuard><Protected /></DeviceGuard>} />
+      {/* 🏁 الزائر بلا حساب يرى المقدّمة أولاً لا شاشة الدخول */}
+      <Route
+        path="/*"
+        element={
+          ready && !user
+            ? <Navigate to="/landing" replace />
+            : <DeviceGuard><Protected /></DeviceGuard>
+        }
+      />
     </Routes>
   );
 }
