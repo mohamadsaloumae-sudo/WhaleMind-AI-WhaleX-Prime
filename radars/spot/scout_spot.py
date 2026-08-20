@@ -76,6 +76,28 @@ def _rsi(closes, period=14):
     return 100 - 100 / (1 + rs)
 
 
+_STATUS_CACHE: dict = {}
+_STATUS_TS = [0.0]
+
+
+async def _tradable_only(c: httpx.AsyncClient, syms: list) -> list:
+    """يُبقي ما حالته TRADING فقط — يستبعد BREAK · HALT · AUCTION_MATCH."""
+    import time as _t
+    if _t.time() - _STATUS_TS[0] > 3600 or not _STATUS_CACHE:
+        try:
+            r = await c.get(f"{SPOT}/api/v3/exchangeInfo", timeout=25)
+            _STATUS_CACHE.clear()
+            for s in (r.json().get("symbols") or []):
+                _STATUS_CACHE[s.get("symbol")] = s.get("status")
+            _STATUS_TS[0] = _t.time()
+        except Exception as e:
+            log.warning("🪙 exchangeInfo: %s", e)
+            return syms          # عند الفشل لا نحجب شيئاً
+    if not _STATUS_CACHE:
+        return syms
+    return [s for s in syms if _STATUS_CACHE.get(s) == "TRADING"]
+
+
 async def _universe_refresh(c: httpx.AsyncClient):
     global _universe, _uni_ts
     if _universe and time.time() - _uni_ts < UNIVERSE_TTL:
@@ -87,9 +109,15 @@ async def _universe_refresh(c: httpx.AsyncClient):
             and not _is_stable(x["symbol"])
             and float(x.get("quoteVolume", 0) or 0) > 0]
     rows.sort(key=lambda x: float(x["quoteVolume"]), reverse=True)
-    _universe = [x["symbol"] for x in rows[:UNIVERSE_N]]
+    _cand = [x["symbol"] for x in rows[:UNIVERSE_N * 2]]
+    # ⛔ نستبعد الموقوفة عن التداول — ticker/24hr لا يحمل الحالة.
+    #    UTKUSDT كانت BREAK (تداول معلّق) والرادار اصطادها:
+    #    لا تظهر على الشارت، ولن يُنفَّذ عليها أمر حقيقي.
+    _ok = await _tradable_only(c, _cand)
+    _universe = _ok[:UNIVERSE_N]
     _uni_ts = time.time()
-    log.info("🪙 كون السبوت: %d زوجاً (سيولة أعلى)", len(_universe))
+    log.info("🪙 كون السبوت: %d زوجاً (مُتداوَلة فعلياً · %d مستبعَدة)",
+             len(_universe), len(_cand) - len(_ok))
 
 
 def _trend_ok(highs, lows) -> tuple:
