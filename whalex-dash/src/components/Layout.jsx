@@ -46,12 +46,18 @@ export default function Layout({ titleKey, children }) {
         <header className="topbar">
           <h1 style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(titleKey)}</h1>
           <div className="spacer" />
-          <button className="lang-btn" onClick={toggle} title="Language">
-            <Languages size={17} />
-            {lang === "ar" ? "EN" : "ع"}
-          </button>
-          <button className="lang-btn" onClick={shareApp} title={lang === "ar" ? "مشاركة" : "Share"}>
-            <Share2 size={16} />
+          <button
+            onClick={shareApp}
+            title={lang === "ar" ? "مشاركة" : "Share"}
+            style={{
+              background: "transparent", border: "none", cursor: "pointer",
+              color: "var(--txt-2)", display: "flex", alignItems: "center",
+              padding: 6, borderRadius: 8, transition: "color .2s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--brand)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--txt-2)"; }}
+          >
+            <Share2 size={18} strokeWidth={1.8} />
           </button>
           <NotificationBell />
           <DrawerMenu />

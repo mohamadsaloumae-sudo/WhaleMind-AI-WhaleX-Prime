@@ -1,6 +1,6 @@
 // جرس الإشعارات — يجمع رسائل مدير الصفقات والإشارات عبر WebSocket
 import { useEffect, useRef, useState } from "react";
-import { Bell, X, Volume2, VolumeX } from "lucide-react";
+import { MessageSquare, X, Volume2, VolumeX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLang } from "../context/LangContext.jsx";
 import { getMarket } from "../hooks/useMarket.js";
@@ -223,11 +223,8 @@ export default function NotificationBell() {
 
   return (
     <>
-      <button className="bell-btn" onClick={toggleMute} title={muted ? "تشغيل الصوت" : "كتم الصوت"} style={{ opacity: muted ? 0.45 : 1 }}>
-        {muted ? <VolumeX size={17} /> : <Volume2 size={17} />}
-      </button>
       <button className="bell-btn" onClick={toggleOpen} title={t("notifications")}>
-        <Bell size={18} />
+        <MessageSquare size={18} strokeWidth={1.8} />
         {unread > 0 && <span className="bell-badge">{unread > 9 ? "9+" : unread}</span>}
       </button>
 
