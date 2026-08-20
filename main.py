@@ -131,6 +131,9 @@ app.include_router(tg_router)
 app.include_router(ai_router)
 app.include_router(prices_router)
 app.include_router(ws_router)
+# 📊 أرقام عامّة لصفحة المقدّمة — بلا مصادقة
+from routers.public_stats import router as public_router
+app.include_router(public_router)
 
 @app.get("/", include_in_schema=False)
 async def root(): return RedirectResponse("/static/index.html", 302)

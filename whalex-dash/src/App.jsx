@@ -24,7 +24,9 @@ function Protected() {
           <Route
             key={p.path}
             path={p.path}
-            element={p.path === "/support" ? <C /> : <Layout titleKey={"nav." + p.path}><C /></Layout>}
+            element={p.path === "/support" || p.path === "/landing"
+              ? <C />
+              : <Layout titleKey={"nav." + p.path}><C /></Layout>}
           />
         );
       })}
