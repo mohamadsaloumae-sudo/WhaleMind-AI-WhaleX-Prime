@@ -64,6 +64,28 @@ async def _get_price(symbol: str) -> float:
     return _price_cache.get(symbol, 0.0)  # آخر سعر معروف — لا صفر أبداً
 
 
+@router.get("/price-bench")
+async def price_bench():
+    """⏱️ قياس زمن جلب السعر لكل صفقة — من داخل الخدمة."""
+    import json, sqlite3, time
+    from radars.futures.position_manager import get_price as _gp
+    out = []
+    cn = sqlite3.connect("/opt/whalex/positions.db")
+    for (d,) in cn.execute("SELECT data FROM active_positions WHERE status!='closed'"):
+        try:
+            sym = json.loads(d).get("symbol")
+        except Exception:
+            continue
+        if not sym:
+            continue
+        t0 = time.time()
+        p = await _gp(sym)
+        out.append({"symbol": sym, "ms": round((time.time() - t0) * 1000, 1), "price": p})
+    cn.close()
+    out.sort(key=lambda x: -x["ms"])
+    return {"total_ms": round(sum(x["ms"] for x in out), 1), "slowest": out[:8]}
+
+
 @router.get("/stream-health")
 async def stream_health():
     """⚡ صحّة بثّ الأسعار — من داخل عملية الخدمة."""

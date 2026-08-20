@@ -82,6 +82,21 @@ def _universe_by_exchange() -> dict:
     return out
 
 
+async def _watch_single(client, ex: str, sym: str):
+    """بثّ عملة واحدة — للمنصّات التي لا تدعم watchTickers."""
+    while True:
+        try:
+            t = await client.watch_ticker(sym)
+            p = (t or {}).get("last") or (t or {}).get("close")
+            if p:
+                _PX[sym] = (float(p), time.time())
+                _ALIVE[ex] = time.time()
+                STATS["updates"] += 1
+        except Exception as e:
+            log.debug("⚡ %s/%s: %s", ex, sym, str(e)[:40])
+            await asyncio.sleep(10)
+
+
 async def _stream_one(ex: str):
     import ccxt.pro as ccxtpro
     delay = RECONNECT_BASE
@@ -97,14 +112,19 @@ async def _stream_one(ex: str):
                 "options": {"defaultType": "swap"},
             })
             _CLIENTS[ex] = client
-            # 🚫 منصّات لا تدعم watchTickers — نتركها للاحتياطي (بينج إكس)
+            # 🔀 لا يدعم watchTickers؟ نتابع كل عملة بمهمّة مستقلّة (بينج إكس)
             if not client.has.get("watchTickers"):
-                log.warning("⚡ %s: لا يدعم watchTickers — احتياطي HTTP", ex)
-                try:
-                    await client.close()
-                except Exception:
-                    pass
-                return
+                if not client.has.get("watchTicker"):
+                    log.warning("⚡ %s: بلا بثّ — احتياطي HTTP", ex)
+                    try:
+                        await client.close()
+                    except Exception:
+                        pass
+                    return
+                log.info("⚡🔌 %s: بثّ مفرد على %d عملة", ex, len(syms))
+                delay = RECONNECT_BASE
+                await asyncio.gather(*[_watch_single(client, ex, s) for s in syms])
+                continue
             log.info("⚡🔌 %s: بثّ لحظي على %d عملة", ex, len(syms))
             delay = RECONNECT_BASE
             while True:
