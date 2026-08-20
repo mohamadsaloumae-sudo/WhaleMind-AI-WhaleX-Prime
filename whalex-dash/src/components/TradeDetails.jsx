@@ -36,12 +36,12 @@ export default function TradeDetails({ trade: x, lang = "ar", onClose }) {
   const win = x.is_win;
   const pnl = Number(x.pnl_pct) || 0;
 
+  // 📅 التاريخ بصيغة إنجليزية ثابتة — الصيغة العربية تعكس ترتيب الأرقام
   const fmtT = (ts) => {
     if (!ts) return "—";
     const d = new Date(Number(ts) * 1000);
-    return d.toLocaleString(ar ? "ar-AE" : "en-US", {
-      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-    });
+    const p = (n) => String(n).padStart(2, "0");
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}  ${p(d.getHours())}:${p(d.getMinutes())}`;
   };
   const dur = (() => {
     if (!x.opened_at || !x.closed_at) return "—";
@@ -54,8 +54,41 @@ export default function TradeDetails({ trade: x, lang = "ar", onClose }) {
     const k = String(x.close_reason || "").toUpperCase();
     for (const [key, [a, e]] of Object.entries(REASON))
       if (k.includes(key)) return ar ? a : e;
-    return x.close_reason || "—";
+    if (x.close_reason) return x.close_reason;
+    // 🧠 الصفقات القديمة بلا حقل — نستنتج السبب من السعر
+    const e = Number(x.entry), ex2 = Number(x.exit_price);
+    const sl = Number(x.sl), tp = Number(x.tp1);
+    if (e && ex2 && sl) {
+      const hitSL = x.direction === "LONG" ? ex2 <= sl * 1.005 : ex2 >= sl * 0.995;
+      if (hitSL) return ar ? "🛑 ضرب الوقف" : "Stop loss hit";
+    }
+    if (e && ex2 && tp) {
+      const hitTP = x.direction === "LONG" ? ex2 >= tp * 0.995 : ex2 <= tp * 1.005;
+      if (hitTP) return ar ? "🎯 بلغ الهدف" : "Target hit";
+    }
+    return win ? (ar ? "🔒 جني ربح" : "Profit taken")
+               : (ar ? "🚪 خروج مبكر" : "Early exit");
   })();
+
+  // 🎯 اسم الرادار الحقيقي من tier — لا اسم المنصّة
+  const radarName = (() => {
+    const t = String(x.tier || "").toUpperCase();
+    if (t === "MX") return ar ? "🌐 رادار المنصّات" : "🌐 Multi-Exchange";
+    if (t === "MEME") return ar ? "🐸 رادار الميم" : "🐸 Meme Radar";
+    if (t === "SPOT") return ar ? "🪙 رادار السبوت" : "🪙 Spot Radar";
+    if (t === "PH") return x.direction === "LONG"
+      ? (ar ? "📈 واليكس لونج" : "📈 WhaleX Long")
+      : (ar ? "🎯 واليكس شورت" : "🎯 WhaleX Short");
+    if (t === "LV2") return ar ? "🔬 لونج V2" : "🔬 Long V2";
+    return ar ? "⚡ واليكس بريديتر" : "⚡ WhaleX Predator";
+  })();
+
+  const Sec = ({ children }) => (
+    <div style={{
+      fontSize: 11, fontWeight: 700, color: "var(--brand, #2dd4bf)",
+      marginTop: 14, marginBottom: 4, letterSpacing: .3,
+    }}>{children}</div>
+  );
 
   const Row = ({ label, value, color }) => (
     <div style={{
@@ -102,26 +135,39 @@ export default function TradeDetails({ trade: x, lang = "ar", onClose }) {
         </div>
 
         <div style={{ padding: "10px 16px 16px" }}>
+          <Sec>{L("الصفقة", "Trade")}</Sec>
           <Row label={L("المنصّة", "Exchange")} value={EX_NAME[ex] || ex} />
-          <Row label={L("الرادار", "Radar")} value={(x.strategies || "").split("\n")[0] || "—"} />
-          <div style={{ height: 10 }} />
-          <Row label={L("⏰ وقت الدخول", "⏰ Entry time")} value={fmtT(x.opened_at)} />
-          <Row label={L("💰 سعر الدخول", "💰 Entry price")} value={x.entry ?? "—"} />
-          <Row label={L("⏰ وقت الخروج", "⏰ Exit time")} value={fmtT(x.closed_at)} />
-          <Row label={L("💰 سعر الخروج", "💰 Exit price")} value={x.exit_price ?? "—"} />
-          <Row label={L("⏱️ مدّة الصفقة", "⏱️ Duration")} value={dur} />
-          <div style={{ height: 10 }} />
-          <Row label={L("🛑 الوقف", "🛑 Stop loss")} value={x.sl ?? "—"} color="#ef4444" />
+          <Row label={L("الرادار", "Radar")} value={radarName} />
+
+          <Sec>{L("الدخول", "Entry")}</Sec>
+          <Row label={L("التوقيت", "Time")} value={fmtT(x.opened_at)} />
+          <Row label={L("السعر", "Price")} value={x.entry ?? "—"} />
+
+          <Sec>{L("الخروج", "Exit")}</Sec>
+          <Row label={L("التوقيت", "Time")} value={fmtT(x.closed_at)} />
+          <Row label={L("السعر", "Price")} value={x.exit_price ?? "—"} />
+          <Row label={L("المدّة", "Duration")} value={dur} />
+          <Row label={L("السبب", "Reason")} value={reasonTxt} />
+
+          <Sec>{L("المستويات", "Levels")}</Sec>
+          <Row label={L("الوقف", "Stop loss")} value={x.sl ?? "—"} color="#ef4444" />
           {x.tp1 ? <Row label="🎯 TP1" value={x.tp1} color="#22c55e" /> : null}
           {x.tp2 ? <Row label="🎯 TP2" value={x.tp2} color="#22c55e" /> : null}
           {x.tp3 ? <Row label="🎯 TP3" value={x.tp3} color="#22c55e" /> : null}
           {x.peak_pnl != null ? (
-            <Row label={L("📈 أعلى ربح", "📈 Peak profit")}
+            <Row label={L("أعلى ربح", "Peak profit")}
                  value={`${Number(x.peak_pnl) >= 0 ? "+" : ""}${Number(x.peak_pnl).toFixed(2)}%`}
                  color="#22c55e" />
           ) : null}
-          <Row label={L("🚪 سبب الإغلاق", "🚪 Close reason")} value={reasonTxt} />
-          <div style={{ height: 10 }} />
+          <Sec>{L("أسباب الدخول", "Entry reasons")}</Sec>
+          {(x.strategies || "").split("\n").slice(1).filter(Boolean).map((r, i) => (
+            <div key={i} style={{
+              fontSize: 12, color: "#fff", padding: "5px 0",
+              borderBottom: "1px solid rgba(255,255,255,.04)",
+            }}>✅ {r}</div>
+          ))}
+
+          <Sec>{L("المؤشّرات", "Indicators")}</Sec>
           {x.rsi ? <Row label="RSI" value={Number(x.rsi).toFixed(1)} /> : null}
           {x.range_pos != null ? (
             <Row label={L("الموقع في النطاق", "Range position")}
