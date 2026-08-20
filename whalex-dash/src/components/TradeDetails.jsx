@@ -15,16 +15,16 @@ const EX_NAME = {
   bitget: "Bitget", gate: "Gate.io", okx: "OKX",
 };
 
+// 🚪 أسباب الإغلاق الحقيقية — مطابقة لـExitReason في المدير
 const REASON = {
-  SL_HIT: ["🛑 ضرب الوقف", "Stop loss hit"],
-  TP1_HIT: ["🎯 الهدف الأول", "Take profit 1"],
-  TP2_HIT: ["🎯 الهدف الثاني", "Take profit 2"],
-  TP3_HIT: ["🎯 الهدف الثالث", "Take profit 3"],
-  REVERSAL: ["🔄 انعكاس التدفّق", "Flow reversal"],
-  EXPIRED: ["⏳ انتهت المهلة", "Expired"],
-  TACTICAL: ["🧠 خروج تكتيكي", "Tactical exit"],
-  FLOOR: ["🔻 الأرضية", "Hard floor"],
-  PROFIT_LOCK: ["🔒 قفل الربح", "Profit lock"],
+  sl_hit: ["🛑 ضرب الوقف", "Stop loss hit"],
+  tp1_hit: ["🎯 الهدف الأول", "Target 1 hit"],
+  tp2_hit: ["🎯 الهدف الثاني", "Target 2 hit"],
+  tp3_hit: ["🎯 الهدف الثالث", "Target 3 hit"],
+  explosion: ["💥 انفجار", "Explosion"],
+  tactical_exit: ["🧠 خروج تكتيكي", "Tactical exit"],
+  force_close: ["🚪 إغلاق قسري", "Force close"],
+  kill_switch: ["⛔ مفتاح الطوارئ", "Kill switch"],
 };
 
 /** 📊 تفاصيل الصفقة المغلقة — كل ما يحتاجه المستخدم للمراجعة. */
@@ -50,24 +50,13 @@ export default function TradeDetails({ trade: x, lang = "ar", onClose }) {
     const h = Math.floor(m / 60);
     return `${h} ${L("ساعة", "h")} ${m % 60} ${L("د", "m")}`;
   })();
+  // 🚪 السبب الحقيقي فقط — لا استنتاج. الصفقات القديمة بلا تسجيل.
   const reasonTxt = (() => {
-    const k = String(x.close_reason || "").toUpperCase();
+    const k = String(x.close_reason || "").toLowerCase().trim();
+    if (!k) return ar ? "غير مسجّل" : "Not recorded";
     for (const [key, [a, e]] of Object.entries(REASON))
-      if (k.includes(key)) return ar ? a : e;
-    if (x.close_reason) return x.close_reason;
-    // 🧠 الصفقات القديمة بلا حقل — نستنتج السبب من السعر
-    const e = Number(x.entry), ex2 = Number(x.exit_price);
-    const sl = Number(x.sl), tp = Number(x.tp1);
-    if (e && ex2 && sl) {
-      const hitSL = x.direction === "LONG" ? ex2 <= sl * 1.005 : ex2 >= sl * 0.995;
-      if (hitSL) return ar ? "🛑 ضرب الوقف" : "Stop loss hit";
-    }
-    if (e && ex2 && tp) {
-      const hitTP = x.direction === "LONG" ? ex2 >= tp * 0.995 : ex2 <= tp * 1.005;
-      if (hitTP) return ar ? "🎯 بلغ الهدف" : "Target hit";
-    }
-    return win ? (ar ? "🔒 جني ربح" : "Profit taken")
-               : (ar ? "🚪 خروج مبكر" : "Early exit");
+      if (k === key || k.includes(key)) return ar ? a : e;
+    return x.close_reason;
   })();
 
   // 🎯 اسم الرادار الحقيقي من tier — لا اسم المنصّة
