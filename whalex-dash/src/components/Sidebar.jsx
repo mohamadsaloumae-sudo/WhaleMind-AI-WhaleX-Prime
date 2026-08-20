@@ -2,6 +2,7 @@
 import { NavLink } from "react-router-dom";
 import { Waves, LogOut } from "lucide-react";
 import { PAGES } from "../lib/pages.js";
+import QuickSettings from "./QuickSettings.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useLang } from "../context/LangContext.jsx";
 
@@ -38,6 +39,10 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      <div style={{ padding: "0 14px" }}>
+        <QuickSettings />
+      </div>
 
       <div className="sidebar-footer">
         <div className="user-chip">

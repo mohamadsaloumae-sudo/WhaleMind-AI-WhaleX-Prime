@@ -1,18 +1,11 @@
 // ☰ قائمة جانبية — انزلاق ناعم، صفوف مرتّبة، تتبع اتجاه اللغة
 import { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
-import { Menu, X, Send, Youtube, Music2, Twitter, MessageCircle } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { PAGES } from "../lib/pages.js";
 import { useLang } from "../context/LangContext.jsx";
 
 // 🌐 روابط التواصل — عدّلها هنا فقط
-const SOCIAL = [
-  ["WhatsApp", "https://wa.me/971500000000", MessageCircle],
-  ["Telegram", "https://t.me/whalexprime", Send],
-  ["TikTok", "https://tiktok.com/@whalexprime", Music2],
-  ["X", "https://x.com/whalexprime", Twitter],
-  ["YouTube", "https://youtube.com/@whalexprime", Youtube],
-];
 
 /** صفّ إعداد: عنوان يمين وخيارات يسار */
 function Row({ label, children }) {
@@ -165,22 +158,6 @@ export default function DrawerMenu() {
               </Row>
             </div>
 
-            {/* 🌐 تواصل معنا — أيقونات عارية بلا مربّعات */}
-            <div style={{
-              display: "flex", justifyContent: "center", gap: 20,
-              marginTop: 16, paddingTop: 14,
-              borderTop: "1px solid rgba(255,255,255,.07)",
-            }}>
-              {SOCIAL.map(([name, url, Icon]) => (
-                <a key={name} href={url} target="_blank" rel="noreferrer"
-                   title={name} onClick={close}
-                   style={{ color: "var(--txt-3, #6b7688)", display: "flex", transition: "color .2s" }}
-                   onMouseEnter={(e) => { e.currentTarget.style.color = "var(--brand, #4ade80)"; }}
-                   onMouseLeave={(e) => { e.currentTarget.style.color = "var(--txt-3, #6b7688)"; }}>
-                  <Icon size={21} strokeWidth={1.7} />
-                </a>
-              ))}
-            </div>
 
             <div style={{ marginTop: 14, paddingTop: 10, fontSize: 11, opacity: .4, textAlign: "center" }}>
               WhaleX Prime 🐋
