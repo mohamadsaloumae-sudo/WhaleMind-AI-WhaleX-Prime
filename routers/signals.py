@@ -77,6 +77,15 @@ def all_signals(market: str = "futures"):
         db.close()
 
 
+def _hist_ex(symbol: str) -> str:
+    """منصّة العملة — للصفقات القديمة التي لم تُسجّلها."""
+    try:
+        from services.binance_trader import symbol_exchange
+        return symbol_exchange(symbol)
+    except Exception:
+        return "binance"
+
+
 @router.get("/history")
 def signals_history(market: str = "futures"):
     if market == "meme":
@@ -133,7 +142,10 @@ def signals_history(market: str = "futures"):
                 "is_win": bool(r["outcome"]), "closed_at": r["closed_at"],
                 "strategies": r["strategies"],
                 "leverage": r["leverage"] if "leverage" in r.keys() else None,
-                "exchange": (r["exchange"] if "exchange" in r.keys() else None) or "binance",
+                # 🌐 المنصّة: المسجّلة إن وُجدت، وإلا نستنتجها من كون المنصّات.
+                #    الصفقات القديمة بلا حقل — فكانت تُعرض بشعار باينانس خطأً.
+                "exchange": ((r["exchange"] if "exchange" in r.keys() else None)
+                             or _hist_ex(r["symbol"])),
             })
         return {"history": out}
     except Exception as e:
