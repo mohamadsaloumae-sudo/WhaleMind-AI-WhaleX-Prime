@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { subscription } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
 import { Check, Crown, Copy, CheckCircle2 } from "lucide-react";
+import TrialCard from "../components/TrialCard.jsx";
 
 export default function Subscription() {
   const { t, lang } = useLang();
@@ -51,6 +52,9 @@ export default function Subscription() {
     <div style={{ maxWidth: 560 }}>
       <SubCountdown />
       {msg && <div className={`alert ${msg.type}`}>{msg.text}</div>}
+
+      {/* 🎁 التجربة المجانية — تظهر لمن لم يستخدمها */}
+      <TrialCard />
 
       {/* عدّاد المشتركين */}
       {subs && (

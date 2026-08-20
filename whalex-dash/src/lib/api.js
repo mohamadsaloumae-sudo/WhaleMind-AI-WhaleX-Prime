@@ -56,6 +56,8 @@ export const auth = {
 
 export const binance = {
   exchanges:  ()     => api.get("/api/binance/exchanges"),
+  trialStatus:()     => api.get("/api/trial/status"),
+  trialStart: (fp)   => api.post("/api/trial/start", { fingerprint: fp }),
   accounts:   ()     => api.get("/api/binance/accounts"),
   unlink:     (ex)   => api.del(`/api/binance/disconnect/${ex}`),
   status:     ()     => api.get("/api/binance/status"),
