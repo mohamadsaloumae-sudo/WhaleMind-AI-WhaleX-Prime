@@ -6,12 +6,16 @@ import Hero from "./Hero.jsx";
 import LiveShowcase from "./LiveShowcase.jsx";
 import LiveStats from "./LiveStats.jsx";
 import WhyDifferent from "./WhyDifferent.jsx";
+import HowItWorks from "./HowItWorks.jsx";
+import Pricing from "./Pricing.jsx";
 
 export const SECTIONS = [
   { id: "hero", Component: Hero, enabled: true },
   { id: "showcase", Component: LiveShowcase, enabled: true },
   { id: "stats", Component: LiveStats, enabled: true },
   { id: "why", Component: WhyDifferent, enabled: true },
+  { id: "how", Component: HowItWorks, enabled: true },
+  { id: "pricing", Component: Pricing, enabled: true },
 ];
 
 /** 🎨 الهوية البصرية — تعديل هنا يُغيّر كل الأقسام */
