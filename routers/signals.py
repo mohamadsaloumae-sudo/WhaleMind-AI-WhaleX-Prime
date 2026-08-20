@@ -124,7 +124,9 @@ def signals_history(market: str = "futures"):
         rows = con.execute("""
             SELECT symbol, direction, entry, exit_price, grade, tier,
                    result, pnl_pct, outcome, closed_at, strategies,
-                   leverage, exchange
+                   leverage, exchange, timestamp, sl, tp1, tp2, tp3,
+                   peak_pnl, close_reason, rsi, range_pos, volume_ratio,
+                   score, confidence
             FROM training_signals
             WHERE pnl_pct IS NOT NULL AND closed_at IS NOT NULL
               AND result IN ('win','loss')
@@ -142,6 +144,13 @@ def signals_history(market: str = "futures"):
                 "is_win": bool(r["outcome"]), "closed_at": r["closed_at"],
                 "strategies": r["strategies"],
                 "leverage": r["leverage"] if "leverage" in r.keys() else None,
+                # 📊 تفاصيل كاملة للشفافية
+                "opened_at": r["timestamp"], "sl": r["sl"],
+                "tp1": r["tp1"], "tp2": r["tp2"], "tp3": r["tp3"],
+                "peak_pnl": r["peak_pnl"], "close_reason": r["close_reason"],
+                "rsi": r["rsi"], "range_pos": r["range_pos"],
+                "volume_ratio": r["volume_ratio"],
+                "score": r["score"], "confidence": r["confidence"],
                 # 🌐 المنصّة: المسجّلة إن وُجدت، وإلا نستنتجها من كون المنصّات.
                 #    الصفقات القديمة بلا حقل — فكانت تُعرض بشعار باينانس خطأً.
                 "exchange": ((r["exchange"] if "exchange" in r.keys() else None)

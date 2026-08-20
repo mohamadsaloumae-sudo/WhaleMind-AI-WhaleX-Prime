@@ -7,6 +7,8 @@ import Paywall from "../components/Paywall.jsx";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
 // 🖼️ شعارات المنصّات — للشفافية: أين نُفِّذت الصفقة
+import TradeDetails from "../components/TradeDetails.jsx";
+
 const EX_LOGO = {
   binance: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/270.png",
   bybit: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/521.png",
@@ -20,6 +22,7 @@ const EX_LOGO = {
 export default function Positions() {
   const { t, lang } = useLang();
   const [history, setHistory] = useState([]);
+  const [detail, setDetail] = useState(null);   // 📊 تفاصيل الصفقة
   const [monthly, setMonthly] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -118,8 +121,8 @@ export default function Positions() {
                 : x.tier === "PH" ? (x.direction === "LONG" ? "📈 WhaleX Long" : "🎯 WhaleX Short")
                 : "⚡ WhaleX Predator";
               return (
-                <div key={i} className="card" style={{
-                  padding: "14px 16px", marginBottom: 0,
+                <div key={i} className="card" onClick={() => setDetail(x)} style={{
+                  padding: "14px 16px", marginBottom: 0, cursor: "pointer",
                   borderInlineStart: `3px solid ${win ? "var(--green)" : "var(--red)"}`,
                 }}>
                   {/* الصف الأول: العملة والرادار | النتيجة والحالة */}
@@ -176,6 +179,7 @@ export default function Positions() {
         )}
       </div>
     </>
+      {detail && <TradeDetails trade={detail} lang={lang} onClose={() => setDetail(null)} />}
     </Paywall>
   );
 }

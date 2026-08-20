@@ -90,8 +90,8 @@ def record_signal(trade) -> Optional[int]:
                 regime, range_pos, rsi, stoch_k, stoch_d, macd_hist,
                 funding, oi_change, btc_trend, hawk_phase, hawk_modifier,
                 volume_ratio, key_strat_count, ob_pressure, cvd_flow,
-                leverage, exchange
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                leverage, exchange, tp2, tp3
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             getattr(trade, "timestamp", int(time.time())),
             trade.symbol, trade.direction, trade.entry, trade.sl, trade.tp1,
@@ -111,6 +111,8 @@ def record_signal(trade) -> Optional[int]:
             # 📊 للشفافية: الرافعة والمنصّة — يراهما المستخدم في الصفقات المغلقة
             float(getattr(trade, "leverage", 0) or 0),
             _sym_exchange(trade.symbol),
+            float(getattr(trade, "tp2", 0) or 0),
+            float(getattr(trade, "tp3", 0) or 0),
         ))
         conn.commit()
         row_id = cur.lastrowid
@@ -122,14 +124,17 @@ def record_signal(trade) -> Optional[int]:
         return None
 
 
-def update_result(row_id: int, result: str, exit_price: float, pnl_pct: float):
+def update_result(row_id: int, result: str, exit_price: float, pnl_pct: float,
+                  peak_pnl: float = None, close_reason: str = None):
     try:
         outcome = 1 if pnl_pct > 0 else 0
         conn = sqlite3.connect(DB_PATH)
         conn.execute("""
-            UPDATE training_signals SET result=?, exit_price=?, pnl_pct=?, closed_at=?, outcome=?
+            UPDATE training_signals SET result=?, exit_price=?, pnl_pct=?, closed_at=?, outcome=?,
+                   peak_pnl=COALESCE(?, peak_pnl), close_reason=COALESCE(?, close_reason)
             WHERE id=?
-        """, (result, exit_price, pnl_pct, int(time.time()), outcome, row_id))
+        """, (result, exit_price, pnl_pct, int(time.time()), outcome,
+              peak_pnl, close_reason, row_id))
         conn.commit()
         conn.close()
         log.info("ML result: id=%d pnl=%.2f outcome=%d", row_id, pnl_pct, outcome)
@@ -138,7 +143,8 @@ def update_result(row_id: int, result: str, exit_price: float, pnl_pct: float):
 
 
 def update_result_by_match(symbol: str, direction: str, entry: float,
-                           result: str, exit_price: float, pnl_pct: float):
+                           result: str, exit_price: float, pnl_pct: float,
+                           peak_pnl: float = None, close_reason: str = None):
     """تحديث نتيجة آخر إشارة مفتوحة مطابقة (symbol+direction+entry قريب).
     يُستخدم عند إغلاق صفقة لربط النتيجة بالإشارة المسجّلة."""
     try:
@@ -153,9 +159,11 @@ def update_result_by_match(symbol: str, direction: str, entry: float,
         if row:
             rid = row[0]
             conn.execute("""
-                UPDATE training_signals SET result=?, exit_price=?, pnl_pct=?, closed_at=?, outcome=?
+                UPDATE training_signals SET result=?, exit_price=?, pnl_pct=?, closed_at=?, outcome=?,
+                       peak_pnl=COALESCE(?, peak_pnl), close_reason=COALESCE(?, close_reason)
                 WHERE id=?
-            """, (result, exit_price, pnl_pct, int(time.time()), outcome, rid))
+            """, (result, exit_price, pnl_pct, int(time.time()), outcome,
+                  peak_pnl, close_reason, rid))
             conn.commit()
             log.info("ML result matched: %s %s id=%d pnl=%.2f outcome=%d",
                      symbol, direction, rid, pnl_pct, outcome)

@@ -1045,8 +1045,17 @@ async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_p
     try:
         from ml_recorder import update_result_by_match
         _result = "win" if pnl_pct > 0 else "loss"
+        # 📊 للشفافية: أعلى ربح وصلته الصفقة وسبب إغلاقها
+        _pk = getattr(pos, "peak_price", 0) or 0
+        _pkp = None
+        if _pk and pos.entry:
+            _mv = ((_pk - pos.entry) / pos.entry * 100) if pos.direction == "LONG" \
+                else ((pos.entry - _pk) / pos.entry * 100)
+            _pkp = round(_mv * float(pos.leverage or 1), 2)
         update_result_by_match(pos.symbol, pos.direction, pos.entry,
-                               _result, price, pnl_pct)
+                               _result, price, pnl_pct,
+                               peak_pnl=_pkp,
+                               close_reason=str(reason.value if hasattr(reason, "value") else reason))
     except Exception as _e:
         log.debug("ML update error: %s", _e)
 
