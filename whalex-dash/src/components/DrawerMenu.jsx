@@ -4,49 +4,15 @@ import { NavLink } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { PAGES } from "../lib/pages.js";
 import { useLang } from "../context/LangContext.jsx";
+import QuickSettings from "./QuickSettings.jsx";
 
 // 🌐 روابط التواصل — عدّلها هنا فقط
 
-/** صفّ إعداد: عنوان يمين وخيارات يسار */
-function Row({ label, children }) {
-  return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 10,
-      padding: "9px 4px",
-    }}>
-      <span style={{ fontSize: 12.5, color: "var(--txt-2, #b6bdcc)", flex: 1 }}>
-        {label}
-      </span>
-      <div style={{ display: "flex", gap: 6 }}>{children}</div>
-    </div>
-  );
-}
 
-/** زرّ خيار صغير */
-function Pill({ on, onClick, children }) {
-  return (
-    <button onClick={onClick} style={{
-      padding: "5px 12px", borderRadius: 8, cursor: "pointer",
-      fontSize: 11.5, fontWeight: on ? 800 : 600,
-      background: on ? "rgba(74,222,128,.14)" : "transparent",
-      border: `1px solid ${on ? "rgba(74,222,128,.45)" : "rgba(255,255,255,.1)"}`,
-      color: on ? "var(--brand, #4ade80)" : "var(--txt-3, #6b7688)",
-      transition: "all .18s",
-    }}>{children}</button>
-  );
-}
 
 export default function DrawerMenu() {
-  const { t, lang, setLang } = useLang();
-  const [muted, setMuted] = useState(
-    () => localStorage.getItem("wx_sound") === "off"
-  );
+  const { t, lang } = useLang();
 
-  function setSound(on) {
-    localStorage.setItem("wx_sound", on ? "on" : "off");
-    setMuted(!on);
-    window.dispatchEvent(new Event("wx-sound"));
-  }
   const [open, setOpen] = useState(false);
   const [shown, setShown] = useState(false);
   // 🏁 «عن المنصّة» أوّل القائمة — بصرياً فقط، فترتيب PAGES يحكم الشريط السفلي
@@ -142,21 +108,7 @@ export default function DrawerMenu() {
               })}
             </nav>
 
-            {/* ⚙️ إعدادات سريعة — اللغة والصوت (كانا في الرأس العلوي) */}
-            <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,.07)" }}>
-              <Row label={lang === "ar" ? "اللغة" : "Language"}>
-                <Pill on={lang === "ar"} onClick={() => setLang("ar")}>عربي</Pill>
-                <Pill on={lang === "en"} onClick={() => setLang("en")}>English</Pill>
-              </Row>
-              <Row label={lang === "ar" ? "صوت التنبيهات" : "Alert sound"}>
-                <Pill on={!muted} onClick={() => setSound(true)}>
-                  {lang === "ar" ? "تشغيل" : "On"}
-                </Pill>
-                <Pill on={muted} onClick={() => setSound(false)}>
-                  {lang === "ar" ? "كتم" : "Mute"}
-                </Pill>
-              </Row>
-            </div>
+            <QuickSettings />
 
 
             <div style={{ marginTop: 14, paddingTop: 10, fontSize: 11, opacity: .4, textAlign: "center" }}>
