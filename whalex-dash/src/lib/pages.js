@@ -7,7 +7,7 @@
 // ════════════════════════════════════════════════════════════
 import {
   LayoutDashboard, Radio, Bot, TrendingUp,
-  CreditCard, Settings, Search, Shield, BarChart3, Activity, MessageCircle,
+  CreditCard, Settings, Search, Shield, BarChart3, Activity, MessageCircle, Sparkles,
 } from "lucide-react";
 
 import Dashboard from "../pages/Dashboard.jsx";
@@ -21,6 +21,7 @@ import Positions from "../pages/Positions.jsx";
 import LivePositions from "../pages/LivePositions.jsx";
 import Admin from "../pages/Admin.jsx";
 import Support from "../pages/Support.jsx";
+import Landing from "../pages/Landing.jsx";
 
 // كل عنصر: { path, label, icon, component, adminOnly?, hideNav? }
 export const PAGES = [
@@ -33,6 +34,7 @@ export const PAGES = [
   { path: "/scanner",      label: "فاحص العملات",     icon: Search,          component: Scanner },
   { path: "/subscription", label: "الاشتراك",        icon: CreditCard,      component: Subscription },
   { path: "/settings",     label: "الإعدادات",       icon: Settings,        component: SettingsPage },
+  { path: "/landing",      label: "عن المنصّة",       icon: Sparkles,        component: Landing },
   { path: "/support",      label: "خدمة العملاء",    icon: MessageCircle,   component: Support },
   { path: "/admin",        label: "لوحة الإدارة",     icon: Shield,          component: Admin, adminOnly: true },
 ];
