@@ -26,7 +26,7 @@ import Landing from "../pages/Landing.jsx";
 // كل عنصر: { path, label, icon, component, adminOnly?, hideNav? }
 export const PAGES = [
   // 🏁 المقدّمة — تُعرض عند كل فتح للتطبيق (hideNav: خارج القائمة)
-  { path: "/landing",      label: "المقدّمة",        icon: Sparkles,        component: Landing, hideNav: true },
+  { path: "/landing",      label: "المقدّمة",        icon: Sparkles,        component: Landing },
   { path: "/",             label: "الرئيسية",        icon: LayoutDashboard, component: Dashboard },
   { path: "/signals",      label: "الإشارات الحيّة",  icon: Radio,           component: Signals },
   { path: "/live",         label: "الصفقات المفتوحة", icon: Activity,        component: LivePositions },
