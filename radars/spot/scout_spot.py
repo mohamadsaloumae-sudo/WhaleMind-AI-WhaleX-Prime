@@ -231,14 +231,11 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
     SPOT_SCORE_MIN = 6.0
     if _pts < SPOT_SCORE_MIN:
         return
-    log.info("🪙🔎 مرشّح قريب: %s taker=%.0f%% vol=%.2fx rsi=%.0f pos=%.0f%%",
-             sym, taker*100, v_infl, rsi_v, range_pos*100)
-    if closes[-1] < sum(closes[-6:-1]) / 5 * 0.99:
-        return  # لا شرارة خضراء فوق المتوسط القريب
-
+    # ⚠️ الشرطان القديمان (شرارة خضراء · taker>=0.53) أُزيلا:
+    #    صارا مكرّرين بعد نظام النقاط — فكانا يقتلان ما تجتازه النقاط.
+    #    UTKUSDT: نقاط 6.0 (RSI 53 · حجم x9.07 · قاع 10%) ثم رُفضت لأن taker=49%.
+    log.info("🪙🔎 مرشّح: %s نقاط=%.1f | %s", sym, _pts, " · ".join(_why))
     grade = "A" if _pts >= 7.5 else "B"
-    if not _strong and (taker < 0.53 or v_infl < 1.20):
-        return  # نبثّ A والقوي من B — انتقاء عالٍ بفرص أكثر
 
     # 📖 آخر فحص قبل الدخول: هل يوجد مشترون في الكتاب يسندون السعر؟
     _b_ok, _b_why = await _book_ok(c, sym, price)
