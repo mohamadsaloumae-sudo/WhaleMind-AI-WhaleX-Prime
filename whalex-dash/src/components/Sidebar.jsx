@@ -17,7 +17,12 @@ export default function Sidebar() {
       </div>
 
       <nav className="nav-list">
-        {PAGES.filter((p) => !p.adminOnly).map((p) => {
+        {(() => {
+          // 🏁 «عن المنصّة» أوّل القائمة الجانبية
+          const _a = PAGES.filter((p) => !p.adminOnly);
+          const _ab = _a.find((p) => p.path === "/landing");
+          return _ab ? [_ab, ..._a.filter((p) => p.path !== "/landing")] : _a;
+        })().map((p) => {
           const Icon = p.icon;
           return (
             <NavLink

@@ -9,7 +9,12 @@ export default function DrawerMenu() {
   const { t, lang } = useLang();
   const [open, setOpen] = useState(false);
   const [shown, setShown] = useState(false);
-  const pages = PAGES.filter((p) => !p.adminOnly).slice(5);
+  // 🏁 «عن المنصّة» أوّل القائمة — بصرياً فقط، فترتيب PAGES يحكم الشريط السفلي
+  const _rest = PAGES.filter((p) => !p.adminOnly).slice(5);
+  const _about = _rest.find((p) => p.path === "/landing");
+  const pages = _about
+    ? [_about, ..._rest.filter((p) => p.path !== "/landing")]
+    : _rest;
   const rtl = lang === "ar";
 
   useEffect(() => {
