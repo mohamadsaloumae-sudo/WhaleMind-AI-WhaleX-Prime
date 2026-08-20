@@ -41,3 +41,6 @@ vapid_public.txt
 .venv-ccxt/
 .measure_start
 multi_universe.db
+
+snapshots/
+ml_model.json
