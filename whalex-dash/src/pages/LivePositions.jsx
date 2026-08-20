@@ -138,10 +138,11 @@ export default function LivePositions() {
       {radar.length > 0 && (() => {
         const win = radar.filter((p) => (p.pnl_pct || 0) >= 0).length;
         const net = radar.reduce((a, p) => a + (Number(p.pnl_pct) || 0), 0);
-        const S = ({ label, value, color }) => (
+        const S = ({ label, value, color, sub }) => (
           <div style={{ flex: 1, textAlign: "center", padding: "9px 4px" }}>
             <div style={{ fontSize: 10, color: "var(--txt-3)", marginBottom: 2 }}>{label}</div>
             <div style={{ fontSize: 16, fontWeight: 800, color: color || "#fff" }}>{value}</div>
+            {sub ? <div style={{ fontSize: 9, color: "var(--txt-3)", marginTop: 2 }}>{sub}</div> : null}
           </div>
         );
         return (
@@ -154,6 +155,7 @@ export default function LivePositions() {
             <S label={lang === "en" ? "In loss" : "خاسرة"} value={radar.length - win} color="#ef4444" />
             <S label={lang === "en" ? "Net" : "الصافي"}
                value={`${net >= 0 ? "+" : ""}${net.toFixed(1)}%`}
+               sub={`${lang === "en" ? "avg" : "متوسط"} ${(net / radar.length).toFixed(2)}%`}
                color={net >= 0 ? "#22c55e" : "#ef4444"} />
           </div>
         );
