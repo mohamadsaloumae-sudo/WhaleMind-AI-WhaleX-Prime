@@ -68,6 +68,27 @@ export default function QuickSettings() {
       borderTop: "1px solid rgba(255,255,255,.06)",
       display: "flex", flexDirection: "column", gap: 12,
     }}>
+      <div style={{
+        display: "flex", justifyContent: "center", gap: 22,
+        marginBottom: 14, paddingBottom: 14,
+        borderBottom: "1px solid rgba(255,255,255,.06)",
+      }}>
+        {SOCIALS.map((s) => (
+          <a key={s.id} href={s.url} target="_blank" rel="noreferrer" title={s.label}
+             style={{ width: 22, height: 22, display: "flex", opacity: .62,
+                      transition: "opacity .2s, transform .2s" }}
+             onMouseEnter={(e) => {
+               e.currentTarget.style.opacity = 1;
+               e.currentTarget.style.transform = "translateY(-2px)";
+             }}
+             onMouseLeave={(e) => {
+               e.currentTarget.style.opacity = .62;
+               e.currentTarget.style.transform = "none";
+             }}>
+            {ICONS[s.id]}
+          </a>
+        ))}
+      </div>
       {/* 🌐 اللغة — مبدّل منزلق */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <Globe size={15} style={{ color: "var(--txt-3, #6b7688)", flexShrink: 0 }} />
@@ -123,27 +144,6 @@ export default function QuickSettings() {
         </button>
       </div>
 
-      <div style={{
-        display: "flex", justifyContent: "center", gap: 22,
-        marginTop: 6, paddingTop: 14,
-        borderTop: "1px solid rgba(255,255,255,.06)",
-      }}>
-        {SOCIALS.map((s) => (
-          <a key={s.id} href={s.url} target="_blank" rel="noreferrer" title={s.label}
-             style={{ width: 22, height: 22, display: "flex", opacity: .62,
-                      transition: "opacity .2s, transform .2s" }}
-             onMouseEnter={(e) => {
-               e.currentTarget.style.opacity = 1;
-               e.currentTarget.style.transform = "translateY(-2px)";
-             }}
-             onMouseLeave={(e) => {
-               e.currentTarget.style.opacity = .62;
-               e.currentTarget.style.transform = "none";
-             }}>
-            {ICONS[s.id]}
-          </a>
-        ))}
-      </div>
     </div>
   );
 }
