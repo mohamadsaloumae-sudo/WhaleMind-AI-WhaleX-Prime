@@ -312,7 +312,7 @@ async def get_price(symbol: str) -> Optional[float]:
         # 💾 تخزين مؤقّت 30ث — بلاه كانت الواجهة تستغرق 23.7 ثانية لـ11 صفقة
         import time as _tt
         _c = _MX_PX.get(symbol)
-        if _c and (_tt.time() - _c[1]) < 30:
+        if _c and (_tt.time() - _c[1]) < 3:      # ⚡ 3 ثوانٍ (كان 30)
             return _c[0]
         try:
             import asyncio as _aio

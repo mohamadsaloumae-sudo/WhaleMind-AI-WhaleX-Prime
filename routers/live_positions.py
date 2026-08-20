@@ -39,7 +39,8 @@ async def _get_price(symbol: str) -> float:
     except Exception:
         pass
     now = time.time()
-    if symbol in _price_cache and (now - _price_ts.get(symbol, 0)) < 30.0:
+    # ⚡ 3 ثوانٍ فقط — 30 كانت تُظهر سعراً عمره نصف دقيقة (هذه أموال)
+    if symbol in _price_cache and (now - _price_ts.get(symbol, 0)) < 3.0:
         return _price_cache[symbol]
     try:
         async with httpx.AsyncClient(timeout=5) as c:
