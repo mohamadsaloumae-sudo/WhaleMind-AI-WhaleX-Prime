@@ -161,6 +161,9 @@ async def radar_positions(market: str = "futures"):
                 "tier": d.get("tier", ""),
                 # 📊 منصّة العملة — يحتاجها الشارت لبناء رمز TradingView الصحيح
                 "exchange": _sym_ex(symbol),
+                # 📊 المستويات — يعرضها الشارت أسفله
+                "sl": d.get("sl"), "tp1": d.get("tp1"),
+                "tp2": d.get("tp2"), "tp3": d.get("tp3"),
             })
         except Exception as e:
             log.debug("radar parse: %s", e)
