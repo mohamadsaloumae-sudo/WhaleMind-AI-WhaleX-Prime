@@ -133,7 +133,31 @@ export default function LivePositions() {
     <Paywall>
     <>
       <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{t("liveRadarTitle") || "صفقات الرادارات"}</h2>
-      <p style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 16 }}>{t("liveRadarSub") || "مشاهدة حيّة · الربح والخسارة مباشرة"}</p>
+      <p style={{ fontSize: 12, color: "var(--txt-3)", marginBottom: 12 }}>{t("liveRadarSub") || "مشاهدة حيّة · الربح والخسارة مباشرة"}</p>
+
+      {radar.length > 0 && (() => {
+        const win = radar.filter((p) => (p.pnl_pct || 0) >= 0).length;
+        const net = radar.reduce((a, p) => a + (Number(p.pnl_pct) || 0), 0);
+        const S = ({ label, value, color }) => (
+          <div style={{ flex: 1, textAlign: "center", padding: "9px 4px" }}>
+            <div style={{ fontSize: 10, color: "var(--txt-3)", marginBottom: 2 }}>{label}</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: color || "#fff" }}>{value}</div>
+          </div>
+        );
+        return (
+          <div className="card" style={{
+            display: "flex", padding: 0, marginBottom: 14,
+            divide: "1px solid var(--border)",
+          }}>
+            <S label={lang === "en" ? "Open" : "مفتوحة"} value={radar.length} />
+            <S label={lang === "en" ? "In profit" : "رابحة"} value={win} color="#22c55e" />
+            <S label={lang === "en" ? "In loss" : "خاسرة"} value={radar.length - win} color="#ef4444" />
+            <S label={lang === "en" ? "Net" : "الصافي"}
+               value={`${net >= 0 ? "+" : ""}${net.toFixed(1)}%`}
+               color={net >= 0 ? "#22c55e" : "#ef4444"} />
+          </div>
+        );
+      })()}
 
       {!loaded ? (
         <div className="loading">{t("loading")}</div>
@@ -144,7 +168,7 @@ export default function LivePositions() {
       ) : (
         radar.map((p, i) => <Card key={`r-${i}`} p={p} />)
       )}
-      {chartPos && <ChartModal pos={chartPos} onClose={() => setChartPos(null)} />}
+      {chartPos && <ChartModal pos={chartPos} lang={lang} onClose={() => setChartPos(null)} />}
     </>
     </Paywall>
   );
