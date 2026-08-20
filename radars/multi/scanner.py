@@ -31,7 +31,54 @@ W_FUNDING = 1.5
 
 _last: dict = {}
 STATS: dict = {}
-_KEYS = ("checked", "no_data", "flat", "weak_score", "wide_sl", "cooldown", "emitted")
+_KEYS = ("checked", "no_data", "flat", "weak_score", "wide_sl", "cooldown", "same_trap", "emitted")
+
+
+# 🧠 عتبات التشابه — كم يقترب الوضع الحالي من وضع الخسارة السابقة
+SIM_RSI = 8.0
+SIM_RANGE = 0.15
+SIM_VOL = 0.6
+
+
+def _same_failed_setup(symbol: str, direction: str,
+                       rsi: float, rpos: float, vr: float) -> tuple:
+    """🧠 آخر صفقة خسرت — هل نفس ظروفها تتكرّر الآن؟
+
+    لا حظر أعمى ولا رفع عتبة. نقرأ ظروف الخسارة السابقة
+    (RSI · الموقع · نسبة الحجم) ونقارنها بالوضع الحالي:
+      • الظروف نفسها  → الفخّ ذاته، نتخطّى.
+      • الظروف تغيّرت → فرصة جديدة، ندخل بحرّية.
+
+    📊 دخول بعد رابحة = فوز 57% (+5.2%) | بعد خاسرة = 39% (-57.2%)
+       والفارق سببه تكرار الإعداد الفاشل نفسه.
+    """
+    import sqlite3 as _sq
+    try:
+        _c = _sq.connect("/opt/whalex/ml_training.db")
+        _c.row_factory = _sq.Row
+        _r = _c.execute(
+            "SELECT rsi, range_pos, volume_ratio, pnl_pct FROM training_signals "
+            "WHERE symbol=? AND direction=? AND pnl_pct IS NOT NULL "
+            "AND result IN ('win','loss') ORDER BY closed_at DESC LIMIT 1",
+            (symbol, direction)).fetchone()
+        _c.close()
+    except Exception:
+        return False, ""
+    if not _r or float(_r["pnl_pct"] or 0) > 0:
+        return False, ""
+    _prsi = float(_r["rsi"] or 0)
+    _prp = float(_r["range_pos"] or 0)
+    _pvr = float(_r["volume_ratio"] or 0)
+    _n, _w = 0, []
+    if _prsi > 0 and abs(rsi - _prsi) <= SIM_RSI:
+        _n += 1; _w.append(f"RSI {rsi:.0f}~{_prsi:.0f}")
+    if _prp > 0 and abs(rpos - _prp) <= SIM_RANGE:
+        _n += 1; _w.append(f"موقع {rpos*100:.0f}%~{_prp*100:.0f}%")
+    if _pvr > 0 and abs(vr - _pvr) <= SIM_VOL:
+        _n += 1; _w.append(f"حجم x{vr:.1f}~x{_pvr:.1f}")
+    if _n >= 3:
+        return True, " · ".join(_w)
+    return False, ""
 
 
 def _hit(k):
@@ -255,6 +302,12 @@ async def multi_scan_loop(position_manager_fn=None):
                             continue
                         if sc < SCORE_MIN:
                             _hit("weak_score")
+                            continue
+                        # 🧠 هل نكرّر الإعداد الذي خسر هنا سابقاً؟
+                        _rep, _rwhy = _same_failed_setup(sym, direction, rsi, rpos, vr)
+                        if _rep:
+                            _hit("same_trap")
+                            log.info("🌐🧠 %s: تخطّي — نفس ظروف الخسارة (%s)", sym, _rwhy)
                             continue
                         price = d["closes"][-1]
                         lv = _levels(price, direction, atrp)
