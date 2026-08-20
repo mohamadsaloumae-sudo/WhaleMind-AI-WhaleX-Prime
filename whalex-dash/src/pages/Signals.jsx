@@ -5,6 +5,8 @@ import { useLang } from "../context/LangContext.jsx";
 import { trStrat } from "../lib/strats.js";
 import { getMarket } from "../hooks/useMarket.js";
 import Paywall from "../components/Paywall.jsx";
+import Masked from "../components/Masked.jsx";
+import TrialNote from "../components/TrialNote.jsx";
 
 
 function useLangSpotMsg() {
@@ -37,6 +39,7 @@ export default function Signals() {
 
   return (
     <Paywall>
+      <TrialNote />
     <>
       {err && <div className="alert info">{t("signalsFetchFail")}: {err}</div>}
       {getMarket() === "spot" && signals.length === 0 ? (
@@ -50,12 +53,12 @@ export default function Signals() {
           {signals.map((s, i) => (
             <div className="card" key={i}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-                <strong>{s.symbol}</strong>
+                <strong><Masked value={s.symbol} /></strong>
                 <span className="badge" style={{ background: "rgba(74,222,128,0.15)", color: "var(--brand)" }}>{s.score}/100</span>
               </div>
               <div style={{ fontSize: 13, color: "var(--txt-2)", display: "grid", gap: 6 }}>
                 <div>🌐 {lang === "ar" ? "الشبكة" : "Chain"}: <b style={{ color: "var(--txt-1)" }}>{s.chain}</b></div>
-                <div>🎯 {lang === "ar" ? "سعر الدخول" : "Entry"}: <b style={{ color: "var(--txt-1)" }}>{s.entry_price ? Number(Number(s.entry_price).toPrecision(6)) : "—"}</b></div>
+                <div>🎯 {lang === "ar" ? "سعر الدخول" : "Entry"}: <b style={{ color: "var(--txt-1)" }}><Masked value={s.entry_price ? Number(Number(s.entry_price).toPrecision(6)) : "—"} chars={5} /></b></div>
                 <div>💧 {lang === "ar" ? "السيولة" : "Liquidity"}: <b>${Number(s.liq || 0).toLocaleString()}</b></div>
                 <div>📊 {lang === "ar" ? "الحجم 24س" : "Volume 24h"}: <b>${Number(s.vol || 0).toLocaleString()}</b></div>
                 <span className="badge" style={{ background: "rgba(74,222,128,0.15)", color: "var(--brand)", width: "fit-content" }}>✅ {lang === "ar" ? "اجتاز كل الفيتوهات" : "Passed all vetoes"}</span>
@@ -75,11 +78,11 @@ export default function Signals() {
           {signals.map((s, i) => (
             <div className="card" key={i}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-                <strong>{s.symbol}</strong>
+                <strong><Masked value={s.symbol} /></strong>
                 <span className={`badge ${s.direction === "LONG" ? "long" : "short"}`}>{s.direction}</span>
               </div>
               <div style={{ fontSize: 13, color: "var(--txt-2)", display: "grid", gap: 6 }}>
-                <div>{t("entry")}: <b style={{ color: "var(--txt-1)" }}>{fmtPx(s.entry)}</b></div>
+                <div>{t("entry")}: <b style={{ color: "var(--txt-1)" }}><Masked value={fmtPx(s.entry)} chars={5} /></b></div>
                 <div>{t("stopLoss")}: {fmtPx(s.sl)}</div>
                 <div>{t("target")} 1: <b style={{ color: "var(--green)" }}>{fmtPx(s.tp1)}</b></div>
                 <div>{t("target")} 2: <b style={{ color: "var(--green)" }}>{fmtPx(s.tp2)}</b></div>

@@ -4,6 +4,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
 import { LangProvider } from "./context/LangContext.jsx";
+import { TierProvider } from "./context/TierContext.jsx";
 import { PAGES } from "./lib/pages.js";
 import Layout from "./components/Layout.jsx";
 import DeviceGuard from "./components/DeviceGuard.jsx";
@@ -52,9 +53,11 @@ export default function App() {
   return (
     <LangProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <Root />
-        </BrowserRouter>
+        <TierProvider>
+          <BrowserRouter>
+            <Root />
+          </BrowserRouter>
+        </TierProvider>
       </AuthProvider>
     </LangProvider>
   );
