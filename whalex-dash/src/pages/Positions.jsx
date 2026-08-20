@@ -6,6 +6,17 @@ import { getMarket } from "../hooks/useMarket.js";
 import Paywall from "../components/Paywall.jsx";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
+// 🖼️ شعارات المنصّات — للشفافية: أين نُفِّذت الصفقة
+const EX_LOGO = {
+  binance: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/270.png",
+  bybit: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/521.png",
+  mexc: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/544.png",
+  bingx: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/1064.png",
+  bitget: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/513.png",
+  gate: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/302.png",
+  okx: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/294.png",
+};
+
 export default function Positions() {
   const { t, lang } = useLang();
   const [history, setHistory] = useState([]);
@@ -115,14 +126,25 @@ export default function Positions() {
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
-                        <strong style={{ fontSize: 14.5 }}>{x.symbol}</strong>
+                        {x.exchange ? (
+                          <img src={EX_LOGO[String(x.exchange).toLowerCase()]}
+                               alt={x.exchange} width="17" height="17"
+                               style={{ borderRadius: 4, flexShrink: 0 }}
+                               onError={(e) => { e.target.style.display = "none"; }} />
+                        ) : null}
+                        <strong style={{ fontSize: 14.5, direction: "ltr" }}>{x.symbol}</strong>
                         <span className={`badge ${x.direction === "LONG" ? "long" : "short"}`} style={{ fontSize: 10, flexShrink: 0 }}>
-                          {x.direction}
+                          {x.direction}{x.leverage ? ` ${Math.round(x.leverage)}x` : ""}
                         </span>
                       </div>
                       <div style={{ fontSize: 11, color: "var(--accent)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {radar}
                       </div>
+                      {(x.entry && x.exit_price) ? (
+                        <div style={{ fontSize: 11, color: "var(--txt-3)", marginTop: 3, direction: "ltr", textAlign: "start" }}>
+                          {x.entry} → {x.exit_price}
+                        </div>
+                      ) : null}
                     </div>
 
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
