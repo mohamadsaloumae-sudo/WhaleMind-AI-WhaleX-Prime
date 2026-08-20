@@ -22,7 +22,10 @@ def user_plan(uid: str) -> str:
             "ORDER BY expires_at DESC LIMIT 1", (str(uid),)).fetchone()
         t = cn.execute("SELECT tier FROM users WHERE id=?", (str(uid),)).fetchone()
         cn.close()
-        if t and str(t[0]).lower() == "admin":
+        _tier = str(t[0]).lower() if t else ""
+        # 🔑 الفئة أولاً: admin/pro/vip مشتركون حتى لو لم يُسجَّل لهم اشتراك.
+        #    بلا هذا فقد مشتركوك المدفوعون وصولهم فجأة.
+        if _tier in ("admin", "pro", "vip"):
             return "paid"
         if not r or (r["expires_at"] or 0) < time.time():
             return "free"
