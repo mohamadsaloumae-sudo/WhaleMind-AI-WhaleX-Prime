@@ -44,8 +44,19 @@ export default function Layout({ titleKey, children }) {
       <Sidebar />
       <div className="main-area">
         <header className="topbar">
-          <h1 style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(titleKey)}</h1>
-          <div className="spacer" />
+          {/* 🏷️ العنوان والفئة معاً — النقطة الخضراء تعني أن النظام يعمل */}
+          <h1 style={{
+            minWidth: 0, overflow: "hidden", textOverflow: "ellipsis",
+            whiteSpace: "nowrap", flexShrink: 1,
+          }}>{t(titleKey)}</h1>
+          <span style={{
+            width: 7, height: 7, borderRadius: 7, flexShrink: 0,
+            background: "var(--green, #22c55e)",
+            boxShadow: "0 0 8px var(--green, #22c55e)",
+            animation: "wxLive 2.2s ease-in-out infinite",
+          }} title={t("systemRunning")} />
+          <ProBadge />
+          <div style={{ flex: "1 1 auto" }} />
           <button
             onClick={shareApp}
             title={lang === "ar" ? "مشاركة" : "Share"}
@@ -61,9 +72,8 @@ export default function Layout({ titleKey, children }) {
           </button>
           <NotificationBell />
           <DrawerMenu />
-          <ProBadge />
-          <span className="status-dot">{t("systemRunning")}</span>
         </header>
+        <style>{"@keyframes wxLive{0%,100%{opacity:1}50%{opacity:.35}}"}</style>
         <div className="page-body" style={{ position: "relative" }}><ScrollTop />{children}</div>
       </div>
       <BottomNav />
