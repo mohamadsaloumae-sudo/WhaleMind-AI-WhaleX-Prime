@@ -86,16 +86,6 @@ export default function WelcomeHeader() {
 
 
 
-      <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-        {SOCIALS.map((s) => (
-          <a key={s.id} href={s.url} target="_blank" rel="noreferrer" title={s.label}
-            style={{
-              width: 42, height: 42, borderRadius: 13, display: "grid", placeItems: "center",
-              background: s.bg, border: "1px solid rgba(255,255,255,0.09)",
-              textDecoration: "none", transition: "transform .15s",
-            }}>{ICONS[s.id]}</a>
-        ))}
-      </div>
     </div>
   );
 }
