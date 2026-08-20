@@ -10,6 +10,8 @@ import HowItWorks from "./HowItWorks.jsx";
 import Exchanges from "./Exchanges.jsx";
 import Security from "./Security.jsx";
 import Pricing from "./Pricing.jsx";
+import FAQ from "./FAQ.jsx";
+import Legal from "./Legal.jsx";
 
 export const SECTIONS = [
   { id: "hero", Component: Hero, enabled: true },
@@ -20,6 +22,8 @@ export const SECTIONS = [
   { id: "exchanges", Component: Exchanges, enabled: true },
   { id: "security", Component: Security, enabled: true },
   { id: "pricing", Component: Pricing, enabled: true },
+  { id: "faq", Component: FAQ, enabled: true },
+  { id: "legal", Component: Legal, enabled: true },
 ];
 
 /** 🎨 الهوية البصرية — تعديل هنا يُغيّر كل الأقسام */
