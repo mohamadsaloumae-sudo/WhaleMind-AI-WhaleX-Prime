@@ -761,6 +761,23 @@ PNL_HARD_FLOOR = -12.0   # أرضية الخسارة المطلقة (pnl مُر�
 #    ACEUSDT بلغت +10% ثم أُغلقت -13.2% بلا أي قفل (TP1 يحتاج 5% سعرياً = 25% بالرافعة)
 #    (أعلى ربح بلغته, الحد المضمون)
 PROFIT_LOCK_LADDER = ((40.0, 25.0), (25.0, 15.0), (15.0, 8.0), (10.0, 5.0))
+
+# 🔒 حارس القمة — طبقتان: سقف صلب + عين ذكية
+#    📊 ZHIPUHKDUSDT: قمة +20.93% → أُغلقت +7.46% (ضاع 13.5 نقطة)
+#       لأن قمة 20.93 تقع في شريحة السلّم (15, 8) فتضمن 8% فقط.
+#    ① السقف الصلب: تراجع 5 نقاط من القمة (وألا يقلّ الضمان عن 40% منها)
+#    ② العين الذكية: is_real_reversal تُغلق قبله عند انقلاب بنيوي مؤكّد
+PEAK_GIVEBACK = 5.0
+PEAK_MIN_KEEP = 0.40
+PEAK_ARM_AT = 6.0
+PEAK_EYE_DROP = 2.0        # لا نستشير العين قبل تراجع نقطتين (تجنّب الزبزبة)
+
+
+def _peak_lock_floor(peak: float) -> float:
+    """الحدّ الصلب الذي نُغلق عنده بعد بلوغ قمة معيّنة."""
+    if not peak or peak < PEAK_ARM_AT:
+        return -999.0
+    return max(peak - PEAK_GIVEBACK, peak * PEAK_MIN_KEEP)
 _REV_CACHE: dict = {}    # pos.id -> (ts, breathe, reason)
 
 async def _should_breathe(pos: "Position", price: float, pnl_pct: float) -> tuple:
@@ -840,6 +857,33 @@ async def monitor_position(pos: Position):
     # HARD STOP بحركة السعر (لا pnl المُرفّع): يمنع الطرد عند ضوضاء العملات المتذبذبة.
     #   السبب: pnl=-5% مع رافعة 3x = حركة 1.67% فقط = داخل ضوضاء عملة تتذبذب ±13%،
     #   فكان يطرد الشورت الصحيح عند أول ارتداد. الآن: حركة سعر فعلية ≥7% (خارج الضوضاء).
+    # ═══ 🔒 حارس القمة — يعمل قبل أي فحص آخر ═══
+    _pk = getattr(pos, "peak_price", 0) or 0
+    if _pk and pos.entry:
+        _pk_mv = ((_pk - pos.entry) / pos.entry * 100) if is_long \
+            else ((pos.entry - _pk) / pos.entry * 100)
+        _peak_pnl = _pk_mv * float(pos.leverage or 1)
+        if _peak_pnl >= PEAK_ARM_AT:
+            _floor = _peak_lock_floor(_peak_pnl)
+            # ① السقف الصلب — لا يُخترق
+            if pnl_pct <= _floor:
+                log.warning("🔒 قفل القمة %s: قمة %.1f%% → إغلاق %.1f%% (الحد %.1f%%)",
+                            pos.symbol, _peak_pnl, pnl_pct, _floor)
+                await _close_position(pos, price, ExitReason.TACTICAL, pnl_pct)
+                return
+            # ② العين الذكية — تُغلق قبل السقف عند انقلاب مؤكّد
+            if pnl_pct < (_peak_pnl - PEAK_EYE_DROP):
+                try:
+                    _rv, _rw = await is_real_reversal(pos.symbol, is_long,
+                                                      getattr(pos, "opened_at", 0))
+                except Exception:
+                    _rv, _rw = False, ""
+                if _rv:
+                    log.warning("🔒🧠 انقلاب عند القمة %s: قمة %.1f%% → %.1f%% (%s)",
+                                pos.symbol, _peak_pnl, pnl_pct, _rw)
+                    await _close_position(pos, price, ExitReason.TACTICAL, pnl_pct)
+                    return
+
     price_move_pct = abs(price - pos.entry) / pos.entry * 100 if pos.entry > 0 else 0
     against = (is_long and price < pos.entry) or (not is_long and price > pos.entry)
     HARD_STOP_MOVE = 4.5  # حركة 4.5% (=13.5% مع رافعة): يقص الخسائر الكبيرة، الأرباح (TP) تبقى
