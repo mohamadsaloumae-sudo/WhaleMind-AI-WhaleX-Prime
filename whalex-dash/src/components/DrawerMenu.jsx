@@ -39,8 +39,19 @@ export default function DrawerMenu() {
 
   return (
     <>
-      <button className="lang-btn" onClick={() => setOpen(true)} title={t("more")} aria-label="menu">
-        <Menu size={18} />
+      <button
+        onClick={() => setOpen(true)}
+        title={t("more")}
+        aria-label="menu"
+        style={{
+          background: "transparent", border: "none", cursor: "pointer",
+          color: "var(--txt-2)", display: "flex", alignItems: "center",
+          padding: 6, borderRadius: 8, transition: "color .2s",
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = "var(--brand)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = "var(--txt-2)"; }}
+      >
+        <Menu size={19} strokeWidth={1.8} />
       </button>
 
       {open && (
