@@ -27,7 +27,19 @@ def user_plan(uid: str) -> str:
         #    بلا هذا فقد مشتركوك المدفوعون وصولهم فجأة.
         if _tier in ("admin", "pro", "vip"):
             return "paid"
-        if not r or (r["expires_at"] or 0) < time.time():
+        # 📅 expires_at نصّ DATETIME في هذا الجدول
+        _exp = r["expires_at"] if r else None
+        _ok = False
+        if _exp:
+            try:
+                from datetime import datetime as _dt
+                _ok = _dt.strptime(str(_exp)[:19], "%Y-%m-%d %H:%M:%S") > _dt.utcnow()
+            except Exception:
+                try:
+                    _ok = float(_exp) > time.time()
+                except Exception:
+                    _ok = False
+        if not _ok:
             return "free"
         return "trial" if str(r["plan"]).lower() == "trial" else "paid"
     except Exception as e:

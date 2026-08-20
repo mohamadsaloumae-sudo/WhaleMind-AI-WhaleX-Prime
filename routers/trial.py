@@ -57,9 +57,10 @@ async def status(user=Depends(get_current_user)):
     cn.close()
     if not r:
         return {"active": False, "used": False, "days_left": 0}
-    left = max(0, int((r["expires_at"] - time.time()) / 86400))
+    _exp = float(r["expires_at"] or 0)
+    left = max(0, int((_exp - time.time()) / 86400) + (1 if _exp > time.time() else 0))
     return {
-        "active": r["expires_at"] > time.time(),
+        "active": _exp > time.time(),
         "used": True,
         "days_left": left,
         "expires_at": r["expires_at"],
@@ -119,8 +120,15 @@ async def start(request: Request, user=Depends(get_current_user)):
     exp = now + TRIAL_DAYS * 86400
     cn.execute("INSERT INTO trial_guard VALUES(?,?,?,?,?,?)",
                (uid, fp, ip, api_hash, now, exp))
-    cn.execute("INSERT INTO subscriptions(user_id, plan, expires_at, created_at) "
-               "VALUES(?,?,?,?)", (uid, "trial", exp, now))
+    # 📅 الجدول يستخدم uuid نصّياً وتواريخ DATETIME لا أرقاماً
+    import uuid as _uu
+    from datetime import datetime as _dt
+    cn.execute(
+        "INSERT INTO subscriptions(id, user_id, plan, expires_at, created_at) "
+        "VALUES(?,?,?,?,?)",
+        (str(_uu.uuid4()), uid, "trial",
+         _dt.utcfromtimestamp(exp).strftime("%Y-%m-%d %H:%M:%S.%f"),
+         _dt.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")))
     cn.execute("UPDATE users SET tier='trial' WHERE id=?", (uid,))
     cn.commit()
     cn.close()
