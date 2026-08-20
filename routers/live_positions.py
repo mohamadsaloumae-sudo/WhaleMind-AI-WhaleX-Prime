@@ -131,6 +131,10 @@ async def radar_positions(market: str = "futures"):
                     px = _prices.get(s.symbol) or s.entry or 0
                     pnl = (px - s.entry) / s.entry * 100 if s.entry else 0.0
                     out.append({"symbol": s.symbol, "direction": "LONG", "leverage": 1,
+                                # 📊 الشارت يحتاجها: سبوت بلا لاحقة .P · والمستويات
+                                "radar_type": "spot", "tier": "SPOT", "exchange": "binance",
+                                "sl": getattr(s, "sl", None), "tp1": getattr(s, "tp1", None),
+                                "tp2": getattr(s, "tp2", None), "tp3": getattr(s, "tp3", None),
                                 "radar": "WhaleX Spot 🪙", "entry": s.entry, "current": px,
                                 "pnl_pct": round(pnl, 2),
                                 "opened_at": int(s.created_at.timestamp()) if s.created_at else 0})

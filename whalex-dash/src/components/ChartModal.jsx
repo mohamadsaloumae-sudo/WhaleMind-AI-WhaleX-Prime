@@ -119,8 +119,13 @@ export default function ChartModal({ pos, onClose, lang = "ar" }) {
             <Cell label={lang === "en" ? "Entry" : "الدخول"} value={entry} color="#94a3b8" />
             <Cell label={lang === "en" ? "Now" : "الحالي"} value={cur || "—"}
                   color={up ? "#22c55e" : "#ef4444"} />
-            <Cell label={lang === "en" ? "Leverage" : "الرافعة"}
-                  value={pos.leverage ? `${Math.round(pos.leverage)}x` : "—"} color="#c7d2fe" />
+            {!isSpot ? (
+              <Cell label={lang === "en" ? "Leverage" : "الرافعة"}
+                    value={pos.leverage ? `${Math.round(pos.leverage)}x` : "—"} color="#c7d2fe" />
+            ) : (
+              <Cell label={lang === "en" ? "Market" : "السوق"}
+                    value={lang === "en" ? "Spot" : "سبوت"} color="#c7d2fe" />
+            )}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
             <Cell label={lang === "en" ? "Stop" : "الوقف"} value={pos.sl || "—"}
