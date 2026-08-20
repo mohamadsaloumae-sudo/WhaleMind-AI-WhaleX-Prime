@@ -64,6 +64,16 @@ async def _get_price(symbol: str) -> float:
     return _price_cache.get(symbol, 0.0)  # آخر سعر معروف — لا صفر أبداً
 
 
+@router.get("/stream-health")
+async def stream_health():
+    """⚡ صحّة بثّ الأسعار — من داخل عملية الخدمة."""
+    try:
+        from radars.multi.price_stream import stream_health as _sh
+        return _sh()
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @router.get("/radar-positions")
 async def radar_positions(market: str = "futures"):
     if market == "meme":

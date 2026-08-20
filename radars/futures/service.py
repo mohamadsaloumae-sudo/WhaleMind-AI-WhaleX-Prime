@@ -922,6 +922,7 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
     from shadow_tracker import shadow_loop
     from radars.explosion.scout_long_v2 import scout_long_v2_loop  # 🔬 نضوب الرافعة
     from radars.multi.scanner import multi_scan_loop  # 🌐 العملات الحصرية
+    from radars.multi.price_stream import price_stream_loop  # ⚡ أسعار لحظية
     # 🚫 Long القديم مُطفأ: خسر -228% على 424 صفقة (منطق صيد القاع مُثبت الفشل)
 
     from quant_engine.ob_stream import run as ob_stream_run
@@ -948,6 +949,7 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
         scout_long_v2_loop(position_manager_fn=position_manager_fn),
         # 🌐 ماسح المنصّات: 68 عقداً حصرياً على 6 منصّات (غير موجودة على باينانس)
         multi_scan_loop(position_manager_fn=position_manager_fn),
+        price_stream_loop(),   # ⚡ WebSocket لكل منصّة
         ob_stream_run(list(dict.fromkeys([t.symbol for t in ALL_SYMBOLS] + _open_position_syms()))),
         ml_retrain_loop(),  # 🧠 إعادة تدريب العقل يومياً
         watchdog_loop(),   # 🚨 حارس الحلقات
