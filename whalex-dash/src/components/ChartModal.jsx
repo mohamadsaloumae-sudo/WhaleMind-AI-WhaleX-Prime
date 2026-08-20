@@ -47,6 +47,20 @@ export default function ChartModal({ pos, onClose, lang = "ar" }) {
   const pnl = Number(pos.pnl_pct) || 0;
   const up = pnl >= 0;
 
+  const Cell = ({ label, value, color }) => (
+    <div style={{
+      background: "rgba(255,255,255,.03)", borderRadius: 10,
+      border: "1px solid rgba(255,255,255,.06)",
+      padding: "7px 6px", textAlign: "center", minWidth: 0,
+    }}>
+      <div style={{ fontSize: 9.5, color: "var(--txt-3, #7c8798)", marginBottom: 3 }}>{label}</div>
+      <div style={{
+        fontSize: 12.5, fontWeight: 700, color, direction: "ltr",
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      }}>{value}</div>
+    </div>
+  );
+
   return (
     <div onClick={onClose} style={{
       position: "fixed", inset: 0, zIndex: 9999,
@@ -78,31 +92,31 @@ export default function ChartModal({ pos, onClose, lang = "ar" }) {
           }}>{pnl >= 0 ? "+" : ""}{pnl.toFixed(2)}%</span>
         </div>
 
-        <div style={{ flex: 1, minHeight: 0, background: "#0b0f19", position: "relative" }}>
+        <div style={{ flex: 1, minHeight: 0, background: "#0b0f19" }}>
           <div ref={box} style={{ width: "100%", height: "100%" }} />
-          {/* 🎯 المستويات — طبقة شفّافة فوق الشارت */}
+        </div>
+
+        {/* 📊 شريط المستويات — أسفل الشارت بمساحته الخاصّة */}
+        <div style={{
+          padding: "12px 14px 14px",
+          borderTop: "1px solid var(--border, #223)",
+          background: "rgba(11,15,25,.6)",
+        }}>
           <div style={{
-            position: "absolute", insetInlineStart: 10, top: 10,
-            display: "flex", flexDirection: "column", gap: 5,
-            pointerEvents: "none", zIndex: 5,
+            display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10,
+            marginBottom: 10,
           }}>
-            {[
-              [lang === "en" ? "Entry" : "دخول", entry, "#94a3b8"],
-              [lang === "en" ? "Now" : "حالي", cur, up ? "#22c55e" : "#ef4444"],
-              pos.sl ? [lang === "en" ? "Stop" : "وقف", pos.sl, "#ef4444"] : null,
-              pos.tp1 ? ["TP1", pos.tp1, "#22c55e"] : null,
-            ].filter(Boolean).map(([k, v, c], i) => (
-              <div key={i} style={{
-                display: "flex", alignItems: "center", gap: 6,
-                background: "rgba(11,15,25,.55)", backdropFilter: "blur(6px)",
-                padding: "3px 9px", borderRadius: 20, fontSize: 10.5,
-                border: `1px solid ${c}33`,
-              }}>
-                <span style={{ width: 5, height: 5, borderRadius: 5, background: c }} />
-                <span style={{ color: "#94a3b8" }}>{k}</span>
-                <span style={{ color: c, fontWeight: 700, direction: "ltr" }}>{v}</span>
-              </div>
-            ))}
+            <Cell label={lang === "en" ? "Entry" : "الدخول"} value={entry} color="#94a3b8" />
+            <Cell label={lang === "en" ? "Now" : "الحالي"} value={cur || "—"}
+                  color={up ? "#22c55e" : "#ef4444"} />
+            <Cell label={lang === "en" ? "Leverage" : "الرافعة"}
+                  value={pos.leverage ? `${Math.round(pos.leverage)}x` : "—"} color="#c7d2fe" />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+            <Cell label={lang === "en" ? "Stop" : "الوقف"} value={pos.sl || "—"} color="#ef4444" />
+            <Cell label="TP1" value={pos.tp1 || "—"} color="#22c55e" />
+            <Cell label="TP2" value={pos.tp2 || "—"} color="#22c55e" />
+            <Cell label="TP3" value={pos.tp3 || "—"} color="#22c55e" />
           </div>
         </div>
 
