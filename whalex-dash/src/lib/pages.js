@@ -7,7 +7,7 @@
 // ════════════════════════════════════════════════════════════
 import {
   LayoutDashboard, Radio, Bot, TrendingUp,
-  CreditCard, Settings, Search, Shield, BarChart3, Activity, MessageCircle, Sparkles,
+  CreditCard, Settings, Search, Shield, BarChart3, Activity, MessageCircle,
 } from "lucide-react";
 
 import Dashboard from "../pages/Dashboard.jsx";
@@ -21,12 +21,9 @@ import Positions from "../pages/Positions.jsx";
 import LivePositions from "../pages/LivePositions.jsx";
 import Admin from "../pages/Admin.jsx";
 import Support from "../pages/Support.jsx";
-import Landing from "../pages/Landing.jsx";
 
 // كل عنصر: { path, label, icon, component, adminOnly?, hideNav? }
 export const PAGES = [
-  // 🏁 المقدّمة — تُعرض عند كل فتح للتطبيق (hideNav: خارج القائمة)
-  { path: "/landing",      label: "المقدّمة",        icon: Sparkles,        component: Landing, hideNav: true },
   { path: "/",             label: "الرئيسية",        icon: LayoutDashboard, component: Dashboard },
   { path: "/signals",      label: "الإشارات الحيّة",  icon: Radio,           component: Signals },
   { path: "/live",         label: "الصفقات المفتوحة", icon: Activity,        component: LivePositions },

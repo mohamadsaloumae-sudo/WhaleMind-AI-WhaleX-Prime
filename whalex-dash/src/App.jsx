@@ -49,7 +49,7 @@ function Root() {
       />
       {/* 🏁 الزائر بلا حساب يرى المقدّمة أولاً لا شاشة الدخول */}
       <Route
-        path="/*"
+        path="*"
         element={
           ready && !user
             ? <Navigate to="/landing" replace />
