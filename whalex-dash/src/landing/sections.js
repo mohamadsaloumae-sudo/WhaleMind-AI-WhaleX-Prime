@@ -10,6 +10,7 @@ import HowItWorks from "./HowItWorks.jsx";
 import Exchanges from "./Exchanges.jsx";
 import Security from "./Security.jsx";
 import Pricing from "./Pricing.jsx";
+import ReferralBox from "./ReferralBox.jsx";
 import FAQ from "./FAQ.jsx";
 import Social from "./Social.jsx";
 import Legal from "./Legal.jsx";
@@ -23,6 +24,7 @@ export const SECTIONS = [
   { id: "exchanges", Component: Exchanges, enabled: true },
   { id: "security", Component: Security, enabled: true },
   { id: "pricing", Component: Pricing, enabled: true },
+  { id: "referral", Component: ReferralBox, enabled: true },
   { id: "faq", Component: FAQ, enabled: true },
   { id: "social", Component: Social, enabled: true },
   { id: "legal", Component: Legal, enabled: true },
