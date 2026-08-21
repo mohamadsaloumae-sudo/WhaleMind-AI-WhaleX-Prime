@@ -60,15 +60,15 @@ export default function Legal({ lang = "ar", onStart }) {
         fontSize: 10.5, color: T.txt3, lineHeight: 2,
       }}>
         <div style={{ marginBottom: 6 }}>
-          <a href="/terms" style={{ color: T.txt3, textDecoration: "none" }}>
+          <a href="/legal#terms" style={{ color: T.txt3, textDecoration: "none" }}>
             {ar ? "الشروط والأحكام" : "Terms"}
           </a>
           {"  ·  "}
-          <a href="/privacy" style={{ color: T.txt3, textDecoration: "none" }}>
+          <a href="/legal#privacy" style={{ color: T.txt3, textDecoration: "none" }}>
             {ar ? "الخصوصية" : "Privacy"}
           </a>
           {"  ·  "}
-          <a href="/refund" style={{ color: T.txt3, textDecoration: "none" }}>
+          <a href="/legal#refund" style={{ color: T.txt3, textDecoration: "none" }}>
             {ar ? "الاسترداد" : "Refunds"}
           </a>
           {"  ·  "}
