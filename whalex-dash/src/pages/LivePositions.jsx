@@ -104,7 +104,13 @@ export default function LivePositions() {
             <span style={{
               fontWeight: 700, fontSize: 15, whiteSpace: "nowrap",
               flexShrink: 0, direction: "ltr",
-            }}>{p.symbol}</span>
+            }}>{p.symbol}
+              <span aria-label="chart" style={{
+                marginInlineStart: 6, fontSize: 13, opacity: .85,
+                background: "rgba(74,222,128,0.16)", color: "var(--brand,#4ade80)",
+                borderRadius: 6, padding: "2px 6px", fontWeight: 700,
+              }}>📈</span>
+            </span>
             <LineChart size={15} style={{ color: "var(--brand, #2dd4bf)", flexShrink: 0 }} />
             <span style={{
               fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
