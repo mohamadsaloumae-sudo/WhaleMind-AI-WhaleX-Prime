@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 
 // 🌐 أسماء المنصّات كما يستخدمها TradingView
@@ -14,6 +14,37 @@ const TV_EX = {
  */
 export default function ChartModal({ pos, onClose, lang = "ar" }) {
   const box = useRef(null);
+  const [dim, setDim] = useState(() => ({
+    w: +(localStorage.getItem("wx_ch_w") || 0),
+    h: +(localStorage.getItem("wx_ch_h") || 0),
+  }));
+  // 🪟 سحب الزاوية لتحجيم النافذة — فأرة ولمس
+  function grab(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const r = e.currentTarget.parentElement.getBoundingClientRect();
+    const go = (ev) => {
+      const p = ev.touches ? ev.touches[0] : ev;
+      const w = Math.max(320, Math.min(window.innerWidth - 20, r.right - p.clientX));
+      const h = Math.max(240, Math.min(window.innerHeight - 20, p.clientY - r.top));
+      localStorage.setItem("wx_ch_w", String(Math.round(w)));
+      localStorage.setItem("wx_ch_h", String(Math.round(h)));
+      setDim({ w, h });
+    };
+    const end = () => {
+      window.removeEventListener("mousemove", go);
+      window.removeEventListener("mouseup", end);
+      window.removeEventListener("touchmove", go);
+      window.removeEventListener("touchend", end);
+      document.body.style.userSelect = "";
+    };
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", go);
+    window.addEventListener("mouseup", end);
+    window.addEventListener("touchmove", go, { passive: false });
+    window.addEventListener("touchend", end);
+  }
+
   if (!pos) return null;
 
   const ex = (pos.exchange || "binance").toLowerCase();
@@ -79,8 +110,24 @@ export default function ChartModal({ pos, onClose, lang = "ar" }) {
       <div onClick={(e) => e.stopPropagation()} style={{
         background: "var(--bg-1, #0b0f19)", borderRadius: "14px",
         border: "1px solid var(--border, #223)", overflow: "hidden",
-        display: "flex", flexDirection: "column", width: "100%",
+        display: "flex", flexDirection: "column",
+        position: "relative", margin: "auto",
+        width: dim.w ? dim.w + "px" : "100%",
+        height: dim.h ? dim.h + "px" : "auto",
+        maxWidth: "100%", maxHeight: "100%",
       }}>
+        <div
+          className="wx-ch-grab"
+          onMouseDown={grab}
+          onTouchStart={grab}
+          title="اسحب لتغيير الحجم"
+          style={{
+            position: "absolute", bottom: 0, insetInlineStart: 0,
+            width: 26, height: 26, cursor: "nesw-resize", zIndex: 20,
+            background: "linear-gradient(45deg, var(--brand,#2dd4bf) 30%, transparent 30%)",
+            opacity: .55, borderBottomLeftRadius: 14, touchAction: "none",
+          }}
+        />
         <div style={{
           display: "flex", alignItems: "center", gap: "10px",
           padding: "12px 14px", borderBottom: "1px solid var(--border, #223)",
