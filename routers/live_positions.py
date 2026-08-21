@@ -29,7 +29,22 @@ def _sym_ex(symbol: str) -> str:
 
 async def _get_price(symbol: str) -> float:
     """سعر حيّ من Binance Futures (عام، بلا مفاتيح) — كاش ثانية واحدة."""
-    # 🌊 الستريم أولاً — صفر REST للعملات المبثوثة (كل الصفقات المفتوحة مبثوثة)
+    # 🌐 منصّة الصفقة أولاً — قبل بثّ باينانس.
+    #    دليل OPENAIUSDT: بثّ باينانس يُرجع 1240 (عقد آخر) وGate 1167.
+    #    فلو سألنا البثّ أولاً لرجع سعر صحيح لعقد خاطئ.
+    try:
+        _ex0 = _sym_ex(symbol)
+        if _ex0 and str(_ex0).lower() != "binance":
+            from radars.futures.position_manager import get_price as _mxp0
+            _p0 = await _mxp0(symbol)
+            if _p0 and _p0 > 0:
+                _price_cache[symbol] = float(_p0)
+                _price_ts[symbol] = time.time()
+                return float(_p0)
+    except Exception as _e0:
+        log.debug("🌐 منصّة %s: %s", symbol, _e0)
+
+    # 🌊 الستريم — لعملات باينانس فقط
     try:
         from quant_engine.ob_stream import get_price as _wsp
         _wp = _wsp(symbol)
@@ -42,22 +57,6 @@ async def _get_price(symbol: str) -> float:
     # ⚡ 3 ثوانٍ فقط — 30 كانت تُظهر سعراً عمره نصف دقيقة (هذه أموال)
     if symbol in _price_cache and (now - _price_ts.get(symbol, 0)) < 3.0:
         return _price_cache[symbol]
-
-    # 🌐 الرمز نفسه قد يوجد على منصّتين بسعرين مختلفين.
-    #    دليل OPENAIUSDT: باينانس 1242.85 · Gate 1167.55 (فارق 6.4%).
-    #    الحماية القديمة تعمل عند price<=0 فقط، وهنا باينانس تُرجع سعراً
-    #    صحيحاً لعقد آخر — فنسأل منصّة الصفقة نفسها أولاً.
-    try:
-        _ex = _sym_ex(symbol)
-        if _ex and str(_ex).lower() != "binance":
-            from radars.futures.position_manager import get_price as _mxp0
-            _p0 = await _mxp0(symbol)
-            if _p0 and _p0 > 0:
-                _price_cache[symbol] = float(_p0)
-                _price_ts[symbol] = now
-                return float(_p0)
-    except Exception as _e0:
-        log.debug("🌐 منصّة %s: %s", symbol, _e0)
 
     try:
         async with httpx.AsyncClient(timeout=5) as c:
