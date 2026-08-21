@@ -147,6 +147,17 @@ export default function Legal() {
               ? "إن لم تربط حساباً، أو أوقفت التداول مبكراً، أو تدخّلت يدوياً في الصفقات — فالنتيجة لا تعكس أداء النظام، ولا يسري الضمان."
               : "If you never linked an account, stopped trading early, or intervened manually — the result doesn't reflect the system's performance, and the guarantee doesn't apply."}</P>
 
+            <S>{ar ? "برنامج الإحالة" : "Referral program"}</S>
+            <P>{ar
+              ? "لكل مشترك رابط إحالة مجاني. تُحتسب العمولة على الاشتراكات المدفوعة المؤكّدة فقط — لا على التسجيل ولا على التجربة المجانية."
+              : "Every subscriber gets a free referral link. Commission is credited on confirmed paid subscriptions only — not on signups or free trials."}</P>
+            <ul style={{ paddingInlineStart: 20, margin: "0 0 10px" }}>
+              <L>{ar ? "١٥٪ من أول دفعة، ثم ١٠٪ على ثلاث تجديدات تالية." : "15% of the first payment, then 10% on three subsequent renewals."}</L>
+              <L>{ar ? "السحب متاح عند بلوغ ٥٠ دولاراً، بالـUSDT إلى محفظتك." : "Withdrawals unlock at $50, paid in USDT to your wallet."}</L>
+              <L>{ar ? "إحالة النفس أو إنشاء حسابات متعدّدة يُلغي العمولة ويُوقف الحساب." : "Self-referral or multiple accounts voids commissions and suspends the account."}</L>
+              <L>{ar ? "العمولة تُلغى إن استُرجع اشتراك المُحال." : "Commission is reversed if the referred subscription is refunded."}</L>
+            </ul>
+
             <S>{ar ? "الإلغاء" : "Cancellation"}</S>
             <P>{ar
               ? "تُلغي متى شئت، ويبقى وصولك حتى نهاية المدّة المدفوعة. لا تجديد تلقائي بلا علمك."
