@@ -1234,6 +1234,18 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
     """
     يفتح صفقة من إشارة الرادار - فقط Grade A و S
     """
+    # 🛡️ لا نفتح مركزاً لعملة لا نستطيع تسعيرها من Binance —
+    #    رادار البورصات المتعددة يرصد من MEXC/Gate/BingX، وبعض رموزها غير مدرجة هنا،
+    #    فيبقى المدير بلا سعر ويقرّر على قيمة ميتة (سبب خسائر -26% سابقاً).
+    try:
+        from radars.futures.engine import fapi_get as _fg
+        _chk = await _fg(f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={sig.symbol}", 300)
+        if not _chk or not _chk.get("price"):
+            log.warning("🛡️ %s غير مسعّرة في Binance — لا فتح", sig.symbol)
+            return None
+    except Exception as _e:
+        log.warning("🛡️ تعذّر تسعير %s: %s — لا فتح", getattr(sig, "symbol", "?"), _e)
+        return None
     # ═══ شرط 1: Grade A أو S فقط ═══
     if sig.grade not in ("A", "S"):
         log.debug("Position skip: %s grade=%s (only A/S open positions)", sig.symbol, sig.grade)
