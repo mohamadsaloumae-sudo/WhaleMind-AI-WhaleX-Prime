@@ -25,7 +25,10 @@ export default function ChartModal({ pos, onClose, lang = "ar" }) {
     const r = e.currentTarget.parentElement.getBoundingClientRect();
     const go = (ev) => {
       const p = ev.touches ? ev.touches[0] : ev;
-      const w = Math.max(320, Math.min(window.innerWidth - 20, r.right - p.clientX));
+      // من المركز — النافذة متوسّطة، فحسابها من حافّة يُلغي أثر السحب
+      const cx = (r.left + r.right) / 2;
+      const w = Math.max(320, Math.min(window.innerWidth - 20,
+                                       Math.abs(cx - p.clientX) * 2));
       const h = Math.max(240, Math.min(window.innerHeight - 20, p.clientY - r.top));
       localStorage.setItem("wx_ch_w", String(Math.round(w)));
       localStorage.setItem("wx_ch_h", String(Math.round(h)));
@@ -113,7 +116,7 @@ export default function ChartModal({ pos, onClose, lang = "ar" }) {
         display: "flex", flexDirection: "column",
         position: "relative", margin: "auto",
         width: dim.w ? dim.w + "px" : "100%",
-        height: dim.h ? dim.h + "px" : "auto",
+        height: dim.h ? dim.h + "px" : "100%",
         maxWidth: "100%", maxHeight: "100%",
       }}>
         <div
