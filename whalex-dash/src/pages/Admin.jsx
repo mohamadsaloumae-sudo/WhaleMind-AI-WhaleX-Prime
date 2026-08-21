@@ -15,6 +15,7 @@ export default function Admin() {
   const [refs, setRefs] = useState(null);      // 🎁 الإحالات
   const [wds, setWds] = useState([]);          // طلبات السحب
   const [openRef, setOpenRef] = useState(null); // 👤 الحساب المفتوح
+  const [tab, setTab] = useState("overview"); // 📑 التبويب الحالي
   const [bcastMsg, setBcastMsg] = useState("");
   const [pending, setPending] = useState([]);
   const [replies, setReplies] = useState({});
@@ -79,7 +80,20 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* إدارة المستخدمين */}
+      {/* 📑 تبويبات — كل قسم على حدة */}
+      <div style={{ display: "flex", gap: 7, margin: "14px 0", flexWrap: "wrap" }}>
+        {[["overview","📊 نظرة عامّة"],["users","👥 المستخدمون"],["referrals","🎁 الإحالات"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setTab(k)} style={{
+            padding: "8px 15px", borderRadius: 10, cursor: "pointer", fontSize: 12.5,
+            fontWeight: tab===k?800:600,
+            background: tab===k?"rgba(45,212,191,.14)":"transparent",
+            border: "1px solid "+(tab===k?"rgba(45,212,191,.45)":"rgba(255,255,255,.1)"),
+            color: tab===k?"var(--brand)":"var(--txt-3)",
+          }}>{l}</button>
+        ))}
+      </div>
+
+      {tab==="users" && (
       <div className="card">
         <div style={{
           padding: 14, borderRadius: 12, marginBottom: 16,
@@ -232,13 +246,15 @@ export default function Admin() {
         )}
       </div>
 
+      )}
+
       {/* 🎁 الإحالات وطلبات السحب */}
-      {(refs?.error) && (
+      {tab==="referrals" && (refs?.error) && (
         <div className="card" style={{ marginTop: 16, padding: 14, border: "1px solid rgba(248,113,113,.3)" }}>
           <div style={{ fontSize: 12.5, color: "#f87171" }}>⚠️ الإحالات: {refs.error}</div>
         </div>
       )}
-      {refs && !refs.error && (
+      {tab==="referrals" && refs && !refs.error && (
         <div className="card" style={{ marginTop: 16, padding: 16 }}>
           <div className="card-title" style={{ marginBottom: 12 }}>🎁 الإحالات</div>
 
