@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowRight, ArrowLeft, X } from "lucide-react";
 import { useLang } from "../context/LangContext.jsx";
 
 /**
@@ -7,7 +9,9 @@ import { useLang } from "../context/LangContext.jsx";
  */
 export default function Legal() {
   const { lang } = useLang();
+  const nav = useNavigate();
   const ar = lang !== "en";
+  const Back = ar ? ArrowRight : ArrowLeft;
   const [tab, setTab] = useState(
     () => (window.location.hash || "").replace("#", "") || "terms"
   );
@@ -34,6 +38,24 @@ export default function Legal() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", paddingBottom: 40 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <button onClick={() => (window.history.length > 1 ? nav(-1) : nav("/landing"))}
+          style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 13px",
+                   borderRadius: 10, cursor: "pointer", background: "transparent",
+                   border: "1px solid rgba(255,255,255,.1)", color: "var(--txt-2)",
+                   fontSize: 12.5, fontWeight: 600 }}>
+          <Back size={15} />
+          {ar ? "رجوع" : "Back"}
+        </button>
+        <button onClick={() => nav("/")} title={ar ? "إغلاق" : "Close"}
+          style={{ marginInlineStart: "auto", padding: 9, borderRadius: 10,
+                   cursor: "pointer", background: "transparent",
+                   border: "1px solid rgba(255,255,255,.1)",
+                   color: "var(--txt-2)", display: "inline-flex" }}>
+          <X size={16} />
+        </button>
+      </div>
+
       <div style={{ display: "flex", gap: 7, marginBottom: 20, flexWrap: "wrap" }}>
         {TABS.map(([k, label]) => (
           <button key={k} onClick={() => { setTab(k); window.location.hash = k; }}
