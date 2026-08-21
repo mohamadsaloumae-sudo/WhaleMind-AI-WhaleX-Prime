@@ -437,14 +437,41 @@ def admin_referrals(user=Depends(require_admin)):
          ORDER BY earned DESC
     """).fetchall()
     cn.close()
+    # 👤 من دعاهم كلٌّ — بالاسم لا بالعدد
+    det = {}
+    for x in rows:
+        ppl = cn.execute("""
+            SELECT u.username, u.email, l.created_at,
+                   (SELECT COALESCE(SUM(e.amount),0) FROM referral_earnings e
+                     WHERE e.referred_id = l.referred_id) AS earned,
+                   (SELECT expires_at FROM trial_guard t
+                     WHERE t.user_id = l.referred_id) AS trial_exp
+              FROM referral_links l
+              LEFT JOIN users u ON u.id = l.referred_id
+             WHERE l.referrer_id = ?
+             ORDER BY l.created_at DESC""", (x["owner_id"],)).fetchall()
+        import time as _tt
+        _now = int(_tt.time())
+        det[x["owner_id"]] = [{
+            "name": p["username"] or p["email"] or "—",
+            "earned": round(p["earned"] or 0, 2),
+            "state": ("subscribed" if (p["earned"] or 0) > 0
+                      else "trial" if p["trial_exp"] and float(p["trial_exp"]) > _now
+                      else "trial_ended" if p["trial_exp"] else "signed_up"),
+            "joined_at": p["created_at"],
+        } for p in ppl]
+
     out = [{
         "user_id": x["owner_id"], "code": x["code"],
         "name": x["username"] or x["email"] or "",
+        "email": x["email"] or "",
+        "people": det.get(x["owner_id"], []),
         "invited": x["invited"], "converted": x["converted"],
         "earned": round(x["earned"] or 0, 2),
         "paid_out": round(x["paid_out"] or 0, 2),
         "owed": round((x["earned"] or 0) - (x["paid_out"] or 0), 2),
     } for x in rows]
+    cn.close()
     return {
         "referrers": out,
         "total_invited": sum(x["invited"] for x in out),

@@ -16,6 +16,7 @@ export const TRANSLATIONS = {
     // الصفحات (القائمة)
     "nav./": "الرئيسية",
     "nav./landing": "عن المنصّة",
+    "nav./profile": "حسابي",
     "nav./referral": "برنامج الإحالة",
     "nav./signals": "الإشارات الحيّة",
     "nav./positions": "الصفقات",
@@ -188,6 +189,7 @@ export const TRANSLATIONS = {
     "nav./": "Home",
 
     "nav./landing": "About",
+    "nav./profile": "My account",
     "nav./referral": "Referrals",
     "nav./signals": "Live Signals",
     "nav./positions": "Trades",

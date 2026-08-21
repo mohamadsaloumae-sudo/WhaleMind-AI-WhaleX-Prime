@@ -14,6 +14,7 @@ export default function Admin() {
   const [bcast, setBcast] = useState("");
   const [refs, setRefs] = useState(null);      // 🎁 الإحالات
   const [wds, setWds] = useState([]);          // طلبات السحب
+  const [openRef, setOpenRef] = useState(null); // 👤 الحساب المفتوح
   const [bcastMsg, setBcastMsg] = useState("");
   const [pending, setPending] = useState([]);
   const [replies, setReplies] = useState({});
@@ -236,15 +237,17 @@ export default function Admin() {
           <div className="card-title" style={{ marginBottom: 12 }}>🎁 الإحالات</div>
 
           <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-            {[["مُحيل", refs.referrers.length], ["دعوة", refs.total_invited],
-              ["أرباح", "$" + refs.total_earned], ["مستحقّ", "$" + refs.total_owed]]
+            {[["مُحيل", refs.referrers.length],
+              ["سجّلوا", refs.total_invited],
+              ["💳 دفعوا", refs.referrers.reduce((a, r) => a + r.converted, 0)],
+              ["مستحقّ", "$" + refs.total_owed]]
               .map(([l, v], i) => (
               <div key={i} style={{
                 flex: 1, textAlign: "center", padding: "10px 4px",
                 background: "rgba(255,255,255,.03)", borderRadius: 10,
                 border: "1px solid var(--border)",
               }}>
-                <div style={{ fontSize: 17, fontWeight: 800, color: i === 3 ? "#fbbf24" : "var(--txt-1)" }}>{v}</div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: i === 3 ? "#fbbf24" : i === 2 ? "#22c55e" : "var(--txt-1)" }}>{v}</div>
                 <div style={{ fontSize: 10, color: "var(--txt-3)", marginTop: 2 }}>{l}</div>
               </div>
             ))}
@@ -293,18 +296,73 @@ export default function Admin() {
             </>
           )}
 
-          {refs.referrers.filter((r) => r.invited > 0).map((r) => (
-            <div key={r.code} style={{
-              display: "flex", alignItems: "center", gap: 9,
-              padding: "9px 0", borderTop: "1px solid rgba(255,255,255,.05)",
-              fontSize: 12.5,
-            }}>
-              <span style={{ fontWeight: 700, color: "var(--brand)", direction: "ltr" }}>{r.code}</span>
-              <span style={{ flex: 1, color: "var(--txt-2)" }}>{r.name}</span>
-              <span style={{ fontSize: 11, color: "var(--txt-3)" }}>{r.invited}/{r.converted}</span>
-              <span style={{ fontWeight: 800, color: "#22c55e", direction: "ltr" }}>${r.earned}</span>
-            </div>
-          ))}
+          {refs.referrers.map((r) => {
+            const open = openRef === r.code;
+            const ST = {
+              subscribed: ["✅", "مشترك", "#22c55e"],
+              trial: ["🎁", "تجربة", "var(--brand)"],
+              trial_ended: ["⌛", "انتهت — لم يشترك", "#fbbf24"],
+              signed_up: ["⏳", "سجّل فقط", "var(--txt-3)"],
+            };
+            return (
+              <div key={r.code} style={{ borderTop: "1px solid rgba(255,255,255,.05)" }}>
+                <div onClick={() => setOpenRef(open ? null : r.code)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 9,
+                    padding: "10px 0", fontSize: 12.5, cursor: "pointer",
+                  }}>
+                  <span style={{ fontSize: 11, color: "var(--txt-3)" }}>{open ? "▾" : "▸"}</span>
+                  <span style={{ fontWeight: 700, color: "var(--brand)", direction: "ltr" }}>{r.code}</span>
+                  <span style={{ flex: 1, color: "var(--txt-1)", fontWeight: 600 }}>{r.name}</span>
+                  <span style={{ fontSize: 11, color: "var(--txt-3)" }}>
+                    {r.invited} سجّل
+                  </span>
+                  <span style={{
+                    fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 6,
+                    background: r.converted ? "rgba(34,197,94,.14)" : "rgba(255,255,255,.05)",
+                    color: r.converted ? "#22c55e" : "var(--txt-3)",
+                  }}>
+                    💳 {r.converted} دفع
+                  </span>
+                  <span style={{ fontWeight: 800, color: "#22c55e", direction: "ltr" }}>${r.earned}</span>
+                </div>
+
+                {open && (
+                  <div style={{
+                    padding: "4px 0 12px", marginInlineStart: 18,
+                    borderInlineStart: "2px solid rgba(45,212,191,.25)",
+                    paddingInlineStart: 12,
+                  }}>
+                    <div style={{ fontSize: 11, color: "var(--txt-3)", marginBottom: 7 }}>
+                      {r.email} · مدفوع ${r.paid_out} · مستحقّ ${r.owed}
+                    </div>
+                    {(r.people || []).length === 0 ? (
+                      <div style={{ fontSize: 11.5, color: "var(--txt-3)" }}>
+                        أنشأ رابطاً ولم يدعُ أحداً بعد
+                      </div>
+                    ) : r.people.map((p, j) => {
+                      const [ic, lbl, col] = ST[p.state] || ST.signed_up;
+                      return (
+                        <div key={j} style={{
+                          display: "flex", alignItems: "center", gap: 8,
+                          padding: "6px 0", fontSize: 12,
+                        }}>
+                          <span>{ic}</span>
+                          <span style={{ flex: 1, color: "var(--txt-2)" }}>{p.name}</span>
+                          <span style={{ fontSize: 10.5, color: col }}>{lbl}</span>
+                          {p.earned > 0 && (
+                            <span style={{ fontSize: 11.5, fontWeight: 700, color: "#22c55e", direction: "ltr" }}>
+                              +${p.earned}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </>
