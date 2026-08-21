@@ -410,3 +410,99 @@ async def broadcast_all(body: MsgBody, user=Depends(require_admin)):
         except Exception:
             pass
     return {"status": "sent", "recipients": sent}
+
+
+# ═══════════════════ 🎁 الإحالات ═══════════════════
+
+@router.get("/referrals")
+def admin_referrals(user=Depends(require_admin)):
+    """كل المُحيلين · من أحالوا · أرباحهم."""
+    import sqlite3
+    cn = sqlite3.connect("/opt/whalex/db/whalex.db")
+    cn.row_factory = sqlite3.Row
+    rows = cn.execute("""
+        SELECT r.owner_id, r.code,
+               u.username, u.email,
+               (SELECT COUNT(*) FROM referral_links l
+                 WHERE l.referrer_id = r.owner_id) AS invited,
+               (SELECT COUNT(*) FROM referral_links l
+                 JOIN referral_earnings e ON e.referred_id = l.referred_id
+                WHERE l.referrer_id = r.owner_id) AS converted,
+               (SELECT COALESCE(SUM(e.amount),0) FROM referral_earnings e
+                 WHERE e.referrer_id = r.owner_id) AS earned,
+               (SELECT COALESCE(SUM(w.amount),0) FROM referral_withdrawals w
+                 WHERE w.user_id = r.owner_id AND w.status='paid') AS paid_out
+          FROM referrals r
+          LEFT JOIN users u ON u.id = r.owner_id
+         ORDER BY earned DESC
+    """).fetchall()
+    cn.close()
+    out = [{
+        "user_id": x["owner_id"], "code": x["code"],
+        "name": x["username"] or x["email"] or "",
+        "invited": x["invited"], "converted": x["converted"],
+        "earned": round(x["earned"] or 0, 2),
+        "paid_out": round(x["paid_out"] or 0, 2),
+        "owed": round((x["earned"] or 0) - (x["paid_out"] or 0), 2),
+    } for x in rows]
+    return {
+        "referrers": out,
+        "total_invited": sum(x["invited"] for x in out),
+        "total_earned": round(sum(x["earned"] for x in out), 2),
+        "total_owed": round(sum(x["owed"] for x in out), 2),
+    }
+
+
+@router.get("/withdrawals")
+def admin_withdrawals(user=Depends(require_admin)):
+    """طلبات السحب مع بيانات صاحبها للتحقّق."""
+    import sqlite3
+    cn = sqlite3.connect("/opt/whalex/db/whalex.db")
+    cn.row_factory = sqlite3.Row
+    rows = cn.execute("""
+        SELECT w.*, u.username, u.email,
+               p.name, p.phone, p.country, p.usdt_network,
+               (SELECT COUNT(*) FROM referral_links l
+                 WHERE l.referrer_id = w.user_id) AS invited
+          FROM referral_withdrawals w
+          LEFT JOIN users u ON u.id = w.user_id
+          LEFT JOIN user_profiles p ON p.user_id = w.user_id
+         ORDER BY CASE w.status WHEN 'pending' THEN 0 ELSE 1 END,
+                  w.created_at DESC
+    """).fetchall()
+    cn.close()
+    k = rows[0].keys() if rows else []
+    g = lambda x, c: (x[c] if c in x.keys() else None) or ""
+    return {"withdrawals": [{
+        "id": x["id"], "user_id": x["user_id"],
+        "name": g(x, "name") or g(x, "username") or g(x, "email"),
+        "phone": g(x, "phone"), "country": g(x, "country"),
+        "amount": x["amount"], "wallet": x["wallet"],
+        "network": g(x, "usdt_network") or "TRC20",
+        "invited": x["invited"], "status": x["status"],
+        "created_at": x["created_at"], "paid_at": x["paid_at"],
+    } for x in rows]}
+
+
+class WdAction(BaseModel):
+    action: str          # paid · rejected
+
+
+@router.post("/withdrawals/{wid}")
+def admin_withdrawal_action(wid: str, body: WdAction,
+                            user=Depends(require_admin)):
+    """⚠️ لا إرسال آلي — تُرسل أنت من محفظتك ثم تُعلّم الطلب."""
+    if body.action not in ("paid", "rejected"):
+        raise HTTPException(400, "إجراء غير معروف")
+    import sqlite3, time as _t
+    cn = sqlite3.connect("/opt/whalex/db/whalex.db")
+    n = cn.execute(
+        "UPDATE referral_withdrawals SET status=?, paid_at=? "
+        "WHERE id=? AND status='pending'",
+        (body.action, int(_t.time()) if body.action == "paid" else None, wid)
+    ).rowcount
+    cn.commit()
+    cn.close()
+    if not n:
+        raise HTTPException(404, "الطلب غير موجود أو عولج سابقاً")
+    return {"success": True, "status": body.action}
