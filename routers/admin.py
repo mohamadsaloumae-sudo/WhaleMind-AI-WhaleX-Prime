@@ -436,8 +436,7 @@ def admin_referrals(user=Depends(require_admin)):
           LEFT JOIN users u ON u.id = r.owner_id
          ORDER BY earned DESC
     """).fetchall()
-    cn.close()
-    # 👤 من دعاهم كلٌّ — بالاسم لا بالعدد
+    # 👤 من دعاهم كلٌّ — بالاسم لا بالعدد (الاتصال يبقى مفتوحاً حتى نفرغ)
     det = {}
     for x in rows:
         ppl = cn.execute("""
