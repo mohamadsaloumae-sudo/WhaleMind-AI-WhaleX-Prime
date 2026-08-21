@@ -119,6 +119,29 @@ export default function ChartModal({ pos, onClose, lang = "ar" }) {
         height: dim.h ? dim.h + "px" : "100%",
         maxWidth: "100%", maxHeight: "100%",
       }}>
+        {/* ⛶ عودة لملء الشاشة بضغطة — يظهر عند تغيير الحجم فقط */}
+        {(dim.w || dim.h) ? (
+          <button
+            className="wx-ch-full"
+            onClick={() => {
+              localStorage.removeItem("wx_ch_w");
+              localStorage.removeItem("wx_ch_h");
+              setDim({ w: 0, h: 0 });
+            }}
+            title="ملء الشاشة"
+            style={{
+              position: "absolute", bottom: 8, insetInlineStart: 34, zIndex: 21,
+              display: "flex", alignItems: "center", gap: 5,
+              padding: "6px 11px", borderRadius: 9, cursor: "pointer",
+              background: "rgba(45,212,191,.14)",
+              border: "1px solid rgba(45,212,191,.4)",
+              color: "var(--brand, #2dd4bf)", fontSize: 11.5, fontWeight: 700,
+            }}
+          >
+            ⛶ {lang === "en" ? "Full" : "ملء الشاشة"}
+          </button>
+        ) : null}
+
         <div
           className="wx-ch-grab"
           onMouseDown={grab}
