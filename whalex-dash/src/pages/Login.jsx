@@ -34,7 +34,8 @@ export default function Login() {
         const res = await auth.login(username.trim(), password);
         login(res.access_token);
       } else {
-        const res = await auth.register(username.trim(), password, email.trim());
+        const res = await auth.register(username.trim(), password, email.trim(),
+          localStorage.getItem("wx_ref") || "");
         if (res.needs_link) {
           setLinkData({ code: res.link_code, bot: res.bot });
         } else if (res.access_token) {

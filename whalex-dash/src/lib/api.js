@@ -47,7 +47,8 @@ export const api = {
 // ─── نداءات جاهزة (مختصرات) ───
 export const auth = {
   login:    (username, password) => api.post("/api/auth/login", { username, password }),
-  register: (username, password, email) => api.post("/api/auth/register", { username, password, email }),
+  register: (username, password, email, ref_code) =>
+    api.post("/api/auth/register", { username, password, email, ref_code: ref_code || "" }),
   forgot:   (username) => api.post("/api/auth/forgot", { username }),
   resetPassword: (username, code, new_password) => api.post("/api/auth/reset-password", { username, code, new_password }),
   linkCode: () => api.post("/api/auth/link-code", {}),
