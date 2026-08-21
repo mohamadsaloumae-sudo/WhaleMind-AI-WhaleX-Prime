@@ -118,6 +118,15 @@ async def upgrade(body: UpgradeBody, user=Depends(get_current_user)):
         )
         db.add(sub)
         db.commit()
+
+        # 🎁 عمولة الإحالة — داخل try كي لا يتأثّر الدفع إن فشلت
+        try:
+            from routers.referral import record_commission
+            record_commission(str(u.id), float(result["amount"]))
+        except Exception as _re:
+            import logging
+            logging.getLogger("subscription").debug("referral: %s", _re)
+
         return {
             "status": "upgraded",
             "plan": plan["label"],

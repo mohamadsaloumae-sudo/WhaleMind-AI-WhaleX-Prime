@@ -137,6 +137,9 @@ app.include_router(public_router)
 # 🎁 التجربة المجانية
 from routers.trial import router as trial_router
 app.include_router(trial_router)
+# 🎁 نظام الإحالة
+from routers.referral import router as ref_router
+app.include_router(ref_router)
 
 @app.get("/", include_in_schema=False)
 async def root(): return RedirectResponse("/static/index.html", 302)

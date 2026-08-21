@@ -39,6 +39,7 @@ class RegisterBody(BaseModel):
     username: str
     password: str
     email: str = ""
+    ref_code: str = ""
 
 class LoginBody(BaseModel):
     username: str
@@ -59,6 +60,12 @@ def register(body: RegisterBody):
         code = "WX-" + secrets.token_hex(3).upper()
         user.tg_link_code = code
         db.add(user); db.commit(); db.refresh(user)
+        try:
+            if body.ref_code:
+                from routers.referral import register_referral
+                register_referral(str(user.id), body.ref_code)
+        except Exception:
+            pass
         return {"needs_link": True, "link_code": code, "uid": user.id,
                 "bot": "WMAI2026BOT",
                 "instructions": f"أرسل هذا للبوت: /link {code}"}
