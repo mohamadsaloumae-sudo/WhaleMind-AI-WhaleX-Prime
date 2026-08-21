@@ -12,6 +12,8 @@ export default function Admin() {
   const [sheetUser, setSheetUser] = useState(null);
   const [frozen, setFrozen] = useState(false);
   const [bcast, setBcast] = useState("");
+  const [refs, setRefs] = useState(null);      // 🎁 الإحالات
+  const [wds, setWds] = useState([]);          // طلبات السحب
   const [bcastMsg, setBcastMsg] = useState("");
   const [pending, setPending] = useState([]);
   const [replies, setReplies] = useState({});
@@ -34,6 +36,8 @@ export default function Admin() {
     try { setStats(await api.get("/api/admin/stats")); } catch (e) { setErr(e.message); }
     try { const u = await api.get("/api/admin/users"); setUsers(u?.users || []); } catch { /* */ }
     try { const f = await api.get("/api/admin/freeze"); setFrozen(!!f?.frozen); } catch { /* */ }
+    try { setRefs(await api.get("/api/admin/referrals")); } catch { /* */ }
+    try { const w = await api.get("/api/admin/withdrawals"); setWds(w?.withdrawals || []); } catch { /* */ }
     try {
       const s = await api.get("/api/admin/support/pending");
       setPending(s?.pending || []);
@@ -225,6 +229,84 @@ export default function Admin() {
           </div>
         )}
       </div>
+
+      {/* 🎁 الإحالات وطلبات السحب */}
+      {refs && (
+        <div className="card" style={{ marginTop: 16, padding: 16 }}>
+          <div className="card-title" style={{ marginBottom: 12 }}>🎁 الإحالات</div>
+
+          <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+            {[["مُحيل", refs.referrers.length], ["دعوة", refs.total_invited],
+              ["أرباح", "$" + refs.total_earned], ["مستحقّ", "$" + refs.total_owed]]
+              .map(([l, v], i) => (
+              <div key={i} style={{
+                flex: 1, textAlign: "center", padding: "10px 4px",
+                background: "rgba(255,255,255,.03)", borderRadius: 10,
+                border: "1px solid var(--border)",
+              }}>
+                <div style={{ fontSize: 17, fontWeight: 800, color: i === 3 ? "#fbbf24" : "var(--txt-1)" }}>{v}</div>
+                <div style={{ fontSize: 10, color: "var(--txt-3)", marginTop: 2 }}>{l}</div>
+              </div>
+            ))}
+          </div>
+
+          {wds.filter((w) => w.status === "pending").length > 0 && (
+            <>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "#fbbf24", marginBottom: 9 }}>
+                ⏳ طلبات سحب معلّقة
+              </div>
+              {wds.filter((w) => w.status === "pending").map((w) => (
+                <div key={w.id} style={{
+                  background: "rgba(251,191,36,.06)", border: "1px solid rgba(251,191,36,.3)",
+                  borderRadius: 12, padding: 13, marginBottom: 9,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <b style={{ fontSize: 13.5 }}>{w.name}</b>
+                    <span style={{ fontSize: 11, color: "var(--txt-3)" }}>{w.country}</span>
+                    <span style={{ marginInlineStart: "auto", fontSize: 17, fontWeight: 900, color: "#22c55e" }}>
+                      ${w.amount}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--txt-2)", marginBottom: 4, direction: "ltr" }}>
+                    {w.phone} · {w.network} · دعا {w.invited}
+                  </div>
+                  <div style={{
+                    fontSize: 10.5, color: "var(--txt-3)", wordBreak: "break-all",
+                    direction: "ltr", marginBottom: 10, userSelect: "all",
+                  }}>{w.wallet}</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button className="btn btn-primary" style={{ flex: 1, fontSize: 12 }}
+                      onClick={async () => {
+                        if (!window.confirm(`أرسلتَ $${w.amount} فعلاً؟`)) return;
+                        try { await api.post(`/api/admin/withdrawals/${w.id}`, { action: "paid" }); load(); }
+                        catch (e) { alert(e.message); }
+                      }}>✓ دُفعت</button>
+                    <button className="btn btn-danger" style={{ flex: 1, fontSize: 12 }}
+                      onClick={async () => {
+                        if (!window.confirm("رفض الطلب؟")) return;
+                        try { await api.post(`/api/admin/withdrawals/${w.id}`, { action: "rejected" }); load(); }
+                        catch (e) { alert(e.message); }
+                      }}>✕ رفض</button>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {refs.referrers.filter((r) => r.invited > 0).map((r) => (
+            <div key={r.code} style={{
+              display: "flex", alignItems: "center", gap: 9,
+              padding: "9px 0", borderTop: "1px solid rgba(255,255,255,.05)",
+              fontSize: 12.5,
+            }}>
+              <span style={{ fontWeight: 700, color: "var(--brand)", direction: "ltr" }}>{r.code}</span>
+              <span style={{ flex: 1, color: "var(--txt-2)" }}>{r.name}</span>
+              <span style={{ fontSize: 11, color: "var(--txt-3)" }}>{r.invited}/{r.converted}</span>
+              <span style={{ fontWeight: 800, color: "#22c55e", direction: "ltr" }}>${r.earned}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }
