@@ -37,7 +37,7 @@ export default function Legal() {
   );
 
   return (
-    <div style={{ width: "100%", paddingBottom: 40 }}>
+    <div style={{ width: "min(1100px, 100%)", margin: "0 auto", paddingBottom: 40, paddingInline: "clamp(8px, 3vw, 28px)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
         <button onClick={() => (window.history.length > 1 ? nav(-1) : nav("/landing"))}
           style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 13px",
