@@ -42,6 +42,23 @@ async def _get_price(symbol: str) -> float:
     # ⚡ 3 ثوانٍ فقط — 30 كانت تُظهر سعراً عمره نصف دقيقة (هذه أموال)
     if symbol in _price_cache and (now - _price_ts.get(symbol, 0)) < 3.0:
         return _price_cache[symbol]
+
+    # 🌐 الرمز نفسه قد يوجد على منصّتين بسعرين مختلفين.
+    #    دليل OPENAIUSDT: باينانس 1242.85 · Gate 1167.55 (فارق 6.4%).
+    #    الحماية القديمة تعمل عند price<=0 فقط، وهنا باينانس تُرجع سعراً
+    #    صحيحاً لعقد آخر — فنسأل منصّة الصفقة نفسها أولاً.
+    try:
+        _ex = _sym_ex(symbol)
+        if _ex and str(_ex).lower() != "binance":
+            from radars.futures.position_manager import get_price as _mxp0
+            _p0 = await _mxp0(symbol)
+            if _p0 and _p0 > 0:
+                _price_cache[symbol] = float(_p0)
+                _price_ts[symbol] = now
+                return float(_p0)
+    except Exception as _e0:
+        log.debug("🌐 منصّة %s: %s", symbol, _e0)
+
     try:
         async with httpx.AsyncClient(timeout=5) as c:
             r = await c.get(f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={symbol}")
