@@ -5,13 +5,41 @@ import { PAGES } from "../lib/pages.js";
 import QuickSettings from "./QuickSettings.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useLang } from "../context/LangContext.jsx";
+import { setWidth, applyUI, setCollapsed } from "../lib/uiState.js";
+import { useEffect } from "react";
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const { t } = useLang();
   const isAdmin = user?.tier === "admin";
 
+  // 🎛️ نُعيد ما حفظه المستخدم (الطيّ والعرض) عند الإقلاع
+  useEffect(() => { applyUI(); }, []);
+
+  // ↔️ سحب الحافّة لتغيير العرض
+  function startDrag(e) {
+    e.preventDefault();
+    const move = (ev) => {
+      const x = ev.touches ? ev.touches[0].clientX : ev.clientX;
+      setWidth(window.innerWidth - x);
+    };
+    const stop = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", stop);
+      window.removeEventListener("touchmove", move);
+      window.removeEventListener("touchend", stop);
+      document.body.style.userSelect = "";
+    };
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", stop);
+    window.addEventListener("touchmove", move, { passive: false });
+    window.addEventListener("touchend", stop);
+  }
+
   return (
+    <>
+    <div className="wx-resize" onMouseDown={startDrag} onTouchStart={startDrag} />
     <aside className="sidebar">
       <div className="sidebar-logo">
         <Waves size={26} /> WhaleX
@@ -30,6 +58,10 @@ export default function Sidebar() {
               key={p.path}
               to={p.path}
               end={p.path === "/"}
+              onClick={() => {
+                // 📱 فتح صفحة يطوي القائمة — المحتوى يملأ الشاشة
+                if (window.innerWidth > 980) setCollapsed(true);
+              }}
               className={({ isActive }) =>
                 `nav-item ${p.adminOnly ? "admin" : ""} ${isActive ? "active" : ""}`
               }
@@ -55,5 +87,6 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
+    </>
   );
 }

@@ -5,6 +5,8 @@ import { useLang } from "../context/LangContext.jsx";
 import { Languages, Share2 } from "lucide-react";
 import NotificationBell from "./NotificationBell.jsx";
 import DrawerMenu from "./DrawerMenu.jsx";
+import { PanelRight } from "lucide-react";
+import { toggleSidebar } from "../lib/uiState.js";
 import ProBadge from "./ProBadge.jsx";
 import ScrollTop from "./ScrollTop.jsx";
 import Toast from "./Toast.jsx";
@@ -44,6 +46,20 @@ export default function Layout({ titleKey, children }) {
       <Sidebar />
       <div className="main-area">
         <header className="topbar">
+          {/* ☰ طيّ القائمة الجانبية — سطح المكتب فقط */}
+          <button
+            className="wx-sb-toggle"
+            onClick={toggleSidebar}
+            title="القائمة"
+            style={{
+              background: "transparent", border: "none", cursor: "pointer",
+              color: "var(--txt-2)", display: "flex", alignItems: "center",
+              padding: 6, borderRadius: 8, marginInlineEnd: 4,
+            }}
+          >
+            <PanelRight size={18} strokeWidth={1.8} />
+          </button>
+
           {/* 🏷️ العنوان والفئة معاً — النقطة الخضراء تعني أن النظام يعمل */}
           <h1 style={{
             minWidth: 0, overflow: "hidden", textOverflow: "ellipsis",
