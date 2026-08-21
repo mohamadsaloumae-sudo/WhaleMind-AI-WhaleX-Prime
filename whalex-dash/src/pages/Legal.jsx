@@ -17,23 +17,23 @@ export default function Legal() {
     : [["terms", "Terms"], ["privacy", "Privacy"], ["refund", "Refunds"]];
 
   const S = ({ children }) => (
-    <h3 style={{ fontSize: 14.5, fontWeight: 800, color: "var(--txt-1)", margin: "20px 0 8px" }}>
+    <h3 style={{ fontSize: 17, fontWeight: 800, color: "var(--txt-1)", margin: "26px 0 10px" }}>
       {children}
     </h3>
   );
   const P = ({ children }) => (
-    <p style={{ fontSize: 13, lineHeight: 1.9, color: "var(--txt-2)", margin: "0 0 10px" }}>
+    <p style={{ fontSize: 14.5, lineHeight: 2.05, color: "var(--txt-2)", margin: "0 0 12px" }}>
       {children}
     </p>
   );
   const L = ({ children }) => (
-    <li style={{ fontSize: 13, lineHeight: 1.9, color: "var(--txt-2)", marginBottom: 6 }}>
+    <li style={{ fontSize: 14.5, lineHeight: 2.05, color: "var(--txt-2)", marginBottom: 9 }}>
       {children}
     </li>
   );
 
   return (
-    <div style={{ maxWidth: 620, margin: "0 auto", paddingBottom: 30 }}>
+    <div style={{ maxWidth: 900, margin: "0 auto", paddingBottom: 40 }}>
       <div style={{ display: "flex", gap: 7, marginBottom: 20, flexWrap: "wrap" }}>
         {TABS.map(([k, label]) => (
           <button key={k} onClick={() => { setTab(k); window.location.hash = k; }}
