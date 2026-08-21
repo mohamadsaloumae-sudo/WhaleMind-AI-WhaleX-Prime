@@ -31,15 +31,16 @@ export const SECTIONS = [
 ];
 
 /** 🎨 الهوية البصرية — تعديل هنا يُغيّر كل الأقسام */
+// 🎨 نفس هوية التطبيق — القيم من tokens.css حرفياً
 export const T = {
-  bg: "#080c16",
-  card: "rgba(255,255,255,.035)",
-  border: "rgba(255,255,255,.08)",
-  brand: "#2dd4bf",
-  brand2: "#22c55e",
-  gold: "#fbbf24",
-  red: "#f87171",
-  txt: "#ffffff",
-  txt2: "#a8b3c4",
-  txt3: "#6b7688",
+  bg: "#0a0e1a",        // --bg-0
+  card: "#111726",      // --bg-1
+  border: "#232d44",    // --bg-3
+  brand: "#2dd4bf",     // --brand
+  brand2: "#22c55e",    // --green
+  gold: "#f59e0b",      // --amber
+  red: "#ef4444",       // --red
+  txt: "#e8edf7",       // --txt-1
+  txt2: "#9aa6be",      // --txt-2
+  txt3: "#5c6880",      // --txt-3
 };
