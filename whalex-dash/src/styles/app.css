@@ -498,3 +498,8 @@ table, pre, code { max-width: 100%; overflow-x: auto; }
   overflow: hidden;
 }
 .app-shell.wx-collapsed .wx-resize { display: none; }
+
+/* 🪟 مقبض تحجيم الشارت — كمبيوتر ولوحي فقط */
+@media (max-width: 700px) {
+  .wx-ch-grab { display: none !important; }
+}
