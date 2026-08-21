@@ -37,7 +37,8 @@ export default function Admin() {
     try { setStats(await api.get("/api/admin/stats")); } catch (e) { setErr(e.message); }
     try { const u = await api.get("/api/admin/users"); setUsers(u?.users || []); } catch { /* */ }
     try { const f = await api.get("/api/admin/freeze"); setFrozen(!!f?.frozen); } catch { /* */ }
-    try { setRefs(await api.get("/api/admin/referrals")); } catch { /* */ }
+    try { setRefs(await api.get("/api/admin/referrals")); }
+    catch (e) { setRefs({ error: e?.message || "تعذر الجلب" }); }
     try { const w = await api.get("/api/admin/withdrawals"); setWds(w?.withdrawals || []); } catch { /* */ }
     try {
       const s = await api.get("/api/admin/support/pending");
@@ -232,7 +233,12 @@ export default function Admin() {
       </div>
 
       {/* 🎁 الإحالات وطلبات السحب */}
-      {refs && (
+      {(refs?.error) && (
+        <div className="card" style={{ marginTop: 16, padding: 14, border: "1px solid rgba(248,113,113,.3)" }}>
+          <div style={{ fontSize: 12.5, color: "#f87171" }}>⚠️ الإحالات: {refs.error}</div>
+        </div>
+      )}
+      {refs && !refs.error && (
         <div className="card" style={{ marginTop: 16, padding: 16 }}>
           <div className="card-title" style={{ marginBottom: 12 }}>🎁 الإحالات</div>
 
