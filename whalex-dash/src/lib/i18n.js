@@ -16,6 +16,7 @@ export const TRANSLATIONS = {
     // الصفحات (القائمة)
     "nav./": "الرئيسية",
     "nav./landing": "عن المنصّة",
+    "nav./referral": "برنامج الإحالة",
     "nav./signals": "الإشارات الحيّة",
     "nav./positions": "الصفقات",
     wins: "رابحة",
@@ -187,6 +188,7 @@ export const TRANSLATIONS = {
     "nav./": "Home",
 
     "nav./landing": "About",
+    "nav./referral": "Referrals",
     "nav./signals": "Live Signals",
     "nav./positions": "Trades",
     wins: "Wins",
