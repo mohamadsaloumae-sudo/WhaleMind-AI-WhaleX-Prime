@@ -18,6 +18,11 @@ export default function ChatWidget() {
   const [busy, setBusy] = useState(false);
   const endRef = useRef(null);
 
+  // 🧹 الردود مكتوبة بـHTML لتيليجرام — ننظّفها للعرض هنا
+  const clean = (t) => String(t || "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+
   const uid = user?.id || localStorage.getItem("wx_uid") || "guest";
 
   const load = () =>
@@ -113,7 +118,7 @@ export default function ChatWidget() {
                     background: "var(--bg-2)", borderRadius: "13px 13px 13px 4px",
                     padding: "9px 12px", fontSize: 12.5, color: "var(--txt-2)",
                     lineHeight: 1.75,
-                  }}>🐋 {m.reply}</div>
+                  }}>🐋 {clean(m.reply)}</div>
                 )}
               </div>
             ))}
