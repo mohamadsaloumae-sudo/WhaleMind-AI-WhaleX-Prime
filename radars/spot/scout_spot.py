@@ -412,6 +412,76 @@ def _ensure_results_table():
         log.debug("results table: %s", _e)
 
 
+_MULTI_EX_CACHE = {}
+_BN_ONLY = {"syms": set(), "ts": 0.0}
+
+
+def _binance_only_syms() -> set:
+    """رموز مصدرها باينانس فقط — غيرها يُسعَّر من منصّته."""
+    import sqlite3, time as _t
+    if _t.time() - _BN_ONLY["ts"] < 300 and _BN_ONLY["syms"]:
+        return _BN_ONLY["syms"]
+    try:
+        cn = sqlite3.connect("/opt/whalex/spot_universe.db")
+        rows = cn.execute("SELECT symbol FROM spot_universe WHERE exchange='binance'").fetchall()
+        cn.close()
+        _BN_ONLY["syms"] = {r[0] for r in rows}
+        _BN_ONLY["ts"] = _t.time()
+    except Exception:
+        pass
+    return _BN_ONLY["syms"]
+
+
+def _multi_prices_sync() -> dict:
+    """
+    🌐 أسعار العملات غير الباينانسية من منصّاتها هي.
+    السبب: XMRUSDT على مكسي بـ425$ ورمز مختلف على باينانس بـ118$ —
+    فقراءة سعر باينانس أعطت خسارة وهمية -72% وأغلقت صفقة رابحة.
+    """
+    import sqlite3
+    out = {}
+    try:
+        cn = sqlite3.connect("/opt/whalex/spot_universe.db")
+        rows = cn.execute("SELECT symbol,exchange,ccxt_symbol FROM spot_universe "
+                          "WHERE exchange != 'binance'").fetchall()
+        cn.close()
+    except Exception:
+        return out
+    by_ex = {}
+    for sym, ex, ck in rows:
+        by_ex.setdefault(ex, []).append((sym, ck))
+    import ccxt
+    for ex, items in by_ex.items():
+        try:
+            e = _MULTI_EX_CACHE.get(ex)
+            if e is None:
+                e = getattr(ccxt, ex)({"enableRateLimit": True, "timeout": 20000,
+                                       "options": {"defaultType": "spot"}})
+                _MULTI_EX_CACHE[ex] = e
+            tk = e.fetch_tickers([ck for _s, ck in items])
+            for sym, ck in items:
+                t = tk.get(ck) or {}
+                px = t.get("last") or t.get("close")
+                if px:
+                    out[sym] = float(px)
+        except Exception as _e:
+            log.debug("🪙 multi px %s: %s", ex, _e)
+    return out
+
+
+async def _multi_prices_loop():
+    """يُحدّث أسعار المنصّات الأخرى كل 45 ثانية."""
+    while True:
+        try:
+            got = await asyncio.to_thread(_multi_prices_sync)
+            if got:
+                _prices.update(got)
+                log.debug("🪙🌐 أسعار من منصّات أخرى: %d", len(got))
+        except Exception as e:
+            log.warning("🪙🌐 multi prices: %s", e)
+        await asyncio.sleep(45)
+
+
 async def _ws_price_feed():
     # تيار أسعار حي عبر WebSocket لكل عملات السبوت
     import json
@@ -425,7 +495,9 @@ async def _ws_price_feed():
                     try:
                         for t in json.loads(msg):
                             s = t.get("s"); pr = t.get("c")
-                            if s and pr: _prices[s] = float(pr)
+                            # 🛡️ بثّ باينانس لعملاتها وحدها
+                            if s and pr and s in _binance_only_syms():
+                                _prices[s] = float(pr)
                     except Exception: pass
         except Exception as e:
             log.warning("🪙🔌 Spot WS drop: %s", e)
@@ -441,6 +513,7 @@ async def tracker_loop():
     from services.telegram import send_message
     ch = get_settings().telegram_spot_channel_id
     asyncio.create_task(_ws_price_feed())
+    asyncio.create_task(_multi_prices_loop())   # 🌐 كل عملة من منصّتها
     _last_rest = 0.0
     async with httpx.AsyncClient() as c:
         while True:
@@ -449,8 +522,11 @@ async def tracker_loop():
                     _last_rest = time.time()
                     try:
                         r = await c.get(f"{SPOT}/api/v3/ticker/price", timeout=15)
+                        _bn = _binance_only_syms()
                         for row in r.json():
-                            _prices[row["symbol"]] = float(row["price"])
+                            # 🛡️ لا نكتب سعر باينانس فوق عملة منصّتها أخرى
+                            if row["symbol"] in _bn:
+                                _prices[row["symbol"]] = float(row["price"])
                     except Exception: pass
 
                 db = get_session()
