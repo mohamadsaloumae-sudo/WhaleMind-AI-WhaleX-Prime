@@ -42,16 +42,12 @@ export default function Sidebar() {
     <div className="wx-resize" onMouseDown={startDrag} onTouchStart={startDrag} />
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <Waves size={26} /> WhaleX
+        <Waves size={24} />
+        <span>WhaleX <span style={{ color: "var(--brand)" }}>Prime</span></span>
       </div>
 
       <nav className="nav-list">
-        {(() => {
-          // 🏁 «عن المنصّة» أوّل القائمة الجانبية
-          const _a = PAGES.filter((p) => !p.adminOnly);
-          const _ab = _a.find((p) => p.path === "/landing");
-          return _ab ? [_ab, ..._a.filter((p) => p.path !== "/landing")] : _a;
-        })().map((p) => {
+        {PAGES.filter((p) => !p.adminOnly).map((p) => {
           const Icon = p.icon;
           return (
             <NavLink
