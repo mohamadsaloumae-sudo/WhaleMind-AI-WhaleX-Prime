@@ -1,3 +1,4 @@
+import React from "react";
 // ════════════════════════════════════════════════════════════
 //  جذر التطبيق — يبني الـ routing تلقائياً من PAGES
 // ════════════════════════════════════════════════════════════
@@ -38,6 +39,21 @@ function Protected() {
   );
 }
 
+// 🏁 بوّابة المقدّمة — مكوّن مستقلّ، فالتنقّل داخله لا يُعيد تقييم شرط خارجي
+function IntroGate({ children }) {
+  const [done, setDone] = React.useState(
+    () => window.__wxIntroDone === true
+  );
+  React.useEffect(() => {
+    const on = () => setDone(true);
+    window.addEventListener("wx-intro-done", on);
+    return () => window.removeEventListener("wx-intro-done", on);
+  }, []);
+  if (done) return children;
+  window.__wxIntroDone = false;
+  return <Navigate to="/landing" replace />;
+}
+
 function Root() {
   const { user, ready } = useAuth();
   return (
@@ -56,7 +72,9 @@ function Root() {
           ready && !user
             ? <Navigate to="/landing" replace />
 
-            : <DeviceGuard><Protected /></DeviceGuard>
+            : window.location.pathname === "/" && !window.__wxIntroDone
+              ? <IntroGate><DeviceGuard><Protected /></DeviceGuard></IntroGate>
+              : <DeviceGuard><Protected /></DeviceGuard>
         }
       />
     </Routes>
