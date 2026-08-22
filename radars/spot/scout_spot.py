@@ -613,8 +613,7 @@ async def tracker_loop():
                             if pnl > 0:
                                 _last_sig[s.symbol] = time.time() - (COOLDOWN - REENTRY_COOLDOWN)
                             try:
-                                from services.binance_trader import close_spot_all
-                                await close_spot_all(s.symbol, "reversal")
+                                await _sell_on_exchange(s.symbol, "reversal", px)
                             except Exception: pass
                             try:
                                 from quant_engine.spot_brain import record_spot_outcome
@@ -626,8 +625,7 @@ async def tracker_loop():
                             s.is_active = False; s.pnl_pct = round(pnl, 2); s.close_reason = "locked"; s.closed_at = datetime.utcnow(); db.commit()
                             _log_result(1 if pnl > 0 else 0, "locked")
                             try:
-                                from services.binance_trader import close_spot_all
-                                await close_spot_all(s.symbol, "locked")
+                                await _sell_on_exchange(s.symbol, "locked", px)
                             except Exception: pass
                             try:
                                 from quant_engine.spot_brain import record_spot_outcome
@@ -639,8 +637,7 @@ async def tracker_loop():
                             s.is_active = False; s.pnl_pct = round(pnl, 2); s.close_reason = "sl"; s.closed_at = datetime.utcnow(); db.commit()
                             _log_result(0, "sl")
                             try:
-                                from services.binance_trader import close_spot_all
-                                await close_spot_all(s.symbol, "sl")
+                                await _sell_on_exchange(s.symbol, "sl", px)
                             except Exception: pass
                             try:
                                 from quant_engine.spot_brain import record_spot_outcome
@@ -652,8 +649,7 @@ async def tracker_loop():
                             s.is_active = False; s.pnl_pct = round(pnl, 2); s.close_reason = "tp3"; s.closed_at = datetime.utcnow(); db.commit()
                             _log_result(1, "tp3")
                             try:
-                                from services.binance_trader import close_spot_all
-                                await close_spot_all(s.symbol, "tp3")
+                                await _sell_on_exchange(s.symbol, "tp3", px)
                             except Exception: pass
                             try:
                                 from quant_engine.spot_brain import record_spot_outcome
@@ -693,6 +689,34 @@ def _open_spot_count() -> int:
             db.close()
     except Exception:
         return 0
+
+
+def _sym_exchange(symbol: str) -> str:
+    """🌐 منصّة العملة من كون السبوت — بيع الأصل حيث اشتريناه."""
+    try:
+        import sqlite3 as _sq
+        c = _sq.connect("/opt/whalex/spot_universe.db")
+        r = c.execute("SELECT exchange FROM spot_universe WHERE symbol=?",
+                      (symbol,)).fetchone()
+        c.close()
+        return (r[0] if r else "binance")
+    except Exception:
+        return "binance"
+
+
+async def _sell_on_exchange(symbol: str, reason: str, price: float = 0.0):
+    """🔴 بيع على منصّة العملة نفسها — لا باينانس دائماً."""
+    ex = _sym_exchange(symbol)
+    try:
+        from services.spot_exec import sell_all
+        res = await asyncio.to_thread(sell_all, ex, symbol, price)
+        for r in res:
+            log.info("🪙🔴 %s بيع %s (%s) | %s", ex, symbol, reason,
+                     "نجح" if r.get("ok") else r.get("error"))
+        return res
+    except Exception as e:
+        log.error("🪙 بيع %s: %s", symbol, e)
+        return []
 
 
 async def _emit_signal(r: dict):
@@ -780,16 +804,17 @@ async def _emit_signal(r: dict):
     except Exception as e:
         log.error("spot channel: %s", e)
 
-    # ── تنفيذ حقيقي (باينانس فقط حالياً) ──
-    if ex == "binance":
-        try:
-            from services.binance_trader import get_active_spot_traders, execute_spot_buy
-            for _uid in get_active_spot_traders():
-                _rr = await execute_spot_buy(_uid, {"symbol": sym, "entry": entry})
-                if not _rr.get("success"):
-                    log.info("🪙⚠️ buy skip %s: %s", sym, _rr.get("error"))
-        except Exception as e:
-            log.error("spot exec: %s", e)
+    # ── 🌐 تنفيذ حقيقي على منصّة الإشارة نفسها (سبع منصّات) ──
+    try:
+        from services.spot_exec import buy as _spot_buy
+        _res = await asyncio.to_thread(_spot_buy, ex, sym, entry)
+        for _r in _res:
+            if _r.get("ok"):
+                log.info("🪙✅ %s نُفّذت على %s (%s)", sym, ex, str(_r.get("user"))[:8])
+            elif _r.get("error"):
+                log.info("🪙⚠️ %s على %s: %s", sym, ex, _r.get("error"))
+    except Exception as e:
+        log.error("spot exec: %s", e)
 
 
 async def spot_loop():
