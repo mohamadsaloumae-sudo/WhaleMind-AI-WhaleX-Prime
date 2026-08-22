@@ -453,4 +453,40 @@ async def upload(request: Request, file: UploadFile = File(...)):
     with open(os.path.join(UP_DIR, name), "wb") as fh:
         fh.write(data)
     log.info("📎 رُفع %s (%.1f ميجا)", name, len(data) / 1048576)
+    # 🎬 ضغط الفيديو في الخلفية — الرسالة تصل فوراً ثم يُستبدل الملف
+    if is_vid:
+        import threading
+        threading.Thread(target=_compress_video,
+                         args=(os.path.join(UP_DIR, name),), daemon=True).start()
     return {"url": f"/uploads/{name}", "kind": "video" if is_vid else "image"}
+
+
+def _compress_video(path: str) -> None:
+    """🎬 ضغط وتحسين للتشغيل السلس — faststart يبدأ الفيديو فوراً."""
+    import subprocess, os, shutil
+    tmp = path + ".tmp.mp4"
+    try:
+        r = subprocess.run(
+            ["ffmpeg", "-y", "-i", path,
+             "-vcodec", "libx264", "-crf", "28", "-preset", "fast",
+             "-vf", "scale='min(1280,iw)':-2",
+             "-acodec", "aac", "-b:a", "96k",
+             "-movflags", "+faststart", tmp],
+            capture_output=True, timeout=600)
+        if r.returncode == 0 and os.path.exists(tmp) and os.path.getsize(tmp) > 1000:
+            before = os.path.getsize(path) / 1048576
+            after = os.path.getsize(tmp) / 1048576
+            shutil.move(tmp, path)
+            os.chmod(path, 0o644)
+            log.info("🎬 ضُغط %s: %.1f → %.1f ميجا",
+                     os.path.basename(path), before, after)
+        else:
+            log.warning("🎬 فشل الضغط: %s", r.stderr[-200:] if r.stderr else "?")
+    except Exception as e:
+        log.warning("🎬 ضغط: %s", e)
+    finally:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except Exception:
+                pass
