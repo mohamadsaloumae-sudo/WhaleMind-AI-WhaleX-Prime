@@ -241,7 +241,7 @@ export default function AdminChat() {
                 display: "grid", placeItems: "center", color: "var(--txt-2)",
               }}>
                 <Paperclip size={16} />
-                <input type="file" accept="image/*,video/*" onChange={pickFile}
+                <input type="file" accept="image/*,video/mp4,video/quicktime" onChange={pickFile}
                        style={{ display: "none" }} />
               </label>
               <button onClick={send} disabled={busy} style={{
