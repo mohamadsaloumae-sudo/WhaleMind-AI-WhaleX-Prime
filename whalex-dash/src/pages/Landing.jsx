@@ -36,7 +36,7 @@ export default function Landing() {
   };
 
   return (
-    <div style={{ background: T.bg, minHeight: "100vh", marginInline: -16 }}>
+    <div className="wx-landing" style={{ background: T.bg, minHeight: "100vh", marginInline: -16 }}>
       <TopBar
         lang={lang}
         guest={guest}

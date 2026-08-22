@@ -26,7 +26,7 @@ export default function ScrollTop() {
       markRef.current?.scrollIntoView();
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
-    document.querySelectorAll(".page-body, .main-area, .app-shell").forEach((n) => {
+    document.querySelectorAll(".page-body, .main-area, .app-shell, .wx-landing").forEach((n) => {
       try { n.scrollTo({ top: 0, behavior: "smooth" }); } catch { n.scrollTop = 0; }
     });
   }
