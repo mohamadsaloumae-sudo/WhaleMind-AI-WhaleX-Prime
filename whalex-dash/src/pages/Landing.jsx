@@ -3,6 +3,7 @@ import { useLang } from "../context/LangContext.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { SECTIONS, T } from "../landing/sections.js";
 import TopBar from "../landing/TopBar.jsx";
+import ScrollTop from "../components/ScrollTop.jsx";
 
 /**
  * 🏁 المقدّمة — تُعرض عند كل فتح للتطبيق.
@@ -46,6 +47,7 @@ export default function Landing() {
         }}
         onLang={() => setLang(lang === "en" ? "ar" : "en")}
       />
+      <ScrollTop />
       {SECTIONS.filter((s) => s.enabled).map(({ id, Component }) => (
         <Component key={id} {...props} />
       ))}
