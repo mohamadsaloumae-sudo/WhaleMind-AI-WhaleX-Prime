@@ -76,11 +76,11 @@ export default function LiveShowcase({ lang = "ar" }) {
           background: "rgba(255,255,255,.02)",
         }}>
           <span style={{
-            width: 7, height: 7, borderRadius: 7, background: T.red,
-            boxShadow: `0 0 10px ${T.red}`,
+            width: 7, height: 7, borderRadius: 7, background: T.brand2,
+            boxShadow: `0 0 10px ${T.brand2}`,
             animation: "wxPulse 1.6s ease-in-out infinite",
           }} />
-          <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: .8, color: T.red }}>
+          <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: .8, color: T.brand2 }}>
             {ar ? "مباشر" : "LIVE"}
           </span>
           <span style={{ fontSize: 10.5, color: T.txt3, marginInlineStart: "auto" }}>
