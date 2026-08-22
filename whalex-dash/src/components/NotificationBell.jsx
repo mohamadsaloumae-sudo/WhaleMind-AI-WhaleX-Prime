@@ -264,7 +264,13 @@ export default function NotificationBell() {
                               {title.replace(/^\p{Emoji}\s*/u, "")}
                             </div>
                             {detail && (
-                              <div style={{ fontSize: 11.5, color: "var(--txt-3)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              <div style={{
+                                fontSize: 11.5, color: "var(--txt-3)", marginTop: 2,
+                                whiteSpace: "pre-wrap", wordBreak: "break-word",
+                                lineHeight: 1.6,
+                                display: "-webkit-box", WebkitLineClamp: 6,
+                                WebkitBoxOrient: "vertical", overflow: "hidden",
+                              }}>
                                 {detail}
                               </div>
                             )}
