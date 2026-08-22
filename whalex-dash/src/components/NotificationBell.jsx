@@ -150,6 +150,7 @@ export default function NotificationBell() {
           }
           // ⚡ ردّ الدعم — يصل نافذة المحادثة فوراً
           // 💬 ردّ الدعم يخصّ نافذة المحادثة — لا الجرس (الجرس للإشارات)
+          // 💬 ردّ الدعم يخصّ أيقونة المحادثة وحدها — لا الجرس
           if (d && d.event === "support_reply") {
             window.dispatchEvent(new CustomEvent("wx-support-reply", { detail: d }));
             return;
