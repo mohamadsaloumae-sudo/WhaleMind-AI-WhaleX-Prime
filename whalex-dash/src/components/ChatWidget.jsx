@@ -16,6 +16,7 @@ export default function ChatWidget() {
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [unread, setUnread] = useState(0);
   const endRef = useRef(null);
 
   // 🧹 الردود مكتوبة بـHTML لتيليجرام — ننظّفها للعرض هنا
@@ -34,7 +35,10 @@ export default function ChatWidget() {
   // 🔄 تحديث دوريّ أثناء فتح النافذة — ردّ الإدارة يصل بلا إغلاق وفتح
   // ⚡ ردّ فوريّ عبر WebSocket — بلا انتظار الاستطلاع
   useEffect(() => {
-    const onReply = () => load();
+    const onReply = () => {
+      load();
+      if (!open) setUnread((u) => u + 1);
+    };
     window.addEventListener("wx-support-reply", onReply);
     return () => window.removeEventListener("wx-support-reply", onReply);
   }, []);
@@ -65,20 +69,28 @@ export default function ChatWidget() {
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => { setOpen(true); setUnread(0); }}
         aria-label="chat"
         title={ar ? "تواصل معنا" : "Chat with us"}
         style={{
           position: "fixed",
           bottom: "calc(env(safe-area-inset-bottom, 0px) + 82px)",
           insetInlineEnd: 18, width: 48, height: 48, borderRadius: "50%",
-          display: open ? "none" : "grid", placeItems: "center",
+          display: open ? "none" : "grid", placeItems: "center", position: "fixed",
           background: "var(--brand, #2dd4bf)", color: "#04121a",
           border: "none", cursor: "pointer", zIndex: 880,
           boxShadow: "0 6px 22px rgba(45,212,191,.35)",
         }}
       >
         <MessageCircle size={22} strokeWidth={2.2} />
+        {unread > 0 && (
+          <span style={{
+            position: "absolute", top: -3, insetInlineEnd: -3,
+            minWidth: 19, height: 19, borderRadius: 19, padding: "0 5px",
+            background: "#ef4444", color: "#fff", fontSize: 11, fontWeight: 800,
+            display: "grid", placeItems: "center",
+          }}>{unread > 9 ? "9+" : unread}</span>
+        )}
       </button>
 
       {open && (

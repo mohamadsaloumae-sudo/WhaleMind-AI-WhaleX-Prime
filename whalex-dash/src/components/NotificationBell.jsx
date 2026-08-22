@@ -149,11 +149,10 @@ export default function NotificationBell() {
             return;
           }
           // ⚡ ردّ الدعم — يصل نافذة المحادثة فوراً
+          // 💬 ردّ الدعم يخصّ نافذة المحادثة — لا الجرس (الجرس للإشارات)
           if (d && d.event === "support_reply") {
             window.dispatchEvent(new CustomEvent("wx-support-reply", { detail: d }));
-            window.dispatchEvent(new CustomEvent("wx-toast", {
-              detail: { message: "💬 " + String(d.reply || "").slice(0, 80), event: "signal" },
-            }));
+            return;
           }
           if (d && d.event === "admin_dm") {
             const uid = meRef.current || localStorage.getItem("wx_user_id") || "";
