@@ -376,3 +376,33 @@ async def thread(user_id: str, limit: int = 60):
         return {"messages": [dict(r) for r in reversed(rows)]}
     except Exception:
         return {"messages": []}
+
+
+class DirectMsg(BaseModel):
+    user_id: str
+    reply: str
+
+
+@router.post("/api/admin/support/send")
+async def admin_send(body: DirectMsg):
+    """💬 رسالة مباشرة من الإدارة — بلا حاجة لرسالة معلّقة."""
+    _init()
+    now = int(time.time())
+    try:
+        c = sqlite3.connect(DB)
+        c.execute(
+            "INSERT INTO support_messages(user_id,message,reply,auto,created_at,replied_at) "
+            "VALUES(?,?,?,?,?,?)",
+            (body.user_id, "", body.reply, 0, now, now))
+        c.commit(); c.close()
+    except Exception as e:
+        log.warning("send: %s", e)
+        raise HTTPException(500, "تعذّر الحفظ")
+    try:
+        from routers.ws import registry
+        await registry.send_to_user(body.user_id, {
+            "event": "support_reply", "user_id": body.user_id, "reply": body.reply,
+        })
+    except Exception as e:
+        log.debug("ws send: %s", e)
+    return {"success": True}

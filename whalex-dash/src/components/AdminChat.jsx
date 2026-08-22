@@ -46,12 +46,16 @@ export default function AdminChat() {
   const send = async () => {
     const t = text.trim();
     if (!t || busy) return;
-    const pend = msgs.filter((m) => !m.reply);
-    const target = pend.length ? pend[pend.length - 1].id : msgs[msgs.length - 1]?.id;
-    if (!target) return;
     setBusy(true);
     try {
-      await api.post("/api/admin/support/reply", { msg_id: target, reply: t });
+      // 💬 إن كان هناك سؤال معلّق نردّ عليه، وإلا نرسل رسالة مباشرة
+      const pend = msgs.filter((m) => !m.reply);
+      if (pend.length) {
+        await api.post("/api/admin/support/reply",
+                       { msg_id: pend[pend.length - 1].id, reply: t });
+      } else {
+        await api.post("/api/admin/support/send", { user_id: open, reply: t });
+      }
       setText("");
       await loadThread(open); loadThreads();
     } catch (e) {
