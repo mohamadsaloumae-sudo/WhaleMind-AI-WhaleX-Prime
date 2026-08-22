@@ -80,6 +80,24 @@ async def _get_price(symbol: str) -> float:
     return _price_cache.get(symbol, 0.0)  # آخر سعر معروف — لا صفر أبداً
 
 
+_SPOT_EX_CACHE = {"map": {}, "ts": 0.0}
+
+
+def _spot_ex(symbol: str) -> str:
+    """🌐 منصّة عملة السبوت — لا باينانس دائماً."""
+    import sqlite3 as _sq, time as _t
+    if _t.time() - _SPOT_EX_CACHE["ts"] > 300:
+        try:
+            c = _sq.connect("/opt/whalex/spot_universe.db")
+            _SPOT_EX_CACHE["map"] = {r[0]: r[1] for r in
+                                     c.execute("SELECT symbol,exchange FROM spot_universe")}
+            c.close()
+            _SPOT_EX_CACHE["ts"] = _t.time()
+        except Exception:
+            pass
+    return _SPOT_EX_CACHE["map"].get(symbol, "binance")
+
+
 @router.get("/price-bench")
 async def price_bench():
     """⏱️ قياس زمن جلب السعر لكل صفقة — من داخل الخدمة."""
@@ -148,7 +166,7 @@ async def radar_positions(market: str = "futures"):
                     pnl = (px - s.entry) / s.entry * 100 if s.entry else 0.0
                     out.append({"symbol": s.symbol, "direction": "LONG", "leverage": 1,
                                 # 📊 الشارت يحتاجها: سبوت بلا لاحقة .P · والمستويات
-                                "radar_type": "spot", "tier": "SPOT", "exchange": "binance",
+                                "radar_type": "spot", "tier": "SPOT", "exchange": _spot_ex(s.symbol),
                                 "sl": getattr(s, "sl", None), "tp1": getattr(s, "tp1", None),
                                 "tp2": getattr(s, "tp2", None), "tp3": getattr(s, "tp3", None),
                                 "radar": "WhaleX Spot 🪙", "entry": s.entry, "current": px,
