@@ -32,7 +32,7 @@ def futures_signals(user=Depends(get_current_user)):
     db = get_session()
     try:
         sigs = db.query(Signal).filter(Signal.radar_type.in_(["futures","explosion"]), Signal.grade.in_(["S","A"]), Signal.created_at >= _d3()).order_by(Signal.created_at.desc()).limit(1500).all()
-        _seen=set(); sigs=[s for s in sigs if not (s.symbol in _seen or _seen.add(s.symbol))]
+        # 🗂️ بلا إزالة تكرار — العملة قد تُعطي إشارات في أيام مختلفة
         return {"signals": _fmt(sigs)}
     finally:
         db.close()
@@ -79,7 +79,7 @@ def all_signals(market: str = "futures", user=Depends(get_current_user)):
             sigs = db.query(Signal).filter(Signal.radar_type=="spot").order_by(Signal.created_at.desc()).limit(1500).all()
         else:
             sigs = db.query(Signal).filter(Signal.radar_type.in_(["futures","explosion"]), Signal.grade.in_(["S","A"]), Signal.created_at >= _d3()).order_by(Signal.created_at.desc()).limit(1500).all()
-        _seen=set(); sigs=[s for s in sigs if not (s.symbol in _seen or _seen.add(s.symbol))]
+        # 🗂️ بلا إزالة تكرار — العملة قد تُعطي إشارات في أيام مختلفة
         return {"signals": _fmt(sigs)}
     finally:
         db.close()
