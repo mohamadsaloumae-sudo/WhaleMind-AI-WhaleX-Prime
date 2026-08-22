@@ -429,7 +429,13 @@ async def update_profiles_with_market_cap(db_path: str = "/opt/whalex/coin_profi
     
     for row in rows:
         symbol, daily_vol, manip, false_bk, pattern, vol_class, spikes = row
-        
+
+        # 🛡️ قيم NULL من القاعدة كانت تُنهي الحلقة عند أول عملة
+        manip = float(manip or 0.0)
+        daily_vol = float(daily_vol or 0.0)
+        false_bk = float(false_bk or 0.0)
+        spikes = int(spikes or 0)
+
         price = prices.get(symbol, 0)
         if price == 0:
             continue
