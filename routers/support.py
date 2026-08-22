@@ -491,3 +491,69 @@ def _compress_video(path: str) -> None:
                 os.remove(tmp)
             except Exception:
                 pass
+
+
+# ═══════ 👁️ تتبّع القراءة + كل الحسابات ═══════
+def _reads_init():
+    c = sqlite3.connect(DB)
+    c.execute("""CREATE TABLE IF NOT EXISTS support_reads (
+        user_id TEXT PRIMARY KEY, last_read INTEGER)""")
+    c.commit(); c.close()
+
+
+_reads_init()
+
+
+@router.post("/api/admin/support/read")
+async def mark_read(body: dict):
+    """👁️ تُستدعى عند فتح المحادثة — تُصفّر عدّادها."""
+    uid = str(body.get("user_id") or "")
+    if not uid:
+        raise HTTPException(400, "user_id مطلوب")
+    c = sqlite3.connect(DB)
+    c.execute("INSERT OR REPLACE INTO support_reads VALUES(?,?)",
+              (uid, int(time.time())))
+    c.commit(); c.close()
+    return {"success": True}
+
+
+@router.get("/api/admin/support/all")
+async def all_threads():
+    """👥 كل الحسابات — لبدء محادثة مع أي مستخدم."""
+    _init(); _reads_init()
+    c = sqlite3.connect(DB)
+    c.row_factory = sqlite3.Row
+    reads = {r["user_id"]: r["last_read"]
+             for r in c.execute("SELECT * FROM support_reads")}
+    stats = {}
+    for r in c.execute("""
+        SELECT user_id, COUNT(*) AS total, MAX(created_at) AS last_at,
+               (SELECT message FROM support_messages m2
+                 WHERE m2.user_id = m.user_id ORDER BY m2.id DESC LIMIT 1) AS last_msg,
+               SUM(CASE WHEN message != '' THEN created_at ELSE 0 END) AS x
+          FROM support_messages m GROUP BY user_id"""):
+        stats[r["user_id"]] = dict(r)
+    unread = {}
+    for uid, st in stats.items():
+        lr = reads.get(uid, 0)
+        n = c.execute(
+            "SELECT COUNT(*) FROM support_messages "
+            "WHERE user_id=? AND message!='' AND created_at>?",
+            (uid, lr)).fetchone()[0]
+        unread[uid] = n
+    out = []
+    for r in c.execute("SELECT id, username, email, tier FROM users ORDER BY tier DESC"):
+        uid = r["id"]
+        st = stats.get(uid, {})
+        out.append({
+            "user_id": uid,
+            "username": r["username"] or r["email"] or "مستخدم",
+            "tier": r["tier"] or "free",
+            "total": st.get("total", 0),
+            "last_msg": st.get("last_msg", ""),
+            "last_at": st.get("last_at", 0),
+            "unread": unread.get(uid, 0),
+        })
+    c.close()
+    out.sort(key=lambda x: (-x["unread"], -(x["last_at"] or 0)))
+    return {"threads": out}

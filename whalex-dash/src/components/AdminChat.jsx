@@ -15,7 +15,7 @@ export default function AdminChat() {
   const endRef = useRef(null);
 
   const loadThreads = () =>
-    api.get("/api/admin/support/threads")
+    api.get("/api/admin/support/all")
       .then((r) => setThreads(r?.threads || []))
       .catch(() => {});
 
@@ -33,6 +33,8 @@ export default function AdminChat() {
   useEffect(() => {
     if (!open) return;
     loadThread(open);
+    api.post("/api/admin/support/read", { user_id: open })
+      .then(loadThreads).catch(() => {});
     const iv = setInterval(() => loadThread(open), 2000);
     return () => clearInterval(iv);
   }, [open]);
@@ -117,7 +119,7 @@ export default function AdminChat() {
   return (
     <div className="card" style={{ marginTop: 16, padding: 16 }}>
       <div className="card-title" style={{ marginBottom: 12 }}>
-        💬 المحادثات ({threads.reduce((a, t) => a + (t.waiting || 0), 0)} تنتظر)
+        💬 المحادثات ({threads.reduce((a, t) => a + (t.unread || 0), 0)} تنتظر)
       </div>
 
       {threads.length === 0 && (
@@ -132,25 +134,33 @@ export default function AdminChat() {
           style={{
             display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
             padding: "11px 12px", marginBottom: 7, borderRadius: 12,
-            background: t.waiting ? "rgba(245,158,11,.07)" : "rgba(255,255,255,.03)",
-            border: `1px solid ${t.waiting ? "rgba(245,158,11,.3)" : "var(--bg-3)"}`,
+            background: t.unread ? "rgba(245,158,11,.07)" : "rgba(255,255,255,.03)",
+            border: `1px solid ${t.unread ? "rgba(245,158,11,.3)" : "var(--bg-3)"}`,
           }}>
           <User size={16} style={{ color: "var(--txt-3)", flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--txt-1)" }}>
-              {t.username}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--txt-1)" }}>
+                {t.username}
+              </span>
+              {t.tier && t.tier !== "free" && (
+                <span style={{
+                  fontSize: 9.5, fontWeight: 800, padding: "1px 6px", borderRadius: 5,
+                  background: "rgba(45,212,191,.14)", color: "var(--brand)",
+                }}>{String(t.tier).toUpperCase()}</span>
+              )}
             </div>
             <div style={{
               fontSize: 11, color: "var(--txt-3)", marginTop: 2,
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            }}>{t.last_msg}</div>
+            }}>{t.last_msg || (t.total ? '' : 'لا رسائل بعد')}</div>
           </div>
-          {t.waiting > 0 && (
+          {t.unread > 0 && (
             <span style={{
               minWidth: 20, height: 20, borderRadius: 20, padding: "0 6px",
               background: "#ef4444", color: "#fff", fontSize: 11, fontWeight: 800,
               display: "grid", placeItems: "center", flexShrink: 0,
-            }}>{t.waiting}</span>
+            }}>{t.unread}</span>
           )}
         </div>
       ))}
