@@ -98,7 +98,9 @@ def _match(text: str, lang: str = "ar"):
     if not t:
         return menu
     if any(g in t for g in GREET) and len(t) < 25:
-        return ("👋 Welcome to Support!\n\n" if en else "👋 أهلاً بك في الدعم الفني!\n\n") + menu
+        # ترحيب قصير — سرد المواضيع كلها يُربك ولا يُفيد
+        return ("👋 Hi! How can I help?" if en
+                else "👋 أهلاً بك! كيف أساعدك؟")
     if any(g in t for g in THANKS) and len(t) < 25:
         return "🙏 Anytime — I'm here for any other question." if en else "🙏 على الرحب والسعة — أي سؤال آخر أنا هنا."
     scored = []

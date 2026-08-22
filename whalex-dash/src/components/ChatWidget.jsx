@@ -23,7 +23,8 @@ export default function ChatWidget() {
     .replace(/<[^>]+>/g, "")
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
 
-  const uid = user?.id || localStorage.getItem("wx_uid") || "guest";
+  // 🔑 AuthContext يسمّيه uid لا id — بدونه تُحفظ الرسائل باسم زائر
+  const uid = user?.uid || user?.id || localStorage.getItem("wx_uid") || "guest";
 
   const load = () =>
     api.get(`/api/support/history?user_id=${uid}&limit=40`)
