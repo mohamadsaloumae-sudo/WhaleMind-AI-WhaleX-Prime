@@ -17,6 +17,14 @@ export default function Admin() {
   const [wds, setWds] = useState([]);          // طلبات السحب
   const [openRef, setOpenRef] = useState(null); // 👤 الحساب المفتوح
   const [tab, setTab] = useState("overview"); // 📑 التبويب الحالي
+
+  // 📱 بيان منفصل — فتُثبَّت لوحة الإدارة كأيقونة مستقلّة
+  useEffect(() => {
+    const el = document.querySelector('link[rel="manifest"]');
+    const old = el?.getAttribute("href");
+    if (el) el.setAttribute("href", "/static/admin-manifest.json");
+    return () => { if (el && old) el.setAttribute("href", old); };
+  }, []);
   const [bcastMsg, setBcastMsg] = useState("");
   const [pending, setPending] = useState([]);
   const [replies, setReplies] = useState({});
