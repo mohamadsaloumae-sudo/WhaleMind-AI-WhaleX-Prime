@@ -267,3 +267,60 @@ async def history(user_id: str = "guest", limit: int = 50):
         return {"messages": [dict(r) for r in reversed(rows)]}
     except Exception:
         return {"messages": []}
+
+
+@router.get("/api/admin/support/threads")
+async def threads():
+    """قائمة المحادثات — كل مستخدم مرّة واحدة باسمه."""
+    _init()
+    try:
+        c = sqlite3.connect(DB)
+        c.row_factory = sqlite3.Row
+        rows = c.execute("""
+            SELECT user_id,
+                   COUNT(*) AS total,
+                   SUM(CASE WHEN reply IS NULL OR reply='' THEN 1 ELSE 0 END) AS waiting,
+                   MAX(created_at) AS last_at,
+                   (SELECT message FROM support_messages m2
+                     WHERE m2.user_id = m.user_id ORDER BY m2.id DESC LIMIT 1) AS last_msg
+              FROM support_messages m
+             GROUP BY user_id
+             ORDER BY waiting DESC, last_at DESC
+        """).fetchall()
+        c.close()
+        out = []
+        for r in rows:
+            d = dict(r)
+            try:
+                from db.database import get_session, User
+                _db = get_session()
+                _u = _db.query(User).filter(User.id == d["user_id"]).first()
+                d["username"] = (getattr(_u, "username", None)
+                                 or getattr(_u, "email", None)) if _u else None
+                _db.close()
+            except Exception:
+                d["username"] = None
+            if not d["username"]:
+                d["username"] = "زائر " + str(d["user_id"])[:6]
+            out.append(d)
+        return {"threads": out}
+    except Exception as e:
+        log.warning("threads: %s", e)
+        return {"threads": []}
+
+
+@router.get("/api/admin/support/thread")
+async def thread(user_id: str, limit: int = 60):
+    """محادثة مستخدم واحد كاملةً."""
+    _init()
+    try:
+        c = sqlite3.connect(DB)
+        c.row_factory = sqlite3.Row
+        rows = c.execute(
+            "SELECT id,message,reply,auto,created_at,replied_at "
+            "FROM support_messages WHERE user_id=? ORDER BY id DESC LIMIT ?",
+            (user_id, limit)).fetchall()
+        c.close()
+        return {"messages": [dict(r) for r in reversed(rows)]}
+    except Exception:
+        return {"messages": []}

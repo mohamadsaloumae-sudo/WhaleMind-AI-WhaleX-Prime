@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
 import { Users, Activity, DollarSign, Crown, Check } from "lucide-react";
+import AdminChat from "../components/AdminChat.jsx";
 
 export default function Admin() {
   const { t, lang } = useLang();
@@ -205,49 +206,7 @@ export default function Admin() {
 
       )}
 
-        {tab === "support" && pending.length > 0 && (
-          <div style={{ padding: 14, borderRadius: 12, marginBottom: 16, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
-            <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 10, color: "#f59e0b" }}>
-              💬 أسئلة تنتظر ردّك ({pending.length})
-            </div>
-            <div style={{ display: "grid", gap: 10, maxHeight: "46vh", overflowY: "auto" }}>
-              {pending.map((q) => (
-                <div key={q.id} style={{ padding: 11, borderRadius: 10, background: "rgba(255,255,255,0.04)" }}>
-                  <div style={{ fontSize: 11, color: "var(--txt-3)", marginBottom: 4 }}>
-                    {q.username || q.user_id?.slice(0, 12)} · {new Date(q.created_at * 1000).toLocaleString("ar-AE", { timeZone: "Asia/Dubai", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                  </div>
-                  <div style={{ fontSize: 13, marginBottom: 8, lineHeight: 1.6 }}>{q.message}</div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <input
-                      value={replies[q.id] || ""}
-                      onChange={(e) => setReplies((r) => ({ ...r, [q.id]: e.target.value }))}
-                      placeholder="اكتب الرد..."
-                      style={{
-                        flex: 1, minWidth: 0, background: "rgba(255,255,255,0.05)",
-                        border: "1px solid rgba(255,255,255,0.1)", borderRadius: 9,
-                        padding: "9px 11px", color: "inherit", fontSize: 12.5, outline: "none",
-                      }}
-                    />
-                    <button
-                      onClick={async () => {
-                        const t = (replies[q.id] || "").trim();
-                        if (!t) return;
-                        try {
-                          await api.post("/api/admin/support/reply", { msg_id: q.id, reply: t });
-                          setPending((p) => p.filter((x) => x.id !== q.id));
-                        } catch { /* */ }
-                      }}
-                      style={{
-                        background: "var(--brand)", color: "#06110a", border: "none", borderRadius: 9,
-                        padding: "9px 16px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", flexShrink: 0,
-                      }}
-                    >رد</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+      {tab === "support" && <AdminChat />}
 
       {/* 🎁 الإحالات وطلبات السحب */}
       {tab==="referrals" && (refs?.error) && (
