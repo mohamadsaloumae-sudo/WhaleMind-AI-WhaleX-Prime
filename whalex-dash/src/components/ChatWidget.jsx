@@ -77,14 +77,39 @@ export default function ChatWidget() {
   }, [msgs, open]);
 
   // 📎 رفع صورة أو فيديو ثم إرساله كرسالة
+  // 🗜️ ضغط الصورة قبل الرفع — 700ك تصير 80ك، فالوصول أسرع بكثير
+  const shrink = (file) => new Promise((done) => {
+    if (!file.type.startsWith("image/")) return done(file);
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const max = 1400;
+      let { width: w, height: h } = img;
+      if (w > max || h > max) {
+        const r = Math.min(max / w, max / h);
+        w = Math.round(w * r); h = Math.round(h * r);
+      }
+      const cv = document.createElement("canvas");
+      cv.width = w; cv.height = h;
+      cv.getContext("2d").drawImage(img, 0, 0, w, h);
+      cv.toBlob((b) => {
+        URL.revokeObjectURL(url);
+        done(b ? new File([b], "img.jpg", { type: "image/jpeg" }) : file);
+      }, "image/jpeg", 0.82);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); done(file); };
+    img.src = url;
+  });
+
   const pickFile = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file || busy) return;
     setBusy(true);
     try {
+      const small = await shrink(file);
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", small);
       const r = await fetch("/api/support/upload", {
         method: "POST",
         headers: { Authorization: `Bearer ${localStorage.getItem("whalex_token") || ""}` },
@@ -145,8 +170,8 @@ export default function ChatWidget() {
         <div style={{
           position: "fixed",
           bottom: "calc(env(safe-area-inset-bottom, 0px) + 82px)",
-          insetInlineEnd: 16, width: "min(360px, calc(100vw - 32px))",
-          height: "min(480px, 70vh)", zIndex: 900,
+          insetInlineEnd: 16, width: "min(460px, calc(100vw - 24px))",
+          height: "min(640px, 82vh)", zIndex: 900,
           background: "var(--bg-1)", borderRadius: 16,
           border: "1px solid var(--bg-3)",
           boxShadow: "0 18px 50px rgba(0,0,0,.5)",
