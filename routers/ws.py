@@ -135,6 +135,21 @@ class ClientRegistry:
             self._clients.pop(ws_id, None)
         log.info("WS disconnected: %s — total: %d", ws_id, len(self._clients))
 
+    async def send_to_user(self, user_id: str, data: dict):
+        """🔒 إرسال موجّه — ردّ الدعم يخصّ صاحبه وحده لا كل المتصلين."""
+        if not self._clients or not user_id:
+            return
+        msg = json.dumps(data, ensure_ascii=False)
+        async with self._lock:
+            snap = list(self._clients.items())
+        for wid, ws in snap:
+            if str(user_id) not in str(wid):
+                continue
+            try:
+                await ws.send_text(msg)
+            except Exception:
+                pass
+
     async def broadcast(self, data: dict):
         """
         بث لكل المتصلين دفعة واحدة — non-blocking
@@ -280,8 +295,21 @@ async def start_broadcaster():
 # ─── WEBSOCKET ENDPOINT ─────────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
+def _uid_from_token(tok: str) -> str:
+    """🔑 معرّف المستخدم من رمز الدخول — لتوجيه الرسائل الخاصّة."""
+    if not tok:
+        return ""
+    try:
+        from jose import jwt as _jwt
+        from config import settings as _st
+        p = _jwt.decode(tok, _st.secret_key, algorithms=["HS256"])
+        return str(p.get("sub") or "")
+    except Exception:
+        return ""
+
+
 @router.websocket("/ws/live")
-async def ws_live(ws: WebSocket):
+async def ws_live(ws: WebSocket, token: str = ""):
     """
     اتصال المستخدم — بدون أي عمل حقيقي هنا:
     1. قبول الاتصال
@@ -291,7 +319,9 @@ async def ws_live(ws: WebSocket):
 
     لا get_all_prices() هنا → لا bottleneck
     """
-    ws_id = f"client_{int(time.time() * 1000)}_{id(ws)}"
+    _uid = _uid_from_token(token)
+    ws_id = (f"u:{_uid}:{int(time.time() * 1000)}" if _uid
+             else f"client_{int(time.time() * 1000)}_{id(ws)}")
 
     await ws.accept()
     await registry.add(ws_id, ws)

@@ -128,7 +128,9 @@ export default function NotificationBell() {
 
     function connect() {
       if (!alive) return;
-      ws = new WebSocket(`${proto}://${location.host}/ws/live`);
+      // 🔑 نرسل الرمز — فيعرف الخادم لمن يوجّه الرسائل الخاصّة
+      const _tk = localStorage.getItem("whalex_token") || "";
+      ws = new WebSocket(`${proto}://${location.host}/ws/live${_tk ? "?token=" + encodeURIComponent(_tk) : ""}`);
       wsRef.current = ws;
       ws.onmessage = (e) => {
         try {

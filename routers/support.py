@@ -253,7 +253,7 @@ async def admin_reply(body: ReplyBody):
         # ⚡ دفع فوريّ للعميل — بلا انتظار استطلاع
         try:
             from routers.ws import registry
-            await registry.broadcast({
+            await registry.send_to_user(uid, {
                 "event": "support_reply", "user_id": uid,
                 "reply": body.reply, "msg_id": body.msg_id,
             })
