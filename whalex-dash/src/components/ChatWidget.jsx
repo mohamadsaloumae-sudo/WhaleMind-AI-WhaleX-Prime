@@ -99,7 +99,7 @@ export default function ChatWidget() {
           position: "fixed",
           bottom: "calc(env(safe-area-inset-bottom, 0px) + 82px)",
           insetInlineEnd: 18, width: 48, height: 48, borderRadius: "50%",
-          display: open ? "none" : "grid", placeItems: "center", position: "fixed",
+          display: open ? "none" : "grid", placeItems: "center",
           background: "var(--brand, #2dd4bf)", color: "#04121a",
           border: "none", cursor: "pointer", zIndex: 880,
           boxShadow: "0 6px 22px rgba(45,212,191,.35)",
