@@ -21,11 +21,17 @@ def _fmt(sigs):
         "is_win": (None if getattr(s, "pnl_pct", None) is None else bool(s.pnl_pct >= 0)),
     } for s in sigs]
 
+def _d3():
+    """🗂️ حدّ الاحتفاظ: ثلاثة أيام للفيوتشر — والسبوت يبقى حتى يُغلق."""
+    from datetime import datetime, timedelta
+    return datetime.utcnow() - timedelta(days=3)
+
+
 @router.get("/futures", )
 def futures_signals(user=Depends(get_current_user)):
     db = get_session()
     try:
-        sigs = db.query(Signal).filter(Signal.radar_type.in_(["futures","explosion"]), Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
+        sigs = db.query(Signal).filter(Signal.radar_type.in_(["futures","explosion"]), Signal.grade.in_(["S","A"]), Signal.created_at >= _d3()).order_by(Signal.created_at.desc()).limit(1500).all()
         _seen=set(); sigs=[s for s in sigs if not (s.symbol in _seen or _seen.add(s.symbol))]
         return {"signals": _fmt(sigs)}
     finally:
@@ -35,7 +41,7 @@ def futures_signals(user=Depends(get_current_user)):
 def spot_signals(user=Depends(get_current_user)):
     db = get_session()
     try:
-        sigs = db.query(Signal).filter(Signal.radar_type=="spot", Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
+        sigs = db.query(Signal).filter(Signal.radar_type=="spot", Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(1500).all()
         return {"signals": _fmt(sigs)}
     finally:
         db.close()
@@ -70,9 +76,9 @@ def all_signals(market: str = "futures", user=Depends(get_current_user)):
             except Exception:
                 return {"signals": []}
         if market == "spot":
-            sigs = db.query(Signal).filter(Signal.radar_type=="spot").order_by(Signal.created_at.desc()).limit(100).all()
+            sigs = db.query(Signal).filter(Signal.radar_type=="spot").order_by(Signal.created_at.desc()).limit(1500).all()
         else:
-            sigs = db.query(Signal).filter(Signal.radar_type.in_(["futures","explosion"]), Signal.grade.in_(["S","A"])).order_by(Signal.created_at.desc()).limit(100).all()
+            sigs = db.query(Signal).filter(Signal.radar_type.in_(["futures","explosion"]), Signal.grade.in_(["S","A"]), Signal.created_at >= _d3()).order_by(Signal.created_at.desc()).limit(1500).all()
         _seen=set(); sigs=[s for s in sigs if not (s.symbol in _seen or _seen.add(s.symbol))]
         return {"signals": _fmt(sigs)}
     finally:
