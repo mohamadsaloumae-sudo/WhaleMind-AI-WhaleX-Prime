@@ -602,6 +602,95 @@ async def tracker_loop():
             await asyncio.sleep(3)
 
 
+async def _emit_signal(r: dict):
+    """🪙 إصدار إشارة السبوت: قاعدة + قناة + تنفيذ — من منصّة العملة نفسها."""
+    sym = r["symbol"]; ex = r.get("exchange", "binance")
+    entry, sl = r["entry"], r["sl"]
+    tp1, tp2, tp3 = r["tp1"], r["tp2"], r["tp3"]
+    grade, conf = r["grade"], r["confidence"]
+
+    strategies = (f"{r['label']}\n"
+                  f"المنصّة: {ex}\n"
+                  f"الحالة: {r['regime']}\n"
+                  + "\n".join(r.get("why", [])))
+
+    log.info("🪙🎯 SPOT %s | %s %s | %s | نقاط %.1f %s",
+             sym, ex, r["path"], f"@{entry:.6g}", r["score"], grade)
+
+    # ── القاعدة (radar_type='spot' كما كان) ──
+    try:
+        from db.database import get_session, Signal
+        db = get_session()
+        try:
+            db.add(Signal(id=str(uuid.uuid4()), radar_type="spot", symbol=sym,
+                          direction="LONG", grade=grade, score=r["score"],
+                          confidence=conf, entry=entry, sl=sl,
+                          tp1=tp1, tp2=tp2, tp3=tp3, leverage=None,
+                          strategies=strategies, is_active=True,
+                          created_at=datetime.utcnow()))
+            db.commit()
+        finally:
+            db.close()
+    except Exception as e:
+        log.error("❌ Spot save %s: %s", sym, e)
+
+    # ── تسجيل للتعلّم ──
+    try:
+        from ml_recorder import record_signal
+        class _T: pass
+        t = _T()
+        t.symbol = sym; t.direction = "LONG"; t.entry = entry
+        t.sl = sl; t.tp1 = tp1; t.tp2 = tp2; t.tp3 = tp3
+        t.score = r["score"]; t.confidence = conf
+        t.grade = grade; t.tier = "SP"
+        t.strategies = strategies
+        t.regime = r.get("regime", ""); t.range_pos = r["meta"].get("range_pos", 0.0)
+        t.rsi = r["meta"].get("rsi", 0.0)
+        t.volume_ratio = r["meta"].get("v_infl", 0.0)
+        t.leverage = 1.0
+        record_signal(t)
+    except Exception as e:
+        log.debug("spot ml: %s", e)
+
+    # ── قناة تيليجرام ──
+    try:
+        from services.telegram import send_message
+        from core.config import get_settings
+        ch = get_settings().telegram_spot_channel_id
+        if ch:
+            try:
+                from services.notifier import push_note
+                await push_note("spot", "signal", f"🪙 إشارة سبوت: {sym}")
+            except Exception:
+                pass
+            _p = lambda x: (x / entry - 1) * 100
+            await send_message(ch,
+                f"🪙 <b>WhaleX Spot — BUY</b>\n"
+                f"⚡ <b>{sym}</b> · {ex}\n"
+                f"{r['label']}\n\n"
+                f"Entry  <b>{_fmt_px(entry)}</b>\n"
+                f"Stop   {_fmt_px(sl)}  ({_p(sl):+.1f}%)\n"
+                f"TP1    {_fmt_px(tp1)}  ({_p(tp1):+.1f}%)\n"
+                f"TP2    {_fmt_px(tp2)}  ({_p(tp2):+.1f}%)\n"
+                f"TP3    {_fmt_px(tp3)}  ({_p(tp3):+.1f}%)\n\n"
+                f"Grade <b>{grade}</b> · Conf <b>{conf:.0f}%</b>\n"
+                + " · ".join(r.get("why", [])[:4]) + "\n"
+                f"🐋 <i>WhaleMind Spot</i>")
+    except Exception as e:
+        log.error("spot channel: %s", e)
+
+    # ── تنفيذ حقيقي (باينانس فقط حالياً) ──
+    if ex == "binance":
+        try:
+            from services.binance_trader import get_active_spot_traders, execute_spot_buy
+            for _uid in get_active_spot_traders():
+                _rr = await execute_spot_buy(_uid, {"symbol": sym, "entry": entry})
+                if not _rr.get("success"):
+                    log.info("🪙⚠️ buy skip %s: %s", sym, _rr.get("error"))
+        except Exception as e:
+            log.error("spot exec: %s", e)
+
+
 async def spot_loop():
     """حلقة العقل — قائمة بذاتها، أخطاؤها لا تغادرها."""
     log.info("🪙 Spot brain v1 starting")
@@ -609,19 +698,21 @@ async def spot_loop():
     if not _TRACK_STARTED:
         _TRACK_STARTED = True
         asyncio.create_task(tracker_loop())
-    async with httpx.AsyncClient() as c:
-        while True:
-            try:
-                await _universe_refresh(c)
-                sem = asyncio.Semaphore(6)
-                async def _g(s):
-                    async with sem:
-                        try:
-                            await _scan_one(c, s)
-                        except Exception as _e:
-                            log.debug("spot scan %s: %s", s, _e)
-                        await asyncio.sleep(0.15)
-                await asyncio.gather(*[_g(s) for s in list(_universe)])
-            except Exception as e:
-                log.error("spot_loop: %s", e)
-            await asyncio.sleep(CYCLE)
+    # 🪙🌐 الماسح الجديد: سبع منصّات · مساران مستقلّان (قاع · ارتداد · اختراق)
+    #    القديم كان يطلب ترنداً صاعداً وقاعاً معاً — متناقضان، فصمت في السوق الصاعد.
+    from radars.spot.universe_spot import refresh as _u_refresh, load as _u_load, age_sec as _u_age
+    from radars.spot.scanner_spot import scan_universe as _scan_all
+    while True:
+        try:
+            if _u_age() > 3600:
+                await asyncio.to_thread(_u_refresh)
+            rows = _u_load()
+            if not rows:
+                log.warning("🪙 كون السبوت فارغ — نعيد البناء")
+                await asyncio.to_thread(_u_refresh)
+                rows = _u_load()
+            await _scan_all(rows, on_signal=_emit_signal,
+                            cooldown=_last_sig, cooldown_sec=COOLDOWN)
+        except Exception as e:
+            log.error("spot_loop: %s", e)
+        await asyncio.sleep(CYCLE)
