@@ -4,6 +4,10 @@ const CACHE = 'whalex-v4';
 
 self.addEventListener('install', () => self.skipWaiting());
 
+self.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
 self.addEventListener('activate', (e) => {
   e.waitUntil(clients.claim());
   e.waitUntil(

@@ -19,6 +19,26 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 // تسجيل Service Worker — يجعل المنصّة تطبيقاً قابلاً للتثبيت (PWA)
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    navigator.serviceWorker.register("/sw.js").then((reg) => {
+      // 🔄 تحديث ذاتيّ — العميل لا يمسح شيئاً بيده
+      reg.update();
+      setInterval(() => reg.update(), 60 * 60 * 1000);
+      reg.addEventListener("updatefound", () => {
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener("statechange", () => {
+          if (nw.state === "installed" && navigator.serviceWorker.controller) {
+            // نسخة جديدة جاهزة — نفعّلها ونُعيد التحميل مرّة واحدة
+            nw.postMessage({ type: "SKIP_WAITING" });
+          }
+        });
+      });
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (reloaded) return;
+        reloaded = true;
+        window.location.reload();
+      });
+    }).catch(() => {});
   });
 }
