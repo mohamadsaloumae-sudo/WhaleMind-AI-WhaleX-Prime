@@ -72,7 +72,7 @@ export default function DrawerMenu() {
               boxShadow: "0 0 48px rgba(0,0,0,0.55)",
               transform: shown ? "translateX(0)" : `translateX(${rtl ? "100%" : "-100%"})`,
               transition: "transform .24s cubic-bezier(.22,.9,.3,1)",
-              display: "flex", flexDirection: "column",
+              display: "flex", flexDirection: "column", overflowY: "auto",
               padding: "calc(env(safe-area-inset-top, 0px) + 14px) 12px calc(env(safe-area-inset-bottom, 0px) + 14px)",
             }}
           >
@@ -89,7 +89,7 @@ export default function DrawerMenu() {
               }}><X size={17} /></button>
             </header>
 
-            <nav style={{ display: "flex", flexDirection: "column", gap: 3, overflowY: "auto" }}>
+            <nav style={{ display: "flex", flexDirection: "column", gap: 3 }}>
               {pages.map((p) => {
                 const Icon = p.icon;
                 return (
