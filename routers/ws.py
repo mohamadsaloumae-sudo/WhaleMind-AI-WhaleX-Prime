@@ -301,8 +301,8 @@ def _uid_from_token(tok: str) -> str:
         return ""
     try:
         from jose import jwt as _jwt
-        from config import settings as _st
-        p = _jwt.decode(tok, _st.secret_key, algorithms=["HS256"])
+        from core.config import get_settings
+        p = _jwt.decode(tok, get_settings().secret_key, algorithms=["HS256"])
         return str(p.get("sub") or "")
     except Exception:
         return ""

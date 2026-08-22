@@ -121,8 +121,8 @@ def _real_uid(request, fallback: str) -> str:
         tok = auth.replace("Bearer ", "").strip()
         if tok:
             import jwt as _jwt
-            from config import settings as _st
-            p = _jwt.decode(tok, _st.secret_key, algorithms=["HS256"])
+            from core.config import get_settings
+            p = _jwt.decode(tok, get_settings().secret_key, algorithms=["HS256"])
             sub = p.get("sub")
             if sub:
                 return str(sub)
