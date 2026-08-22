@@ -81,7 +81,7 @@ export default function DrawerMenu() {
               padding: "2px 6px 14px", borderBottom: "1px solid rgba(255,255,255,0.07)", marginBottom: 10,
             }}>
               <span style={{ fontWeight: 700, fontSize: 14.5, letterSpacing: .2, opacity: .95 }}>
-                {rtl ? "القائمة" : "Menu"}
+                WhaleX <span style={{ color: "var(--brand)" }}>Prime</span>
               </span>
               <button onClick={close} aria-label="close" style={{
                 background: "rgba(255,255,255,0.06)", border: "none", color: "inherit",

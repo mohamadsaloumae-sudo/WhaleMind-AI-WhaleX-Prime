@@ -503,3 +503,10 @@ table, pre, code { max-width: 100%; overflow-x: auto; }
 @media (max-width: 700px) {
   .wx-ch-grab { display: none !important; }
 }
+
+/* 📜 القائمة الجانبية تُمرَّر — فتظهر القنوات عند انسدالها */
+.sidebar {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
