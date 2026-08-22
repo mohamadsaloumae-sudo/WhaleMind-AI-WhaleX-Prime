@@ -146,6 +146,13 @@ export default function NotificationBell() {
             setUnread((u) => u + 1);
             return;
           }
+          // ⚡ ردّ الدعم — يصل نافذة المحادثة فوراً
+          if (d && d.event === "support_reply") {
+            window.dispatchEvent(new CustomEvent("wx-support-reply", { detail: d }));
+            window.dispatchEvent(new CustomEvent("wx-toast", {
+              detail: { message: "💬 " + String(d.reply || "").slice(0, 80), event: "signal" },
+            }));
+          }
           if (d && d.event === "admin_dm") {
             const uid = meRef.current || localStorage.getItem("wx_user_id") || "";
             if (d.target_user && uid && String(d.target_user) !== String(uid)) return;

@@ -250,6 +250,15 @@ async def admin_reply(body: ReplyBody):
         c.execute("UPDATE support_messages SET reply=?, replied_at=? WHERE id=?",
                   (body.reply, int(time.time()), body.msg_id))
         c.commit(); c.close()
+        # ⚡ دفع فوريّ للعميل — بلا انتظار استطلاع
+        try:
+            from routers.ws import registry
+            await registry.broadcast({
+                "event": "support_reply", "user_id": uid,
+                "reply": body.reply, "msg_id": body.msg_id,
+            })
+        except Exception as _we:
+            log.debug("ws reply: %s", _we)
     except Exception as e:
         log.warning("reply: %s", e)
         return {"ok": False}

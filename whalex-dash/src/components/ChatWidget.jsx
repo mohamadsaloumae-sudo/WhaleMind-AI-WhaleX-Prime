@@ -32,6 +32,13 @@ export default function ChatWidget() {
       .catch(() => {});
 
   // 🔄 تحديث دوريّ أثناء فتح النافذة — ردّ الإدارة يصل بلا إغلاق وفتح
+  // ⚡ ردّ فوريّ عبر WebSocket — بلا انتظار الاستطلاع
+  useEffect(() => {
+    const onReply = () => load();
+    window.addEventListener("wx-support-reply", onReply);
+    return () => window.removeEventListener("wx-support-reply", onReply);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     load();
