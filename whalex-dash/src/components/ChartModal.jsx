@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 
 // 🌐 أسماء المنصّات كما يستخدمها TradingView
+// 🖼️ شعارات المنصّات — أوضح من الاسم وأوفر للمساحة
+const EX_LOGO = {
+  binance: "270", bybit: "521", mexc: "544",
+  bingx: "1064", bitget: "513", gate: "302", okx: "294",
+};
+
 const TV_EX = {
   binance: "BINANCE", bybit: "BYBIT", mexc: "MEXC",
   bingx: "BINGX", bitget: "BITGET", gate: "GATEIO", okx: "OKX",
@@ -119,29 +125,6 @@ export default function ChartModal({ pos, onClose, lang = "ar" }) {
         height: dim.h ? dim.h + "px" : "100%",
         maxWidth: "100%", maxHeight: "100%",
       }}>
-        {/* ⛶ عودة لملء الشاشة بضغطة — يظهر عند تغيير الحجم فقط */}
-        {(dim.w || dim.h) ? (
-          <button
-            className="wx-ch-full"
-            onClick={() => {
-              localStorage.removeItem("wx_ch_w");
-              localStorage.removeItem("wx_ch_h");
-              setDim({ w: 0, h: 0 });
-            }}
-            title="ملء الشاشة"
-            style={{
-              position: "absolute", bottom: 8, insetInlineStart: 34, zIndex: 21,
-              display: "flex", alignItems: "center", gap: 5,
-              padding: "6px 11px", borderRadius: 9, cursor: "pointer",
-              background: "rgba(45,212,191,.14)",
-              border: "1px solid rgba(45,212,191,.4)",
-              color: "var(--brand, #2dd4bf)", fontSize: 11.5, fontWeight: 700,
-            }}
-          >
-            ⛶ {lang === "en" ? "Full" : "ملء الشاشة"}
-          </button>
-        ) : null}
-
         <div
           className="wx-ch-grab"
           onMouseDown={grab}
@@ -165,10 +148,34 @@ export default function ChartModal({ pos, onClose, lang = "ar" }) {
           <span style={{ color: "#fff", fontWeight: 700, fontSize: "16px" }}>
             {pos.symbol}
           </span>
-          <span style={{
-            fontSize: "11px", padding: "3px 9px", borderRadius: "6px",
-            background: "rgba(45,212,191,.14)", color: "var(--green, #2dd4bf)",
-          }}>📍 {tvEx}</span>
+          {EX_LOGO[ex] ? (
+            <img
+              src={`https://s2.coinmarketcap.com/static/img/exchanges/64x64/${EX_LOGO[ex]}.png`}
+              alt={tvEx} title={tvEx} width="22" height="22"
+              style={{ borderRadius: 6, flexShrink: 0 }}
+              onError={(e) => { e.target.style.display = "none"; }}
+            />
+          ) : (
+            <span style={{ fontSize: 11, color: "var(--txt-3)" }}>{tvEx}</span>
+          )}
+
+          {(dim.w || dim.h) ? (
+            <button
+              onClick={() => {
+                localStorage.removeItem("wx_ch_w");
+                localStorage.removeItem("wx_ch_h");
+                setDim({ w: 0, h: 0 });
+              }}
+              title="ملء الشاشة"
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "5px 10px", borderRadius: 8, cursor: "pointer",
+                background: "rgba(45,212,191,.13)",
+                border: "1px solid rgba(45,212,191,.38)",
+                color: "var(--brand, #2dd4bf)", fontSize: 11, fontWeight: 700,
+              }}
+            >⛶</button>
+          ) : null}
           <span style={{
             marginInlineStart: "auto", fontWeight: 800, fontSize: "17px",
             color: up ? "var(--green, #2dd4bf)" : "var(--red, #f87171)",
