@@ -31,7 +31,13 @@ export default function ChatWidget() {
       .then((r) => setMsgs(r?.messages || []))
       .catch(() => {});
 
-  useEffect(() => { if (open) load(); }, [open]);
+  // 🔄 تحديث دوريّ أثناء فتح النافذة — ردّ الإدارة يصل بلا إغلاق وفتح
+  useEffect(() => {
+    if (!open) return;
+    load();
+    const iv = setInterval(load, 8000);
+    return () => clearInterval(iv);
+  }, [open]);
   useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs, open]);
