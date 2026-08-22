@@ -135,22 +135,11 @@ export default function NotificationBell() {
       ws.onmessage = (e) => {
         try {
           const d = JSON.parse(e.data);
+          // 💬 سؤال العميل — يظهر في تبويب الدعم لا الجرس
           if (d && d.event === "support_question") {
-            let isAdmin = false;
-            try { isAdmin = localStorage.getItem("wx_is_admin") === "1"; } catch { /* */ }
-            if (!isAdmin) return;
-            try {
-              window.dispatchEvent(new CustomEvent("wx-toast", { detail: { message: d.message, event: "signal" } }));
-              window.dispatchEvent(new CustomEvent("wx-support"));
-            } catch { /* */ }
-            playChime();
-            setItems((prev) => [{ id: Date.now() + Math.random(), event: "support_question", message: d.message, time: new Date() }, ...prev].slice(0, 50));
-            setUnread((u) => u + 1);
+            window.dispatchEvent(new CustomEvent("wx-support"));
             return;
           }
-          // ⚡ ردّ الدعم — يصل نافذة المحادثة فوراً
-          // 💬 ردّ الدعم يخصّ نافذة المحادثة — لا الجرس (الجرس للإشارات)
-          // 💬 ردّ الدعم يخصّ أيقونة المحادثة وحدها — لا الجرس
           if (d && d.event === "support_reply") {
             window.dispatchEvent(new CustomEvent("wx-support-reply", { detail: d }));
             return;
