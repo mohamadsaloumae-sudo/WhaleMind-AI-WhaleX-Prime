@@ -19,6 +19,8 @@ export default function ChatWidget() {
   const [unread, setUnread] = useState(0);
   // 🔒 المستمع يُسجَّل مرّة واحدة، فيحتجز open القديمة — ref يحمل الحيّة
   const openRef = useRef(false);
+  // 📊 عدّ الردود بالاستطلاع — لا يعتمد على WebSocket فيعمل دائماً
+  const lastSeenRef = useRef(-1);
   useEffect(() => { openRef.current = open; }, [open]);
   const endRef = useRef(null);
 
@@ -32,7 +34,18 @@ export default function ChatWidget() {
 
   const load = () =>
     api.get(`/api/support/history?user_id=${uid}&limit=40`)
-      .then((r) => setMsgs(r?.messages || []))
+      .then((r) => {
+        const list = r?.messages || [];
+        setMsgs(list);
+        // كم ردّاً موجوداً الآن؟ الزيادة = رسائل جديدة لم تُقرأ
+        const replies = list.filter((m) => m.reply).length;
+        if (lastSeenRef.current < 0) {
+          lastSeenRef.current = replies;
+        } else if (replies > lastSeenRef.current) {
+          if (!openRef.current) setUnread((u) => u + (replies - lastSeenRef.current));
+          lastSeenRef.current = replies;
+        }
+      })
       .catch(() => {});
 
   // 🔄 تحديث دوريّ أثناء فتح النافذة — ردّ الإدارة يصل بلا إغلاق وفتح
@@ -44,6 +57,13 @@ export default function ChatWidget() {
     };
     window.addEventListener("wx-support-reply", onReply);
     return () => window.removeEventListener("wx-support-reply", onReply);
+  }, []);
+
+  // 🔁 استطلاع دائم — حتى والنافذة مغلقة، كي يظهر العدّاد
+  useEffect(() => {
+    load();
+    const iv = setInterval(load, 5000);
+    return () => clearInterval(iv);
   }, []);
 
   useEffect(() => {
@@ -72,7 +92,7 @@ export default function ChatWidget() {
   return (
     <>
       <button
-        onClick={() => { setOpen(true); setUnread(0); }}
+        onClick={() => { setOpen(true); setUnread(0); openRef.current = true; }}
         aria-label="chat"
         title={ar ? "تواصل معنا" : "Chat with us"}
         style={{
