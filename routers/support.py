@@ -136,7 +136,9 @@ def _real_uid(request, fallback: str) -> str:
 async def ask(body: Ask, request: Request):
     _init()
     body.user_id = _real_uid(request, body.user_id)
-    answer = _match(body.message, body.lang)
+    # 📎 مرفق بلا نصّ — لا ردّ آليّ، يصل الإدارة مباشرةً
+    answer = "" if (body.media and not body.message.strip()) \
+        else _match(body.message, body.lang)
     now = int(time.time())
     try:
         c = sqlite3.connect(DB)
