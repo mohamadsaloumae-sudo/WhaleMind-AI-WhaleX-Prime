@@ -143,6 +143,18 @@ export default function AdminChat() {
                     lineHeight: 1.7,
                   }}>{m.message}</div>
                   ) : null}
+                  {m.media ? (
+                    <div style={{ width: "fit-content", maxWidth: "85%", marginBottom: 6 }}>
+                      {/\.(mp4|webm|mov)$/i.test(m.media) ? (
+                        <video src={m.media} controls
+                               style={{ maxWidth: "100%", borderRadius: 12, display: "block" }} />
+                      ) : (
+                        <img src={m.media} alt=""
+                             onClick={() => window.open(m.media, "_blank")}
+                             style={{ maxWidth: "100%", borderRadius: 12, display: "block", cursor: "pointer" }} />
+                      )}
+                    </div>
+                  ) : null}
                   {m.reply && (
                     <div style={{
                       marginTop: 7, marginInlineStart: "auto",
