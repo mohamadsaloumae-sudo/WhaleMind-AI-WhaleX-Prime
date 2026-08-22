@@ -148,4 +148,8 @@ async def root(): return RedirectResponse("/static/index.html", 302)
 async def health():
     return {"status": "ok", "version": "1.0.0", "telegram": bool(settings.telegram_bot_token)}
 
+# 📎 ملفّات المحادثة (صور وفيديو)
+import os as _os
+_os.makedirs("/opt/whalex/static/uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="/opt/whalex/static/uploads"), name="uploads")
 app.mount("/static", StaticFiles(directory="/opt/whalex/static"), name="static")

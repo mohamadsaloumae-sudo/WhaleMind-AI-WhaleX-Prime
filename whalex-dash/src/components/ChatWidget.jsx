@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { MessageCircle, X, Send } from "lucide-react";
+import { MessageCircle, X, Send, Paperclip } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -75,6 +75,31 @@ export default function ChatWidget() {
   useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs, open]);
+
+  // 📎 رفع صورة أو فيديو ثم إرساله كرسالة
+  const pickFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || busy) return;
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await fetch("/api/support/upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${localStorage.getItem("whalex_token") || ""}` },
+        body: fd,
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d?.detail || "فشل الرفع");
+      await api.post("/api/support/ask", {
+        user_id: uid, message: "", lang, media: d.url,
+      });
+      await load();
+    } catch (err) {
+      alert(err?.message || "تعذّر الرفع");
+    } finally { setBusy(false); }
+  };
 
   const send = async () => {
     const t = text.trim();
@@ -163,6 +188,18 @@ export default function ChatWidget() {
                   lineHeight: 1.7,
                 }}>{m.message}</div>
                 ) : null}
+                {m.media ? (
+                  <div style={{ marginInlineStart: "auto", width: "fit-content", maxWidth: "85%" }}>
+                    {/\.(mp4|webm|mov)$/i.test(m.media) ? (
+                      <video src={m.media} controls
+                             style={{ maxWidth: "100%", borderRadius: 12, display: "block" }} />
+                    ) : (
+                      <img src={m.media} alt=""
+                           onClick={() => window.open(m.media, "_blank")}
+                           style={{ maxWidth: "100%", borderRadius: 12, display: "block", cursor: "pointer" }} />
+                    )}
+                  </div>
+                ) : null}
                 {m.reply && (
                   <div style={{
                     marginTop: 7, maxWidth: "85%", width: "fit-content",
@@ -191,6 +228,15 @@ export default function ChatWidget() {
                 color: "var(--txt-1)", fontSize: 12.5, outline: "none",
               }}
             />
+            <label style={{
+              width: 38, borderRadius: 11, cursor: "pointer",
+              background: "rgba(255,255,255,.05)", border: "1px solid var(--bg-3)",
+              display: "grid", placeItems: "center", color: "var(--txt-2)",
+            }}>
+              <Paperclip size={16} />
+              <input type="file" accept="image/*,video/*" onChange={pickFile}
+                     style={{ display: "none" }} />
+            </label>
             <button onClick={send} disabled={busy} style={{
               width: 40, borderRadius: 11, border: "none", cursor: "pointer",
               background: "var(--brand)", color: "#04121a",

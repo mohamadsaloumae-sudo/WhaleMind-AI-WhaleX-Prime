@@ -2,7 +2,7 @@
 import sqlite3
 import time
 import logging
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, UploadFile, File
 from pydantic import BaseModel
 
 log = logging.getLogger("support")
@@ -74,6 +74,7 @@ class Ask(BaseModel):
     message: str
     user_id: str = "guest"
     lang: str = "ar"
+    media: str = ""
 
 
 def _init():
@@ -139,8 +140,8 @@ async def ask(body: Ask, request: Request):
     now = int(time.time())
     try:
         c = sqlite3.connect(DB)
-        c.execute("INSERT INTO support_messages(user_id,message,reply,auto,created_at,replied_at) VALUES(?,?,?,?,?,?)",
-                  (body.user_id, body.message, answer, 1 if answer else 0, now, now if answer else None))
+        c.execute("INSERT INTO support_messages(user_id,message,reply,auto,created_at,replied_at,media) VALUES(?,?,?,?,?,?,?)",
+                  (body.user_id, body.message, answer, 1 if answer else 0, now, now if answer else None, body.media))
         c.commit(); c.close()
     except Exception as e:
         log.warning("save: %s", e)
@@ -299,7 +300,7 @@ async def history(request: Request, user_id: str = "guest", limit: int = 50):
     user_id = _real_uid(request, user_id)
     try:
         c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
-        rows = c.execute("SELECT message,reply,auto,created_at,replied_at FROM support_messages "
+        rows = c.execute("SELECT message,reply,auto,created_at,replied_at,media FROM support_messages "
                          "WHERE user_id=? ORDER BY id DESC LIMIT ?", (user_id, limit)).fetchall()
         c.close()
         return {"messages": [dict(r) for r in reversed(rows)]}
@@ -369,7 +370,7 @@ async def thread(user_id: str, limit: int = 60):
         c = sqlite3.connect(DB)
         c.row_factory = sqlite3.Row
         rows = c.execute(
-            "SELECT id,message,reply,auto,created_at,replied_at "
+            "SELECT id,message,reply,auto,created_at,replied_at,media "
             "FROM support_messages WHERE user_id=? ORDER BY id DESC LIMIT ?",
             (user_id, limit)).fetchall()
         c.close()
@@ -406,3 +407,33 @@ async def admin_send(body: DirectMsg):
     except Exception as e:
         log.debug("ws send: %s", e)
     return {"success": True}
+
+
+# ═══════════ 📎 رفع الصور والفيديو ═══════════
+UP_DIR = "/opt/whalex/static/uploads"
+MAX_IMG = 10 * 1024 * 1024      # 10 ميجابايت
+MAX_VID = 50 * 1024 * 1024      # 50 ميجابايت
+OK_IMG = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+OK_VID = {"video/mp4", "video/webm", "video/quicktime"}
+
+
+@router.post("/api/support/upload")
+async def upload(request: Request, file: UploadFile = File(...)):
+    """📎 رفع صورة أو فيديو — يُرجع رابطاً يُحفظ مع الرسالة."""
+    import os, uuid as _uu
+    os.makedirs(UP_DIR, exist_ok=True)
+    ct = (file.content_type or "").lower()
+    is_vid = ct in OK_VID
+    if ct not in OK_IMG and not is_vid:
+        raise HTTPException(400, "نوع الملف غير مدعوم")
+    data = await file.read()
+    cap = MAX_VID if is_vid else MAX_IMG
+    if len(data) > cap:
+        raise HTTPException(400, f"الحجم يتجاوز {cap // (1024*1024)} ميجابايت")
+    ext = os.path.splitext(file.filename or "")[1].lower()[:6] or (
+        ".mp4" if is_vid else ".jpg")
+    name = f"{_uu.uuid4().hex}{ext}"
+    with open(os.path.join(UP_DIR, name), "wb") as fh:
+        fh.write(data)
+    log.info("📎 رُفع %s (%.1f ميجا)", name, len(data) / 1048576)
+    return {"url": f"/uploads/{name}", "kind": "video" if is_vid else "image"}
