@@ -17,6 +17,9 @@ export default function ChatWidget() {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [unread, setUnread] = useState(0);
+  // 🔒 المستمع يُسجَّل مرّة واحدة، فيحتجز open القديمة — ref يحمل الحيّة
+  const openRef = useRef(false);
+  useEffect(() => { openRef.current = open; }, [open]);
   const endRef = useRef(null);
 
   // 🧹 الردود مكتوبة بـHTML لتيليجرام — ننظّفها للعرض هنا
@@ -37,7 +40,7 @@ export default function ChatWidget() {
   useEffect(() => {
     const onReply = () => {
       load();
-      if (!open) setUnread((u) => u + 1);
+      if (!openRef.current) setUnread((u) => u + 1);
     };
     window.addEventListener("wx-support-reply", onReply);
     return () => window.removeEventListener("wx-support-reply", onReply);
