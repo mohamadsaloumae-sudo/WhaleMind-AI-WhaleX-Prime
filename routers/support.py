@@ -247,8 +247,18 @@ async def admin_reply(body: ReplyBody):
         c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
         row = c.execute("SELECT user_id FROM support_messages WHERE id=?", (body.msg_id,)).fetchone()
         uid = dict(row).get("user_id") if row else None
-        c.execute("UPDATE support_messages SET reply=?, replied_at=? WHERE id=?",
-                  (body.reply, int(time.time()), body.msg_id))
+        # 💬 ردّ متعدّد: إن كانت الرسالة مُجابة، نُنشئ صفّاً جديداً
+        _row = c.execute("SELECT reply FROM support_messages WHERE id=?",
+                         (body.msg_id,)).fetchone()
+        _has = bool(dict(_row).get("reply")) if _row else False
+        if _has:
+            c.execute(
+                "INSERT INTO support_messages(user_id,message,reply,auto,created_at,replied_at) "
+                "VALUES(?,?,?,?,?,?)",
+                (uid, "", body.reply, 0, int(time.time()), int(time.time())))
+        else:
+            c.execute("UPDATE support_messages SET reply=?, replied_at=? WHERE id=?",
+                      (body.reply, int(time.time()), body.msg_id))
         c.commit(); c.close()
         # ⚡ دفع فوريّ للعميل — بلا انتظار استطلاع
         try:
