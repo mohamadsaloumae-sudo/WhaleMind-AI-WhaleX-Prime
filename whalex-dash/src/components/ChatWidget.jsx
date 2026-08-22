@@ -35,7 +35,7 @@ export default function ChatWidget() {
   useEffect(() => {
     if (!open) return;
     load();
-    const iv = setInterval(load, 8000);
+    const iv = setInterval(load, 2000);
     return () => clearInterval(iv);
   }, [open]);
   useEffect(() => {
@@ -50,7 +50,7 @@ export default function ChatWidget() {
     setText("");
     try {
       await api.post("/api/support/ask", { user_id: uid, message: t, lang });
-      setTimeout(load, 600);
+      await load();
     } catch { /* الرسالة محفوظة عندنا على أي حال */ }
     finally { setBusy(false); }
   };

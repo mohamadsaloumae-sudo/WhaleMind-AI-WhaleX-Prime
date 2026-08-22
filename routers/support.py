@@ -2,7 +2,7 @@
 import sqlite3
 import time
 import logging
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 log = logging.getLogger("support")
@@ -114,9 +114,27 @@ def _match(text: str, lang: str = "ar"):
     return "\n\n────────\n\n".join(a for _, a in scored[:2])
 
 
+def _real_uid(request, fallback: str) -> str:
+    """🔑 المعرّف من رمز الدخول — الواجهة قد ترسل معرّف زائر."""
+    try:
+        auth = request.headers.get("authorization") or ""
+        tok = auth.replace("Bearer ", "").strip()
+        if tok:
+            import jwt as _jwt
+            from config import settings as _st
+            p = _jwt.decode(tok, _st.secret_key, algorithms=["HS256"])
+            sub = p.get("sub")
+            if sub:
+                return str(sub)
+    except Exception:
+        pass
+    return fallback
+
+
 @router.post("/api/support/ask")
-async def ask(body: Ask):
+async def ask(body: Ask, request: Request):
     _init()
+    body.user_id = _real_uid(request, body.user_id)
     answer = _match(body.message, body.lang)
     now = int(time.time())
     try:
@@ -257,8 +275,9 @@ async def admin_reply(body: ReplyBody):
 
 
 @router.get("/api/support/history")
-async def history(user_id: str = "guest", limit: int = 50):
+async def history(request: Request, user_id: str = "guest", limit: int = 50):
     _init()
+    user_id = _real_uid(request, user_id)
     try:
         c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
         rows = c.execute("SELECT message,reply,auto,created_at,replied_at FROM support_messages "
@@ -300,6 +319,20 @@ async def threads():
                 _db.close()
             except Exception:
                 d["username"] = None
+            if not d["username"]:
+                # 🔎 معرّف قصير قديم؟ نبحث عنه في ملفّات المستخدم
+                try:
+                    _c2 = sqlite3.connect(DB)
+                    _r2 = _c2.execute(
+                        "SELECT u.username FROM users u "
+                        "JOIN user_profiles p ON p.user_id=u.id "
+                        "WHERE p.user_id LIKE ? LIMIT 1",
+                        (str(d["user_id"]) + "%",)).fetchone()
+                    _c2.close()
+                    if _r2:
+                        d["username"] = _r2[0]
+                except Exception:
+                    pass
             if not d["username"]:
                 d["username"] = "زائر " + str(d["user_id"])[:6]
             out.append(d)

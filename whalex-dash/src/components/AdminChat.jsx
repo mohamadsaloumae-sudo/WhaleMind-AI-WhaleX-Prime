@@ -26,14 +26,14 @@ export default function AdminChat() {
 
   useEffect(() => {
     loadThreads();
-    const iv = setInterval(loadThreads, 15000);
+    const iv = setInterval(loadThreads, 5000);
     return () => clearInterval(iv);
   }, []);
 
   useEffect(() => {
     if (!open) return;
     loadThread(open);
-    const iv = setInterval(() => loadThread(open), 10000);
+    const iv = setInterval(() => loadThread(open), 2000);
     return () => clearInterval(iv);
   }, [open]);
 
@@ -53,7 +53,7 @@ export default function AdminChat() {
     try {
       await api.post("/api/admin/support/reply", { msg_id: target, reply: t });
       setText("");
-      setTimeout(() => { loadThread(open); loadThreads(); }, 500);
+      await loadThread(open); loadThreads();
     } catch (e) {
       alert(e?.message || "تعذّر الإرسال");
     } finally { setBusy(false); }
