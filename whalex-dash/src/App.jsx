@@ -55,12 +55,7 @@ function Root() {
         element={
           ready && !user
             ? <Navigate to="/landing" replace />
-            : ready && user
-              && window.location.pathname === "/"
-              && !sessionStorage.getItem("wx_seen_intro")
-              && !window.__wxIntroDone
-              ? ((window.__wxIntroDone = true),
-                 <Navigate to="/landing" replace />)
+
             : <DeviceGuard><Protected /></DeviceGuard>
         }
       />
