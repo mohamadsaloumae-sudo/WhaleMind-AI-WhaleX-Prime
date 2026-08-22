@@ -47,7 +47,7 @@ export const TRANSLATIONS = {
     joinedMembers: "انضمّ إلينا",
     welcomeOffer: "🎉 عرض ترحيبيّ لفترة محدودة",
     aboutTitle: "ما هو WhaleX Prime؟",
-    aboutDesc: "منظومة ذكاء اصطناعيّ متقدّمة لرصد فرص تداول العملات الرقمية. ثلاثة رادارات تعمل على مدار الساعة: Peak Hunter لاصطياد القمم والقيعان، وPredator للاتجاهات القوية. نحلّل دفتر الأوامر وحركة الحيتان لحظياً، ونرسل إشارات دقيقة بأهداف ووقف خسارة واضح، مع خيار التداول الآليّ على حسابك.",
+    aboutDesc: "نظام تداول آليّ كامل — لا خدمة توصيات. سبعة رادارات تمسح أكثر من ٦٥٠ عملة على سبع منصّات على مدار الساعة: Predator للاتجاهات القوية، وPeak Hunter للقمم والقيعان، ورادار المنصّات للعملات الحصرية، والسبوت والميم. نحلّل دفتر الأوامر وحركة الحيتان لحظياً، ثم ننفّذ الصفقة على حسابك في منصّتك، ونحرسها بمدير صفقات يحمي الربح عند القمة ويُغلق عند الانقلاب.",
     todayTrades: "صفقات اليوم",
     "nav./auto-trade": "التداول",
     "nav./trades": "صفقاتي",
@@ -181,7 +181,7 @@ export const TRANSLATIONS = {
 
   en: {
     appName: "WhaleX",
-    tagline: "Smart Trading Signals Platform",
+    tagline: "Automated Trading · From Signal to Close",
     systemRunning: "System online",
     loading: "Loading…",
     save: "Save",
@@ -220,7 +220,7 @@ export const TRANSLATIONS = {
     joinedMembers: "Joined Members",
     welcomeOffer: "🎉 Limited-time welcome offer",
     aboutTitle: "What is WhaleX Prime?",
-    aboutDesc: "An advanced AI system for spotting crypto trading opportunities. Three radars run 24/7: Peak Hunter for catching tops and bottoms, and Predator for strong trends. We analyze order books and whale movements in real time, sending precise signals with clear targets and stop-loss, plus optional auto-trading on your account.",
+    aboutDesc: "A fully automated trading system - not a signal service. Seven radars scan 650+ coins across seven exchanges around the clock: Predator for strong trends, Peak Hunter for tops and bottoms, a multi-exchange radar for exclusive listings, plus spot and meme. We read order books and whale flow in real time, execute on your own exchange account, and guard each trade with a manager that locks profit at the peak and exits on reversal.",
     todayTrades: "Today Trades",
     "nav./auto-trade": "Trading",
     "nav./trades": "My Trades",
