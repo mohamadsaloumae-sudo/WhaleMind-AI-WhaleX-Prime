@@ -296,7 +296,11 @@ async def admin_reply(body: ReplyBody):
 @router.get("/api/support/history")
 async def history(request: Request, user_id: str = "guest", limit: int = 50):
     _init()
+    _before = user_id
     user_id = _real_uid(request, user_id)
+    log.warning("🔎 history: %s -> %s | auth=%s",
+                _before, user_id,
+                bool(request.headers.get("authorization")))
     try:
         c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
         rows = c.execute("SELECT message,reply,auto,created_at,replied_at FROM support_messages "

@@ -155,12 +155,14 @@ export default function ChatWidget() {
             )}
             {msgs.map((m, i) => (
               <div key={i} style={{ marginBottom: 13 }}>
+                {m.message ? (
                 <div style={{
                   marginInlineStart: "auto", maxWidth: "85%", width: "fit-content",
                   background: "rgba(45,212,191,.13)", borderRadius: "13px 13px 4px 13px",
                   padding: "9px 12px", fontSize: 12.5, color: "var(--txt-1)",
                   lineHeight: 1.7,
                 }}>{m.message}</div>
+                ) : null}
                 {m.reply && (
                   <div style={{
                     marginTop: 7, maxWidth: "85%", width: "fit-content",

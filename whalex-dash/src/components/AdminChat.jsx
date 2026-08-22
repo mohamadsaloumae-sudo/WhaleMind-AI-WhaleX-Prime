@@ -131,12 +131,14 @@ export default function AdminChat() {
             <div style={{ flex: 1, overflowY: "auto", padding: "14px 13px" }}>
               {msgs.map((m, i) => (
                 <div key={i} style={{ marginBottom: 13 }}>
+                  {m.message ? (
                   <div style={{
                     maxWidth: "85%", width: "fit-content",
                     background: "var(--bg-2)", borderRadius: "13px 13px 13px 4px",
                     padding: "9px 12px", fontSize: 12.5, color: "var(--txt-1)",
                     lineHeight: 1.7,
                   }}>{m.message}</div>
+                  ) : null}
                   {m.reply && (
                     <div style={{
                       marginTop: 7, marginInlineStart: "auto",
