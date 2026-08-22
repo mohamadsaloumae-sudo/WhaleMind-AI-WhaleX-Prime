@@ -23,6 +23,9 @@ export default function ChatWidget() {
   const lastSeenRef = useRef(-1);
   useEffect(() => { openRef.current = open; }, [open]);
   const endRef = useRef(null);
+  const boxRef = useRef(null);
+  // 📜 لا نجرّه للأسفل إلا إن كان هناك أصلاً — وإلا نُفسد قراءته
+  const atBottomRef = useRef(true);
 
   // 🧹 الردود مكتوبة بـHTML لتيليجرام — ننظّفها للعرض هنا
   const clean = (t) => String(t || "")
@@ -73,7 +76,9 @@ export default function ChatWidget() {
     return () => clearInterval(iv);
   }, [open]);
   useEffect(() => {
-    if (open) endRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (open && atBottomRef.current) {
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [msgs, open]);
 
   // 📎 رفع صورة أو فيديو ثم إرساله كرسالة
@@ -192,7 +197,14 @@ export default function ChatWidget() {
             }}><X size={17} /></button>
           </div>
 
-          <div style={{ flex: 1, overflowY: "auto", padding: "14px 13px" }}>
+          <div
+            ref={boxRef}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              atBottomRef.current =
+                el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+            }}
+            style={{ flex: 1, overflowY: "auto", padding: "14px 13px" }}>
             {msgs.length === 0 && (
               <div style={{
                 fontSize: 12.5, color: "var(--txt-3)", textAlign: "center",
