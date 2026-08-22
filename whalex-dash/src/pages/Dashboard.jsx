@@ -5,6 +5,7 @@ import { Activity, Radio } from "lucide-react";
 import { useLang } from "../context/LangContext.jsx";
 import { getMarket, setMarket } from "../hooks/useMarket.js";
 import { signals } from "../lib/api.js";
+import ChatWidget from "../components/ChatWidget.jsx";
 
 export default function Dashboard() {
   const { t, lang } = useLang();
@@ -62,6 +63,7 @@ export default function Dashboard() {
   );
   return (
     <>
+      <ChatWidget />
       <WelcomeHeader />
       <div style={{ display: "flex", gap: 10, padding: "12px 16px 4px" }}>
         <MB id="futures" ar="⚡ فيوتشر" en="⚡ Futures" />
