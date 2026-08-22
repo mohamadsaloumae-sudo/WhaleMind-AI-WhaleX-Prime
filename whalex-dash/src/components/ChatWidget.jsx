@@ -228,8 +228,17 @@ export default function ChatWidget() {
                 {m.media ? (
                   <div style={{ marginInlineStart: "auto", width: "fit-content", maxWidth: "85%" }}>
                     {/\.(mp4|webm|mov)$/i.test(m.media) ? (
-                      <video src={m.media} controls
-                             style={{ maxWidth: "100%", borderRadius: 12, display: "block" }} />
+                      <video
+                        src={m.media}
+                        controls
+                        preload="metadata"
+                        playsInline
+                        style={{
+                          maxWidth: "100%", maxHeight: 320,
+                          borderRadius: 12, display: "block",
+                          background: "#000",
+                        }}
+                      />
                     ) : (
                       <img src={m.media} alt=""
                            onClick={() => window.open(m.media, "_blank")}
