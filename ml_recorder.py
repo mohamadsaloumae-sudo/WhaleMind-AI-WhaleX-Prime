@@ -10,7 +10,10 @@ DB_PATH = "/opt/whalex/ml_training.db"
 def _ensure_cols():
     try:
         conn = sqlite3.connect(DB_PATH)
-        for col, typ in (("ob_pressure", "REAL"), ("cvd_flow", "TEXT")):
+        for col, typ in (("ob_pressure", "REAL"), ("cvd_flow", "TEXT"),
+                         ("peak_pnl", "REAL"), ("close_reason", "TEXT"),
+                         ("leverage", "REAL"), ("exchange", "TEXT"),
+                         ("tp2", "REAL"), ("tp3", "REAL")):
             try: conn.execute(f"ALTER TABLE training_signals ADD COLUMN {col} {typ}")
             except Exception: pass
         conn.commit(); conn.close()

@@ -121,10 +121,13 @@ async def _process_pending():
 def _write(rid, result, exit_price, pnl, outcome):
     try:
         conn = sqlite3.connect(ML_DB)
+        # 📊 نكتب سبب الإغلاق والقمة أيضاً — كانا يبقيان فارغين في 96% من الصفوف
         conn.execute(
-            "UPDATE training_signals SET result=?, exit_price=?, pnl_pct=?, closed_at=?, outcome=? "
+            "UPDATE training_signals SET result=?, exit_price=?, pnl_pct=?, closed_at=?, "
+            "outcome=?, close_reason=COALESCE(close_reason,?), peak_pnl=COALESCE(peak_pnl,?) "
             "WHERE id=? AND outcome IS NULL",
-            (result, exit_price, round(pnl, 3), int(time.time()), outcome, rid)
+            (result, exit_price, round(pnl, 3), int(time.time()), outcome,
+             result, round(pnl, 3) if pnl > 0 else 0.0, rid)
         )
         conn.commit()
         conn.close()

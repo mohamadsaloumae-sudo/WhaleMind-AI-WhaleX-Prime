@@ -82,7 +82,92 @@ def live_context(symbol: str) -> dict:
             else: out["cvd_flow"] = "up" if slope > 0 else "down"
     except Exception:
         pass
+    # 🌐 البثّ يغطّي 44 عملة فقط — الباقي (PH/MX) كان يُسجَّل فارغاً.
+    #    نسقط لـREST من منصّة العملة نفسها كي يكتمل سجلّ التعلّم.
+    if out["ob_pressure"] is None or out["cvd_flow"] is None:
+        try:
+            _r = _rest_ctx(symbol)
+            if out["ob_pressure"] is None:
+                out["ob_pressure"] = _r.get("ob_pressure")
+            if out["cvd_flow"] is None:
+                out["cvd_flow"] = _r.get("cvd_flow")
+        except Exception:
+            pass
     return out
+
+
+def _rest_ctx(symbol: str) -> dict:
+    """سياق من REST — يعمل لكل المنصّات لا باينانس وحدها."""
+    import httpx
+    out = {"ob_pressure": None, "cvd_flow": None}
+    try:
+        from services.binance_trader import symbol_exchange
+        ex = symbol_exchange(symbol)
+    except Exception:
+        ex = "binance"
+    urls = {
+        "binance": f"https://fapi.binance.com/fapi/v1/depth?symbol={symbol}&limit=20",
+        "bybit":   f"https://api.bybit.com/v5/market/orderbook?category=linear&symbol={symbol}&limit=20",
+        "mexc":    f"https://contract.mexc.com/api/v1/contract/depth/{symbol[:-4]}_USDT",
+        "gate":    f"https://api.gateio.ws/api/v4/futures/usdt/order_book?contract={symbol[:-4]}_USDT&limit=20",
+        "bitget":  f"https://api.bitget.com/api/v2/mix/market/orderbook?symbol={symbol}&productType=usdt-futures&limit=20",
+        "okx":     f"https://www.okx.com/api/v5/market/books?instId={symbol[:-4]}-USDT-SWAP&sz=20",
+        "bingx":   f"https://open-api.bingx.com/openApi/swap/v2/quote/depth?symbol={symbol[:-4]}-USDT&limit=20",
+    }
+    u = urls.get(ex) or urls["binance"]
+    try:
+        with httpx.Client(timeout=6) as c:
+            d = c.get(u).json()
+        bids = asks = None
+        for path in (("bids", "asks"),):
+            if isinstance(d, dict) and path[0] in d:
+                bids, asks = d[path[0]], d[path[1]]
+        if bids is None and isinstance(d, dict):
+            _r = d.get("result") or d.get("data") or {}
+            if isinstance(_r, list) and _r:
+                _r = _r[0]
+            if isinstance(_r, dict):
+                bids = _r.get("b") or _r.get("bids")
+                asks = _r.get("a") or _r.get("asks")
+        if bids and asks:
+            bv = sum(float(x[1]) for x in bids[:10])
+            av = sum(float(x[1]) for x in asks[:10])
+            if bv + av > 0:
+                out["ob_pressure"] = round((bv - av) / (bv + av), 4)
+    except Exception:
+        pass
+    # 📈 تدفّق الشراء/البيع من شموع باينانس (تُستخدم للتصنيف لا للتسعير)
+    try:
+        out["cvd_flow"] = _cvd_rest(symbol)
+    except Exception:
+        pass
+    return out
+
+
+def _cvd_rest(symbol: str):
+    """اتجاه التدفّق المنفَّذ من 8 شمعات 5د — up / down / flat."""
+    import httpx
+    u = (f"https://fapi.binance.com/fapi/v1/klines"
+         f"?symbol={symbol}&interval=5m&limit=12")
+    try:
+        with httpx.Client(timeout=6) as c:
+            kl = c.get(u).json()
+        if not isinstance(kl, list) or len(kl) < 8:
+            return None
+        rows = kl[-8:]
+        cum = 0.0
+        series = []
+        for k in rows:
+            v = float(k[5]); bv = float(k[9])
+            cum += (2 * bv - v)
+            series.append(cum)
+        slope = series[-1] - series[0]
+        avg_v = sum(float(k[5]) for k in rows) / 8 or 1.0
+        if abs(slope) < 0.05 * avg_v * 8:
+            return "flat"
+        return "up" if slope > 0 else "down"
+    except Exception:
+        return None
 
 def _extract(row: dict) -> dict:
     f = {}
