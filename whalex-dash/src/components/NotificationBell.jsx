@@ -135,6 +135,29 @@ export default function NotificationBell() {
       ws.onmessage = (e) => {
         try {
           const d = JSON.parse(e.data);
+          // ⚡ إشارة تداول — تُخزَّن في الجرس وتظهر منبثقة
+          if (d && d.event === "signal") {
+            const g = d.data || {};
+            const txt = `⚡ ${g.symbol || ""} ${g.direction || ""}` +
+              (g.leverage ? ` ${Math.round(g.leverage)}x` : "") +
+              (g.entry ? `\nدخول ${g.entry}` : "") +
+              (g.tp1 ? ` · هدف ${g.tp1}` : "") +
+              (g.sl ? ` · وقف ${g.sl}` : "") +
+              (g.grade ? `\nالدرجة ${g.grade}` : "");
+            setItems((prev) => [{
+              id: Date.now() + Math.random(),
+              event: "signal", message: txt, time: new Date(),
+            }, ...prev].slice(0, 50));
+            setUnread((u) => u + 1);
+            try {
+              window.dispatchEvent(new CustomEvent("wx-toast", {
+                detail: { message: txt, event: "signal" },
+              }));
+            } catch { /* */ }
+            playChime();
+            return;
+          }
+
           // 💬 سؤال العميل — يظهر في تبويب الدعم لا الجرس
           if (d && d.event === "support_question") {
             window.dispatchEvent(new CustomEvent("wx-support"));
