@@ -678,9 +678,34 @@ async def tracker_loop():
             await asyncio.sleep(3)
 
 
+MAX_OPEN_SPOT = 12          # 🛡️ سقف الصفقات المتزامنة — 131 كانت جنوناً
+MIN_GRADE_OPEN = "A"        # لا نفتح إلا للأقوى حين يقترب السقف
+
+
+def _open_spot_count() -> int:
+    try:
+        from db.database import get_session, Signal
+        db = get_session()
+        try:
+            return db.query(Signal).filter(Signal.radar_type == "spot",
+                                           Signal.is_active == True).count()
+        finally:
+            db.close()
+    except Exception:
+        return 0
+
+
 async def _emit_signal(r: dict):
     """🪙 إصدار إشارة السبوت: قاعدة + قناة + تنفيذ — من منصّة العملة نفسها."""
     sym = r["symbol"]; ex = r.get("exchange", "binance")
+    # 🛡️ سقف الانكشاف: لا نفتح بلا حدّ
+    _open = _open_spot_count()
+    if _open >= MAX_OPEN_SPOT:
+        log.info("🪙🛑 %s مُؤجَّلة — السقف %d/%d", sym, _open, MAX_OPEN_SPOT)
+        return
+    if _open >= MAX_OPEN_SPOT * 0.7 and r.get("grade") != MIN_GRADE_OPEN:
+        log.info("🪙🛑 %s مُؤجَّلة — قرب السقف، الدرجة %s", sym, r.get("grade"))
+        return
     entry, sl = r["entry"], r["sl"]
     tp1, tp2, tp3 = r["tp1"], r["tp2"], r["tp3"]
     grade, conf = r["grade"], r["confidence"]
