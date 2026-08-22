@@ -383,7 +383,8 @@ async def thread(user_id: str, limit: int = 60):
 
 class DirectMsg(BaseModel):
     user_id: str
-    reply: str
+    reply: str = ""
+    media: str = ""
 
 
 @router.post("/api/admin/support/send")
@@ -394,9 +395,9 @@ async def admin_send(body: DirectMsg):
     try:
         c = sqlite3.connect(DB)
         c.execute(
-            "INSERT INTO support_messages(user_id,message,reply,auto,created_at,replied_at) "
-            "VALUES(?,?,?,?,?,?)",
-            (body.user_id, "", body.reply, 0, now, now))
+            "INSERT INTO support_messages(user_id,message,reply,auto,created_at,replied_at,media) "
+            "VALUES(?,?,?,?,?,?,?)",
+            (body.user_id, "", body.reply, 0, now, now, body.media))
         c.commit(); c.close()
     except Exception as e:
         log.warning("send: %s", e)

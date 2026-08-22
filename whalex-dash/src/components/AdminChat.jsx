@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { MessageCircle, X, Send, User } from "lucide-react";
+import { MessageCircle, X, Send, User, Paperclip } from "lucide-react";
 import { api } from "../lib/api.js";
 
 /**
@@ -42,6 +42,55 @@ export default function AdminChat() {
   }, [msgs]);
 
   const clean = (t) => String(t || "").replace(/<[^>]+>/g, "");
+
+  // 🗜️ ضغط الصورة قبل الرفع
+  const shrink = (file) => new Promise((done) => {
+    if (!file.type.startsWith("image/")) return done(file);
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const max = 1400;
+      let { width: w, height: h } = img;
+      if (w > max || h > max) {
+        const r = Math.min(max / w, max / h);
+        w = Math.round(w * r); h = Math.round(h * r);
+      }
+      const cv = document.createElement("canvas");
+      cv.width = w; cv.height = h;
+      cv.getContext("2d").drawImage(img, 0, 0, w, h);
+      cv.toBlob((b) => {
+        URL.revokeObjectURL(url);
+        done(b ? new File([b], "img.jpg", { type: "image/jpeg" }) : file);
+      }, "image/jpeg", 0.82);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); done(file); };
+    img.src = url;
+  });
+
+  // 📎 إرسال صورة أو فيديو للعميل
+  const pickFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || busy || !open) return;
+    setBusy(true);
+    try {
+      const small = await shrink(file);
+      const fd = new FormData();
+      fd.append("file", small);
+      const r = await fetch("/api/support/upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${localStorage.getItem("whalex_token") || ""}` },
+        body: fd,
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d?.detail || "فشل الرفع");
+      await api.post("/api/admin/support/send",
+                     { user_id: open, reply: "", media: d.url });
+      await loadThread(open);
+    } catch (err) {
+      alert(err?.message || "تعذّر الرفع");
+    } finally { setBusy(false); }
+  };
 
   const send = async () => {
     const t = text.trim();
@@ -186,6 +235,15 @@ export default function AdminChat() {
                   color: "var(--txt-1)", fontSize: 12.5, outline: "none",
                 }}
               />
+              <label style={{
+                width: 38, borderRadius: 11, cursor: "pointer",
+                background: "rgba(255,255,255,.05)", border: "1px solid var(--bg-3)",
+                display: "grid", placeItems: "center", color: "var(--txt-2)",
+              }}>
+                <Paperclip size={16} />
+                <input type="file" accept="image/*,video/*" onChange={pickFile}
+                       style={{ display: "none" }} />
+              </label>
               <button onClick={send} disabled={busy} style={{
                 width: 40, borderRadius: 11, border: "none", cursor: "pointer",
                 background: "var(--brand)", color: "#04121a",
