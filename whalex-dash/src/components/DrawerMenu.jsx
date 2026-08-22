@@ -17,11 +17,7 @@ export default function DrawerMenu() {
   const [shown, setShown] = useState(false);
   // 🏁 «عن المنصّة» أوّل القائمة — بصرياً فقط، فترتيب PAGES يحكم الشريط السفلي
   // 📱 كل الصفحات — القائمة المرجع الكامل، والشريط السفلي اختصار للخمس الأولى
-  const _rest = PAGES.filter((p) => !p.adminOnly);
-  const _about = _rest.find((p) => p.path === "/landing");
-  const pages = _about
-    ? [_about, ..._rest.filter((p) => p.path !== "/landing")]
-    : _rest;
+  const pages = PAGES.filter((p) => !p.adminOnly);
   const rtl = lang === "ar";
 
   useEffect(() => {
