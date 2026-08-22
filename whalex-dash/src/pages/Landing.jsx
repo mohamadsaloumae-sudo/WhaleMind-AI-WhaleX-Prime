@@ -26,12 +26,14 @@ export default function Landing() {
     lang,
     onStart: () => {
       if (guest) { nav("/login"); return; }
-      try { sessionStorage.setItem("wx_seen_intro", "1"); } catch {}
+      window.__wxIntroDone = true;
+          try { sessionStorage.setItem("wx_seen_intro", "1"); } catch {}
       nav(paid ? "/live" : "/subscription");
     },
     onPerf: () => {
       if (guest) { nav("/login"); return; }
-      try { sessionStorage.setItem("wx_seen_intro", "1"); } catch {}
+      window.__wxIntroDone = true;
+          try { sessionStorage.setItem("wx_seen_intro", "1"); } catch {}
       nav("/positions");
     },
   };
@@ -43,6 +45,7 @@ export default function Landing() {
         guest={guest}
         onEnter={() => {
           if (guest) { nav("/login"); return; }
+          window.__wxIntroDone = true;
           try { sessionStorage.setItem("wx_seen_intro", "1"); } catch {}
           nav("/");
         }}
