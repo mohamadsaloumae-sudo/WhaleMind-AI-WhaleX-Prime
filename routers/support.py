@@ -415,8 +415,17 @@ async def admin_send(body: DirectMsg):
 UP_DIR = "/opt/whalex/static/uploads"
 MAX_IMG = 10 * 1024 * 1024      # 10 ميجابايت
 MAX_VID = 50 * 1024 * 1024      # 50 ميجابايت
-OK_IMG = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-OK_VID = {"video/mp4", "video/webm", "video/quicktime"}
+# 📎 كل الصيغ الشائعة — الجوّالات ترسل heic و3gp وغيرها
+OK_IMG = {
+    "image/jpeg", "image/jpg", "image/pjpeg", "image/png", "image/webp",
+    "image/gif", "image/bmp", "image/heic", "image/heif", "image/avif",
+    "image/tiff", "image/svg+xml",
+}
+OK_VID = {
+    "video/mp4", "video/webm", "video/quicktime", "video/x-msvideo",
+    "video/x-matroska", "video/3gpp", "video/3gpp2", "video/mpeg",
+    "video/x-ms-wmv", "video/ogg", "application/octet-stream",
+}
 
 
 @router.post("/api/support/upload")
@@ -425,9 +434,15 @@ async def upload(request: Request, file: UploadFile = File(...)):
     import os, uuid as _uu
     os.makedirs(UP_DIR, exist_ok=True)
     ct = (file.content_type or "").lower()
-    is_vid = ct in OK_VID
-    if ct not in OK_IMG and not is_vid:
-        raise HTTPException(400, "نوع الملف غير مدعوم")
+    _ext = os.path.splitext(file.filename or "")[1].lower()
+    VID_EXT = {".mp4", ".webm", ".mov", ".avi", ".mkv", ".3gp", ".m4v", ".wmv", ".mpeg", ".mpg"}
+    IMG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".heic", ".heif", ".avif", ".tiff", ".svg"}
+    is_vid = ct in OK_VID or _ext in VID_EXT
+    is_img = ct in OK_IMG or _ext in IMG_EXT
+    if not is_vid and not is_img:
+        raise HTTPException(400, f"نوع غير مدعوم: {ct or _ext}")
+    if is_img:
+        is_vid = False
     data = await file.read()
     cap = MAX_VID if is_vid else MAX_IMG
     if len(data) > cap:
