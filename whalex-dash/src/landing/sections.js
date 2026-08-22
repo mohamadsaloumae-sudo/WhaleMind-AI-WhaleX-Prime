@@ -7,6 +7,7 @@ import LiveShowcase from "./LiveShowcase.jsx";
 import LiveStats from "./LiveStats.jsx";
 import WhyDifferent from "./WhyDifferent.jsx";
 import HowItWorks from "./HowItWorks.jsx";
+import Markets from "./Markets.jsx";
 import Exchanges from "./Exchanges.jsx";
 import Security from "./Security.jsx";
 import Pricing from "./Pricing.jsx";
@@ -21,6 +22,7 @@ export const SECTIONS = [
   { id: "stats", Component: LiveStats, enabled: true },
   { id: "why", Component: WhyDifferent, enabled: true },
   { id: "how", Component: HowItWorks, enabled: true },
+  { id: "markets", Component: Markets, enabled: true },
   { id: "exchanges", Component: Exchanges, enabled: true },
   { id: "security", Component: Security, enabled: true },
   { id: "pricing", Component: Pricing, enabled: true },
