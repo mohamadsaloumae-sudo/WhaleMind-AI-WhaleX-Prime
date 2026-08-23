@@ -60,7 +60,38 @@ def stats_snapshot():
     return s
 
 
+def _age_hours(p) -> float:
+    """عمر الزوج بالساعات — الأساس الذي تتبعه عتبات الزخم."""
+    try:
+        ms = float(p.get("pairCreatedAt") or 0)
+        return (time.time() - ms / 1000.0) / 3600.0 if ms > 0 else 99.0
+    except Exception:
+        return 99.0
+
+
 def _flow_ok(p) -> tuple:
+    # 🐸 v3: العتبة تتبع العمر — عملة عمرها 40 دقيقة لا تملك حجم 24س
+    #    ولا 300 معاملة، ومطالبتها بهما استبعدت كل الطازج (104 من 132).
+    from radars.memecoin.meme_logic import momentum_gate, wave_gate
+    _liq = (p.get("liquidity") or {}).get("usd", 0) or 0
+    _v = p.get("volume") or {}
+    _t1 = (p.get("txns") or {}).get("h1") or {}
+    _b, _s = _t1.get("buys", 0) or 0, _t1.get("sells", 0) or 0
+    _t24 = (p.get("txns") or {}).get("h24") or {}
+    _b24, _s24 = _t24.get("buys", 0) or 0, _t24.get("sells", 0) or 0
+    _br = (_b24 / (_b24 + _s24)) if (_b24 + _s24) > 0 else (
+        (_b / (_b + _s)) if (_b + _s) > 0 else 0.0)
+    _pc = p.get("priceChange") or {}
+    _ok, _why = momentum_gate(_age_hours(p), _b + _s,
+                              float(_v.get("h1") or 0), float(_v.get("h24") or 0),
+                              _br, _liq)
+    if not _ok:
+        return False, _why
+    return wave_gate(float(_pc.get("h1") or 0), float(_pc.get("h6") or 0),
+                     float(_pc.get("h24") or 0))
+
+
+def _flow_ok_old(p) -> tuple:
     liq = (p.get("liquidity") or {}).get("usd", 0) or 0
     if liq < MIN_LIQ:
         return False, f"سيولة {liq:,.0f}"
