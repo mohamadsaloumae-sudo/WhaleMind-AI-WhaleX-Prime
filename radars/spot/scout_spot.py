@@ -472,6 +472,72 @@ def _multi_prices_sync() -> dict:
     return out
 
 
+def _open_symbols_by_ex() -> dict:
+    """رموز الصفقات المفتوحة غير الباينانسية، مجمَّعة بمنصّتها."""
+    import sqlite3
+    out = {}
+    try:
+        from db.database import get_session, Signal
+        db = get_session()
+        try:
+            syms = [x.symbol for x in db.query(Signal).filter(
+                Signal.radar_type == "spot", Signal.is_active == True).all()]
+        finally:
+            db.close()
+        if not syms:
+            return out
+        cn = sqlite3.connect("/opt/whalex/spot_universe.db")
+        q = ",".join("?" * len(syms))
+        for sym, ex, ck in cn.execute(
+                f"SELECT symbol,exchange,ccxt_symbol FROM spot_universe "
+                f"WHERE symbol IN ({q}) AND exchange != 'binance'", syms):
+            out.setdefault(ex, []).append((sym, ck))
+        cn.close()
+    except Exception as e:
+        log.warning("🪙⚠️ تعذّر جلب رموز المفتوحة: %s", e)
+    return out
+
+
+def _open_prices_sync() -> dict:
+    """أسعار الصفقات المفتوحة وحدها — نداء واحد لكل منصّة."""
+    got = {}
+    import ccxt
+    for ex, items in _open_symbols_by_ex().items():
+        try:
+            e = _MULTI_EX_CACHE.get(ex)
+            if e is None:
+                e = getattr(ccxt, ex)({"enableRateLimit": True, "timeout": 15000,
+                                       "options": {"defaultType": "spot"}})
+                _MULTI_EX_CACHE[ex] = e
+            tk = e.fetch_tickers([ck for _s, ck in items])
+            for sym, ck in items:
+                t = tk.get(ck) or {}
+                px = t.get("last") or t.get("close")
+                if px:
+                    got[sym] = float(px)
+        except Exception as _e:
+            log.debug("🪙⚡ %s: %s", ex, _e)
+    return got
+
+
+async def _open_prices_loop():
+    """
+    ⚡ الصفقات المفتوحة تُسعَّر كل 5 ثوانٍ لا 45.
+
+    مقيس: FLYAIUSDT وقفها -6% فأُغلقت -43.14% لأن سعرها كان عمره
+    45 ثانية. ومحاكاة نفس المسار: التردّد الثابت يخرج عند -45%
+    والمتكيّف عند -10% — فرق 35 نقطة في الصفقة الواحدة.
+    """
+    while True:
+        try:
+            got = await asyncio.to_thread(_open_prices_sync)
+            if got:
+                _prices.update(got)
+        except Exception as e:
+            log.debug("🪙⚡ open prices: %s", e)
+        await asyncio.sleep(5)
+
+
 async def _multi_prices_loop():
     """يُحدّث أسعار المنصّات الأخرى كل 45 ثانية."""
     while True:
@@ -517,6 +583,7 @@ async def tracker_loop():
     ch = get_settings().telegram_spot_channel_id
     asyncio.create_task(_ws_price_feed())
     asyncio.create_task(_multi_prices_loop())   # 🌐 كل عملة من منصّتها
+    asyncio.create_task(_open_prices_loop())    # ⚡ المفتوحة كل 5ث
     _last_rest = 0.0
     async with httpx.AsyncClient() as c:
         while True:
