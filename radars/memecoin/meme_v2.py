@@ -50,6 +50,35 @@ _KEYS = ("scanned", "no_flow", "weak_buy", "old_wave", "not_burned",
          "bad_holders", "low_score", "dead_hour", "emitted")
 
 
+def _cd_load() -> dict:
+    """التبريد من القاعدة — الذاكرة تُمحى فتُعاد نفس الإشارة فوراً."""
+    import sqlite3, time as _t
+    out = {}
+    try:
+        c = sqlite3.connect("/opt/whalex/db/memecoin.db")
+        cut = int(_t.time()) - COOLDOWN_SEC
+        for a, ts in c.execute("SELECT addr,ts FROM meme_cooldown WHERE ts>?", (cut,)):
+            out[a] = float(ts)
+        c.execute("DELETE FROM meme_cooldown WHERE ts<?", (cut,))
+        c.commit(); c.close()
+        if out:
+            log.info("meme cooldown restored: %d", len(out))
+    except Exception as e:
+        log.warning("meme cooldown: %s", e)
+    return out
+
+
+def _cd_save(addr):
+    import sqlite3, time as _t
+    try:
+        c = sqlite3.connect("/opt/whalex/db/memecoin.db")
+        c.execute("INSERT OR REPLACE INTO meme_cooldown VALUES(?,?)",
+                  (addr, int(_t.time())))
+        c.commit(); c.close()
+    except Exception:
+        pass
+
+
 def _hit(k):
     STATS[k] = STATS.get(k, 0) + 1
 
@@ -177,6 +206,7 @@ async def evaluate(cc, addr: str, p: dict) -> tuple:
 
 
 async def scan_loop():
+    _last.update(_cd_load())
     import httpx
     from radars.memecoin.scout_meme import (
         _discover, _fetch_pairs, _meme_save, _meme_broadcast, mark_verified,
@@ -204,7 +234,7 @@ async def scan_loop():
                         mark_verified(addr, "meme_v2")
                         _meme_save(p, sc)
                         await _meme_broadcast(p, sc)
-                        _last[addr] = time.time()
+                        _last[addr] = time.time(); _cd_save(addr)
                         # 🚨 مراقبة لحظية لخزائن البركة — الإغلاق في نفس بلوك السحب
                         try:
                             from radars.memecoin.drain_watch import watch_pool
