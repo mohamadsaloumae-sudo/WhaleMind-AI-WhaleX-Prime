@@ -472,6 +472,9 @@ def _multi_prices_sync() -> dict:
     return out
 
 
+_OUT_OF_UNIVERSE = set()
+
+
 def _ex_from_sig(txt) -> str:
     """منصّة الإشارة من نصّها — الكون يُعاد بناؤه كل ساعة ويحذف
     ما هبط حجمه، فتفقد الصفقة المفتوحة منصّتها وتبقى بلا سعر."""
@@ -510,7 +513,8 @@ def _open_symbols_by_ex() -> dict:
                 ex = _ex_from_sig(strat)
                 base = sym[:-4] if sym.upper().endswith("USDT") else sym
                 ck = f"{base}/USDT"
-                if ex:
+                if ex and sym not in _OUT_OF_UNIVERSE:
+                    _OUT_OF_UNIVERSE.add(sym)
                     log.info("🪙🛡️ %s خارج الكون — منصّتها من الإشارة: %s", sym, ex)
             if ex and ex != "binance" and ck:
                 out.setdefault(ex, []).append((sym, ck))
@@ -539,6 +543,35 @@ def _open_prices_sync() -> dict:
         except Exception as _e:
             log.debug("🪙⚡ %s: %s", ex, _e)
     return got
+
+
+def _cooldown_load() -> dict:
+    """🛡️ التبريد من القاعدة — كانت إعادة التشغيل تُعيد نفس الإشارة فوراً."""
+    import sqlite3, time as _t
+    out = {}
+    try:
+        c = sqlite3.connect("/opt/whalex/db/whalex.db")
+        cut = int(_t.time()) - 4 * 3600
+        for sym, ts in c.execute("SELECT symbol,ts FROM spot_cooldown WHERE ts>?", (cut,)):
+            out[sym] = float(ts)
+        c.execute("DELETE FROM spot_cooldown WHERE ts<?", (cut,))
+        c.commit(); c.close()
+        if out:
+            log.info("🛡️ استُعيد تبريد %d عملة", len(out))
+    except Exception as e:
+        log.warning("🛡️ تبريد: %s", e)
+    return out
+
+
+def _cooldown_save(symbol):
+    import sqlite3, time as _t
+    try:
+        c = sqlite3.connect("/opt/whalex/db/whalex.db")
+        c.execute("INSERT OR REPLACE INTO spot_cooldown VALUES(?,?)",
+                  (symbol, int(_t.time())))
+        c.commit(); c.close()
+    except Exception:
+        pass
 
 
 def _state_load() -> dict:
@@ -643,6 +676,7 @@ async def tracker_loop():
     asyncio.create_task(_ws_price_feed())
     asyncio.create_task(_multi_prices_loop())   # 🌐 كل عملة من منصّتها
     _peak.update(_state_load())                 # 🛡️ القمم تنجو من إعادة التشغيل
+    _last_sig.update(_cooldown_load())          # 🛡️ والتبريد كذلك
     asyncio.create_task(_open_prices_loop())    # ⚡ المفتوحة كل 5ث
     _last_rest = 0.0
     async with httpx.AsyncClient() as c:
@@ -887,6 +921,7 @@ async def _emit_signal(r: dict):
                   f"الحالة: {r['regime']}\n"
                   + "\n".join(r.get("why", [])))
 
+    _cooldown_save(sym)
     log.info("🪙🎯 SPOT %s | %s %s | %s | نقاط %.1f %s",
              sym, ex, r["path"], f"@{entry:.6g}", r["score"], grade)
 
