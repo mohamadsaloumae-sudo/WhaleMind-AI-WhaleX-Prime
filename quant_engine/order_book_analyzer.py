@@ -96,8 +96,98 @@ class OrderBookAnalysis:
 # ─── FETCHING ─────────────────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
+_MEX_CLIENTS: dict = {}
+_OB_CACHE: dict = {}
+_OB_TTL = 8.0
+
+
+async def _fetch_ob_fallback(symbol: str, limit: int = 100):
+    """آخر محاولة: نبحث عن العملة في كون المنصّات المتعدّدة."""
+    try:
+        import sqlite3
+        cn = sqlite3.connect("/opt/whalex/multi_universe.db")
+        r = cn.execute("SELECT exchange FROM universe WHERE symbol=?",
+                       (symbol,)).fetchone()
+        cn.close()
+        if r and r[0]:
+            return await _fetch_ob_multi(symbol, r[0].lower(), limit)
+    except Exception:
+        pass
+    return None
+
+
+def _ccxt_depth_sync(exchange: str, symbol: str, limit: int = 100):
+    """دفتر أوامر الفيوتشر من منصّة العملة — متزامن، يُنادى في خيط."""
+    import ccxt
+    c = _MEX_CLIENTS.get(exchange)
+    if c is None:
+        # 📊 مقيس: أوكي إكس تُحمّل 4,649 سوقاً (خيارات وفوري) في 1.9ث،
+        #    وبقصرها على العقود الآجلة تصير 454 سوقاً في 0.3ث.
+        #    ⚠️ باي بيت ترفض fetchMarkets=["swap"] — فنقصره على أوكي إكس.
+        _opts = {"defaultType": "swap"}
+        if exchange == "okx":
+            _opts["fetchMarkets"] = ["swap"]
+        c = getattr(ccxt, exchange)({
+            "enableRateLimit": True, "timeout": 25000, "options": _opts})
+        _MEX_CLIENTS[exchange] = c
+    u = symbol.upper()
+    base = u[:-4] if u.endswith("USDT") else u
+    last = None
+    for t in (f"{base}/USDT:USDT", f"{base}/USDT", u):
+        try:
+            ob = c.fetch_order_book(t, limit=limit)
+            if ob and ob.get("bids") and ob.get("asks"):
+                return ob["bids"], ob["asks"]
+        except Exception as e:
+            last = e
+    if last:
+        raise last
+    return [], []
+
+
+async def _fetch_ob_multi(symbol: str, exchange: str, limit: int):
+    """
+    🌐 دفتر أوامر من منصّة العملة نفسها.
+
+    كان يُجلَب من باينانس دائماً — فعملات المنصّات الحصرية تُرجع None،
+    فتفشل is_real_reversal، فيُعطَّل الخروج التكتيكي عنها كلّياً وتُترك
+    للوقف. (مقيس: 8 من 8 صفقات مفتوحة بلا خروج تكتيكي ممكن.)
+    """
+    _k = f"{exchange}:{symbol}:{limit}"
+    _c = _OB_CACHE.get(_k)
+    if _c and time.time() - _c[0] < _OB_TTL:
+        return _c[1]
+    try:
+        bids, asks = await asyncio.to_thread(_ccxt_depth_sync, exchange, symbol, limit)
+        if not bids or not asks:
+            return None
+        bids = [(float(p), float(q)) for p, q in bids]
+        asks = [(float(p), float(q)) for p, q in asks]
+        _snap = OrderBookSnapshot(
+            symbol=symbol, timestamp=time.time(),
+            bids=bids, asks=asks,
+            mid_price=(bids[0][0] + asks[0][0]) / 2,
+        )
+        _OB_CACHE[_k] = (time.time(), _snap)
+        return _snap
+    except Exception as e:
+        log.debug("ob_multi %s/%s: %s", exchange, symbol, e)
+        return None
+
+
+def _symbol_exchange(symbol: str) -> str:
+    try:
+        from services.binance_trader import symbol_exchange
+        return (symbol_exchange(symbol) or "binance").lower()
+    except Exception:
+        return "binance"
+
+
 async def fetch_order_book(symbol: str, limit: int = 100) -> Optional[OrderBookSnapshot]:
-    """يجلب Order Book من Binance Futures"""
+    """يجلب Order Book من منصّة العملة — باينانس مباشرةً، وغيرها عبر ccxt."""
+    _ex = _symbol_exchange(symbol)
+    if _ex != "binance":
+        return await _fetch_ob_multi(symbol, _ex, limit)
     try:
         async with httpx.AsyncClient(timeout=5) as c:
             r = await c.get(
@@ -105,7 +195,7 @@ async def fetch_order_book(symbol: str, limit: int = 100) -> Optional[OrderBookS
                 params={"symbol": symbol, "limit": limit}
             )
             if r.status_code != 200:
-                return None
+                return await _fetch_ob_fallback(symbol, limit)
             data = r.json()
             
             bids = [(float(p), float(q)) for p, q in data["bids"]]
