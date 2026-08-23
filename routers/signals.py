@@ -134,7 +134,7 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
                     "opened_at": _op,
                     "duration_min": round((r["ts"] - _op) / 60, 1) if _op else None,
                     # 🌐 المنصّة تظهر في المغلقة كما في المفتوحة
-                    "exchange": r["exchange"] or "binance",
+                    "exchange": r["exchange"] or "",   # لا نفترض باينانس — المجهول يبقى بلا شعار
                     "path": r["path"] or "",
                     "reason": r["reason"] or "",
                     "grade": "A", "tier": "SPOT",
