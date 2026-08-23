@@ -40,17 +40,27 @@ function Protected() {
 }
 
 // 🏁 بوّابة المقدّمة — مكوّن مستقلّ، فالتنقّل داخله لا يُعيد تقييم شرط خارجي
+// 🏁 بوّابة المقدّمة — الحالة في sessionStorage لا في الذاكرة.
+//    المتغيّر العاديّ يُمحى مع كل تحديث للصفحة، فكان الريفرش يُعيد المقدّمة.
+//    sessionStorage يبقى ما دام التبويب مفتوحاً ويُمحى عند إغلاقه — وهو المطلوب.
+function introSeen() {
+  try { return sessionStorage.getItem("wx_intro_done") === "1"; }
+  catch { return window.__wxIntroDone === true; }
+}
+
+function markIntroSeen() {
+  try { sessionStorage.setItem("wx_intro_done", "1"); } catch { /* */ }
+  window.__wxIntroDone = true;
+}
+
 function IntroGate({ children }) {
-  const [done, setDone] = React.useState(
-    () => window.__wxIntroDone === true
-  );
+  const [done, setDone] = React.useState(introSeen);
   React.useEffect(() => {
     const on = () => setDone(true);
     window.addEventListener("wx-intro-done", on);
     return () => window.removeEventListener("wx-intro-done", on);
   }, []);
   if (done) return children;
-  window.__wxIntroDone = false;
   return <Navigate to="/landing" replace />;
 }
 
@@ -72,7 +82,7 @@ function Root() {
           ready && !user
             ? <Navigate to="/landing" replace />
 
-            : window.location.pathname === "/" && !window.__wxIntroDone
+            : window.location.pathname === "/" && !introSeen()
               ? <IntroGate><DeviceGuard><Protected /></DeviceGuard></IntroGate>
               : <DeviceGuard><Protected /></DeviceGuard>
         }
