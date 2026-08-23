@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 // ════════════════════════════════════════════════════════════
 //  جذر التطبيق — يبني الـ routing تلقائياً من PAGES
 // ════════════════════════════════════════════════════════════
@@ -10,8 +10,9 @@ import { PAGES } from "./lib/pages.js";
 import Layout from "./components/Layout.jsx";
 import DeviceGuard from "./components/DeviceGuard.jsx";
 import Login from "./pages/Login.jsx";
-import Landing from "./pages/Landing.jsx";
-import LegalPage from "./pages/Legal.jsx";
+// 📦 المقدّمة والقانونية كسولتان — المسجَّل لا يحمّلهما إطلاقاً
+const Landing = React.lazy(() => import("./pages/Landing.jsx"));
+const LegalPage = React.lazy(() => import("./pages/Legal.jsx"));
 
 function Protected() {
   const { user, ready } = useAuth();
@@ -21,6 +22,7 @@ function Protected() {
   const isAdmin = user.tier === "admin";
 
   return (
+    <Suspense fallback={<div className="loading">جارٍ التحميل…</div>}>
     <Routes>
       {PAGES.filter((p) => !p.adminOnly || isAdmin).map((p) => {
         const C = p.component;
@@ -36,6 +38,7 @@ function Protected() {
       })}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
   );
 }
 
@@ -97,8 +100,10 @@ export default function App() {
       <AuthProvider>
         <TierProvider>
           <BrowserRouter>
+      <Suspense fallback={<div className="loading">جارٍ التحميل…</div>}>
             <Root />
-          </BrowserRouter>
+            </Suspense>
+    </BrowserRouter>
         </TierProvider>
       </AuthProvider>
     </LangProvider>

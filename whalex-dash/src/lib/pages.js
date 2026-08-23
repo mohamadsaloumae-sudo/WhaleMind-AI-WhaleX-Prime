@@ -5,25 +5,29 @@
 //                     2) أضف سطراً واحداً هنا
 //  لا شيء آخر. الـ routing والقائمة الجانبية يُبنيان تلقائياً.
 // ════════════════════════════════════════════════════════════
+// 📦 تحميل كسول — كل صفحة ملف يُجلَب عند فتحها فقط.
+//    كانت الأربع عشرة تُحمَّل كلّها في الفتح الأول.
+import { lazy } from "react";
 import {
   LayoutDashboard, Radio, Bot, TrendingUp,
   CreditCard, Settings, Search, Shield, BarChart3, Activity, MessageCircle, Sparkles, Gift, UserCircle,
 } from "lucide-react";
 
-import Dashboard from "../pages/Dashboard.jsx";
-import Signals from "../pages/Signals.jsx";
-import AutoTrade from "../pages/AutoTrade.jsx";
-import Trades from "../pages/Trades.jsx";
-import Subscription from "../pages/Subscription.jsx";
-import SettingsPage from "../pages/Settings.jsx";
-import Scanner from "../pages/Scanner.jsx";
-import Positions from "../pages/Positions.jsx";
-import LivePositions from "../pages/LivePositions.jsx";
-import Admin from "../pages/Admin.jsx";
-import Support from "../pages/Support.jsx";
-import Landing from "../pages/Landing.jsx";
-import Referral from "../pages/Referral.jsx";
-import Profile from "../pages/Profile.jsx";
+
+const Dashboard = lazy(() => import("../pages/Dashboard.jsx"));
+const Signals = lazy(() => import("../pages/Signals.jsx"));
+const AutoTrade = lazy(() => import("../pages/AutoTrade.jsx"));
+const Trades = lazy(() => import("../pages/Trades.jsx"));
+const Subscription = lazy(() => import("../pages/Subscription.jsx"));
+const SettingsPage = lazy(() => import("../pages/Settings.jsx"));
+const Scanner = lazy(() => import("../pages/Scanner.jsx"));
+const Positions = lazy(() => import("../pages/Positions.jsx"));
+const LivePositions = lazy(() => import("../pages/LivePositions.jsx"));
+const Admin = lazy(() => import("../pages/Admin.jsx"));
+const Support = lazy(() => import("../pages/Support.jsx"));
+const Landing = lazy(() => import("../pages/Landing.jsx"));
+const Referral = lazy(() => import("../pages/Referral.jsx"));
+const Profile = lazy(() => import("../pages/Profile.jsx"));
 
 // كل عنصر: { path, label, icon, component, adminOnly?, hideNav? }
 export const PAGES = [
