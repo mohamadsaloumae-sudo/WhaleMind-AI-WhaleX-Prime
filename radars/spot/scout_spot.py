@@ -541,6 +541,44 @@ def _open_prices_sync() -> dict:
     return got
 
 
+def _state_load() -> dict:
+    """
+    🛡️ القمم من القاعدة — الذاكرة تُمحى مع كل إعادة تشغيل.
+    صفقة بلغت +30% كانت تفقد قمّتها فلا يُقفَل ربحها. الميم يحفظها
+    في peak_price منذ البداية؛ والسبوت لم يكن يحفظها إطلاقاً.
+    """
+    import sqlite3
+    out = {}
+    try:
+        c = sqlite3.connect("/opt/whalex/db/whalex.db")
+        for sid, pk, st in c.execute("SELECT sig_id,peak,stage FROM spot_state"):
+            if pk:
+                out[sid] = float(pk)
+            if st is not None:
+                _track[sid] = int(st)
+        c.close()
+        if out:
+            log.info("🛡️ استُعيدت %d قمّة من القاعدة", len(out))
+    except Exception as e:
+        log.warning("🛡️ استعادة الحالة: %s", e)
+    return out
+
+
+def _state_save(sig_id, peak=None, stage=None):
+    import sqlite3, time as _t
+    try:
+        c = sqlite3.connect("/opt/whalex/db/whalex.db")
+        c.execute("INSERT INTO spot_state(sig_id,peak,stage,updated) VALUES(?,?,?,?) "
+                  "ON CONFLICT(sig_id) DO UPDATE SET "
+                  "peak=COALESCE(MAX(excluded.peak, spot_state.peak), spot_state.peak), "
+                  "stage=COALESCE(excluded.stage, spot_state.stage), "
+                  "updated=excluded.updated",
+                  (str(sig_id), peak, stage, int(_t.time())))
+        c.commit(); c.close()
+    except Exception as e:
+        log.debug("🛡️ حفظ الحالة: %s", e)
+
+
 async def _open_prices_loop():
     """
     ⚡ الصفقات المفتوحة تُسعَّر كل 5 ثوانٍ لا 45.
@@ -604,6 +642,7 @@ async def tracker_loop():
     ch = get_settings().telegram_spot_channel_id
     asyncio.create_task(_ws_price_feed())
     asyncio.create_task(_multi_prices_loop())   # 🌐 كل عملة من منصّتها
+    _peak.update(_state_load())                 # 🛡️ القمم تنجو من إعادة التشغيل
     asyncio.create_task(_open_prices_loop())    # ⚡ المفتوحة كل 5ث
     _last_rest = 0.0
     async with httpx.AsyncClient() as c:
@@ -658,7 +697,7 @@ async def tracker_loop():
                         # 🔒 تتبّع القمة + رفع الوقف عند كل هدف (قفل الربح)
                         _pk = _peak.get(s.id, s.entry)
                         if px > _pk:
-                            _pk = px; _peak[s.id] = px
+                            _pk = px; _peak[s.id] = px; _state_save(s.id, peak=px)
                         _locked_sl = s.sl
                         if px >= s.tp2:
                             _locked_sl = max(_locked_sl, s.entry * 1.06)   # قفل +6%
