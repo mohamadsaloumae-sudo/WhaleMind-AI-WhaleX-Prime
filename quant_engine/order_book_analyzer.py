@@ -37,6 +37,8 @@ class OrderBookSnapshot:
     bids: list  # [(price, qty), ...]
     asks: list
     mid_price: float = 0.0
+    # 📏 حجم العقد — بدونه يخطئ العمق ×10م على مكسي (PEPE) و÷10آلاف (BTC)
+    contract_size: float = 1.0
     
     @property
     def best_bid(self) -> float:
@@ -163,11 +165,18 @@ async def _fetch_ob_multi(symbol: str, exchange: str, limit: int):
             return None
         bids = [(float(p), float(q)) for p, q in bids]
         asks = [(float(p), float(q)) for p, q in asks]
+        # 📏 حجم العقد — بدونه يخطئ العمق حتى عشرة ملايين ضعف على مكسي
+        from quant_engine.ob_value import contract_size as _cz
+        _cs = _cz(exchange, symbol, futures=True)
         _snap = OrderBookSnapshot(
             symbol=symbol, timestamp=time.time(),
             bids=bids, asks=asks,
             mid_price=(bids[0][0] + asks[0][0]) / 2,
         )
+        try:
+            _snap.contract_size = _cs
+        except Exception:
+            pass
         _OB_CACHE[_k] = (time.time(), _snap)
         return _snap
     except Exception as e:
@@ -228,8 +237,10 @@ def calculate_imbalance(snap: OrderBookSnapshot, depth: int = 20) -> tuple[float
         bid_total_usdt
         ask_total_usdt
     """
-    bid_total = sum(p * q for p, q in snap.bids[:depth])
-    ask_total = sum(p * q for p, q in snap.asks[:depth])
+    # 📏 القيمة الحقيقية = سعر × كمية × حجم العقد
+    _cs = float(getattr(snap, "contract_size", 1.0) or 1.0)
+    bid_total = sum(float(r[0]) * float(r[1]) * _cs for r in snap.bids[:depth] if len(r) >= 2)
+    ask_total = sum(float(r[0]) * float(r[1]) * _cs for r in snap.asks[:depth] if len(r) >= 2)
     
     total = bid_total + ask_total
     if total == 0:
@@ -263,15 +274,17 @@ def detect_walls(snap: OrderBookSnapshot, depth: int = 50, multiplier: float = 5
         return [], []
     
     # متوسط حجم bids و asks بالـ USDT
-    bid_volumes_usdt = [p * q for p, q in bids]
-    ask_volumes_usdt = [p * q for p, q in asks]
+    _cs = float(getattr(snap, "contract_size", 1.0) or 1.0)
+    bid_volumes_usdt = [float(r[0]) * float(r[1]) * _cs for r in bids if len(r) >= 2]
+    ask_volumes_usdt = [float(r[0]) * float(r[1]) * _cs for r in asks if len(r) >= 2]
     
     avg_bid = statistics.mean(bid_volumes_usdt)
     avg_ask = statistics.mean(ask_volumes_usdt)
     
     # كشف Bid Walls
-    for price, qty in bids:
-        qty_usdt = price * qty
+    for _r in bids:
+        price, qty = float(_r[0]), float(_r[1])
+        qty_usdt = price * qty * _cs
         if qty_usdt > avg_bid * multiplier:
             distance = ((mid - price) / mid) * 100
             mult = qty_usdt / avg_bid
@@ -283,8 +296,9 @@ def detect_walls(snap: OrderBookSnapshot, depth: int = 50, multiplier: float = 5
             })
     
     # كشف Ask Walls
-    for price, qty in asks:
-        qty_usdt = price * qty
+    for _r in asks:
+        price, qty = float(_r[0]), float(_r[1])
+        qty_usdt = price * qty * _cs
         if qty_usdt > avg_ask * multiplier:
             distance = ((price - mid) / mid) * 100
             mult = qty_usdt / avg_ask
