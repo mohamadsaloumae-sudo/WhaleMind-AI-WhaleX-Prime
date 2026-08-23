@@ -722,8 +722,24 @@ async def tracker_loop():
                             try:
                                 import sqlite3
                                 cx = sqlite3.connect("/opt/whalex/db/whalex.db")
-                                cx.execute("INSERT INTO spot_results(symbol,entry,exit_price,pnl_pct,outcome,reason,ts) VALUES(?,?,?,?,?,?,?)",
-                                           (s.symbol, s.entry, px, round(pnl, 2), outcome, reason, int(now)))
+                                # 📋 السجلّ الكامل: وقت الدخول والمنصّة والمسار —
+                                #    كانت المدّة غير محسوبة والمنصّة مجهولة في المغلقة.
+                                _op = 0
+                                try:
+                                    _op = int(s.created_at.timestamp()) if s.created_at else 0
+                                except Exception:
+                                    _op = 0
+                                _ex = _sym_exchange(s.symbol)
+                                _strat = str(getattr(s, "strategies", "") or "")
+                                _path = ("dip" if "صيد القاع" in _strat else
+                                         "pullback" if "ارتداد" in _strat else
+                                         "breakout" if "اختراق" in _strat else "")
+                                cx.execute(
+                                    "INSERT INTO spot_results(symbol,entry,exit_price,pnl_pct,"
+                                    "outcome,reason,ts,opened_ts,exchange,path,strategies) "
+                                    "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                                    (s.symbol, s.entry, px, round(pnl, 2), outcome, reason,
+                                     int(now), _op, _ex, _path, _strat[:400]))
                                 cx.commit(); cx.close()
                             except Exception as _re:
                                 log.debug("spot result: %s", _re)

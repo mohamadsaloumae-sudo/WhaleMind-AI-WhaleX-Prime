@@ -9,6 +9,23 @@ import { TrendingUp, TrendingDown } from "lucide-react";
 // 🖼️ شعارات المنصّات — للشفافية: أين نُفِّذت الصفقة
 import TradeDetails from "../components/TradeDetails.jsx";
 
+// 🕐 تنسيق الوقت والمدّة لبطاقة الصفقة المغلقة
+function fmtTime(ts) {
+  if (!ts) return "";
+  try {
+    return new Date(ts * 1000).toLocaleTimeString([], {
+      hour: "2-digit", minute: "2-digit", hour12: false });
+  } catch { return ""; }
+}
+
+function fmtDur(min) {
+  if (min == null) return "";
+  const m = Number(min);
+  if (m < 60) return `${Math.round(m)}د`;
+  const h = Math.floor(m / 60), r = Math.round(m % 60);
+  return r ? `${h}س ${r}د` : `${h}س`;
+}
+
 const EX_LOGO = {
   binance: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/270.png",
   bybit: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/521.png",
@@ -152,6 +169,25 @@ export default function Positions() {
                       {(x.entry && x.exit_price) ? (
                         <div style={{ fontSize: 11, color: "var(--txt-3)", marginTop: 3, direction: "ltr", textAlign: "start" }}>
                           {x.entry} → {x.exit_price}
+                        </div>
+                      ) : null}
+                      {/* 🕐 التوقيتان والمدّة — لم تكن تُعرض في المغلقة */}
+                      {(x.opened_at || x.closed_at) ? (
+                        <div style={{
+                          fontSize: 10.5, color: "var(--txt-3)", marginTop: 3,
+                          display: "flex", gap: 8, flexWrap: "wrap",
+                        }}>
+                          {x.opened_at ? (
+                            <span dir="ltr">🟢 {fmtTime(x.opened_at)}</span>
+                          ) : null}
+                          {x.closed_at ? (
+                            <span dir="ltr">🔴 {fmtTime(x.closed_at)}</span>
+                          ) : null}
+                          {x.duration_min != null ? (
+                            <span style={{ color: "var(--brand, #2dd4bf)" }}>
+                              ⏱ {fmtDur(x.duration_min)}
+                            </span>
+                          ) : null}
                         </div>
                       ) : null}
                     </div>

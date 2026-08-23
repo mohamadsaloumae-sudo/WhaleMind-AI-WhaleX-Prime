@@ -114,13 +114,33 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
         import sqlite3 as _sq
         try:
             con = _sq.connect("/opt/whalex/db/whalex.db"); con.row_factory = _sq.Row
-            rows = con.execute("SELECT symbol, entry, exit_price, pnl_pct, outcome, reason, ts FROM spot_results WHERE ts > (strftime('%s', date('now','+4 hours')) - 14400) ORDER BY ts DESC LIMIT 300").fetchall()
+            rows = con.execute(
+                "SELECT symbol, entry, exit_price, pnl_pct, outcome, reason, ts, "
+                "opened_ts, exchange, path, strategies FROM spot_results "
+                "WHERE ts > (strftime('%s', date('now','+4 hours')) - 14400) "
+                "ORDER BY ts DESC LIMIT 300").fetchall()
             con.close()
-            return {"history": [{"symbol": r["symbol"], "direction": "LONG", "entry": r["entry"],
-                                 "exit_price": r["exit_price"], "pnl_pct": r["pnl_pct"],
-                                 "is_win": bool(r["outcome"]), "outcome": r["outcome"],
-                                 "closed_at": r["ts"], "grade": "A", "tier": "SPOT",
-                                 "strategies": "🪙 Spot Accumulation"} for r in rows]}
+            _lbl = {"dip": "🪙 صيد القاع", "pullback": "📈 ارتداد في اتجاه صاعد",
+                    "breakout": "🚀 اختراق مؤكَّد"}
+            out = []
+            for r in rows:
+                _op = r["opened_ts"] or 0
+                out.append({
+                    "symbol": r["symbol"], "direction": "LONG", "entry": r["entry"],
+                    "exit_price": r["exit_price"], "pnl_pct": r["pnl_pct"],
+                    "is_win": bool(r["outcome"]), "outcome": r["outcome"],
+                    "closed_at": r["ts"],
+                    # 🕐 التوقيتان والمدّة — كانت المدّة غير محسوبة
+                    "opened_at": _op,
+                    "duration_min": round((r["ts"] - _op) / 60, 1) if _op else None,
+                    # 🌐 المنصّة تظهر في المغلقة كما في المفتوحة
+                    "exchange": r["exchange"] or "binance",
+                    "path": r["path"] or "",
+                    "reason": r["reason"] or "",
+                    "grade": "A", "tier": "SPOT",
+                    "strategies": r["strategies"] or _lbl.get(r["path"], "🪙 Spot"),
+                })
+            return {"history": out}
         except Exception:
             return {"history": []}
 
