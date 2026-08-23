@@ -385,7 +385,10 @@ async def _live_taker(c, sym: str):
         if r.status_code != 200:
             return None
         k = r.json()
-        v = sum(float(x[7]) for x in k[-8:])
+        # 🔬 مثبَت بالقياس: x[7] حجم بالدولار و x[9] شراء بالعملة الأساس —
+        #    قسمتهما تعطي 0.000 لبيتكوين و5.683 لدوجي (والنسبة يستحيل تخرج 0-1).
+        #    الصحيح: أساس÷أساس [9]/[5] — أعطى 0.519 و0.512 وهي القيم الحقيقية.
+        v = sum(float(x[5]) for x in k[-8:])
         tb = sum(float(x[9]) for x in k[-8:])
         tk = (tb / v) if v > 0 else None
         if tk is not None:
