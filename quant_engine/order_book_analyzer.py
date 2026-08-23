@@ -163,8 +163,11 @@ async def _fetch_ob_multi(symbol: str, exchange: str, limit: int):
         bids, asks = await asyncio.to_thread(_ccxt_depth_sync, exchange, symbol, limit)
         if not bids or not asks:
             return None
-        bids = [(float(p), float(q)) for p, q in bids]
-        asks = [(float(p), float(q)) for p, q in asks]
+        # 🛡️ مكسي وأوكي إكس تُرجعان [سعر, كمية, إضافات] — ففكّ عنصرين
+        #    يرفع ValueError، وكان يُبتلَع في except فتُرجع الدالة None
+        #    ويصير الخروج التكتيكي مستحيلاً على تلك المنصّات.
+        bids = [(float(r[0]), float(r[1])) for r in bids if len(r) >= 2]
+        asks = [(float(r[0]), float(r[1])) for r in asks if len(r) >= 2]
         # 📏 حجم العقد — بدونه يخطئ العمق حتى عشرة ملايين ضعف على مكسي
         from quant_engine.ob_value import contract_size as _cz
         _cs = _cz(exchange, symbol, futures=True)
@@ -180,7 +183,7 @@ async def _fetch_ob_multi(symbol: str, exchange: str, limit: int):
         _OB_CACHE[_k] = (time.time(), _snap)
         return _snap
     except Exception as e:
-        log.debug("ob_multi %s/%s: %s", exchange, symbol, e)
+        log.warning("📏 دفتر %s/%s فشل: %s", exchange, symbol, e)
         return None
 
 
