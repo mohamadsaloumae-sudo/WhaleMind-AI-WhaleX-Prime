@@ -587,7 +587,12 @@ async def tracker_loop():
                         if (pnl >= DYN_MIN_PROFIT or _peak_pnl >= DYN_MIN_PROFIT
                                 or pnl <= FLOW_CHECK_LOSS):
                             try:
-                                _tk = await _live_taker(c, s.symbol)
+                                # 🌐 من منصّة العملة نفسها — مقيس: FILUSDT
+                                #    باينانس 0.535 «أبقِ» بينما أوكي إكس 0.188 «اقطع»
+                                from radars.spot.eyes_spot import taker_flow as _tf
+                                _tk = await _tf(s.symbol)
+                                if _tk is None:
+                                    _tk = await _live_taker(c, s.symbol)
                             except Exception:
                                 _tk = None
                         _dyn_exit = False
@@ -608,6 +613,19 @@ async def tracker_loop():
                         if (_tk is not None and _tk < FLOW_EXIT_TAKER
                                 and FLOW_MAX_LOSS <= pnl <= FLOW_CHECK_LOSS):
                             _dyn_exit, _dyn_why = True, "flow_cut"
+                        # 👁️ عين الانقلاب — الفيوتشر عنده دفتر 100 مستوى
+                        #    والسبوت كان بلا بوّابة أصلاً. لا نستشيرها إلا
+                        #    عند خسارة حقيقية أو تراجع عن قمّة (توفير النداءات).
+                        if not _dyn_exit and (pnl <= -1.0 or (_peak_pnl >= 3.0 and _drop >= 1.0)):
+                            try:
+                                from radars.spot.eyes_spot import is_reversal as _isrev
+                                _rv, _rwhy = await _isrev(s.symbol, pnl)
+                                if _rv:
+                                    _dyn_exit, _dyn_why = True, "ob_reversal"
+                                    log.info("🪙👁️ %s %s | PnL %+.2f%%", s.symbol, _rwhy, pnl)
+                            except Exception as _re:
+                                log.debug("spot eye %s: %s", s.symbol, _re)
+
                         _smart_rev = _dyn_exit or (pnl >= 2.0 and _peak_pnl >= 3.0 and _drop >= 1.2)
 
                         if _smart_rev:
