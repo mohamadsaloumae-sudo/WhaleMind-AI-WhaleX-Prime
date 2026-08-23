@@ -707,6 +707,10 @@ async def is_real_reversal(symbol: str, is_long: bool, opened_at: float = 0) -> 
         return False, ""
 
 
+_CLOSES_CACHE: dict = {}
+_CLOSES_CLIENTS: dict = {}
+
+
 async def should_tactical_exit(pos: Position, price: float, ob: dict, ls_change: float) -> tuple[bool, str]:
     """خروج تكتيكي — انقلاب الأوردر بوك الحقيقي فقط (فلسفة صيد القمم).
     لا نخرج للزبزبة، لا لحركة سعر، لا لـspread. فقط انقلاب OB بنيوي عميق.
@@ -723,12 +727,77 @@ async def should_tactical_exit(pos: Position, price: float, ob: dict, ls_change:
     if age_sec < 90:
         return False, ""
 
-    # الشرط الوحيد: انقلاب الأوردر بوك البنيوي الحقيقي (depth=100 + جدار ضخم)
+    # ① انقلاب الأوردر بوك البنيوي (depth=100 + جدار ضخم)
     real_rev, rev_reason = await is_real_reversal(pos.symbol, is_long, getattr(pos, "opened_at", 0))
     if real_rev:
         return True, f"🔻 {rev_reason} | PnL {pnl_pct:+.1f}%"
 
+    # ② 📉 النزيف والركود — البُعد الذي كان مفقوداً.
+    #    قياس 15 صفقة خسرت 8%+: كلّها sl_hit وصفر خروج تكتيكي، لأن
+    #    الدفتر يبقى متوازناً أثناء الانزلاق البطيء. وبإضافة هذا
+    #    البُعد: -169.9% تصير -101.0% (توفير 68.9 نقطة، بلا صفقة تسوء).
+    try:
+        from radars.futures.bleed import evaluate_exit as _bleed
+        _age_min = (_t.time() - getattr(pos, "opened_at", 0)) / 60
+        _pk = getattr(pos, "peak_price", 0) or 0
+        _peak_pnl = calc_pnl(pos, _pk) if _pk else pnl_pct
+        _sl_pnl = calc_pnl(pos, pos.sl) if pos.sl else -12.0
+        _cs = await _recent_closes(pos.symbol, 20)
+        if _cs and len(_cs) >= 14:
+            _hit, _why = _bleed(pnl_pct, _sl_pnl, _peak_pnl, _age_min, _cs, is_long)
+            if _hit:
+                return True, f"{_why} | PnL {pnl_pct:+.1f}%"
+    except Exception as _be:
+        log.debug("bleed %s: %s", pos.symbol, _be)
+
     return False, ""
+
+
+async def _recent_closes(symbol: str, n: int = 20) -> list:
+    """إغلاقات الدقيقة الأخيرة من منصّة العملة — لا من باينانس دائماً."""
+    import asyncio as _a
+    # 🛡️ time لا _t — الأخير محلّيّ داخل should_tactical_exit، فكان
+    #    NameError يُبتلَع في except ويُرجع صفر شمعة دائماً (كاشف معطّل).
+    import time as _tm
+    _k = f"cl:{symbol}"
+    _c = _CLOSES_CACHE.get(_k)
+    if _c and _tm.time() - _c[0] < 45 and _c[1]:
+        return _c[1]
+
+    def _sync():
+        import ccxt
+        try:
+            from services.binance_trader import symbol_exchange as _sx
+            ex = (_sx(symbol) or "binance").lower()
+        except Exception:
+            ex = "binance"
+        cl = _CLOSES_CLIENTS.get(ex)
+        if cl is None:
+            _o = {"defaultType": "swap"}
+            if ex == "okx":
+                _o["fetchMarkets"] = ["swap"]
+            cl = getattr(ccxt, ex)({"enableRateLimit": True, "timeout": 20000,
+                                    "options": _o})
+            _CLOSES_CLIENTS[ex] = cl
+        u = symbol.upper()
+        base = u[:-4] if u.endswith("USDT") else u
+        for t in (f"{base}/USDT:USDT", f"{base}/USDT"):
+            try:
+                k = cl.fetch_ohlcv(t, "1m", limit=n)
+                if k and len(k) >= 14:
+                    return [float(x[4]) for x in k]
+            except Exception:
+                continue
+        return []
+
+    try:
+        out = await _a.to_thread(_sync)
+    except Exception as _e:
+        log.warning("📉 تعذّر جلب شموع %s: %s", symbol, _e)
+        return []
+    if out:
+        _CLOSES_CACHE[_k] = (_tm.time(), out)   # 🛡️ لا نخزّن الفارغ
+    return out
 
 
 # ═══════════════════════════════════════════════════════════════
