@@ -1101,40 +1101,33 @@ async def _meme_track_one(cc, r):
     else:
         _WICK_SEEN.pop(_sid, None)
 
-    if pnl <= MEME_HARD_FLOOR:
-        reason = "🛑 أرضية أمان -18%"
+    # ═══ 🐸 منطق v3 — مقيس على 303 صفقة: -728% → +1,860% ═══
+    #   القديم كان يقفل عند +3% من قمّة +6% (سلّم متدرّج ضيّق)،
+    #   فبقي صافي 294 صفقة طبيعية +48% فقط بينما قممها تحمل +2,022%.
+    #   الجديد: أرضية -15% · نترك 20% من القمّة تتنفّس · بلا سقف
+    #   زمنيّ للرابحة (أطول رابحة عاشت 185 دقيقة).
+    from radars.memecoin.meme_logic import exit_decision as _xd
+    _age_min = (time.time() - (r.get("ts") or 0)) / 60
+    _liq_ratio = 1.0
+    try:
+        _bl = float(r.get("liq") or 0)
+        _nl = float(r.get("_now_liq") or 0)
+        if _bl > 0 and _nl > 0:
+            _liq_ratio = _nl / _bl
+    except Exception:
+        _liq_ratio = 1.0
+    _do_exit, _xwhy = _xd(pnl, peak_pnl, _age_min, _liq_ratio, False)
+    if _do_exit:
+        reason = _xwhy
         _SL_PENDING.pop(_sid, None)
-    elif _trades >= MEME_MIN_FLOW_TRADES:
-        if _vol_ratio < MEME_SELL_VOL:
+    else:
+        # 🌊 التدفّق الحيّ يبقى عيناً إضافية — بائعون ساحقون ينهون الصفقة
+        if _trades >= MEME_MIN_FLOW_TRADES and _vol_ratio < MEME_SELL_VOL:
             reason = "🔻 بيع: سيطرة بائعين على الحجم"
             _SL_PENDING.pop(_sid, None)
-        elif _buy_ratio < MEME_SELL_BUYRATIO:
-            _p = _SL_PENDING.get(_sid)
-            if not _p:
-                _SL_PENDING[_sid] = time.time()
-                log.info("🌊 %s تضاؤل مشترين — انتظار تأكيد %ds", r.get("symbol"), int(MEME_SELL_CONFIRM))
-            elif time.time() - _p >= MEME_SELL_CONFIRM:
-                reason = "🔻 بيع: تضاؤل المشترين (مؤكَّد)"
-                _SL_PENDING.pop(_sid, None)
         else:
             _SL_PENDING.pop(_sid, None)
-    else:
-        _SL_PENDING.pop(_sid, None)
-        _give = MEME_TRAIL_GIVEBACK
-        for _lvl, _g in MEME_GIVE_LADDER:
-            if peak_pnl >= _lvl:
-                _give = _g
-                break
-        if peak_pnl >= MEME_TRAIL_ARM and pnl <= peak_pnl - _give:
-            reason = "🔒 قفل: تراجع عن القمة"
-    if not reason:
-        if _age_h >= 2 and abs(pnl) < 2 and (peak_pnl or 0) < 4:
-            reason = "⏱ خروج: لا حركة في ساعتين"
-        elif (time.time() - (r.get("ts") or 0) > EARLY_EXIT_MIN * 60
-              and peak_pnl < EARLY_EXIT_MIN_RISE):
-            reason = f"⏱ لم تصعد {EARLY_EXIT_MIN_RISE:.0f}% في {EARLY_EXIT_MIN}د"
-        elif time.time() - (r.get("ts") or 0) > MAX_HOLD_MIN * 60:
-            reason = f"⏰ نافذة التعرّض {MAX_HOLD_MIN}د"
+
     if reason:
         try:
             from radars.memecoin.live_stream import unwatch_token
