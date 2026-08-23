@@ -472,6 +472,14 @@ def _multi_prices_sync() -> dict:
     return out
 
 
+def _ex_from_sig(txt) -> str:
+    """منصّة الإشارة من نصّها — الكون يُعاد بناؤه كل ساعة ويحذف
+    ما هبط حجمه، فتفقد الصفقة المفتوحة منصّتها وتبقى بلا سعر."""
+    import re as _re
+    m = _re.search(r"المنصّة:\s*([a-z]+)", str(txt or ""))
+    return m.group(1) if m else ""
+
+
 def _open_symbols_by_ex() -> dict:
     """رموز الصفقات المفتوحة غير الباينانسية، مجمَّعة بمنصّتها."""
     import sqlite3
@@ -480,19 +488,32 @@ def _open_symbols_by_ex() -> dict:
         from db.database import get_session, Signal
         db = get_session()
         try:
-            syms = [x.symbol for x in db.query(Signal).filter(
+            rows_sig = [(x.symbol, x.strategies) for x in db.query(Signal).filter(
                 Signal.radar_type == "spot", Signal.is_active == True).all()]
         finally:
             db.close()
+        syms = [x[0] for x in rows_sig]
         if not syms:
             return out
         cn = sqlite3.connect("/opt/whalex/spot_universe.db")
         q = ",".join("?" * len(syms))
+        known = {}
         for sym, ex, ck in cn.execute(
                 f"SELECT symbol,exchange,ccxt_symbol FROM spot_universe "
-                f"WHERE symbol IN ({q}) AND exchange != 'binance'", syms):
-            out.setdefault(ex, []).append((sym, ck))
+                f"WHERE symbol IN ({q})", syms):
+            known[sym] = (ex, ck)
         cn.close()
+        for sym, strat in rows_sig:
+            ex, ck = known.get(sym, ("", ""))
+            if not ex:
+                # 🛡️ سقطت من الكون — نأخذ منصّتها من نصّ الإشارة
+                ex = _ex_from_sig(strat)
+                base = sym[:-4] if sym.upper().endswith("USDT") else sym
+                ck = f"{base}/USDT"
+                if ex:
+                    log.info("🪙🛡️ %s خارج الكون — منصّتها من الإشارة: %s", sym, ex)
+            if ex and ex != "binance" and ck:
+                out.setdefault(ex, []).append((sym, ck))
     except Exception as e:
         log.warning("🪙⚠️ تعذّر جلب رموز المفتوحة: %s", e)
     return out
