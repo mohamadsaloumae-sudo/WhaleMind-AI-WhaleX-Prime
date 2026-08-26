@@ -820,6 +820,8 @@ async def tracker_loop():
                             await _announce(f"🧠 <b>{s.symbol}</b> — انعكاس مُكتشف، أغلقنا لحفظ الربح\nالنتيجة: <b>{pnl:+.1f}%</b> (القمة كانت {_peak_pnl:+.0f}%)\n🪙 <i>WhaleMind Spot</i>")
                             log.info("🪙🧠 %s reversal-exit %.1f%% (peak %.0f%%)", s.symbol, pnl, _peak_pnl)
                         elif px <= _locked_sl and _locked_sl > s.sl:
+                            px = _exec_px(px, _locked_sl)
+                            pnl = (px - s.entry) / s.entry * 100
                             s.is_active = False; s.pnl_pct = round(pnl, 2); s.close_reason = "locked"; s.closed_at = datetime.utcnow(); db.commit()
                             _log_result(1 if pnl > 0 else 0, "locked")
                             try:
@@ -832,6 +834,8 @@ async def tracker_loop():
                             await _announce(f"🔒 <b>{s.symbol}</b> — قفل الربح عند الارتداد\nالنتيجة: <b>{pnl:+.1f}%</b>\n🪙 <i>WhaleMind Spot</i>")
                             log.info("🪙🔒 %s locked %.1f%%", s.symbol, pnl)
                         elif px <= s.sl:
+                            px = _exec_px(px, s.sl)
+                            pnl = (px - s.entry) / s.entry * 100
                             s.is_active = False; s.pnl_pct = round(pnl, 2); s.close_reason = "sl"; s.closed_at = datetime.utcnow(); db.commit()
                             _log_result(0, "sl")
                             try:
@@ -887,6 +891,24 @@ def _open_spot_count() -> int:
             db.close()
     except Exception:
         return 0
+
+
+def _exec_px(px_seen: float, level: float, slip: float = 0.004) -> float:
+    """
+    💵 سعر التنفيذ الواقعيّ — لا قاع الذيل الخاطف.
+
+    مقيس: DEVERSEUSDT قفلها عند التعادل 0.4375، ونزلت شمعة واحدة
+    بذيل إلى 0.35 ثم عادت 0.4949 في الدقيقة نفسها — فسُجّلت -20%
+    وكان الصحيح -0.4%. وFLYAIUSDT وقفها -6% فسُجّلت -43.14%.
+    مجموع الفجوة في حالتين: 57 نقطة.
+
+    الوقف أمر معلّق عند المستوى؛ فحين يُخترَق يُنفَّذ عنده زائد
+    انزلاق صغير — لا في قاع ذيل يستمرّ ثوانيَ.
+    """
+    if not level or level <= 0 or not px_seen:
+        return px_seen
+    worst = level * (1 - slip)
+    return max(px_seen, worst) if px_seen < level else px_seen
 
 
 def _sym_exchange(symbol: str) -> str:
