@@ -22,7 +22,10 @@ DB = "/opt/whalex/multi_universe.db"
 MIN_VOL_24H = 3_000_000        # حجم يستحقّ التداول
 REFRESH_SEC = 3600             # تحديث كل ساعة
 
-EXCHANGES = ("mexc", "gate", "bingx", "bitget", "bybit", "okx")
+# 🟡 باينانس أوّلاً: عملاتها تُرصَد منها هي (سيولة أعمق · تنفيذ أوثق)،
+#    والمنصّات الأخرى تُعطي إشاراتها على الحصريّ وحده — فلا تتضارب
+#    الأسعار كما حدث مع XMR (425 على مكسي مقابل 118 على باينانس).
+EXCHANGES = ("binance", "mexc", "gate", "bingx", "bitget", "bybit", "okx")
 
 # 🚫 ليست كريبتو — رادارنا يقرأ التصفيات والتدفّق، لا الأسهم
 # 📌 ما يُستبعد: الفوركس فقط (TRY · AUD · EUR...) — سعره لا يتحرّك كالكريبتو.
@@ -99,7 +102,8 @@ def refresh() -> dict:
                 #    فنجرّدها لنمنع فحص الأصل الواحد مرّتين وإصدار إشارتين له.
                 _norm = base[:-5] if base.endswith("STOCK") and len(base) > 5 else base
                 sym = f"{_norm}USDT"
-                if sym in bn or NOT_CRYPTO.search(base):
+                # 🟡 الاستبعاد للمنصّات الأخرى فقط — باينانس ترصد عملاتها
+                if (ex != "binance" and sym in bn) or NOT_CRYPTO.search(base):
                     continue
                 # 💱 أوكي إكس لا تُرجع quoteVolume — نحسبه من baseVolume × السعر.
                 #    كان الحجم يُقرأ صفراً فتُقصّ كل عملاتها (179 حصرية!).
@@ -112,7 +116,10 @@ def refresh() -> dict:
                 if vol < MIN_VOL_24H:
                     continue
                 # عند وجودها على عدّة منصّات نأخذ الأعمق سيولةً
-                if sym not in best or vol > best[sym][2]:
+                # 🟡 باينانس لها الأولوية المطلقة عند وجود العملة عليها
+                _cur = best.get(sym)
+                if _cur is None or (ex == "binance" and _cur[0] != "binance") \
+                        or (_cur[0] != "binance" and vol > _cur[2]):
                     best[sym] = (ex, k, vol, 1 if has_oi else 0)
                 n += 1
             stats[ex] = n
