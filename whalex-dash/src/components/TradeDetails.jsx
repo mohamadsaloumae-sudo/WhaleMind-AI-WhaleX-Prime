@@ -1,5 +1,21 @@
 import { X } from "lucide-react";
 
+const DEX_LOGO = "https://dexscreener.com/favicon.ico";
+
+const CHAIN_LOGO = {
+  solana: "https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png",
+  ethereum: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png",
+  bsc: "https://s2.coinmarketcap.com/static/img/coins/64x64/1839.png",
+  base: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png",
+  arbitrum: "https://s2.coinmarketcap.com/static/img/coins/64x64/11841.png",
+  polygon: "https://s2.coinmarketcap.com/static/img/coins/64x64/3890.png",
+};
+
+const CHAIN_NAME = {
+  solana: "Solana", ethereum: "Ethereum", bsc: "BSC",
+  base: "Base", arbitrum: "Arbitrum", polygon: "Polygon",
+};
+
 const EX_LOGO = {
   binance: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/270.png",
   bybit: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/521.png",
@@ -32,7 +48,11 @@ export default function TradeDetails({ trade: x, lang = "ar", onClose }) {
   if (!x) return null;
   const ar = lang !== "en";
   const L = (a, e) => (ar ? a : e);
-  const ex = String(x.exchange || "binance").toLowerCase();
+  // 🐸 الميم من ديكس سكرينر لا من منصّة مركزية — والافتراض القديم
+  //    كان يحوّل الفارغ إلى binance فيظهر شعار خاطئ.
+  const isMeme = x.source === "dexscreener" || x.tier === "MEME";
+  const chain = String(x.chain || "").toLowerCase();
+  const ex = isMeme ? "" : String(x.exchange || "").toLowerCase();
   const win = x.is_win;
   const pnl = Number(x.pnl_pct) || 0;
 
@@ -108,9 +128,22 @@ export default function TradeDetails({ trade: x, lang = "ar", onClose }) {
             background: "transparent", border: "none", cursor: "pointer",
             color: "#fff", display: "flex", padding: 0,
           }}><X size={21} /></button>
-          <img src={EX_LOGO[ex]} alt={ex} width="22" height="22"
-               style={{ borderRadius: 5 }}
-               onError={(e) => { e.target.style.display = "none"; }} />
+          {isMeme ? (
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <img src={DEX_LOGO} alt="DexScreener" width="20" height="20"
+                   style={{ borderRadius: 5 }}
+                   onError={(e) => { e.target.style.display = "none"; }} />
+              {CHAIN_LOGO[chain] ? (
+                <img src={CHAIN_LOGO[chain]} alt={chain} width="20" height="20"
+                     style={{ borderRadius: 10 }}
+                     onError={(e) => { e.target.style.display = "none"; }} />
+              ) : null}
+            </span>
+          ) : (
+            <img src={EX_LOGO[ex]} alt={ex} width="22" height="22"
+                 style={{ borderRadius: 5 }}
+                 onError={(e) => { e.target.style.display = "none"; }} />
+          )}
           <strong style={{ color: "#fff", fontSize: 15, direction: "ltr" }}>{x.symbol}</strong>
           <span style={{
             fontSize: 10.5, fontWeight: 700, padding: "3px 8px", borderRadius: 6,
@@ -125,7 +158,21 @@ export default function TradeDetails({ trade: x, lang = "ar", onClose }) {
 
         <div style={{ padding: "10px 16px 16px" }}>
           <Sec>{L("الصفقة", "Trade")}</Sec>
-          <Row label={L("المنصّة", "Exchange")} value={EX_NAME[ex] || ex} />
+          <Row label={L("المصدر", "Source")}
+               value={isMeme ? "DexScreener" : (EX_NAME[ex] || ex || "—")} />
+          {isMeme && chain ? (
+            <Row label={L("الشبكة", "Chain")} value={CHAIN_NAME[chain] || chain} />
+          ) : null}
+          {x.duration_min != null ? (
+            <Row label={L("مدّة الصفقة", "Duration")}
+                 value={x.duration_min < 60
+                   ? `${Math.round(x.duration_min)} ${L("دقيقة", "min")}`
+                   : `${Math.floor(x.duration_min / 60)}${L("س", "h")} ${Math.round(x.duration_min % 60)}${L("د", "m")}`} />
+          ) : null}
+          {x.peak_pct != null ? (
+            <Row label={L("أقصى ربح بلغته", "Peak")}
+                 value={`${x.peak_pct >= 0 ? "+" : ""}${Number(x.peak_pct).toFixed(2)}%`} />
+          ) : null}
           <Row label={L("الرادار", "Radar")} value={radarName} />
 
           <Sec>{L("الدخول", "Entry")}</Sec>
