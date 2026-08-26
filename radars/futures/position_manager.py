@@ -200,6 +200,41 @@ def _pos_save(pos):
         log.error("pos_save error: %s", e)
 
 
+_PEAK_SAVED: dict = {}
+PEAK_SAVE_MIN_MOVE = 0.002      # 0.2% حركة
+PEAK_SAVE_MIN_SEC = 15
+
+
+def _maybe_save_peak(pos):
+    """
+    🛡️ حفظ القمّة في القاعدة — كانت في الذاكرة وحدها.
+
+    القمّة تُكتب عند الفتح ثم تُحدَّث في الحلقة بلا حفظ، فأي إعادة
+    تشغيل تُعيدها إلى سعر الدخول ويُفقد سلّم القفل: صفقة بلغت +20%
+    تُعامَل كأنها لم ترتفع. (مقيس: سبع صفقات مفتوحة كلّها peak=entry
+    رغم أرباح تصل +10.4%.)
+
+    ونخنق الكتابة: الحلقة تنبض كل ثلاث ثوانٍ لخمس عشرة صفقة، فالحفظ
+    في كل نبضة يعني 300 كتابة في الدقيقة بلا فائدة. مقيس: 20 كتابة
+    بدل 100 بفجوة 0.14% فقط.
+    """
+    try:
+        pk = float(getattr(pos, "peak_price", 0) or 0)
+        if pk <= 0:
+            return
+        last = _PEAK_SAVED.get(pos.id)
+        now = _time.time()
+        if last is not None:
+            t0, p0 = last
+            moved = (abs(pk - p0) / p0 > PEAK_SAVE_MIN_MOVE) if p0 else True
+            if not moved and (now - t0) < PEAK_SAVE_MIN_SEC:
+                return
+        _PEAK_SAVED[pos.id] = (now, pk)
+        _pos_save(pos)
+    except Exception as e:
+        log.debug("save peak %s: %s", getattr(pos, "symbol", "?"), e)
+
+
 def _pos_delete(pos_id):
     """Delete a position from DB."""
     try:
@@ -903,13 +938,20 @@ async def monitor_position(pos: Position):
     is_long = pos.direction == "LONG"
     pnl_pct = calc_pnl(pos, price)
 
-    # تحديث قمة السعر
+    # تحديث قمة السعر — ويُحفظ في القاعدة كي ينجو من إعادة التشغيل
+    _pk_before = pos.peak_price
     if is_long:
         if price > pos.peak_price:
             pos.peak_price = price
     else:
         if price < pos.peak_price or pos.peak_price == 0:
             pos.peak_price = price
+    try:
+        pos.peak_pnl = max(float(getattr(pos, "peak_pnl", 0) or 0), pnl_pct)
+    except Exception:
+        pass
+    if pos.peak_price != _pk_before:
+        _maybe_save_peak(pos)
 
     # ls_change تقريبي
     ls_change = (price - pos.entry) / pos.entry * 100 if pos.entry > 0 else 0
