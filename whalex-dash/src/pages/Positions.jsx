@@ -26,6 +26,19 @@ function fmtDur(min) {
   return r ? `${h}س ${r}د` : `${h}س`;
 }
 
+// 🐸 الميم يأتي من ديكس سكرينر لا من منصّة مركزية — والشعار كان
+//    يظهر باينانس خطأً في تفاصيل الصفقة المغلقة.
+const DEX_LOGO = "https://dexscreener.com/favicon.ico";
+
+const CHAIN_LOGO = {
+  solana: "https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png",
+  ethereum: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png",
+  bsc: "https://s2.coinmarketcap.com/static/img/coins/64x64/1839.png",
+  base: "https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png",
+  arbitrum: "https://s2.coinmarketcap.com/static/img/coins/64x64/11841.png",
+  polygon: "https://s2.coinmarketcap.com/static/img/coins/64x64/3890.png",
+};
+
 const EX_LOGO = {
   binance: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/270.png",
   bybit: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/521.png",
@@ -133,7 +146,7 @@ export default function Positions() {
             {history.map((x, i) => {
               const win = x.is_win;
               const radar =
-                x.tier === "MEME" ? "🐸 WhaleX Meme"
+                x.tier === "MEME" ? ("🐸 WhaleX Meme" + (x.chain_label ? " · " + x.chain_label : ""))
                 : x.tier === "SPOT" || x.direction === "SPOT" ? "🪙 WhaleX Spot"
                 : x.tier === "PH" ? (x.direction === "LONG" ? "📈 WhaleX Long" : "🎯 WhaleX Short")
                 : "⚡ WhaleX Predator";
@@ -146,7 +159,19 @@ export default function Positions() {
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
-                        {x.exchange ? (
+                        {x.source === "dexscreener" || x.tier === "MEME" ? (
+                          <span style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                            <img src={DEX_LOGO} alt="DexScreener" width="16" height="16"
+                                 style={{ borderRadius: 4 }}
+                                 onError={(e) => { e.target.style.display = "none"; }} />
+                            {x.chain && CHAIN_LOGO[String(x.chain).toLowerCase()] ? (
+                              <img src={CHAIN_LOGO[String(x.chain).toLowerCase()]}
+                                   alt={x.chain} width="16" height="16"
+                                   style={{ borderRadius: 8 }}
+                                   onError={(e) => { e.target.style.display = "none"; }} />
+                            ) : null}
+                          </span>
+                        ) : x.exchange ? (
                           <img src={EX_LOGO[String(x.exchange).toLowerCase()]}
                                alt={x.exchange} width="17" height="17"
                                style={{ borderRadius: 4, flexShrink: 0 }}

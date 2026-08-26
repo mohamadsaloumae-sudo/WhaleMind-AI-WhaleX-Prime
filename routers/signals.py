@@ -64,12 +64,21 @@ def all_signals(market: str = "futures", user=Depends(get_current_user)):
             _mdb = _os.path.join(_os.path.dirname(__file__), "..", "db", "memecoin.db")
             try:
                 _mc = _sq.connect(_mdb); _mc.row_factory = _sq.Row
-                _rows = _mc.execute("SELECT symbol,address,chain,score,liq,vol,url,ts,entry_price,status,pnl_pct FROM meme_signals ORDER BY ts DESC LIMIT 50").fetchall()
+                _rows = _mc.execute("SELECT symbol,address,chain,score,liq,vol,url,ts,entry_price,status,pnl_pct,peak_price,last_price FROM meme_signals ORDER BY ts DESC LIMIT 50").fetchall()
                 _mc.close()
                 _out = []
                 for _r in _rows:
                     _d = dict(_r)
                     _d["direction"] = "MEME"; _d["radar_type"] = "meme"; _d["grade"] = "-"
+                    _CH = {"solana": "Solana", "ethereum": "Ethereum", "bsc": "BSC",
+                           "base": "Base", "arbitrum": "Arbitrum", "polygon": "Polygon"}
+                    _c = (_d.get("chain") or "").lower()
+                    _d["exchange"] = ""
+                    _d["source"] = "dexscreener"
+                    _d["chain_label"] = _CH.get(_c, _c or "-")
+                    _d["opened_at"] = _d.get("ts")
+                    _d["entry"] = _d.get("entry_price")
+                    _d["current"] = _d.get("last_price") or _d.get("entry_price")
                     _d["created_at"] = _dt.datetime.utcfromtimestamp(_d["ts"]).strftime("%Y-%m-%d %H:%M:%S")
                     _out.append(_d)
                 return {"signals": _out}
@@ -101,13 +110,35 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
         _mdb = _os.path.join(_os.path.dirname(__file__), "..", "db", "memecoin.db")
         try:
             con = _sq.connect(_mdb); con.row_factory = _sq.Row
-            rows = con.execute("SELECT symbol, entry_price, exit_price, pnl_pct, closed_ts, chain, score FROM meme_signals WHERE status='closed' AND pnl_pct IS NOT NULL AND closed_ts > (strftime('%s', date('now','+4 hours')) - 14400) ORDER BY closed_ts DESC LIMIT 300").fetchall()
+            rows = con.execute("SELECT symbol, address, entry_price, exit_price, pnl_pct, peak_price, ts, closed_ts, chain, score, url, liq, vol FROM meme_signals WHERE status='closed' AND pnl_pct IS NOT NULL AND closed_ts > (strftime('%s', date('now','+4 hours')) - 14400) ORDER BY closed_ts DESC LIMIT 300").fetchall()
             con.close()
-            return {"history": [{"symbol": r["symbol"], "direction": "MEME", "entry": r["entry_price"],
-                                 "exit_price": r["exit_price"], "pnl_pct": r["pnl_pct"],
-                                 "is_win": bool((r["pnl_pct"] or 0) >= 0), "outcome": 1 if (r["pnl_pct"] or 0) >= 0 else 0,
-                                 "closed_at": r["closed_ts"], "grade": str(r["score"]), "tier": "MEME",
-                                 "strategies": "\U0001F438 " + (r["chain"] or "")} for r in rows]}
+            _CH = {"solana": "Solana", "ethereum": "Ethereum", "bsc": "BSC", "base": "Base", "arbitrum": "Arbitrum", "polygon": "Polygon"}
+            out = []
+            for r in rows:
+                _op = r["ts"] or 0
+                _cl = r["closed_ts"] or 0
+                _ch = (r["chain"] or "").lower()
+                _e = float(r["entry_price"] or 0)
+                _pk = float(r["peak_price"] or 0)
+                _lbl = _CH.get(_ch, _ch or "-")
+                out.append({
+                    "symbol": r["symbol"], "direction": "MEME",
+                    "entry": r["entry_price"], "exit_price": r["exit_price"],
+                    "pnl_pct": r["pnl_pct"],
+                    "is_win": bool((r["pnl_pct"] or 0) >= 0),
+                    "outcome": 1 if (r["pnl_pct"] or 0) >= 0 else 0,
+                    "closed_at": _cl, "opened_at": _op,
+                    "duration_min": round((_cl - _op) / 60, 1) if (_op and _cl) else None,
+                    "exchange": "", "source": "dexscreener",
+                    "chain": _ch, "chain_label": _lbl,
+                    "url": r["url"] or "", "address": r["address"] or "",
+                    "peak_price": r["peak_price"],
+                    "peak_pct": round((_pk - _e) / _e * 100, 2) if (_e and _pk) else None,
+                    "liq": r["liq"], "vol": r["vol"],
+                    "grade": str(r["score"]), "tier": "MEME",
+                    "strategies": "DexScreener - " + _lbl,
+                })
+            return {"history": out}
         except Exception:
             return {"history": []}
     if market == "spot":
