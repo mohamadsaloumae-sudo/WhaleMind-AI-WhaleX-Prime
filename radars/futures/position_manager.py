@@ -1477,6 +1477,13 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
     #    بينما حصّة 5 مشتركة أعطت 63 صفقة بـ-1.5% (متعادل).
     #    المدير كان يرفض الأسوأ (34% فوز) — والتوسيع فتح له الباب.
     MAX_PER_RADAR = {"PH": 5, "MX": 2, "LV2": 3}
+    # 🟡 سقف باينانس أوسع لأن كونها 340 عملة مقابل 9-54 للحصرية.
+    #    مقيس على 1,960 صفقة MX حسب عدد المتزامنة في الاتجاه الواحد:
+    #      0-2 متزامنة  -58.0%   |  3-6  +26.4%
+    #      7-14        +146.6%   |  15+  -42.8%
+    #    فالنطاق الرابح 7-14، وسقف 15 يُبقينا عنده. والفلتر يفتح أقوى
+    #    خمس من كل دورة، فالمفتوحة دائماً هي الأعلى درجةً.
+    MAX_PER_EXCHANGE = {"binance": 15}
     _tier = (getattr(sig, "tier", "") or "").upper()
     MAX_CONCURRENT = MAX_PER_RADAR.get(_tier, 5)
     # 🌐 لعملات المنصّات نعدّ داخل المنصّة نفسها فقط
@@ -1485,6 +1492,8 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
         try:
             from services.binance_trader import symbol_exchange as _sx
             _sig_ex = _sx(sig.symbol)
+            if _sig_ex in MAX_PER_EXCHANGE:
+                MAX_CONCURRENT = MAX_PER_EXCHANGE[_sig_ex]
         except Exception:
             _sig_ex = None
     same = 0
