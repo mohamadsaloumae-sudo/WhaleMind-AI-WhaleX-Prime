@@ -950,6 +950,31 @@ async def _emit_signal(r: dict):
     if _open >= MAX_OPEN_SPOT * 0.7 and r.get("grade") != MIN_GRADE_OPEN:
         log.info("🪙🛑 %s مُؤجَّلة — قرب السقف، الدرجة %s", sym, r.get("grade"))
         return
+    # 🛡️ بوّابة العمق — نرفض ما ينهار سعره بأمر صغير.
+    #    مقيس: 3 كوارث على bingx حملت -86.5% من خسارة السبوت كلّها،
+    #    وبدونها الصافي +18.9% موجب. والحجم اليوميّ لا يكشفها
+    #    (ALPHAX كانت 4.64M وانهارت 38% في دقيقة) — أمّا عمق الدفتر
+    #    فيكشفها: DEVERSE أفضل شراء 6.6$ فقط.
+    try:
+        from radars.spot.depth_gate import (measure as _dmeasure,
+                                            verdict as _dverdict,
+                                            cached as _dcached,
+                                            remember as _dremember)
+        _hit = _dcached(sym)
+        if _hit is None:
+            from radars.spot.eyes_spot import order_book as _dob
+            _ob = await _dob(sym)
+            _usd, _sp = _dmeasure(_ob or {})
+            _ok, _why = _dverdict(_usd, _sp)
+            _dremember(sym, _ok, _why)
+        else:
+            _ok, _why = _hit
+        if not _ok:
+            log.info("🪙🛡️ %s مرفوضة — %s", sym, _why)
+            return
+    except Exception as _de:
+        log.warning("🪙🛡️ بوّابة العمق %s: %s", sym, _de)
+
     entry, sl = r["entry"], r["sl"]
     tp1, tp2, tp3 = r["tp1"], r["tp2"], r["tp3"]
     grade, conf = r["grade"], r["confidence"]
