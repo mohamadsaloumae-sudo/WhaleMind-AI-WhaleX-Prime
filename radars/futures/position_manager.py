@@ -74,6 +74,10 @@ class Position:
     ai_cooldown: int = 180  # 3 دقائق بين استدعاءات Claude
     # Tracking
     peak_price: float = 0.0
+    # 🔒 منصّة التنفيذ تُثبَّت عند الفتح ولا تتبدّل — الكون يُعاد بناؤه
+    #    كل ساعة، وتبديل منصّة صفقة مفتوحة يجعل سعرها من سوق آخر.
+    venue: str = ""
+    venue_symbol: str = ""
     status: str = "open"
     opened_at: int = field(default_factory=lambda: int(time.time()))
     last_warned: int = 0
@@ -267,6 +271,15 @@ def _pos_load_all():
 
 async def add_position(pos: Position):
     pos.peak_price = pos.entry
+    # 🔒 نُثبّت منصّة التنفيذ الآن — فتبقى ثابتة مهما تغيّر الكون
+    if not pos.venue:
+        try:
+            _v = _mx_lookup(pos.symbol)
+            if _v:
+                pos.venue, pos.venue_symbol = _v[0], _v[1]
+                log.info("🔒 %s تُنفَّذ على %s (%s)", pos.symbol, _v[0], _v[1])
+        except Exception:
+            pass
     ACTIVE[pos.id] = pos
     _pos_save(pos)
     log.info("Position opened: %s %s @%.6f lev=%.0fx", pos.symbol, pos.direction, pos.entry, pos.leverage)
@@ -323,6 +336,9 @@ _MX_CLIENTS: dict = {}  # ♻️ عملاء دائمون
 _MX_TS = [0.0]
 
 
+_STALE_MAX_SEC = 60
+
+
 def _mx_lookup(symbol: str):
     """هل العملة حصرية على منصّة أخرى؟ يُرجع (exchange, ccxt_symbol) أو None."""
     import sqlite3, time as _t
@@ -339,10 +355,22 @@ def _mx_lookup(symbol: str):
     return _MX_MAP.get(symbol)
 
 
+def _pos_venue(symbol: str):
+    """منصّة صفقة مفتوحة إن كانت مُثبَّتة — تسبق الكون المتغيّر."""
+    try:
+        for _p in ACTIVE.values():
+            if _p.symbol == symbol and getattr(_p, "venue", "") \
+                    and getattr(_p, "venue_symbol", ""):
+                return (_p.venue, _p.venue_symbol)
+    except Exception:
+        pass
+    return None
+
+
 async def get_price(symbol: str) -> Optional[float]:
     # 🌐 العملات الحصرية: سعرها من منصّتها لا من باينانس.
     #    درس NESAUSDT: باينانس ترجع Invalid symbol → السعر 0 → -300% وهمية.
-    _mx = _mx_lookup(symbol)
+    _mx = _pos_venue(symbol) or _mx_lookup(symbol)
     if _mx:
         # 💾 تخزين مؤقّت 30ث — بلاه كانت الواجهة تستغرق 23.7 ثانية لـ11 صفقة
         import time as _tt
@@ -372,8 +400,31 @@ async def get_price(symbol: str) -> Optional[float]:
                 _MX_PX[symbol] = (_px, _tt.time())
                 return _px
         except Exception as _e:
-            log.debug("🌐 سعر %s من %s: %s", symbol, _mx[0], _e)
-        return _c[0] if _c else None
+            log.warning("🌐 تعذّر سعر %s من %s: %s", symbol, _mx[0], _e)
+        # 🛡️ احتياط: نجرّب باينانس قبل اللجوء للمخزون
+        try:
+            import httpx as _hx
+            _bs = symbol if symbol.endswith("USDT") else symbol + "USDT"
+            async with _hx.AsyncClient(timeout=6) as _hc:
+                _r = await _hc.get(
+                    "https://fapi.binance.com/fapi/v1/ticker/price?symbol=" + _bs)
+                if _r.status_code == 200:
+                    _bp2 = float(_r.json().get("price") or 0)
+                    if _bp2 > 0:
+                        _MX_PX[symbol] = (_bp2, _tt.time())
+                        return _bp2
+        except Exception:
+            pass
+        # 🔴 السعر المخزَّن لا يُقبل بعد دقيقة — مقيس: MVLLUSDT بلغت الأرضية
+        #    -12% عند الدقيقة 90 وأُغلقت -50.4% بعد 318 دقيقة، لأن الدالة
+        #    كانت تُرجع سعراً محفوظاً من ساعات فيُحسب PnL صغيراً ولا تُفعَّل
+        #    الأرضية ولا الوقف ولا الخروج التكتيكي.
+        if _c and (_tt.time() - _c[1]) <= _STALE_MAX_SEC:
+            return _c[0]
+        if _c:
+            log.error("🔴 %s بلا سعر حيّ منذ %.0f ثانية — الصفقة بلا حارس",
+                      symbol, _tt.time() - _c[1])
+        return None
     # ⚡ باينانس: بثّها القائم أولاً — HTTP لكل عملة كان يكلّف 8-11 ثانية
     try:
         from radars.futures.price_stream import get_price as _bn_px
