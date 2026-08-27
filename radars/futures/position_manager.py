@@ -972,6 +972,38 @@ async def _should_breathe(pos: "Position", price: float, pnl_pct: float) -> tupl
     return dec
 
 
+_TRACE_TS: dict = {}
+TRACE_MIN_SEC = 8
+TRACE_FLAG = "/opt/whalex/db/trace_positions.on"
+
+
+def _pos_trace(pos, price, pnl, note=""):
+    """
+    👁️ مُسجّل المراقبة — يُفعَّل بملف ويُطفأ بحذفه.
+
+    السبب: 牛来USDT بلغت -12.71% عند الدقيقة 15 وأُغلقت -20.07% عند
+    16.65، أي تأخّرت الأرضية عشر دورات. والسجلّ لم يقل شيئاً لأن مسار
+    الفشل يُكتب بمستوى debug غير المرئيّ. فنقيس بدل أن نُخمّن.
+    """
+    import os as _os, time as _tm
+    if not _os.path.exists(TRACE_FLAG):
+        return
+    now = _tm.time()
+    if now - _TRACE_TS.get(pos.id, 0) < TRACE_MIN_SEC:
+        return
+    _TRACE_TS[pos.id] = now
+    try:
+        if price is None or price <= 0:
+            log.error("👁️ %s %s | بلا سعر | %s", pos.symbol, pos.direction,
+                      note or "المصدر فشل")
+        else:
+            _f = " ⚠️ تحت الأرضية" if pnl <= PNL_HARD_FLOOR else ""
+            log.info("👁️ %s %s | سعر %.8g | PnL %+.2f%%%s %s",
+                     pos.symbol, pos.direction, price, pnl, _f, note)
+    except Exception:
+        pass
+
+
 async def monitor_position(pos: Position):
     """
     المراقبة الحية لصفقة واحدة:
@@ -980,6 +1012,7 @@ async def monitor_position(pos: Position):
     price = await get_price(pos.symbol)
     # 🛡️ سعر غير صالح = لا حساب. صفر واحد يعني ±300% وهمية تفسد الإحصاءات.
     if not price or price <= 0:
+        _pos_trace(pos, None, 0, "get_price أرجعت None")
         log.debug("⏭️ %s: سعر غير متاح — تخطّي هذه النبضة", pos.symbol)
         return
     if not price:
@@ -1005,6 +1038,7 @@ async def monitor_position(pos: Position):
         _maybe_save_peak(pos)
 
     # ls_change تقريبي
+    _pos_trace(pos, price, pnl_pct)
     ls_change = (price - pos.entry) / pos.entry * 100 if pos.entry > 0 else 0
 
     # Force Close lock — لا شيء بعد قرار المستخدم
