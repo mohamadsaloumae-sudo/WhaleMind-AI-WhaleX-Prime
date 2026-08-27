@@ -810,7 +810,9 @@ async def should_tactical_exit(pos: Position, price: float, ob: dict, ls_change:
     # ضابط الوقت: لا خروج تكتيكي في أول 90 ثانية
     import time as _t
     age_sec = _t.time() - getattr(pos, "opened_at", 0)
-    if age_sec < 90:
+    # ⚡ 20 ثانية بدل 90 — الحارس صار لحظياً.
+    #    مقيس: 牛来USDT عاشت 3.2 دقيقة وماتت قبل أن يراها الكاشف.
+    if age_sec < 20:
         return False, ""
 
     # ① انقلاب الأوردر بوك البنيوي (depth=100 + جدار ضخم)
@@ -970,6 +972,26 @@ async def _should_breathe(pos: "Position", price: float, pnl_pct: float) -> tupl
         dec = (False, "لا دليل فخ — احترام الوقف")
     _REV_CACHE[pos.id] = (_now, dec[0], dec[1])
     return dec
+
+
+_NEXT_CHECK: dict = {}
+
+
+def _next_interval(pos) -> float:
+    """كم ثانية حتى الفحص التالي لهذه الصفقة — حسب خطرها."""
+    try:
+        from radars.futures.watch_rate import interval as _iv
+        _px = _MX_PX.get(pos.symbol)
+        _cur = _px[0] if _px else 0
+        _pnl = calc_pnl(pos, _cur) if _cur else 0.0
+        _slp = calc_pnl(pos, pos.sl) if pos.sl else -12.0
+        _age = _time.time() - (getattr(pos, "opened_at", 0) or _time.time())
+        _pk = getattr(pos, "peak_price", 0) or 0
+        _peak = calc_pnl(pos, _pk) if _pk else _pnl
+        sec, _why = _iv(_pnl, _slp, _age, _peak)
+        return float(sec)
+    except Exception:
+        return 10.0
 
 
 _TRACE_TS: dict = {}
@@ -1568,16 +1590,27 @@ async def run_position_manager():
             except Exception as e:
                 log.error("monitor_position %s: %s", pos.symbol, e)
 
+    # ⚡ الحلقة تنبض كل ثانيتين وتفحص ما حان موعده فقط.
+    #    كل صفقة لها تردّدها: الوليدة وقرب الوقف كل 3ث، والساكنة كل 15.
+    #    مقيس: عشر صفقات بالتوازي 0.8 ثانية — فالحراسة اللحظية ممكنة،
+    #    والتردّد المتكيّف يُعطيها بنصف الحمل (188 فحص/دقيقة بدل 400).
     while True:
         try:
             positions = [p for p in ACTIVE.values() if p.status == "open"]
-
-            if positions:
-                await asyncio.gather(*[monitor_one(p) for p in positions], return_exceptions=True)
-            else:
-                await asyncio.sleep(10)
-
+            if not positions:
+                _NEXT_CHECK.clear()
+                await asyncio.sleep(5)
+                continue
+            _now = _time.time()
+            _due = [p for p in positions if _NEXT_CHECK.get(p.id, 0) <= _now]
+            if _due:
+                await asyncio.gather(*[monitor_one(p) for p in _due],
+                                     return_exceptions=True)
+                for _p in _due:
+                    _NEXT_CHECK[_p.id] = _time.time() + _next_interval(_p)
+            _live = {p.id for p in positions}
+            for _k in [k for k in _NEXT_CHECK if k not in _live]:
+                _NEXT_CHECK.pop(_k, None)
         except Exception as e:
             log.error("PM loop error: %s", e)
-
-        await asyncio.sleep(10)  # مراقبة كل 10s (كان 30 — أسرع للصفقات السريعة، SL يُقطع مبكراً)
+        await asyncio.sleep(2)
