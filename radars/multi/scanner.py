@@ -18,6 +18,39 @@ CYCLE = 300
 BATCH = 12
 BATCH_PAUSE = 3.0
 COOLDOWN = 5400
+CD_DB = "/opt/whalex/multi_universe.db"
+
+
+def _cd_load() -> dict:
+    """🛡️ التبريد من القاعدة — الذاكرة تُمحى مع إعادة التشغيل فتتكرّر
+    الإشارة. مقيس: CASHCATUSDT صدرت أربع مرّات في 53 دقيقة رغم
+    تبريد التسعين دقيقة، لأننا أعدنا التشغيل أربع مرّات."""
+    import sqlite3 as _sq, time as _t
+    out = {}
+    try:
+        c = _sq.connect(CD_DB)
+        c.execute("CREATE TABLE IF NOT EXISTS mx_cooldown(symbol TEXT PRIMARY KEY, ts INTEGER)")
+        cut = int(_t.time()) - COOLDOWN
+        for sym, ts in c.execute("SELECT symbol,ts FROM mx_cooldown WHERE ts>?", (cut,)):
+            out[sym] = float(ts)
+        c.execute("DELETE FROM mx_cooldown WHERE ts<?", (cut,))
+        c.commit(); c.close()
+        if out:
+            log.info("🛡️ استُعيد تبريد %d عملة", len(out))
+    except Exception as e:
+        log.warning("🛡️ تبريد MX: %s", e)
+    return out
+
+
+def _cd_save(sym: str):
+    import sqlite3 as _sq, time as _t
+    try:
+        c = _sq.connect(CD_DB)
+        c.execute("CREATE TABLE IF NOT EXISTS mx_cooldown(symbol TEXT PRIMARY KEY, ts INTEGER)")
+        c.execute("INSERT OR REPLACE INTO mx_cooldown VALUES(?,?)", (sym, int(_t.time())))
+        c.commit(); c.close()
+    except Exception:
+        pass
 
 SCORE_MIN = 5.5
 MIN_ATR_PCT = 0.5
@@ -257,6 +290,7 @@ async def _emit(row, sc, direction, reasons, price, lv, rsi, rpos, vr, pm_fn):
     except Exception as e:
         log.error("MX broadcast: %s", e)
     _last[row["symbol"]] = time.time()
+    _cd_save(row["symbol"])   # 🛡️ التبريد ينجو من إعادة التشغيل
     _hit("emitted")
     if pm_fn:
         try:
@@ -266,6 +300,7 @@ async def _emit(row, sc, direction, reasons, price, lv, rsi, rpos, vr, pm_fn):
 
 
 async def multi_scan_loop(position_manager_fn=None):
+    _last.update(_cd_load())      # 🛡️ التبريد يُستعاد من القاعدة
     from radars.multi.universe import refresh, load
     from services.exchanges import get as get_adapter
     log.info("🌐 WhaleX Multi بدأ — العملات الحصرية على 6 منصّات")
