@@ -41,11 +41,17 @@ class ExchangeAdapter(ABC):
     def client(self, key: str, secret: str, passphrase: str = "",
                futures: bool = True, testnet: bool = False):
         import ccxt
+        # 🔑 لا نُمرّر مفتاحاً فارغاً — باينانس ترفضه بـAuthenticationError
+        #    حتى لقراءة الشموع العامّة، فكانت 333 عملة تُرجع "بلا داتا".
+        #    مقيس: بلا apiKey تعمل، ومعه فارغاً تفشل. والستّ الأخرى تعمل بالحالتين.
         cfg = {
-            "apiKey": key, "secret": secret,
             "enableRateLimit": True, "timeout": 20000,
             "options": self._options(futures),
         }
+        if key:
+            cfg["apiKey"] = key
+        if secret:
+            cfg["secret"] = secret
         if self.needs_passphrase and passphrase:
             cfg["password"] = passphrase
         c = getattr(ccxt, self.id)(cfg)
