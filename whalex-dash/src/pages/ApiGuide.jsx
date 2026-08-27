@@ -7,123 +7,146 @@ const EX = [
     id: "binance", name: "Binance", ar: "باينانس",
     logo: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/270.png",
     color: "#F0B90B", passphrase: false,
-    path: "الملف الشخصي ← إدارة الـAPI",
+    path: "الملف الشخصي ← API Management",
+    pre: "يلزم إتمام التحقّق الأساسي (KYC) وتفعيل حساب الفيوتشر قبل إنشاء المفتاح.",
     steps: [
-      "افتح موقع باينانس وسجّل الدخول، ثم اضغط أيقونة حسابك أعلى اليمين.",
-      "اختر API Management من القائمة.",
-      "اضغط Create API ثم اختر System generated.",
-      "اكتب اسماً للمفتاح — مثلاً WhaleX — واضغط Next.",
+      "افتح باينانس من متصفّح الحاسوب وسجّل الدخول.",
+      "مرّر المؤشّر على أيقونة حسابك أعلى اليمين واختر API Management.",
+      "اضغط Create API واختر System generated.",
+      "اكتب اسماً واضحاً للمفتاح مثل WhaleX واضغط Next.",
       "أكمل التحقّق برمز البريد وتطبيق المصادقة.",
       "ستظهر API Key و Secret Key — انسخهما فوراً، فالسرّي لا يظهر ثانيةً.",
-      "اضغط Edit restrictions وفعّل: Enable Reading و Enable Spot Trading و Enable Futures.",
-      "في IP access restriction اختر Restrict access to trusted IPs only وأضف عنوان سيرفرنا.",
-      "احفظ، ثم الصق المفتاحين في صفحة التداول الآلي داخل التطبيق.",
+      "اضغط Edit restrictions وفعّل: Enable Reading و Enable Spot and Margin Trading.",
+      "في IP access restriction اختر Restrict access to trusted IPs only وأضف عنوان سيرفرنا واحفظ.",
+      "بعد حفظ الـIP يصير خيار Enable Futures متاحاً — فعّله ثم احفظ مرّة أخرى.",
+      "انتظر خمس إلى عشر دقائق حتى ينشط المفتاح، ثم الصقه في صفحة التداول الآلي.",
     ],
-    warn: "باينانس تطلب تفعيل الفيوتشر من حسابك أولاً قبل ظهور الخيار.",
+    warn: "إن أنشأت المفتاح قبل تفعيل حساب الفيوتشر فلن يعمل — أنشئ مفتاحاً جديداً بعد التفعيل. ووضع Portfolio Margin يُعطّل واجهة الفيوتشر كذلك.",
   },
   {
     id: "bybit", name: "Bybit", ar: "باي بيت",
     logo: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/521.png",
     color: "#F7A600", passphrase: false,
-    path: "الحساب ← API",
+    path: "الحساب والأمان ← API Management",
+    pre: "الحسابات الجديدة تنتظر 48 ساعة قبل إتاحة إنشاء المفاتيح. والعملية من الحاسوب لا من التطبيق.",
     steps: [
-      "سجّل الدخول واضغط أيقونة حسابك أعلى اليمين، ثم API.",
+      "افتح باي بيت من متصفّح الحاسوب وسجّل الدخول.",
+      "اضغط أيقونة حسابك أعلى اليمين ثم API — أو Account and Security ثم API Management.",
       "اضغط Create New Key واختر System-generated API Keys.",
-      "اختر نوع الاستخدام: API Transaction.",
-      "اكتب اسماً للمفتاح.",
-      "في الصلاحيات فعّل Orders و Positions تحت Unified Trading.",
-      "فعّل أيضاً Spot Trading إن أردت تشغيل رادار السبوت.",
-      "اختر Only IPs with these addresses وأضف عنوان سيرفرنا.",
-      "أكمل التحقّق، وانسخ المفتاحين فوراً.",
+      "في API Key Usage اختر API Transaction.",
+      "اكتب اسماً للمفتاح، واختر HMAC إن سُئلت عن نوع التوقيع.",
+      "في الصلاحيات اختر Read-Write، وفعّل تحت Unified Trading: Orders و Positions.",
+      "فعّل Spot Trading أيضاً إن أردت تشغيل رادار السبوت.",
+      "ألغِ التحديد عن: Withdrawal و Account Transfer و Subaccount Transfer.",
+      "اختر Only IPs with granted permissions وأضف عنوان سيرفرنا.",
+      "اضغط Submit وأكمل التحقّق، ثم انسخ المفتاحين فوراً.",
     ],
-    warn: "باي بيت تُلزم بتحديد الـIP لمفاتيح التداول — بدونه لن يعمل المفتاح.",
+    warn: "أموالك يجب أن تكون في Unified Trading Account لا في Funding — وإلّا لن يراها النظام. والمفتاح بلا IP ينتهي بعد ثلاثة أشهر.",
   },
   {
     id: "okx", name: "OKX", ar: "أوكي إكس",
     logo: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/294.png",
     color: "#8ab4ff", passphrase: true,
-    path: "الحساب ← API",
+    path: "الحساب ← API ← Create V5 API Key",
+    pre: "من الحاسوب فقط — لا تعمل من التطبيق. ويلزم التحقّق (KYC) وتفعيل المصادقة الثنائية.",
     steps: [
-      "سجّل الدخول واضغط أيقونة حسابك، ثم API.",
+      "افتح أوكي إكس من متصفّح الحاسوب وسجّل الدخول.",
+      "اضغط أيقونة حسابك أعلى اليمين ثم API.",
       "اضغط Create V5 API Key.",
-      "اكتب اسماً للمفتاح.",
-      "اكتب Passphrase — كلمة سرّ إضافية. احفظها، فأوكي إكس تطلبها معك.",
-      "في الصلاحيات فعّل Trade — ويشمل القراءة تلقائياً.",
-      "أضف عنوان سيرفرنا في خانة IP address.",
-      "أكمل التحقّق، ثم انسخ: API Key و Secret Key و Passphrase.",
-      "الصق الثلاثة في التطبيق — أوكي إكس تحتاج الحقول الثلاثة.",
+      "اكتب اسماً للمفتاح، ثم اكتب Passphrase — كلمة سرّ تختارها أنت.",
+      "احفظ الـPassphrase في مكان آمن — أوكي إكس لا تستطيع استعادتها إن نسيتها.",
+      "في Permissions فعّل Trade — وتُدرَج القراءة معها تلقائياً.",
+      "في IP address allowlist أضف عنوان سيرفرنا.",
+      "اضغط Confirm وأكمل التحقّق.",
+      "انسخ الثلاثة: API Key و Secret Key و Passphrase — وأدخلها كلّها في التطبيق.",
     ],
-    warn: "أوكي إكس تطلب Passphrase — بدونها لن يعمل المفتاح إطلاقاً.",
+    warn: "اضبط Account mode على Futures أو Advanced من إعدادات التداول، وإلّا لن يعمل الفيوتشر. والمفتاح بلا IP يُحذف تلقائياً بعد فترة خمول — أمّا المقيَّد بـIP فلا ينتهي.",
   },
   {
     id: "bitget", name: "Bitget", ar: "بيتجت",
     logo: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/513.png",
     color: "#00F0FF", passphrase: true,
-    path: "الحساب ← إدارة الـAPI",
+    path: "الحساب ← API Management",
+    pre: "بيتجت تطلب Passphrase تختارها أنت — ثلاثة حقول لا اثنان.",
     steps: [
-      "سجّل الدخول واضغط أيقونة حسابك، ثم API Management.",
+      "افتح بيتجت من متصفّح الحاسوب وسجّل الدخول.",
+      "اضغط أيقونة حسابك ثم API Management.",
       "اضغط Create API واختر System-generated API key.",
-      "اكتب اسماً، ثم اكتب Passphrase واحفظها.",
+      "اكتب اسماً للمفتاح، ثم اكتب Passphrase واحفظها.",
       "في الصلاحيات اختر Read-write.",
-      "فعّل: Spot Trade و Futures Trade.",
-      "أضف عنوان سيرفرنا في IP address binding.",
+      "فعّل: Spot Trade و Futures Trade — واترك Withdraw مغلقاً.",
+      "في IP address binding أضف عنوان سيرفرنا.",
       "أكمل التحقّق وانسخ: API Key و Secret Key و Passphrase.",
     ],
-    warn: "بيتجت تطلب Passphrase أيضاً — ثلاثة حقول لا اثنان.",
+    warn: "خطأ Apikey does not exist أو Passphrase is error يعني أن الـPassphrase المُدخَلة لا تطابق ما كتبتَه عند الإنشاء.",
   },
   {
     id: "gate", name: "Gate.io", ar: "جيت",
     logo: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/302.png",
     color: "#17E6A1", passphrase: false,
-    path: "الحساب ← مفاتيح الـAPI",
+    path: "الملف الشخصي ← API Management",
+    pre: "المفتاح بلا قائمة IP يبقى صالحاً 90 يوماً فقط، ثم يتوقّف.",
     steps: [
-      "سجّل الدخول واضغط أيقونة حسابك، ثم API Keys.",
-      "اضغط Create API Key واختر APIv4 Key.",
+      "افتح جيت من متصفّح الحاسوب وسجّل الدخول.",
+      "مرّر المؤشّر على أيقونة حسابك واختر API Management.",
+      "اضغط Create API Key.",
       "اكتب اسماً للمفتاح.",
-      "فعّل: Spot Trade و Perpetual Futures — واختر Read and Write.",
-      "أضف عنوان سيرفرنا في IP Whitelist.",
+      "في API Key Type اختر APIv4 Key، ونوع الحساب Trading Account.",
+      "في Permissions فعّل: Spot Trade و Perpetual Futures و Wallet.",
+      "في IP Permissions أضف عنوان سيرفرنا — فيصير المفتاح دائماً بلا انتهاء.",
       "أكمل التحقّق وانسخ المفتاحين فوراً.",
     ],
-    warn: "جيت تُظهر المفتاح السرّي مرّة واحدة فقط عند الإنشاء.",
+    warn: "بلا إضافة الـIP سيتوقّف مفتاحك بعد 90 يوماً وتحتاج إنشاء غيره.",
   },
   {
     id: "mexc", name: "MEXC", ar: "مكسي",
     logo: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/544.png",
     color: "#2AC18A", passphrase: false,
-    path: "الحساب ← إدارة الـAPI",
+    path: "الملف الشخصي ← API Management",
+    pre: "من موقع الويب فقط — تطبيق مكسي لا يدعم إنشاء المفاتيح.",
     steps: [
-      "سجّل الدخول واضغط أيقونة حسابك، ثم API Management.",
+      "افتح مكسي من متصفّح الحاسوب وسجّل الدخول.",
+      "اضغط أيقونة حسابك أعلى اليمين ثم API Management.",
       "اضغط Create API.",
-      "اكتب ملاحظة أو اسماً للمفتاح.",
-      "فعّل الصلاحيات: Read و Trade للسبوت والفيوتشر.",
-      "أضف عنوان سيرفرنا في خانة الـIP.",
-      "أكمل التحقّق وانسخ المفتاحين.",
+      "اكتب ملاحظة في خانة Notes — وهي إلزامية.",
+      "فعّل تحت Futures Account: View Account Details.",
+      "فعّل تحت Trade: View Order Details و Order Placing.",
+      "فعّل صلاحيات السبوت إن أردت تشغيل رادار السبوت.",
+      "في Link IP Address أضف عنوان سيرفرنا.",
+      "ضع علامة على إقرار Risk Reminders ثم اضغط Create.",
+      "أكمل التحقّق وانسخ المفتاحين فوراً.",
     ],
-    warn: "مكسي تُلزم بتحديد الـIP لمفاتيح الفيوتشر.",
+    warn: "مكسي تُنبّه: المفتاح غير المرتبط بـIP صالح 90 يوماً فقط. وإضافة الـIP تُلغي هذا الانتهاء.",
   },
   {
     id: "bingx", name: "BingX", ar: "بينج إكس",
     logo: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/1064.png",
     color: "#2954FF", passphrase: false,
-    path: "الحساب ← إدارة الـAPI",
+    path: "الصورة الشخصية ← API Management",
+    pre: "بينج إكس تفصل صلاحية السبوت عن الفيوتشر — فعّل ما تحتاجه.",
     steps: [
-      "سجّل الدخول واضغط أيقونة حسابك، ثم API Management.",
+      "افتح بينج إكس من متصفّح الحاسوب وسجّل الدخول.",
+      "اضغط صورتك الشخصية أعلى اليمين ثم API Management.",
       "اضغط Create API.",
       "اكتب اسماً للمفتاح.",
-      "فعّل: Read و Spot Trading و Perpetual Futures Trading.",
-      "أضف عنوان سيرفرنا في IP Restriction.",
-      "أكمل التحقّق وانسخ المفتاحين.",
+      "فعّل Spot Trading إن أردت السبوت.",
+      "فعّل Perpetual Futures Trading للفيوتشر.",
+      "أضف عنوان سيرفرنا في خانة الـIP المسموح.",
+      "اضغط Create وأكمل التحقّق، ثم انسخ المفتاحين.",
     ],
-    warn: "بينج إكس تسمّي الفيوتشر Perpetual Futures في قائمة الصلاحيات.",
+    warn: "إن تداولتَ على السوقين بكثافة، أنشئ مفتاحين منفصلين لتفادي حدود الطلبات.",
   },
 ];
+
 
 /* رسم توضيحيّ مبسّط لواجهة المنصّة — دوائر مرقّمة على مواضع الأزرار.
    ليس لقطة حقيقية بل خريطة تُريك أين تضغط. */
 function Mock({ color }) {
   const c = color;
   return (
-    <svg viewBox="0 0 340 210" style={{ width: "100%", height: "auto", display: "block" }}>
+    <svg viewBox="0 0 340 210" direction="ltr"
+         style={{ width: "100%", height: "auto", display: "block",
+                  direction: "ltr", unicodeBidi: "isolate" }}>
       <rect x="0" y="0" width="340" height="210" rx="10" fill="#0d1420" stroke="#223" />
       <rect x="0" y="0" width="340" height="26" rx="10" fill="#141d2c" />
       <rect x="0" y="18" width="340" height="8" fill="#141d2c" />
@@ -142,18 +165,18 @@ function Mock({ color }) {
       <text x="230" y="51" fontSize="9.5" fill={c} textAnchor="middle" fontWeight="700">2</text>
       <rect x="16" y="70" width="308" height="60" rx="7" fill="#111a28" stroke="#243247" />
       <text x="26" y="86" fontSize="9.5" fill="#7d8fa8">Permissions</text>
-      <rect x="26" y="94" width="13" height="13" rx="3" fill="#22c55e" />
+      <rect x="26" y="93" width="12" height="13" rx="3" fill="#22c55e" />
       <path d="M29 100.5l2.4 2.6 4.6-5" stroke="#0d1420" strokeWidth="1.8" fill="none" />
-      <text x="46" y="104" fontSize="9.5" fill="#c9d6e6">Read</text>
-      <rect x="100" y="94" width="13" height="13" rx="3" fill="#22c55e" />
+      <text x="46" y="103" fontSize="9.5" fill="#c9d6e6">Read</text>
+      <rect x="104" y="93" width="12" height="13" rx="3" fill="#22c55e" />
       <path d="M103 100.5l2.4 2.6 4.6-5" stroke="#0d1420" strokeWidth="1.8" fill="none" />
-      <text x="120" y="104" fontSize="9.5" fill="#c9d6e6">Spot Trade</text>
-      <rect x="196" y="94" width="13" height="13" rx="3" fill="#22c55e" />
+      <text x="124" y="103" fontSize="9.5" fill="#c9d6e6">Spot Trade</text>
+      <rect x="206" y="93" width="12" height="13" rx="3" fill="#22c55e" />
       <path d="M199 100.5l2.4 2.6 4.6-5" stroke="#0d1420" strokeWidth="1.8" fill="none" />
-      <text x="216" y="104" fontSize="9.5" fill="#c9d6e6">Futures</text>
+      <text x="226" y="103" fontSize="9.5" fill="#c9d6e6">Futures</text>
       <rect x="26" y="112" width="13" height="13" rx="3" fill="none" stroke="#ef4444" strokeWidth="1.6" />
       <path d="M28.5 114.5l8 8M36.5 114.5l-8 8" stroke="#ef4444" strokeWidth="1.4" />
-      <text x="46" y="122" fontSize="9.5" fill="#ef4444">Withdraw</text>
+      <text x="46" y="122" fontSize="9" fill="#ef4444">Withdraw (OFF)</text>
       <circle cx="316" cy="100" r="9" fill="#0d1420" stroke={c} strokeWidth="1.5" />
       <text x="316" y="104" fontSize="9.5" fill={c} textAnchor="middle" fontWeight="700">3</text>
       <rect x="16" y="140" width="308" height="52" rx="7" fill="#111a28" stroke={c} strokeWidth="1.4" />
@@ -276,6 +299,15 @@ export default function ApiGuide() {
                 <div style={{ fontSize: 11.5, color: "var(--txt-3, #8fa3ba)", marginBottom: 12, textAlign: "center", lineHeight: 1.7 }}>
                   رسم توضيحيّ للمواضع — قد تختلف الألوان والترتيب قليلاً حسب تحديث المنصّة
                 </div>
+
+                {e.pre ? (
+                  <div style={{
+                    marginBottom: 12, padding: "10px 13px", borderRadius: 8,
+                    background: "rgba(45,212,191,0.08)",
+                    border: "1px solid rgba(45,212,191,0.2)",
+                    fontSize: 12.5, lineHeight: 1.85, color: "var(--brand, #2dd4bf)",
+                  }}>📌 قبل البدء: {e.pre}</div>
+                ) : null}
 
                 <ol style={{ margin: 0, paddingInlineStart: 0, listStyle: "none", display: "grid", gap: 9 }}>
                   {e.steps.map((st, i) => (
