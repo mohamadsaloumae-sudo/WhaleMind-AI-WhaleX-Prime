@@ -39,7 +39,7 @@ export const PAGES = [
   { path: "/positions",    label: "الصفقات",         icon: BarChart3,       component: Positions },
   { path: "/auto-trade",   label: "التداول",         icon: Bot,             component: AutoTrade },
   { path: "/trades",       label: "صفقاتي",          icon: TrendingUp,      component: Trades },
-  { path: "/api-guide",    label: "ربط المنصّات",     icon: KeyRound,        component: ApiGuide },
+  { path: "/api-guide",    label: "دليل الاستخدام",     icon: KeyRound,        component: ApiGuide },
   { path: "/scanner",      label: "فاحص العملات",     icon: Search,          component: Scanner },
   { path: "/subscription", label: "الاشتراك",        icon: CreditCard,      component: Subscription },
   { path: "/settings",     label: "الإعدادات",       icon: Settings,        component: SettingsPage },

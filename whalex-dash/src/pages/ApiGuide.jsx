@@ -217,7 +217,17 @@ export default function ApiGuide() {
 
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "4px 2px 40px" }}>
-      <h2 style={{ fontSize: 20, margin: "6px 0 4px" }}>🔑 ربط مفاتيح المنصّات</h2>
+      <h2 style={{ fontSize: 20, margin: "6px 0 4px" }}>📚 دليل الاستخدام</h2>
+      <div style={{
+        fontSize: 13.5, fontWeight: 800, margin: "14px 0 6px",
+        display: "flex", alignItems: "center", gap: 7,
+      }}>
+        <span style={{
+          width: 3, height: 15, borderRadius: 2,
+          background: "var(--brand, #2dd4bf)", display: "inline-block",
+        }} />
+        🔑 ربط مفاتيح المنصّات
+      </div>
       <p style={{ color: "var(--txt-3, #8fa3ba)", fontSize: 13.5, lineHeight: 1.85, margin: "0 0 16px" }}>
         دليل خطوة بخطوة لإنشاء مفتاح على كل منصّة وربطه بالتطبيق.
         المفتاح يُشفَّر عندنا، ولا نطلب صلاحية سحب إطلاقاً.
