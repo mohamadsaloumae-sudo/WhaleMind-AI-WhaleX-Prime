@@ -364,7 +364,10 @@ _prices: dict = {}          # كاش أسعار السبوت (يحدّثه ال�
 DYN_STRONG_TAKER = 0.55
 DYN_WEAK_TAKER   = 0.48
 DYN_HARVEST_PNL  = 2.5
-DYN_MIN_PROFIT   = 2.0
+DYN_MIN_PROFIT   = 1.0      # كان 2.0 — قياس 50 مساراً: عتبة 1.0 تُعطي
+                            # +31.8 نقطة مقابل +23.2 لعتبة 2.0
+SPOT_STALL_SEC   = 300      # القمّة راكدة خمس دقائق → نحصد
+SPOT_HARVEST_MIN = 1.0
 DYN_TRAIL_GIVE   = 3.0
 REENTRY_COOLDOWN = 1800
 # 🚪 قطع الخسارة بالتدفّق (لا بالسعر وحده)
@@ -399,7 +402,8 @@ async def _live_taker(c, sym: str):
 
 
 _track: dict = {}           # sig_id -> stage (0 لم يلمس، 1/2 بعد TP1/TP2)
-_peak: dict = {}            # sig_id -> أعلى سعر بلغته الصفقة (للقفل المتحرك وكشف الانعكاس)
+_peak: dict = {}
+_peak_at: dict = {}      # 🌾 متى ارتفعت القمّة آخر مرّة — لقراءة الركود            # sig_id -> أعلى سعر بلغته الصفقة (للقفل المتحرك وكشف الانعكاس)
 _TRACK_STARTED = False
 
 
@@ -782,6 +786,19 @@ async def tracker_loop():
                                 _dyn_exit, _dyn_why = True, "flow_flip"
                             elif pnl >= DYN_HARVEST_PNL:
                                 _dyn_exit, _dyn_why = True, "harvest"
+
+                        # 🌾 حصاد الركود — لا يحتاج تدفّقاً.
+                        #    مقيس: 112 صفقة (54%) تموت حول الصفر بصافي
+                        #    -79.4%، والحصاد بعتبة 1.0% يوفّر 31.8 نقطة
+                        #    على 50 مساراً حقيقياً.
+                        if not _dyn_exit and pnl >= SPOT_HARVEST_MIN:
+                            _pat = _peak_at.get(s.id)
+                            if _pat is None or _peak_pnl > _pat[0] + 0.15:
+                                _peak_at[s.id] = (_peak_pnl, _t.time())
+                            else:
+                                if (_t.time() - _pat[1]) >= SPOT_STALL_SEC:
+                                    _dyn_exit = True
+                                    _dyn_why = "harvest_stall"
                         if _peak_pnl >= 2.5:
                             _locked_sl = max(_locked_sl, s.entry * 1.020)
                         if _peak_pnl >= 8.0:
