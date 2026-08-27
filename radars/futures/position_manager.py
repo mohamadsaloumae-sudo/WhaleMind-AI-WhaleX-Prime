@@ -820,6 +820,21 @@ async def should_tactical_exit(pos: Position, price: float, ob: dict, ls_change:
     if real_rev:
         return True, f"🔻 {rev_reason} | PnL {pnl_pct:+.1f}%"
 
+    # ①.٥ 🌾 حصاد الرابحة الراكدة — نأخذ الربح قبل أن يتبخّر.
+    #    مقيس على 99 مساراً حقيقياً: الواقع +2.3% والحصاد +37.4%
+    #    (فرق 35 نقطة · تحسّنت 18 · ساءت 8). والرابحة فوق 5% تُترَك
+    #    لسلّم القفل، والمنفجرة لا تُلمَس ما دامت تقفز.
+    try:
+        from radars.futures.harvest import should_harvest as _harv
+        _pk2 = getattr(pos, "peak_price", 0) or 0
+        _peak2 = calc_pnl(pos, _pk2) if _pk2 else pnl_pct
+        _prev2 = getattr(pos, "_pnl_2min", None)
+        _hh, _hw = _harv(pos.id, pnl_pct, _peak2, age_sec, _prev2)
+        if _hh:
+            return True, f"{_hw}"
+    except Exception as _he:
+        log.debug("harvest %s: %s", pos.symbol, _he)
+
     # ② 📉 النزيف والركود — البُعد الذي كان مفقوداً.
     #    قياس 15 صفقة خسرت 8%+: كلّها sl_hit وصفر خروج تكتيكي، لأن
     #    الدفتر يبقى متوازناً أثناء الانزلاق البطيء. وبإضافة هذا
