@@ -243,10 +243,10 @@ const EX = [
 function Mock({ color }) {
   const c = color;
   return (
-    <svg viewBox="0 0 340 210" direction="ltr"
+    <svg viewBox="0 0 340 218" direction="ltr"
          style={{ width: "100%", height: "auto", display: "block",
                   direction: "ltr", unicodeBidi: "isolate" }}>
-      <rect x="0" y="0" width="340" height="210" rx="10" fill="#0d1420" stroke="#223" />
+      <rect x="0" y="0" width="340" height="218" rx="10" fill="#0d1420" stroke="#223" />
       <rect x="0" y="0" width="340" height="26" rx="10" fill="#141d2c" />
       <rect x="0" y="18" width="340" height="8" fill="#141d2c" />
       <circle cx="14" cy="13" r="3.5" fill="#ef4444" />
@@ -257,35 +257,32 @@ function Mock({ color }) {
         <animate attributeName="r" values="12;15;12" dur="2s" repeatCount="indefinite" />
       </circle>
       <text x="312" y="17" fontSize="9" fill="#0d1420" textAnchor="middle" fontWeight="700">1</text>
-      <rect x="16" y="40" width="120" height="11" rx="3" fill="#2a3a52" />
-      <rect x="240" y="36" width="84" height="22" rx="6" fill={c} opacity="0.92" />
-      <text x="282" y="51" fontSize="10" fill="#0d1420" textAnchor="middle" fontWeight="700">Create API</text>
-      <circle cx="230" cy="47" r="9" fill="#0d1420" stroke={c} strokeWidth="1.5" />
-      <text x="230" y="51" fontSize="9.5" fill={c} textAnchor="middle" fontWeight="700">2</text>
-      <rect x="16" y="70" width="308" height="60" rx="7" fill="#111a28" stroke="#243247" />
-      <text x="26" y="86" fontSize="9.5" fill="#7d8fa8">Permissions</text>
-      <rect x="26" y="93" width="12" height="13" rx="3" fill="#22c55e" />
-      <path d="M29 100.5l2.4 2.6 4.6-5" stroke="#0d1420" strokeWidth="1.8" fill="none" />
-      <text x="46" y="103" fontSize="9.5" fill="#c9d6e6">Read</text>
-      <rect x="104" y="93" width="12" height="13" rx="3" fill="#22c55e" />
-      <path d="M103 100.5l2.4 2.6 4.6-5" stroke="#0d1420" strokeWidth="1.8" fill="none" />
-      <text x="124" y="103" fontSize="9.5" fill="#c9d6e6">Spot Trade</text>
-      <rect x="206" y="93" width="12" height="13" rx="3" fill="#22c55e" />
-      <path d="M199 100.5l2.4 2.6 4.6-5" stroke="#0d1420" strokeWidth="1.8" fill="none" />
-      <text x="226" y="103" fontSize="9.5" fill="#c9d6e6">Futures</text>
-      <rect x="26" y="112" width="13" height="13" rx="3" fill="none" stroke="#ef4444" strokeWidth="1.6" />
-      <path d="M28.5 114.5l8 8M36.5 114.5l-8 8" stroke="#ef4444" strokeWidth="1.4" />
-      <text x="46" y="122" fontSize="9" fill="#ef4444">Withdraw (OFF)</text>
-      <circle cx="316" cy="100" r="9" fill="#0d1420" stroke={c} strokeWidth="1.5" />
-      <text x="316" y="104" fontSize="9.5" fill={c} textAnchor="middle" fontWeight="700">3</text>
-      <rect x="16" y="140" width="308" height="52" rx="7" fill="#111a28" stroke={c} strokeWidth="1.4" />
-      <text x="26" y="157" fontSize="9.5" fill="#7d8fa8">IP Restriction</text>
-      <rect x="26" y="164" width="210" height="18" rx="4" fill="#0a1018" stroke="#243247" />
-      <text x="34" y="177" fontSize="10" fill={c} fontFamily="monospace">{SERVER_IP}</text>
-      <rect x="244" y="164" width="52" height="18" rx="4" fill={c} opacity="0.9" />
-      <text x="270" y="177" fontSize="9" fill="#0d1420" textAnchor="middle" fontWeight="700">Add</text>
-      <circle cx="312" cy="150" r="9" fill="#0d1420" stroke={c} strokeWidth="1.5" />
-      <text x="312" y="154" fontSize="9.5" fill={c} textAnchor="middle" fontWeight="700">4</text>
+      <rect x="16" y="38" width="118" height="10" rx="3" fill="#2a3a52" />
+      <rect x="238" y="34" width="86" height="22" rx="6" fill={c} opacity="0.92" />
+      <text x="281" y="49" fontSize="10" fill="#0d1420" textAnchor="middle" fontWeight="700">Create API</text>
+      <circle cx="228" cy="45" r="9" fill="#0d1420" stroke={c} strokeWidth="1.5" />
+      <text x="228" y="49" fontSize="9.5" fill={c} textAnchor="middle" fontWeight="700">2</text>
+      <rect x="16" y="68" width="308" height="76" rx="7" fill="#111a28" stroke="#243247" />
+      <text x="26" y="82" fontSize="9" fill="#7d8fa8">Permissions</text>
+      <rect x="26" y="86" width="13" height="13" rx="3" fill="#22c55e" />
+      <path d="M29 92.5l2.4 2.6 4.6 -5" stroke="#0d1420" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <text x="46" y="96" fontSize="9.5" fill="#c9d6e6">Read</text>
+      <rect x="26" y="103" width="13" height="13" rx="3" fill="#22c55e" />
+      <path d="M29 109.5l2.4 2.6 4.6 -5" stroke="#0d1420" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <text x="46" y="113" fontSize="9.5" fill="#c9d6e6">Spot + Futures Trade</text>
+      <rect x="26" y="120" width="13" height="13" rx="3" fill="none" stroke="#ef4444" strokeWidth="1.6" />
+      <path d="M28.5 122.5l8 8M36.5 122.5l-8 8" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" />
+      <text x="46" y="130" fontSize="9.5" fill="#ef4444">Withdraw</text>
+      <circle cx="310" cy="84" r="9" fill="#0d1420" stroke={c} strokeWidth="1.5" />
+      <text x="310" y="88" fontSize="9.5" fill={c} textAnchor="middle" fontWeight="700">3</text>
+      <rect x="16" y="152" width="308" height="52" rx="7" fill="#111a28" stroke={c} strokeWidth="1.4" />
+      <text x="26" y="168" fontSize="9" fill="#7d8fa8">IP Restriction</text>
+      <rect x="26" y="175" width="206" height="19" rx="4" fill="#0a1018" stroke="#243247" />
+      <text x="34" y="188" fontSize="10" fill={c} fontFamily="monospace">{SERVER_IP}</text>
+      <rect x="242" y="175" width="56" height="19" rx="4" fill={c} opacity="0.9" />
+      <text x="270" y="188" fontSize="9" fill="#0d1420" textAnchor="middle" fontWeight="700">Add</text>
+      <circle cx="310" cy="164" r="9" fill="#0d1420" stroke={c} strokeWidth="1.5" />
+      <text x="310" y="168" fontSize="9.5" fill={c} textAnchor="middle" fontWeight="700">4</text>
     </svg>
   );
 }
