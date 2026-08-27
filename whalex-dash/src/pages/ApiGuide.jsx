@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useLang } from "../context/LangContext.jsx";
 
 const SERVER_IP = "178.105.49.200";
 
@@ -312,11 +313,9 @@ function Copy({ text }) {
 
 export default function ApiGuide() {
   const [open, setOpen] = useState("binance");
-  // 🌐 الصفحة تتبع مبدّل اللغة — كانت عربية ثابتة رغم التبديل
-  let lang = "ar";
-  try {
-    lang = localStorage.getItem("wx_lang") || localStorage.getItem("lang") || "ar";
-  } catch (e) { /* */ }
+  // 🌐 اللغة من السياق — القراءة المباشرة من التخزين لا تُعيد الرسم
+  //    عند التبديل، والمفتاح whalex_lang لا wx_lang.
+  const { lang } = useLang();
   const ar = lang !== "en";
   const L = (a, e) => (ar ? a : e);
 
