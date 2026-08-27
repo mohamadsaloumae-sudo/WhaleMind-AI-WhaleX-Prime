@@ -11,6 +11,7 @@ import { lazy } from "react";
 import {
   LayoutDashboard, Radio, Bot, TrendingUp,
   CreditCard, Settings, Search, Shield, BarChart3, Activity, MessageCircle, Sparkles, Gift, UserCircle,
+  KeyRound,
 } from "lucide-react";
 
 
@@ -27,6 +28,7 @@ const Admin = lazy(() => import("../pages/Admin.jsx"));
 const Support = lazy(() => import("../pages/Support.jsx"));
 const Landing = lazy(() => import("../pages/Landing.jsx"));
 const Referral = lazy(() => import("../pages/Referral.jsx"));
+const ApiGuide = lazy(() => import("../pages/ApiGuide.jsx"));
 const Profile = lazy(() => import("../pages/Profile.jsx"));
 
 // كل عنصر: { path, label, icon, component, adminOnly?, hideNav? }
@@ -37,6 +39,7 @@ export const PAGES = [
   { path: "/positions",    label: "الصفقات",         icon: BarChart3,       component: Positions },
   { path: "/auto-trade",   label: "التداول",         icon: Bot,             component: AutoTrade },
   { path: "/trades",       label: "صفقاتي",          icon: TrendingUp,      component: Trades },
+  { path: "/api-guide",    label: "ربط المنصّات",     icon: KeyRound,        component: ApiGuide },
   { path: "/scanner",      label: "فاحص العملات",     icon: Search,          component: Scanner },
   { path: "/subscription", label: "الاشتراك",        icon: CreditCard,      component: Subscription },
   { path: "/settings",     label: "الإعدادات",       icon: Settings,        component: SettingsPage },
