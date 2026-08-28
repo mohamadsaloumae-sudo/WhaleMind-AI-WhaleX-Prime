@@ -1282,7 +1282,16 @@ async def monitor_position(pos: Position):
     # ─ Tactical Exit Check ─
     # مراقبة ديناميكية: شديدة بعد TP1 (حماية الربح)، يقظة قبله (خروج وقائي).
     #   الحلقة الضائعة كانت 300ث (نوم 5 دقائق) — الانقلاب يضرب الستوب قبل الفحص.
-    _tac_interval = 20 if pos.tp1_hit else 45
+    # ⚡ خانق الفحص التكتيكي — كان 45 ثانية، والدورة نفسها 61 ثانية
+    #    (مقيس)، فالفحص التكتيكيّ يقع كل 105 ثانية فعلياً. وصفقة تنزل
+    #    ببطء تبلغ الوقف قبل أن يُستشار الكاشف مرّتين.
+    #    فنجعله يتبع حال الصفقة: الخاسرة تُفحَص في كل دورة.
+    if pnl_pct < 0:
+        _tac_interval = 0
+    elif pos.tp1_hit:
+        _tac_interval = 10
+    else:
+        _tac_interval = 20
     if now - pos.last_warned > _tac_interval:
         tactical, reason = await should_tactical_exit(pos, price, ob, ls_change)
         if tactical:
