@@ -54,18 +54,27 @@ function Row({ d, label, onClick, ar, open, day }) {
   return (
     <div onClick={onClick} className="card"
          style={{
-           padding: day ? "11px 13px" : "13px 15px",
-           marginBottom: day ? 7 : 8,
+           padding: day ? "9px 12px" : "14px 16px",
+           marginBottom: day ? 6 : 9,
            cursor: onClick ? "pointer" : "default",
-           background: open ? "rgba(45,212,191,0.07)" : undefined,
-           borderInlineStart: open ? "3px solid var(--brand, #2dd4bf)"
-                                   : day ? "2px solid var(--border, #223)" : undefined,
+           // 🎨 اليوم أصغر وأغمق وبشريط جانبيّ ملوّن حسب نتيجته،
+           //    والشهر المفتوح يتلوّن بلون العلامة.
+           background: day
+             ? (Number(d.net) >= 0 ? "rgba(34,197,94,0.055)" : "rgba(239,68,68,0.055)")
+             : open ? "rgba(45,212,191,0.09)" : undefined,
+           borderInlineStart: day
+             ? "3px solid " + (Number(d.net) >= 0 ? "#22c55e" : "#ef4444")
+             : open ? "3px solid var(--brand, #2dd4bf)" : "3px solid transparent",
+           borderRadius: day ? 8 : undefined,
+           opacity: day ? 0.97 : 1,
          }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{
-          fontSize: day ? 13 : 14, fontWeight: 800, flex: 1,
-          color: open ? "var(--brand, #2dd4bf)" : undefined,
-        }}>{day ? "📆 " : ""}{label}</span>
+          fontSize: day ? 12.5 : 15, fontWeight: 800, flex: 1,
+          color: open ? "var(--brand, #2dd4bf)"
+                 : day ? "var(--txt-2, #c9d6e6)" : undefined,
+          letterSpacing: day ? 0.2 : 0,
+        }}>{day ? "📆 " : "🗓 "}{label}</span>
         <Num v={d.net} big={!day} />
         {onClick ? (
           <span style={{
