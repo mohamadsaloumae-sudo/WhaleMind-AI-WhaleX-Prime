@@ -63,7 +63,8 @@ function Row({ d, label, onClick, ar, open, day }) {
              ? (Number(d.net) >= 0 ? "rgba(34,197,94,0.055)" : "rgba(239,68,68,0.055)")
              : open ? "rgba(45,212,191,0.09)" : undefined,
            borderInlineStart: day
-             ? "3px solid " + (Number(d.net) >= 0 ? "#22c55e" : "#ef4444")
+             ? (d.live ? "3px dashed #eab308"
+                       : "3px solid " + (Number(d.net) >= 0 ? "#22c55e" : "#ef4444"))
              : open ? "3px solid var(--brand, #2dd4bf)" : "3px solid transparent",
            borderRadius: day ? 8 : undefined,
            opacity: day ? 0.97 : 1,
@@ -74,7 +75,16 @@ function Row({ d, label, onClick, ar, open, day }) {
           color: open ? "var(--brand, #2dd4bf)"
                  : day ? "var(--txt-2, #c9d6e6)" : undefined,
           letterSpacing: day ? 0.2 : 0,
-        }}>{day ? "📆 " : "🗓 "}{label}</span>
+        }}>
+          {day ? "📆 " : "🗓 "}{label}
+          {d.live ? (
+            <span style={{
+              marginInlineStart: 7, fontSize: 10, fontWeight: 700,
+              padding: "2px 7px", borderRadius: 5, verticalAlign: "middle",
+              background: "rgba(234,179,8,0.16)", color: "#eab308",
+            }}>{ar ? "جارٍ" : "live"}</span>
+          ) : null}
+        </span>
         <Num v={d.net} big={!day} />
         {onClick ? (
           <span style={{

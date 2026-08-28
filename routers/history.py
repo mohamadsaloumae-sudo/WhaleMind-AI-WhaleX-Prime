@@ -72,10 +72,18 @@ def _bucket(rows, fmt):
     return g
 
 
-def _shape(k, d):
+def _now_local():
+    return datetime.datetime.utcnow() + datetime.timedelta(seconds=TZ_OFFSET)
+
+
+def _shape(k, d, live_key=None):
+    """live_key: المفتاح الذي يُعدّ جارياً (اليوم أو الشهر الحاليّ)."""
     n = d["trades"] or 1
     return {
         "period": k,
+        # 🔴 اليوم أو الشهر الجاري لم يكتمل — نُعلّمه ولا نُخفيه،
+        #    فالمستخدم يرى ما يجري ويعرف أنه غير نهائيّ.
+        "live": bool(live_key and k == live_key),
         "trades": d["trades"],
         "wins": d["wins"],
         "losses": d["trades"] - d["wins"],
@@ -93,7 +101,8 @@ def _shape(k, d):
 def monthly(system: str = Query("futures"), user=Depends(get_current_user)):
     """أداء كل شهر لنظام واحد."""
     g = _bucket(_rows(system), "%Y-%m")
-    months = [_shape(k, g[k]) for k in sorted(g, reverse=True)]
+    _cm = _now_local().strftime("%Y-%m")
+    months = [_shape(k, g[k], _cm) for k in sorted(g, reverse=True)]
     return {"system": system, "label": LABELS.get(system, system), "months": months}
 
 
@@ -103,7 +112,8 @@ def daily(system: str = Query("futures"),
           user=Depends(get_current_user)):
     """أيام شهر واحد لنظام واحد."""
     g = _bucket(_rows(system), "%Y-%m-%d")
-    days = [_shape(k, g[k]) for k in sorted(g, reverse=True) if k.startswith(month)]
+    _td = _now_local().strftime("%Y-%m-%d")
+    days = [_shape(k, g[k], _td) for k in sorted(g, reverse=True) if k.startswith(month)]
     tot = {
         "trades": sum(d["trades"] for d in days),
         "wins": sum(d["wins"] for d in days),
