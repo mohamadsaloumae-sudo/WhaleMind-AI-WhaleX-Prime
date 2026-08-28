@@ -138,9 +138,15 @@ def evaluate(closes, highs, lows, vols, tbuys, book=None) -> dict:
     reg, reg_why = regime(closes, highs, lows)
     px = closes[-1]; atr = atr_pct(highs, lows, closes)
     cands = []
-    if reg in ("range","down"):
-        p,w,m = path_dip(closes,highs,lows,vols,tbuys,book)
-        if p > 0: cands.append(("dip",p,w,m))
+    # 🚫 صيد القاع في سوق هابط أو متذبذب = مصيدة. مقيس على 300 صفقة:
+    #      dip / down   15 صفقة | فوز 33% | -35.2%
+    #      dip / range  35 صفقة | فوز 31% | -16.0%
+    #      dip / up      4 صفقة | فوز 50% |  +2.9%
+    #      pullback/up 219 صفقة | فوز 29% | +12.7%
+    #    واستبعاد dip من الحالتين يوفّر 48.3 نقطة. فالقاع لا يُشترى
+    #    إلا في اتجاه صاعد مؤكَّد، حيث الهبوط تصحيح لا انهيار.
+    if reg in ("range", "down"):
+        pass
     if reg == "up":
         p,w,m = path_pullback(closes,highs,lows,vols,tbuys,book)
         if p > 0: cands.append(("pullback",p,w,m))
