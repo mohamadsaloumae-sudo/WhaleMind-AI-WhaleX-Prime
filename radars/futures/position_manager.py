@@ -615,7 +615,14 @@ async def is_real_reversal(symbol: str, is_long: bool, opened_at: float = 0) -> 
         from quant_engine.hawk_eye import read_market_structure
         from radars.futures.engine import fetch_klines_async as _fk_eye
 
-        _a = await analyze_order_book(symbol, check_spoofing=True)
+        # ⚡ بلا كشف تلاعب في المراقبة الدورية.
+        #    مقيس: detect_spoofing (3 لقطات × 1.5ث) + detect_iceberg
+        #    (4 × 1.0ث) = 8.5 ثانية نوم لكل صفقة، فالدورة تصير 61 ثانية
+        #    بدل ثانيتين، والصفقة تُفحَص كل دقيقة بدل كل ثلاث ثوانٍ.
+        #    والقياس: 8.77ث مع الكشف مقابل 0.29ث بدونه (30 ضعفاً).
+        #    والاختلال يُحسَب من نفس اللقطة — فالكشف يُضيف معلومة
+        #    التلاعب لا يُصحّح القراءة.
+        _a = await analyze_order_book(symbol, check_spoofing=False)
         if _a is not None:
             _ps = getattr(_a, "pressure_score", 0.0)
 
