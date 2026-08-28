@@ -103,13 +103,29 @@ function Row({ d, label, onClick, ar, open, day }) {
         <span>{ar ? "نسبة الفوز" : "Win rate"} {d.win_rate}%</span>
       </div>
       <Bar wins={d.wins} losses={d.losses} />
-      <div style={{ display: "flex", gap: 14, marginTop: 8, flexWrap: "wrap",
-                    fontSize: 11.5, color: "var(--txt-3, #8fa3ba)" }}>
-        <span>{ar ? "مجموع الربح" : "Gross win"} <Num v={d.gross_win} /></span>
-        <span>{ar ? "مجموع الخسارة" : "Gross loss"} <Num v={d.gross_loss} /></span>
-        {d.best != null ? (
-          <span>{ar ? "أفضل" : "Best"} <Num v={d.best} /></span>
-        ) : null}
+      <div style={{
+        display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8,
+        marginTop: 10, paddingTop: 9,
+        borderTop: "1px solid var(--border, #223)",
+      }}>
+        <div>
+          <div style={{ fontSize: 10.5, color: "var(--txt-3, #8fa3ba)", marginBottom: 2 }}>
+            {ar ? "مجموع الربح" : "Gross profit"}
+          </div>
+          <Num v={d.gross_win} />
+        </div>
+        <div>
+          <div style={{ fontSize: 10.5, color: "var(--txt-3, #8fa3ba)", marginBottom: 2 }}>
+            {ar ? "مجموع الخسارة" : "Gross loss"}
+          </div>
+          <Num v={d.gross_loss} />
+        </div>
+        <div>
+          <div style={{ fontSize: 10.5, color: "var(--txt-3, #8fa3ba)", marginBottom: 2 }}>
+            {ar ? "الصافي" : "Net"}
+          </div>
+          <Num v={d.net} />
+        </div>
       </div>
     </div>
   );
