@@ -609,6 +609,37 @@ async def close_position_for_user(user_id: str, symbol: str, direction: str) -> 
             client.futures_cancel_all_open_orders(symbol=symbol)
         except Exception:
             pass
+        # 📒 نُغلق الصفقة في سجلّ المستخدم بنتيجتها الفعلية.
+        #    log_open كانت مربوطة و log_close لا — فالجدول يبقى فارغاً
+        #    ولا يرى المشترك ولا الإدارة أي سجلّ تداول حقيقيّ.
+        try:
+            from services.user_trades import log_close as _lc
+            _fill = 0.0
+            try:
+                _fill = float(_order.get("avgPrice") or 0)
+                if _fill <= 0:
+                    _fill = float(client.futures_symbol_ticker(
+                        symbol=symbol).get("price") or 0)
+            except Exception:
+                pass
+            _ep = 0.0
+            try:
+                _ep = float(p.get("entryPrice") or 0)
+            except Exception:
+                pass
+            _lev = 1.0
+            try:
+                _lev = abs(float(p.get("leverage") or 1)) or 1.0
+            except Exception:
+                pass
+            _pct = 0.0
+            if _ep > 0 and _fill > 0:
+                _raw = (_fill - _ep) / _ep * 100.0
+                _pct = _raw * _lev * (1 if _amt > 0 else -1)
+            _lc(user_id, symbol, _fill, round(_pct, 3), "manual_close", "futures")
+        except Exception as _le:
+            log.debug("ledger close: %s", _le)
+
         log.info("🔴 إغلاق حقيقي: %s %s qty=%s (user %s)", symbol, _side, abs(_amt), user_id)
         return {"success": True, "order_id": str(_order.get("orderId", "")),
                 "qty": abs(_amt)}
