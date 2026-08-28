@@ -978,6 +978,23 @@ async def _emit_signal(r: dict):
     if _open >= MAX_OPEN_SPOT * 0.7 and r.get("grade") != MIN_GRADE_OPEN:
         log.info("🪙🛑 %s مُؤجَّلة — قرب السقف، الدرجة %s", sym, r.get("grade"))
         return
+    # 🎯 بوّابة الجودة — جودة لا كثرة.
+    #    مقيس على 222 صفقة pullback: الكلّ فوز 28% (+10.5%)،
+    #    والمختارة (تصحيح 6%+ مع حجم مؤكَّد) 55 صفقة فوز 43% (+33.6%).
+    #    واختبار نصف/نصف: 30%→47% و27%→38%، والنصف الثاني كان
+    #    خاسراً (-11.5%) فصار رابحاً (+5.0%).
+    try:
+        from radars.spot.quality import check as _qcheck
+        # why قائمة أسباب — نضمّها نصّاً واحداً كما يُحفَظ في السجلّ
+        _wl = r.get("why") or []
+        _wtxt = " | ".join(str(v) for v in _wl) if isinstance(_wl, (list, tuple)) else str(_wl)
+        _qok, _qwhy = _qcheck(_wtxt, r.get("path") or "")
+        if not _qok:
+            log.info("🪙🎯 %s مرفوضة — %s", sym, _qwhy)
+            return
+    except Exception as _qe:
+        log.warning("🪙🎯 بوّابة الجودة %s: %s", sym, _qe)
+
     # 🛡️ بوّابة العمق — نرفض ما ينهار سعره بأمر صغير.
     #    مقيس: 3 كوارث على bingx حملت -86.5% من خسارة السبوت كلّها،
     #    وبدونها الصافي +18.9% موجب. والحجم اليوميّ لا يكشفها
