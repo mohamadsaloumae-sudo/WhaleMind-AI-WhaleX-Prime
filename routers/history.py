@@ -27,6 +27,14 @@ LABELS = {"futures": "Futures", "spot": "Spot", "meme": "Memecoins"}
 TZ_OFFSET = 4 * 3600
 
 
+# 🪙 السبوت: جدولان لا يتداخلان — spot_results من 23 أغسطس،
+#    وspot_training يحمل ما قبله (19 يوليو إلى 22 أغسطس، 153 صفقة).
+#    والمشترك بينهما صفر، فالجمع يُعيد التاريخ الضائع بلا تكرار.
+EXTRA_SOURCES = {
+    "spot": [("/opt/whalex/db/whalex.db", "spot_training", "ts", "pnl", "")],
+}
+
+
 def _rows(system):
     cfg = SYSTEMS.get(system)
     if not cfg:
@@ -41,6 +49,17 @@ def _rows(system):
             q += " AND " + extra
         out = list(c.execute(q))
         c.close()
+        for db2, t2, tc2, pc2, ex2 in EXTRA_SOURCES.get(system, []):
+            try:
+                c2 = sqlite3.connect(db2)
+                q2 = ("SELECT " + tc2 + ", " + pc2 + " FROM " + t2 +
+                      " WHERE " + pc2 + " IS NOT NULL AND " + tc2 + " > 0")
+                if ex2:
+                    q2 += " AND " + ex2
+                out += list(c2.execute(q2))
+                c2.close()
+            except Exception:
+                pass
         return out
     except Exception:
         return []
