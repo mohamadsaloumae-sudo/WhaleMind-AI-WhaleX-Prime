@@ -57,33 +57,13 @@ def evaluate_exit(pnl, sl_pnl, peak_pnl, age_min, closes, is_long):
     fl = lock_floor(peak_pnl)
     if fl is not None and pnl <= fl:
         return True, f"🔒 قفل: قمّة {peak_pnl:+.1f}% → أرضية {fl:+.1f}%"
-    # ② 📉 سلّم المسافة — كلّما اقتربنا من الوقف قلّت الشروط المطلوبة.
-    #
-    #    المشكلة المقيسة: الشروط الأربعة معاً (قطعت 45% + 5/8 ضدّنا +
-    #    بنية متدهورة + عمر 8 دقائق) لا تجتمع في الهبوط البطيء الثابت،
-    #    فتصل الصفقة الوقف. و20 صفقة ضربت الوقف بخسائر -10 إلى -18%.
-    #
-    #    القياس على 24 مساراً خاسراً و25 رابحاً:
-    #      الخاسرة +45.5 نقطة (أفضل 9 · أسوأ 2)
-    #      الرابحة  -8.0 نقطة (أفضل 3 · أسوأ 4)
-    #      الصافي  +37.5 نقطة
-    if pnl < 0 and age_min >= 3:
+    if pnl < 0 and age_min >= BLEED_MIN_AGE_MIN:
         tr = (pnl / sl_pnl) if sl_pnl < 0 else 0.0
-        adv = adverse_streak(closes, is_long)
-        st = lower_structure(closes, is_long)
-
-        # قطعت ثلاثة أرباع الطريق → لا ننتظر شيئاً
-        if tr >= 0.75:
-            return True, f"🚪 قطعت {tr*100:.0f}% نحو الوقف — خروج"
-        # قطعت النصف + أيّ دليل ضعف واحد
-        if tr >= 0.55 and (adv >= 4 or st):
-            return True, f"📉 قطعت {tr*100:.0f}% · {adv}/8 ضدّنا"
-        # ثلث الطريق + دليلان
-        if tr >= 0.35 and adv >= 5 and st:
-            return True, f"📉 نزيف مبكّر {tr*100:.0f}% · {adv}/8"
-        # 🐌 الهبوط البطيء الثابت — ما كان يفلت من الشروط الأربعة
-        if tr >= 0.25 and adv >= 6 and age_min >= 10:
-            return True, f"🐌 هبوط بطيء {adv}/8 ضدّنا · قطعت {tr*100:.0f}%"
+        if tr >= BLEED_MIN_TRAVEL:
+            adv = adverse_streak(closes, is_long)
+            if adv >= BLEED_MIN_ADVERSE and lower_structure(closes, is_long):
+                return True, (f"📉 نزيف: قطعت {tr*100:.0f}% نحو الوقف · "
+                              f"{adv}/8 ضدّنا · بنية متدهورة")
     if age_min >= STALE_HOURS * 60 and abs(pnl) < STALE_BAND and peak_pnl < 3.0:
         return True, f"⏱ ركود {age_min/60:.1f}س ({pnl:+.1f}%)"
     return False, ""

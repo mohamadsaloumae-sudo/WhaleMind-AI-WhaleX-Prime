@@ -615,14 +615,7 @@ async def is_real_reversal(symbol: str, is_long: bool, opened_at: float = 0) -> 
         from quant_engine.hawk_eye import read_market_structure
         from radars.futures.engine import fetch_klines_async as _fk_eye
 
-        # ⚡ بلا كشف تلاعب في المراقبة الدورية.
-        #    مقيس: detect_spoofing (3 لقطات × 1.5ث) + detect_iceberg
-        #    (4 × 1.0ث) = 8.5 ثانية نوم لكل صفقة، فالدورة تصير 61 ثانية
-        #    بدل ثانيتين، والصفقة تُفحَص كل دقيقة بدل كل ثلاث ثوانٍ.
-        #    والقياس: 8.77ث مع الكشف مقابل 0.29ث بدونه (30 ضعفاً).
-        #    والاختلال يُحسَب من نفس اللقطة — فالكشف يُضيف معلومة
-        #    التلاعب لا يُصحّح القراءة.
-        _a = await analyze_order_book(symbol, check_spoofing=False)
+        _a = await analyze_order_book(symbol, check_spoofing=True)
         if _a is not None:
             _ps = getattr(_a, "pressure_score", 0.0)
 
@@ -1289,16 +1282,7 @@ async def monitor_position(pos: Position):
     # ─ Tactical Exit Check ─
     # مراقبة ديناميكية: شديدة بعد TP1 (حماية الربح)، يقظة قبله (خروج وقائي).
     #   الحلقة الضائعة كانت 300ث (نوم 5 دقائق) — الانقلاب يضرب الستوب قبل الفحص.
-    # ⚡ خانق الفحص التكتيكي — كان 45 ثانية، والدورة نفسها 61 ثانية
-    #    (مقيس)، فالفحص التكتيكيّ يقع كل 105 ثانية فعلياً. وصفقة تنزل
-    #    ببطء تبلغ الوقف قبل أن يُستشار الكاشف مرّتين.
-    #    فنجعله يتبع حال الصفقة: الخاسرة تُفحَص في كل دورة.
-    if pnl_pct < 0:
-        _tac_interval = 0
-    elif pos.tp1_hit:
-        _tac_interval = 10
-    else:
-        _tac_interval = 20
+    _tac_interval = 20 if pos.tp1_hit else 45
     if now - pos.last_warned > _tac_interval:
         tactical, reason = await should_tactical_exit(pos, price, ob, ls_change)
         if tactical:
