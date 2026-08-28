@@ -403,7 +403,11 @@ async def _live_taker(c, sym: str):
 
 _track: dict = {}           # sig_id -> stage (0 لم يلمس، 1/2 بعد TP1/TP2)
 _peak: dict = {}
-_peak_at: dict = {}      # 🌾 متى ارتفعت القمّة آخر مرّة — لقراءة الركود            # sig_id -> أعلى سعر بلغته الصفقة (للقفل المتحرك وكشف الانعكاس)
+_peak_at: dict = {}
+# 🔧 ظروف الدخول — كانت تُهمَل فلا نتعلّم من الصفقات الميّتة شيئاً.
+#    مقيس: 66 صفقة في 24 ساعة بفوز 27%، وأعمدة rsi/taker/range_pos
+#    فارغة كلّها، فلا سبيل لمعرفة ما يُميّز الميّتة عن الرابحة.
+_entry_ctx: dict = {}      # 🌾 متى ارتفعت القمّة آخر مرّة — لقراءة الركود            # sig_id -> أعلى سعر بلغته الصفقة (للقفل المتحرك وكشف الانعكاس)
 _TRACK_STARTED = False
 
 
@@ -738,12 +742,19 @@ async def tracker_loop():
                                 _path = ("dip" if "صيد القاع" in _strat else
                                          "pullback" if "ارتداد" in _strat else
                                          "breakout" if "اختراق" in _strat else "")
+                                _ctx = _entry_ctx.get(s.symbol) or {}
+                                import datetime as _dt
                                 cx.execute(
                                     "INSERT INTO spot_results(symbol,entry,exit_price,pnl_pct,"
-                                    "outcome,reason,ts,opened_ts,exchange,path,strategies) "
-                                    "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                                    "outcome,reason,ts,opened_ts,exchange,path,strategies,"
+                                    "rsi,range_pos,taker,vol_infl,hour_utc) "
+                                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                                     (s.symbol, s.entry, px, round(pnl, 2), outcome, reason,
-                                     int(now), _op, _ex, _path, _strat[:400]))
+                                     int(now), _op, _ex, _path, _strat[:400],
+                                     _ctx.get("rsi"), _ctx.get("range_pos"),
+                                     _ctx.get("taker"), _ctx.get("vol_infl"),
+                                     _dt.datetime.utcfromtimestamp(_op or now).hour
+                                     if (_op or now) else None))
                                 cx.commit(); cx.close()
                             except Exception as _re:
                                 log.debug("spot result: %s", _re)
@@ -1001,6 +1012,15 @@ async def _emit_signal(r: dict):
                   f"الحالة: {r['regime']}\n"
                   + "\n".join(r.get("why", [])))
 
+    # القيم داخل meta لا في جذر القاموس، واسم الحجم v_infl
+    _m = r.get("meta") or {}
+    _entry_ctx[sym] = {
+        "rsi": _m.get("rsi"),
+        "range_pos": _m.get("range_pos"),
+        "taker": _m.get("taker"),
+        "vol_infl": _m.get("v_infl"),
+        "score": r.get("score"),
+    }
     _cooldown_save(sym)
     log.info("🪙🎯 SPOT %s | %s %s | %s | نقاط %.1f %s",
              sym, ex, r["path"], f"@{entry:.6g}", r["score"], grade)
