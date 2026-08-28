@@ -50,16 +50,30 @@ function Bar({ wins, losses }) {
   );
 }
 
-function Row({ d, label, onClick, ar }) {
+function Row({ d, label, onClick, ar, open, day }) {
   return (
     <div onClick={onClick} className="card"
-         style={{ padding: "13px 15px", marginBottom: 8,
-                  cursor: onClick ? "pointer" : "default" }}>
+         style={{
+           padding: day ? "11px 13px" : "13px 15px",
+           marginBottom: day ? 7 : 8,
+           cursor: onClick ? "pointer" : "default",
+           background: open ? "rgba(45,212,191,0.07)" : undefined,
+           borderInlineStart: open ? "3px solid var(--brand, #2dd4bf)"
+                                   : day ? "2px solid var(--border, #223)" : undefined,
+         }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontSize: 14, fontWeight: 800, flex: 1 }}>{label}</span>
-        <Num v={d.net} big />
+        <span style={{
+          fontSize: day ? 13 : 14, fontWeight: 800, flex: 1,
+          color: open ? "var(--brand, #2dd4bf)" : undefined,
+        }}>{day ? "📆 " : ""}{label}</span>
+        <Num v={d.net} big={!day} />
         {onClick ? (
-          <span style={{ color: "var(--txt-3, #8fa3ba)", fontSize: 16 }}>›</span>
+          <span style={{
+            color: open ? "var(--brand, #2dd4bf)" : "var(--txt-3, #8fa3ba)",
+            fontSize: 17, display: "inline-block",
+            transform: open ? "rotate(90deg)" : "none",
+            transition: "transform .18s",
+          }}>›</span>
         ) : null}
       </div>
       <div style={{ display: "flex", gap: 14, marginTop: 6, flexWrap: "wrap",
@@ -170,18 +184,28 @@ export default function History() {
       {months.map((m) => (
         <div key={m.period}>
           <Row d={m} label={monthName(m.period, ar)} ar={ar}
+               open={open === m.period}
                onClick={() => openMonth(m.period)} />
           {open === m.period ? (
-            <div style={{ marginInlineStart: 14, paddingInlineStart: 12,
-                          marginBottom: 12,
-                          borderInlineStart: "2px solid var(--border, #223)" }}>
+            <div style={{
+              marginInlineStart: 10, paddingInlineStart: 12,
+              marginBottom: 14, paddingTop: 4,
+              borderInlineStart: "2px solid rgba(45,212,191,0.35)",
+            }}>
+              <div style={{
+                fontSize: 11.5, fontWeight: 700, marginBottom: 8,
+                color: "var(--brand, #2dd4bf)", letterSpacing: .3,
+              }}>
+                {L("تفصيل الأيام", "Daily breakdown")}
+                {days.length ? " · " + days.length + (ar ? " يوماً" : " days") : ""}
+              </div>
               {busy ? (
                 <div style={{ fontSize: 12.5, color: "var(--txt-3, #8fa3ba)", padding: "8px 0" }}>
                   {L("جارٍ التحميل", "Loading")}
                 </div>
               ) : days.length ? (
                 days.map((d) => (
-                  <Row key={d.period} d={d} label={dayName(d.period)} ar={ar} />
+                  <Row key={d.period} d={d} label={dayName(d.period)} ar={ar} day />
                 ))
               ) : (
                 <div style={{ fontSize: 12.5, color: "var(--txt-3, #8fa3ba)", padding: "8px 0" }}>

@@ -9,10 +9,18 @@ from routers.auth import get_current_user
 
 router = APIRouter(prefix="/api/history", tags=["History"])
 
+# نظام → (قاعدة، جدول، عمود الوقت، عمود الربح، تصفية إضافية)
+# ⚠️ الفيوتشر يُصفّى بـresult IN (win, loss) لاستبعاد الصفقات الظلّية
+#    (shadow_sl · shadow_tp1 · shadow_timeout) — وهي تتبّع للتعلّم لا
+#    تداول حقيقيّ. ومقيس: مع الظلّية 3,354 صفقة بـ+478.3%، وبدونها
+#    1,938 صفقة بـ+841.0%. وهذا ما تعرضه صفحة الإحصاء، فالرقمان
+#    يجب أن يتّفقا — رقمان مختلفان يهدمان الثقة.
 SYSTEMS = {
-    "futures": ("/opt/whalex/ml_training.db", "training_signals", "closed_at", "pnl_pct"),
-    "spot": ("/opt/whalex/db/whalex.db", "spot_results", "ts", "pnl_pct"),
-    "meme": ("/opt/whalex/db/memecoin.db", "meme_signals", "closed_ts", "pnl_pct"),
+    "futures": ("/opt/whalex/ml_training.db", "training_signals", "closed_at",
+                "pnl_pct", "result IN ('win','loss')"),
+    "spot": ("/opt/whalex/db/whalex.db", "spot_results", "ts", "pnl_pct", ""),
+    "meme": ("/opt/whalex/db/memecoin.db", "meme_signals", "closed_ts",
+             "pnl_pct", "status = 'closed'"),
 }
 
 LABELS = {"futures": "Futures", "spot": "Spot", "meme": "Memecoins"}
@@ -23,12 +31,15 @@ def _rows(system):
     cfg = SYSTEMS.get(system)
     if not cfg:
         return []
-    db, table, tcol, pcol = cfg
+    db, table, tcol, pcol, extra = cfg
     try:
         c = sqlite3.connect(db)
-        out = list(c.execute(
-            "SELECT " + tcol + ", " + pcol + " FROM " + table +
-            " WHERE " + pcol + " IS NOT NULL AND " + tcol + " IS NOT NULL AND " + tcol + " > 0"))
+        q = ("SELECT " + tcol + ", " + pcol + " FROM " + table +
+             " WHERE " + pcol + " IS NOT NULL AND " + tcol + " IS NOT NULL"
+             " AND " + tcol + " > 0")
+        if extra:
+            q += " AND " + extra
+        out = list(c.execute(q))
         c.close()
         return out
     except Exception:
