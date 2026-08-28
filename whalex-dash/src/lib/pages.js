@@ -12,6 +12,7 @@ import {
   LayoutDashboard, Radio, Bot, TrendingUp,
   CreditCard, Settings, Search, Shield, BarChart3, Activity, MessageCircle, Sparkles, Gift, UserCircle,
   KeyRound,
+  CalendarDays,
 } from "lucide-react";
 
 
@@ -29,6 +30,7 @@ const Support = lazy(() => import("../pages/Support.jsx"));
 const Landing = lazy(() => import("../pages/Landing.jsx"));
 const Referral = lazy(() => import("../pages/Referral.jsx"));
 const ApiGuide = lazy(() => import("../pages/ApiGuide.jsx"));
+const History = lazy(() => import("../pages/History.jsx"));
 const Profile = lazy(() => import("../pages/Profile.jsx"));
 
 // كل عنصر: { path, label, icon, component, adminOnly?, hideNav? }
@@ -40,6 +42,7 @@ export const PAGES = [
   { path: "/auto-trade",   label: "التداول",         icon: Bot,             component: AutoTrade },
   { path: "/trades",       label: "صفقاتي",          icon: TrendingUp,      component: Trades },
   { path: "/api-guide",    label: "دليل الاستخدام",     icon: KeyRound,        component: ApiGuide },
+  { path: "/history",      label: "السجلّ الزمنيّ",    icon: CalendarDays,    component: History },
   { path: "/scanner",      label: "فاحص العملات",     icon: Search,          component: Scanner },
   { path: "/subscription", label: "الاشتراك",        icon: CreditCard,      component: Subscription },
   { path: "/settings",     label: "الإعدادات",       icon: Settings,        component: SettingsPage },

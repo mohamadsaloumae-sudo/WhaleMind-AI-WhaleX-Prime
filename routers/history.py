@@ -1,0 +1,123 @@
+"""📅 السجل الزمني — أرباح وخسائر كل نظام شهرياً ويومياً."""
+import datetime
+import sqlite3
+from collections import defaultdict
+
+from fastapi import APIRouter, Depends, Query
+
+from routers.auth import get_current_user
+
+router = APIRouter(prefix="/api/history", tags=["History"])
+
+SYSTEMS = {
+    "futures": ("/opt/whalex/ml_training.db", "training_signals", "closed_at", "pnl_pct"),
+    "spot": ("/opt/whalex/db/whalex.db", "spot_results", "ts", "pnl_pct"),
+    "meme": ("/opt/whalex/db/memecoin.db", "meme_signals", "closed_ts", "pnl_pct"),
+}
+
+LABELS = {"futures": "Futures", "spot": "Spot", "meme": "Memecoins"}
+TZ_OFFSET = 4 * 3600
+
+
+def _rows(system):
+    cfg = SYSTEMS.get(system)
+    if not cfg:
+        return []
+    db, table, tcol, pcol = cfg
+    try:
+        c = sqlite3.connect(db)
+        out = list(c.execute(
+            "SELECT " + tcol + ", " + pcol + " FROM " + table +
+            " WHERE " + pcol + " IS NOT NULL AND " + tcol + " IS NOT NULL AND " + tcol + " > 0"))
+        c.close()
+        return out
+    except Exception:
+        return []
+
+
+def _bucket(rows, fmt):
+    g = defaultdict(lambda: {"trades": 0, "wins": 0, "gross_win": 0.0,
+                             "gross_loss": 0.0, "net": 0.0,
+                             "best": None, "worst": None})
+    for t, p in rows:
+        try:
+            t = int(t)
+            if t > 1e12:
+                t //= 1000
+            p = float(p)
+        except Exception:
+            continue
+        k = datetime.datetime.utcfromtimestamp(t + TZ_OFFSET).strftime(fmt)
+        d = g[k]
+        d["trades"] += 1
+        d["net"] += p
+        if p > 0:
+            d["wins"] += 1
+            d["gross_win"] += p
+        else:
+            d["gross_loss"] += p
+        d["best"] = p if d["best"] is None else max(d["best"], p)
+        d["worst"] = p if d["worst"] is None else min(d["worst"], p)
+    return g
+
+
+def _shape(k, d):
+    n = d["trades"] or 1
+    return {
+        "period": k,
+        "trades": d["trades"],
+        "wins": d["wins"],
+        "losses": d["trades"] - d["wins"],
+        "win_rate": round(d["wins"] * 100 / n, 1),
+        "gross_win": round(d["gross_win"], 2),
+        "gross_loss": round(d["gross_loss"], 2),
+        "net": round(d["net"], 2),
+        "avg": round(d["net"] / n, 2),
+        "best": round(d["best"], 2) if d["best"] is not None else None,
+        "worst": round(d["worst"], 2) if d["worst"] is not None else None,
+    }
+
+
+@router.get("/monthly")
+def monthly(system: str = Query("futures"), user=Depends(get_current_user)):
+    """أداء كل شهر لنظام واحد."""
+    g = _bucket(_rows(system), "%Y-%m")
+    months = [_shape(k, g[k]) for k in sorted(g, reverse=True)]
+    return {"system": system, "label": LABELS.get(system, system), "months": months}
+
+
+@router.get("/daily")
+def daily(system: str = Query("futures"),
+          month: str = Query(...),
+          user=Depends(get_current_user)):
+    """أيام شهر واحد لنظام واحد."""
+    g = _bucket(_rows(system), "%Y-%m-%d")
+    days = [_shape(k, g[k]) for k in sorted(g, reverse=True) if k.startswith(month)]
+    tot = {
+        "trades": sum(d["trades"] for d in days),
+        "wins": sum(d["wins"] for d in days),
+        "net": round(sum(d["net"] for d in days), 2),
+    }
+    return {"system": system, "label": LABELS.get(system, system),
+            "month": month, "days": days, "total": tot}
+
+
+@router.get("/summary")
+def summary(user=Depends(get_current_user)):
+    """ملخص كل الأنظمة — للصفحة الرئيسية."""
+    now = datetime.datetime.utcnow() + datetime.timedelta(seconds=TZ_OFFSET)
+    this_month = now.strftime("%Y-%m")
+    today = now.strftime("%Y-%m-%d")
+    out = []
+    for name in SYSTEMS:
+        rows = _rows(name)
+        gm = _bucket(rows, "%Y-%m")
+        gd = _bucket(rows, "%Y-%m-%d")
+        out.append({
+            "system": name,
+            "label": LABELS.get(name, name),
+            "today": _shape(today, gd[today]) if today in gd else None,
+            "month": _shape(this_month, gm[this_month]) if this_month in gm else None,
+            "months_available": len(gm),
+        })
+    return {"systems": out, "month": this_month, "today": today}

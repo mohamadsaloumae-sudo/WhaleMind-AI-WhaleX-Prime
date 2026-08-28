@@ -121,6 +121,8 @@ app.include_router(auth_router)
 app.include_router(binance_router)
 app.include_router(binance_manual_router)
 app.include_router(signals_router)
+from routers.history import router as history_router
+app.include_router(history_router)
 app.include_router(trade_router)
 app.include_router(wallet_router)
 app.include_router(live_router)
