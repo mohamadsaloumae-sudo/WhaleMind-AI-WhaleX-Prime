@@ -24,8 +24,36 @@ import re
 log = logging.getLogger("spot_quality")
 
 MIN_PULLBACK = 6.0
+MIN_PULLBACK_BIG = 3.0     # للعملات الكبيرة — حركتها أبطأ بطبيعتها
+BIG_VOL = 50_000_000       # حجم 24 ساعة يجعلها "كبيرة"
 NEED_VOLUME = True
 OFF_FLAG = "/opt/whalex/db/spot_quality.off"
+UNIVERSE_DB = "/opt/whalex/spot_universe.db"
+
+_VOL_CACHE: dict = {}
+_VOL_TS = [0.0]
+
+
+def _volumes() -> dict:
+    """أحجام الكون — كاش خمس دقائق."""
+    import sqlite3
+    import time as _t
+    if _t.time() - _VOL_TS[0] < 300 and _VOL_CACHE:
+        return _VOL_CACHE
+    try:
+        c = sqlite3.connect(UNIVERSE_DB)
+        _VOL_CACHE.clear()
+        for sym, vol in c.execute("SELECT symbol, volume_24h FROM spot_universe"):
+            _VOL_CACHE[sym] = float(vol or 0)
+        c.close()
+        _VOL_TS[0] = _t.time()
+    except Exception as e:
+        log.debug("أحجام الكون: %s", e)
+    return _VOL_CACHE
+
+
+def is_big(symbol: str) -> bool:
+    return _volumes().get(symbol, 0) >= BIG_VOL
 
 
 def enabled() -> bool:
@@ -37,7 +65,7 @@ def _num(text: str, pattern: str):
     return float(m.group(1)) if m else None
 
 
-def check(strategies: str, path: str = "") -> tuple:
+def check(strategies: str, path: str = "", symbol: str = "") -> tuple:
     """هل تستحقّ الفتح؟ يُعيد (نعم/لا، السبب)."""
     if not enabled():
         return True, "البوّابة مُطفأة"
@@ -45,15 +73,23 @@ def check(strategies: str, path: str = "") -> tuple:
     if path and path != "pullback":
         return True, "مسار آخر"
 
+    # 🐋 العملات الكبيرة عتبتها أدنى — مقيس: وسيط تصحيحها 3.3%
+    #    مقابل 5.5% للباقي، فعتبة 6% تستبعدها بحكم بطء حركتها لا
+    #    بحكم جودتها. والتصحيح 3% في BTC يعادل 6% في عملة صغيرة.
+    big = is_big(symbol) if symbol else False
+    need = MIN_PULLBACK_BIG if big else MIN_PULLBACK
+
     depth = _num(s, r"تصحيح\s*([0-9.]+)")
     if depth is None:
         return False, "بلا عمق تصحيح"
-    if depth < MIN_PULLBACK:
-        return False, f"تصحيح ضحل {depth:.1f}% (الحدّ {MIN_PULLBACK}%)"
+    if depth < need:
+        return False, (f"تصحيح ضحل {depth:.1f}% "
+                       f"(الحدّ {need}%{' — عملة كبيرة' if big else ''})")
 
     if NEED_VOLUME:
         vol = _num(s, r"حجم\s*[x×]\s*([0-9.]+)")
         if vol is None:
             return False, "بلا تأكيد حجم"
 
-    return True, f"تصحيح {depth:.1f}% · حجم مؤكَّد"
+    return True, (f"تصحيح {depth:.1f}% · حجم مؤكَّد"
+                  + (" · عملة كبيرة" if big else ""))

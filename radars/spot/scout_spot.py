@@ -988,7 +988,7 @@ async def _emit_signal(r: dict):
         # why قائمة أسباب — نضمّها نصّاً واحداً كما يُحفَظ في السجلّ
         _wl = r.get("why") or []
         _wtxt = " | ".join(str(v) for v in _wl) if isinstance(_wl, (list, tuple)) else str(_wl)
-        _qok, _qwhy = _qcheck(_wtxt, r.get("path") or "")
+        _qok, _qwhy = _qcheck(_wtxt, r.get("path") or "", sym)
         if not _qok:
             log.info("🪙🎯 %s مرفوضة — %s", sym, _qwhy)
             return
