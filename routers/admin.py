@@ -40,6 +40,25 @@ def list_users(user=Depends(require_admin)):
                         "is_pro": st["is_pro"], "days_left": st["days_left"],
                         "level_ar": st["level_ar"], "icon": st["icon"],
                         "demo_balance": u.demo_balance, "created_at": str(u.created_at)})
+        # 🔗 حالة الربط لكل مشترك — نراها من القائمة بلا فتح كلٍّ منهم.
+        #    مقيس: 9 ربطوا مفاتيحهم، 4 فقط فعّلوا التداول الآليّ.
+        try:
+            import sqlite3 as _sq
+            _c = _sq.connect("/opt/whalex/db/whalex.db")
+            _linked = {r[0]: (bool(r[1]), r[2] or "binance")
+                       for r in _c.execute(
+                           "SELECT user_id, auto_trade_enabled, exchange "
+                           "FROM user_binance_credentials")}
+            _c.close()
+            for _u in out:
+                _hit = _linked.get(_u.get("id"))
+                _u["has_binance"] = bool(_hit)
+                _u["auto_trade_on"] = bool(_hit[0]) if _hit else False
+                _u["link_exchange"] = _hit[1] if _hit else None
+        except Exception:
+            for _u in out:
+                _u["has_binance"] = False
+                _u["auto_trade_on"] = False
         return {"users": out}
     finally:
         db.close()

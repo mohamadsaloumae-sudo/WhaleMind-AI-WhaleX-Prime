@@ -186,8 +186,22 @@ export default function Admin() {
               }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{u.username}</div>
-                  <div style={{ fontSize: 11, color: "var(--txt-3)" }}>
-                    {u.created_at ? new Date(u.created_at).toLocaleDateString(lang === "ar" ? "ar-AE" : "en-US", { timeZone: "Asia/Dubai" }) : ""}
+                  <div style={{ fontSize: 11, color: "var(--txt-3)", display: "flex", gap: 7, alignItems: "center" }}>
+                    <span>{u.created_at ? new Date(u.created_at).toLocaleDateString(lang === "ar" ? "ar-AE" : "en-US", { timeZone: "Asia/Dubai" }) : ""}</span>
+                    {u.has_binance ? (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 5,
+                        background: u.auto_trade_on ? "rgba(34,197,94,0.16)" : "rgba(234,179,8,0.16)",
+                        color: u.auto_trade_on ? "#22c55e" : "#eab308",
+                      }}>
+                        🔗 {u.auto_trade_on ? "مربوط" : "مربوط · آليّ مُطفأ"}
+                      </span>
+                    ) : (
+                      <span style={{
+                        fontSize: 10, padding: "1px 6px", borderRadius: 5,
+                        background: "rgba(255,255,255,0.05)", color: "var(--txt-3)",
+                      }}>لا ربط</span>
+                    )}
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
