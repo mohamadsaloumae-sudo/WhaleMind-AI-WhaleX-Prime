@@ -779,6 +779,11 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
         except Exception:
             pass
         _lv_now = float(creds.get("leverage") or signal.get("leverage") or 5)
+        # نحترم سقف المشترك أيضاً — الأقلّ من الاثنين هو الحاكم
+        _user_cap = int(creds.get("max_open_positions") or 99)
+        if len(_open) >= _user_cap:
+            return {"success": False,
+                    "error": f"سقف المشترك {_user_cap} (مفتوح {len(_open)})"}
         _ok, _amt, _why = _mg_check(_bal, len(_open), _used,
                                     float(trade_usdt), _lv_now)
         if not _ok:
