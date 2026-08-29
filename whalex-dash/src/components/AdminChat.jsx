@@ -39,9 +39,40 @@ export default function AdminChat() {
     return () => clearInterval(iv);
   }, [open]);
 
+  // 📜 لا ننزّل إن كان يقرأ رسائل قديمة — كان يُنزّل كل ثانيتين
+  //    مع كل تحديث، فيسحب الأدمن لأعلى وترجع القائمة فوراً.
+  const acAtBottom = useRef(true);
+  const acOnScroll = (e) => {
+    const el = e.currentTarget;
+    acAtBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 90;
+  };
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (acAtBottom.current) {
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [msgs]);
+
+  // 🕐 وقت كل رسالة وفاصل التاريخ
+  const acTime = (ts) => {
+    if (!ts) return "";
+    return new Date(Number(ts) * 1000).toLocaleTimeString("ar-AE", {
+      timeZone: "Asia/Dubai", hour: "2-digit", minute: "2-digit" });
+  };
+  const acDay = (ts) => {
+    if (!ts) return "";
+    return new Date(Number(ts) * 1000)
+      .toLocaleDateString("ar-AE", { timeZone: "Asia/Dubai" });
+  };
+  const acLabel = (ts) => {
+    const k = acDay(ts);
+    const now = new Date();
+    const today = now.toLocaleDateString("ar-AE", { timeZone: "Asia/Dubai" });
+    const y = new Date(now.getTime() - 86400000)
+      .toLocaleDateString("ar-AE", { timeZone: "Asia/Dubai" });
+    if (k === today) return "اليوم";
+    if (k === y) return "أمس";
+    return k;
+  };
 
   const clean = (t) => String(t || "").replace(/<[^>]+>/g, "");
 
@@ -191,16 +222,29 @@ export default function AdminChat() {
               }}><X size={18} /></button>
             </div>
 
-            <div style={{ flex: 1, overflowY: "auto", padding: "14px 13px" }}>
+            <div onScroll={acOnScroll} style={{ flex: 1, overflowY: "auto", padding: "14px 13px" }}>
               {msgs.map((m, i) => (
                 <div key={i} style={{ marginBottom: 13 }}>
+                  {(i === 0 || acDay(m.created_at) !== acDay(msgs[i - 1]?.created_at)) && (
+                    <div style={{ textAlign: "center", margin: "8px 0 12px" }}>
+                      <span style={{
+                        fontSize: 10, color: "var(--txt-3)",
+                        background: "rgba(255,255,255,0.06)",
+                        padding: "3px 11px", borderRadius: 10,
+                      }}>{acLabel(m.created_at)}</span>
+                    </div>
+                  )}
                   {m.message ? (
                   <div style={{
                     maxWidth: "85%", width: "fit-content",
                     background: "var(--bg-2)", borderRadius: "13px 13px 13px 4px",
                     padding: "9px 12px", fontSize: 12.5, color: "var(--txt-1)",
                     lineHeight: 1.7,
-                  }}>{m.message}</div>
+                  }}>{m.message}
+                    <div dir="ltr" style={{ fontSize: 9.5, opacity: .55, marginTop: 3 }}>
+                      {acTime(m.created_at)}
+                    </div>
+                  </div>
                   ) : null}
                   {m.media ? (
                     <div style={{ width: "fit-content", maxWidth: "85%", marginBottom: 6 }}>
