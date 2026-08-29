@@ -10,13 +10,45 @@ export default function Admin() {
   const { t, lang } = useLang();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
-  const [sheetUser, setSheetUser] = useState(null);
+  // 👤 لوحة المشترك في العنوان أيضاً — فلا تُغلق عند التحديث.
+  const [sheetUser, _setSheetRaw] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.hash.replace(/^#/, "")).get("u") || null;
+    } catch (e) { return null; }
+  });
+  const setSheetUser = (uid) => {
+    _setSheetRaw(uid);
+    try {
+      const p = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      if (uid) p.set("u", uid); else p.delete("u");
+      window.location.hash = p.toString();
+    } catch (e) { /* */ }
+  };
   const [frozen, setFrozen] = useState(false);
   const [bcast, setBcast] = useState("");
   const [refs, setRefs] = useState(null);      // 🎁 الإحالات
   const [wds, setWds] = useState([]);          // طلبات السحب
   const [openRef, setOpenRef] = useState(null); // 👤 الحساب المفتوح
-  const [tab, setTab] = useState("overview"); // 📑 التبويب الحالي
+  // 📑 التبويب في العنوان — فالتحديث يُبقيك مكانك بدل الرجوع للرئيسية.
+  const _readTab = () => {
+    try {
+      const h = new URLSearchParams(window.location.hash.replace(/^#/, "")).get("t");
+      return h || localStorage.getItem("wx_admin_tab") || "overview";
+    } catch (e) { return "overview"; }
+  };
+  const [tab, _setTabRaw] = useState(_readTab);
+  const setTab = (k) => {
+    _setTabRaw(k);
+    try {
+      localStorage.setItem("wx_admin_tab", k);
+      window.location.hash = "t=" + k;
+    } catch (e) { /* */ }
+  };
+  useEffect(() => {
+    const onHash = () => _setTabRaw(_readTab());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
 
   // 📱 بيان منفصل — فتُثبَّت لوحة الإدارة كأيقونة مستقلّة
   useEffect(() => {
