@@ -203,7 +203,11 @@ export default function AdminChat() {
           padding: 16,
         }}>
           <div onClick={(e) => e.stopPropagation()} style={{
-            width: "min(460px, 100%)", height: "min(560px, 85vh)",
+            // 📱 شاشة كاملة على الموبايل — كانت نافذة صغيرة يصعب
+            //    القراءة فيها. وعلى الشاشات الكبيرة تبقى نافذة مريحة.
+            width: window.innerWidth < 720 ? "100%" : "min(520px, 100%)",
+            height: window.innerWidth < 720 ? "100dvh" : "min(620px, 88vh)",
+            borderRadius: window.innerWidth < 720 ? 0 : undefined,
             background: "var(--bg-1)", borderRadius: 16,
             border: "1px solid var(--bg-3)",
             display: "flex", flexDirection: "column", overflow: "hidden",
@@ -266,7 +270,11 @@ export default function AdminChat() {
                       borderRadius: "13px 13px 4px 13px",
                       padding: "9px 12px", fontSize: 12.5, color: "var(--txt-2)",
                       lineHeight: 1.75,
-                    }}>{clean(m.reply)}{m.auto ? " 🤖" : ""}</div>
+                    }}>{clean(m.reply)}{m.auto ? " 🤖" : ""}
+                      <div dir="ltr" style={{ fontSize: 9.5, opacity: .55, marginTop: 3 }}>
+                        {acTime(m.replied_at || m.created_at)}
+                      </div>
+                    </div>
                   )}
                 </div>
               ))}
