@@ -242,6 +242,50 @@ async def radar_positions(market: str = "futures"):
     return {"positions": out}
 
 
+@router.get("/my-spot-positions")
+async def my_spot_positions(user=Depends(get_current_user)):
+    """صفقات السبوت الحقيقية لهذا المشترك — من منصّته هو.
+
+    كانت صفحة الصفقات تعرض صفقات النظام الداخلية للجميع، فيرى
+    المشترك عملة لا يملكها. ونظامنا حقيقيّ: ما يُعرض هنا هو ما
+    اشتراه فعلاً وما زال في محفظته.
+    """
+    import sqlite3 as _sq
+    uid = user["sub"]
+    out = []
+    try:
+        cx = _sq.connect("/opt/whalex/db/whalex.db"); cx.row_factory = _sq.Row
+        rows = [dict(r) for r in cx.execute(
+            "SELECT * FROM spot_positions_multi WHERE user_id=? AND status='open'",
+            (uid,))]
+        cx.close()
+    except Exception as e:
+        log.debug("my spot: %s", e)
+        return {"positions": []}
+    if not rows:
+        return {"positions": []}
+    try:
+        from radars.spot.scout_spot import _prices as _spx
+    except Exception:
+        _spx = {}
+    for r in rows:
+        e = float(r.get("entry") or 0)
+        px = float(_spx.get(r.get("symbol")) or 0) or e
+        out.append({
+            "symbol": r.get("symbol"),
+            "direction": "LONG",
+            "entry": e,
+            "current": px,
+            "leverage": 1,
+            "size": r.get("qty"),
+            "exchange": r.get("exchange"),
+            "opened_at": r.get("ts"),
+            "radar": "WhaleX Spot",
+            "pnl_pct": round((px - e) / e * 100, 2) if e else 0,
+        })
+    return {"positions": out}
+
+
 @router.get("/binance-positions")
 async def binance_positions(user=Depends(get_current_user)):
     """صفقات Binance الحقيقية — حيّة + قابلة للإغلاق."""

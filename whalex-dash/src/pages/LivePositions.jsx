@@ -59,8 +59,8 @@ export default function LivePositions() {
     const mk = getMarket();
     const hdr = { headers: { Authorization: `Bearer ${localStorage.getItem("wx_token") || ""}` } };
     try {
-      const url = mk === "futures"
-        ? "/api/live/binance-positions"
+      const url = mk === "futures" ? "/api/live/binance-positions"
+        : mk === "spot" ? "/api/live/my-spot-positions"
         : `/api/live/radar-positions?market=${mk}`;
       const r = await fetch(url, hdr).then((x) => x.json());
       setRadar(r?.positions || []);
