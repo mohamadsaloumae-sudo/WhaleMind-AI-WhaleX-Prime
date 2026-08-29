@@ -759,6 +759,38 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
     side = "BUY" if direction == "LONG" else "SELL"
     trade_usdt = creds["trade_amount_usdt"]
 
+    # 🛡️ حارس الهامش — لا نستهلك رصيد المشترك كلّه.
+    #    مقيس: مشترك رصيده 10.18$ فُتحت له 3 صفقات بهامش 6$، فبقي
+    #    متاحاً 4.13$ لا يكفي رسوم الفتح والإغلاق والتمويل.
+    #    والقاعدة: نُبقي 5% سائلاً (أو 3$ أيّهما أكبر)، وعدد المراكز
+    #    يُشتقّ من الرصيد ومبلغ الصفقة لا من رقم ثابت.
+    try:
+        from services.margin_guard import check as _mg_check
+        _bal = 0.0
+        for _b in client.futures_account_balance():
+            if _b.get("asset") == "USDT":
+                _bal = float(_b.get("balance") or 0)
+                break
+        _used = 0.0
+        try:
+            for _p in client.futures_position_information():
+                if abs(float(_p.get("positionAmt") or 0)) > 0:
+                    _used += abs(float(_p.get("initialMargin") or 0))
+        except Exception:
+            pass
+        _lv_now = float(creds.get("leverage") or signal.get("leverage") or 5)
+        _ok, _amt, _why = _mg_check(_bal, len(_open), _used,
+                                    float(trade_usdt), _lv_now)
+        if not _ok:
+            log.info("🛡️ %s %s مُنعت — %s", user_id[:8], symbol, _why)
+            return {"success": False, "error": f"margin_guard: {_why}"}
+        if _amt < float(trade_usdt):
+            log.info("🛡️ %s %s صُغِّر المبلغ %.2f$ → %.2f$",
+                     user_id[:8], symbol, float(trade_usdt), _amt)
+        trade_usdt = _amt
+    except Exception as _mge:
+        log.warning("🛡️ حارس الهامش %s: %s", symbol, _mge)
+
     # الرافعة: اختيار المستخدم إن وُجد، وإلا رافعة الإشارة (أوتو)
     _user_lev = creds.get("leverage")
     leverage = int(_user_lev) if _user_lev else 20
