@@ -152,7 +152,10 @@ function TradeCard({ t, L, ar, isOpen }) {
 
 export default function TradeLedger({ data, ar = true }) {
   const L = ar ? AR : EN;
-  const [tab, setTab] = useState("closed");
+  // 📂 نفتح على التبويب الذي فيه بيانات — فالمشترك الجديد كل صفقاته
+  //    مفتوحة، وتبويب "المغلقة" الفارغ يوهم بأن الصفحة لا تعمل.
+  const [tab, setTab] = useState(
+    (data && (data.recent || []).length) ? "closed" : "open");
   if (!data) return null;
   const closed = data.recent || [];
   const open = data.open_list || [];
