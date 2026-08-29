@@ -52,21 +52,18 @@ export default function LivePositions() {
   }, [radar]);
 
   async function loadRadar() {
-    // 📊 صفقات المشترك الحقيقية من منصّته — لا صفقات النظام الداخلية.
-    //    كانت الصفحة تعرض radar-positions للجميع، فيرى المشترك صفقة
-    //    لا يملكها ويظنّها ماله. نظامنا حقيقيّ بالكامل: ما يُعرض هنا
-    //    هو ما هو مفتوح فعلاً على حسابه، بلا زيادة ولا نقصان.
-    const mk = getMarket();
-    const hdr = { headers: { Authorization: `Bearer ${localStorage.getItem("wx_token") || ""}` } };
+    // 📡 صفقات الرادار المفتوحة — يراها كل مشترك.
+    //    وهي صفقات النظام لا صفقات المشترك الشخصية؛ سجلّه الخاصّ
+    //    وأرباحه الحقيقية في صفحة "صفقاتي" وسجلّ التداول.
     try {
-      const url = mk === "futures" ? "/api/live/binance-positions"
-        : mk === "spot" ? "/api/live/my-spot-positions"
-        : `/api/live/radar-positions?market=${mk}`;
-      const r = await fetch(url, hdr).then((x) => x.json());
+      const r = await fetch(`/api/live/radar-positions?market=${getMarket()}`,
+        { headers: { Authorization: `Bearer ${localStorage.getItem("wx_token") || ""}` } })
+        .then((x) => x.json());
       setRadar(r?.positions || []);
     } catch { /* */ }
     finally { setLoaded(true); }
   }
+
 
   useEffect(() => {
     loadRadar();
