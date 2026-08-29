@@ -203,11 +203,20 @@ export default function AdminChat() {
           padding: 16,
         }}>
           <div onClick={(e) => e.stopPropagation()} style={{
-            // 📱 شاشة كاملة على الموبايل — كانت نافذة صغيرة يصعب
-            //    القراءة فيها. وعلى الشاشات الكبيرة تبقى نافذة مريحة.
+            // 📱 شاشة كاملة على الموبايل مع احترام أشرطة النظام.
+            //    كان 100dvh يمتدّ تحت شريط الملاحة فيصعب التحكّم،
+            //    فنطرح المنطقة الآمنة أعلى وأسفل (env safe-area).
             width: window.innerWidth < 720 ? "100%" : "min(520px, 100%)",
-            height: window.innerWidth < 720 ? "100dvh" : "min(620px, 88vh)",
+            height: window.innerWidth < 720
+              ? "calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))"
+              : "min(620px, 88vh)",
+            maxHeight: window.innerWidth < 720
+              ? "calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))"
+              : "88vh",
+            marginTop: window.innerWidth < 720 ? "env(safe-area-inset-top, 0px)" : 0,
+            marginBottom: window.innerWidth < 720 ? "env(safe-area-inset-bottom, 0px)" : 0,
             borderRadius: window.innerWidth < 720 ? 0 : undefined,
+            display: "flex", flexDirection: "column",
             background: "var(--bg-1)", borderRadius: 16,
             border: "1px solid var(--bg-3)",
             display: "flex", flexDirection: "column", overflow: "hidden",
@@ -283,7 +292,8 @@ export default function AdminChat() {
 
             <div style={{
               display: "flex", gap: 8, padding: "11px 12px",
-              borderTop: "1px solid var(--bg-3)",
+              paddingBottom: "calc(11px + env(safe-area-inset-bottom, 0px))",
+              borderTop: "1px solid var(--bg-3)", flexShrink: 0,
             }}>
               <input
                 value={text}
