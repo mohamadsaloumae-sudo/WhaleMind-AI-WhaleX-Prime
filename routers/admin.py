@@ -245,6 +245,14 @@ def user_detail(user_id: str, user=Depends(require_admin)):
         out["ledger"] = _ustats(user_id)
     except Exception:
         out["ledger"] = {}
+    # 🔑 تشخيص الربط — نعرف خطأه من لوحتنا بدل مراسلته.
+    #    مقيس على 3 مشتركين: الثلاثة لم يفعّلوا صلاحية الفيوتشر،
+    #    وهذا جواب رسائل "ربطتُ ولا يتداول".
+    try:
+        from services.binance_diag import diagnose as _diag
+        out["link_check"] = _diag(user_id)
+    except Exception as _de:
+        out["link_check"] = {"error": str(_de)[:80]}
     return out
 
 
