@@ -126,6 +126,22 @@ def message_for(d: dict) -> tuple:
                 "من داخل منصّتك.\n\n"
                 "ونوصي بعشرين دولاراً فأكثر ليعمل النظام بمرونة.")
 
+    # 🔌 صفقات فاتته لأن عملتها على منصّة لم يربطها
+    miss = d.get("missed_exchanges") or {}
+    if miss:
+        top = sorted(miss.items(), key=lambda x: -x[1])[:3]
+        names = {"bybit": "بايبت", "okx": "أوكي إكس", "bitget": "بيتجت",
+                 "gate": "جيت", "mexc": "إم إكس سي", "bingx": "بينج إكس"}
+        lines = "\n".join("   • " + names.get(k, k) + f": {v} صفقة" for k, v in top)
+        return ("missed_ex",
+                "🔌 فرص فاتتك من وِيل إكس\n\n"
+                "بعض إشاراتنا على منصّات لم تربط مفاتيحها معنا، "
+                "فلم نستطع تنفيذها في حسابك.\n\n"
+                "وما فاتك خلال اليومين الماضيين:\n" + lines + "\n\n"
+                "الحلّ: افتح صفحة التداول الآليّ في التطبيق واربط مفتاح "
+                "المنصّة التي تريد، ثم سيبدأ التنفيذ عليها تلقائياً.\n\n"
+                "وصفحة دليل الاستخدام تشرح خطوات كل منصّة بالتفصيل.")
+
     if not d.get("auto_trade_on"):
         return ("auto_off",
                 "⚙️ تنبيه من وِيل إكس\n\n"
@@ -158,6 +174,29 @@ def check_all() -> dict:
         try:
             d = diagnose(uid)
             out["checked"] += 1
+            # نُحصي ما فاته بسبب منصّة غير مربوطة
+            try:
+                c2 = sqlite3.connect(DB)
+                have = {r[0] or "binance" for r in c2.execute(
+                    "SELECT exchange FROM user_binance_credentials WHERE user_id=?",
+                    (uid,))}
+                rows2 = c2.execute(
+                    "SELECT signal_symbol FROM auto_trade_logs WHERE user_id=? "
+                    "AND executed=0 AND error_message LIKE '%no_credentials%' "
+                    "AND created_at > datetime('now','-2 days')", (uid,)).fetchall()
+                c2.close()
+                if rows2:
+                    u2 = sqlite3.connect("/opt/whalex/multi_universe.db")
+                    cnt = {}
+                    for (sym,) in rows2:
+                        e = u2.execute("SELECT exchange FROM universe WHERE symbol=?",
+                                       (sym,)).fetchone()
+                        if e and e[0] and e[0] not in have:
+                            cnt[e[0]] = cnt.get(e[0], 0) + 1
+                    u2.close()
+                    d["missed_exchanges"] = cnt
+            except Exception:
+                pass
             key, text = message_for(d)
             if not key:
                 out["ok"] += 1
