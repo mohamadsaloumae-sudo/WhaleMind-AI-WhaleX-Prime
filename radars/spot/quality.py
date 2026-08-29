@@ -52,6 +52,31 @@ def _volumes() -> dict:
     return _VOL_CACHE
 
 
+_VOL_CACHE_P: dict = {}
+_VOL_P_TS = [0.0]
+PROFILES_DB = "/opt/whalex/coin_profiles.db"
+
+
+def _is_volatile(symbol: str) -> bool:
+    """عملة صنّفها ملفّ الفيوتشر غير آمنة — وهي الأربح في السبوت."""
+    import sqlite3
+    import time as _t
+    if not symbol:
+        return False
+    if _t.time() - _VOL_P_TS[0] > 900 or not _VOL_CACHE_P:
+        try:
+            c = sqlite3.connect(PROFILES_DB)
+            _VOL_CACHE_P.clear()
+            for sym, safe in c.execute(
+                    "SELECT symbol, safe_to_trade FROM coin_profiles"):
+                _VOL_CACHE_P[sym] = (safe == 0)
+            c.close()
+            _VOL_P_TS[0] = _t.time()
+        except Exception as e:
+            log.debug("ملفّات العملات: %s", e)
+    return bool(_VOL_CACHE_P.get(symbol))
+
+
 def is_big(symbol: str) -> bool:
     return _volumes().get(symbol, 0) >= BIG_VOL
 
@@ -86,10 +111,20 @@ def check(strategies: str, path: str = "", symbol: str = "") -> tuple:
         return False, (f"تصحيح ضحل {depth:.1f}% "
                        f"(الحدّ {need}%{' — عملة كبيرة' if big else ''})")
 
+    # 📊 تأكيد الحجم أو عملة متقلّبة — أيّهما كفى.
+    #    اكتشاف مقيس: ملفّات العملات بُنيت للفيوتشر، حيث التلاعب
+    #    والتقلّب يقتلان المركز المرفوع. وفي السبوت — بلا رافعة ولا
+    #    تصفية — التقلّب حركة أوسع وربح أكبر.
+    #      آمنة للفيوتشر  : 163 صفقة | فوز 26% | -20.1%
+    #      غير آمنة       :  73 صفقة | فوز 41% | +29.0%
+    #    وبعد تثبيت عمق التصحيح والاختبار على نصفين، الفرق ثابت.
+    #    والتركيبة (عمق 6%+ ومعها حجم أو تقلّب): 64 صفقة | فوز 43%
+    #    | +39.4% — أفضل من اشتراط الحجم وحده (55 صفقة | +33.6%).
     if NEED_VOLUME:
         vol = _num(s, r"حجم\s*[x×]\s*([0-9.]+)")
-        if vol is None:
-            return False, "بلا تأكيد حجم"
+        if vol is None and not _is_volatile(symbol):
+            return False, "بلا تأكيد حجم ولا تقلّب"
 
-    return True, (f"تصحيح {depth:.1f}% · حجم مؤكَّد"
+    _tag = "حجم مؤكَّد" if _num(s, r"حجم\s*[x×]\s*([0-9.]+)") else "عملة متقلّبة"
+    return True, (f"تصحيح {depth:.1f}% · {_tag}"
                   + (" · عملة كبيرة" if big else ""))
