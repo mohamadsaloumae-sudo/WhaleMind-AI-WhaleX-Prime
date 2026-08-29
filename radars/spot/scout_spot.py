@@ -818,7 +818,7 @@ async def tracker_loop():
                                     "INSERT INTO spot_results(symbol,entry,exit_price,pnl_pct,"
                                     "outcome,reason,ts,opened_ts,exchange,path,strategies,"
                                     "rsi,range_pos,taker,vol_infl,hour_utc) "
-                                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                                     (s.symbol, s.entry, px, round(pnl, 2), outcome, reason,
                                      int(now), _op, _ex, _path, _strat[:400],
                                      _ctx.get("rsi"), _ctx.get("range_pos"),
@@ -827,7 +827,11 @@ async def tracker_loop():
                                      if (_op or now) else None))
                                 cx.commit(); cx.close()
                             except Exception as _re:
-                                log.debug("spot result: %s", _re)
+                                # ⚠️ كان log.debug فابتُلع الخطأ 31 ساعة:
+                                #    "15 values for 16 columns" — فلم يُسجَّل
+                                #    أي إغلاق سبوت رغم عشرات الإغلاقات.
+                                log.error("🪙📋 فشل تسجيل نتيجة %s: %s",
+                                          s.symbol, _re)
 
                         # 🔒 تتبّع القمة + رفع الوقف عند كل هدف (قفل الربح)
                         _pk = _peak.get(s.id, s.entry)
