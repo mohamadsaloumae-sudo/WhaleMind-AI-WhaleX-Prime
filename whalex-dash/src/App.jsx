@@ -1,4 +1,5 @@
 import React, { Suspense } from "react";
+import InstallPrompt from "./components/InstallPrompt.jsx";
 // ════════════════════════════════════════════════════════════
 //  جذر التطبيق — يبني الـ routing تلقائياً من PAGES
 // ════════════════════════════════════════════════════════════
@@ -22,6 +23,8 @@ function Protected() {
   const isAdmin = user.tier === "admin";
 
   return (
+    <>
+    <InstallPrompt />
     <Suspense fallback={<div className="loading">جارٍ التحميل…</div>}>
     <Routes>
       {PAGES.filter((p) => !p.adminOnly || isAdmin).map((p) => {
@@ -39,6 +42,7 @@ function Protected() {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     </Suspense>
+    </>
   );
 }
 
