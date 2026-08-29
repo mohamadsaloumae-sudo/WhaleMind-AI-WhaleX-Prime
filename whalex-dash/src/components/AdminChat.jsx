@@ -146,6 +146,7 @@ export default function AdminChat() {
   };
 
   const who = threads.find((t) => t.user_id === open);
+  const _isMob = typeof window !== "undefined" && window.innerWidth < 720;
 
   return (
     <div className="card" style={{ marginTop: 16, padding: 16 }}>
@@ -200,23 +201,22 @@ export default function AdminChat() {
         <div onClick={() => setOpen(null)} style={{
           position: "fixed", inset: 0, zIndex: 9998,
           background: "rgba(0,0,0,.7)", display: "grid", placeItems: "center",
-          padding: 16,
+          // 📱 بلا حشو على الموبايل — الحشو 16px مع ارتفاع 100dvh
+          //    يدفع شريط الكتابة تحت أزرار النظام.
+          padding: window.innerWidth < 720 ? 0 : 16,
         }}>
           <div onClick={(e) => e.stopPropagation()} style={{
             // 📱 شاشة كاملة على الموبايل مع احترام أشرطة النظام.
             //    كان 100dvh يمتدّ تحت شريط الملاحة فيصعب التحكّم،
             //    فنطرح المنطقة الآمنة أعلى وأسفل (env safe-area).
-            width: window.innerWidth < 720 ? "100%" : "min(520px, 100%)",
-            height: window.innerWidth < 720
-              ? "calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))"
-              : "min(620px, 88vh)",
-            maxHeight: window.innerWidth < 720
-              ? "calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))"
-              : "88vh",
-            marginTop: window.innerWidth < 720 ? "env(safe-area-inset-top, 0px)" : 0,
-            marginBottom: window.innerWidth < 720 ? "env(safe-area-inset-bottom, 0px)" : 0,
-            borderRadius: window.innerWidth < 720 ? 0 : undefined,
-            display: "flex", flexDirection: "column",
+            // 📐 على الموبايل: الشاشة كاملةً بلا حشو، والمنطقة الآمنة
+            //    تُحترَم داخل الشريط السفليّ نفسه لا بهوامش خارجية.
+            width: _isMob ? "100%" : "min(520px, 100%)",
+            height: _isMob ? "100dvh" : "min(620px, 88vh)",
+            maxHeight: _isMob ? "100dvh" : "88vh",
+            borderRadius: _isMob ? 0 : undefined,
+            display: "flex", flexDirection: "column", overflow: "hidden",
+            paddingTop: _isMob ? "env(safe-area-inset-top, 0px)" : 0,
             background: "var(--bg-1)", borderRadius: 16,
             border: "1px solid var(--bg-3)",
             display: "flex", flexDirection: "column", overflow: "hidden",
