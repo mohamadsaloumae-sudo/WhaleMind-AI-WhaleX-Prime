@@ -777,6 +777,18 @@ async def tracker_loop():
                                 except Exception as _te: log.debug("spot ann: %s", _te)
 
                         def _log_result(outcome, reason):
+                            # 🧠 نُغذّي الدماغ من كل إغلاق لا من ثلاثة مسارات.
+                            #    مقيس: 180 صفّاً فقط وآخر تسجيل قبل 163 ساعة،
+                            #    لأن record_spot_outcome كانت في locked و sl و tp
+                            #    فقط — و flow_cut يُغلق 62% من الصفقات ولا يُسجَّل.
+                            #    فالدماغ يرى الرابحة ولا يرى الخاسرة، ويُرجع
+                            #    "المتوسط العام" لأغلب الحالات لأنه لم يتعلّم.
+                            try:
+                                from quant_engine.spot_brain import record_spot_outcome
+                                record_spot_outcome(s.symbol, int(outcome),
+                                                    float(pnl))
+                            except Exception as _be:
+                                log.debug("🧠 دماغ السبوت %s: %s", s.symbol, _be)
                             try:
                                 import sqlite3
                                 cx = sqlite3.connect("/opt/whalex/db/whalex.db")
