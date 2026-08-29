@@ -12,6 +12,31 @@
 import logging
 log = logging.getLogger("ob_value")
 _CS_CACHE = {}
+_MKT_CLIENTS: dict = {}       # عميل واحد لكل منصّة — لا لكل عملة
+
+
+def _markets_of(exchange: str) -> dict:
+    """أسواق المنصّة من عميل واحد مشترك.
+
+    🔴 تسريب ذاكرة مقيس: كانت contract_size تُنشئ عميل ccxt جديداً
+    وتستدعي load_markets() لكل عملة لم تُخزَّن بعد. وأسواق باينانس
+    وحدها 4,597 سوقاً تشغل 192 ميجابايت، والرادار يمسح 372 عملة —
+    فكانت الذاكرة تنمو 200 ميجابايت في الدقيقة حتى تمتلئ (قِيس:
+    2,692 ميجا بعد الإقلاع بثلاثين ثانية، و3,514 بعد أربع دقائق).
+    والآن: عميل واحد لكل منصّة تُحمَّل أسواقه مرّة واحدة.
+    """
+    c = _MKT_CLIENTS.get(exchange)
+    if c is not None:
+        return c.markets or {}
+    import ccxt
+    opts = {"defaultType": "swap"}
+    if exchange == "okx":
+        opts["fetchMarkets"] = ["swap"]
+    c = getattr(ccxt, exchange)({"enableRateLimit": True, "timeout": 20000,
+                                 "options": opts})
+    c.load_markets()
+    _MKT_CLIENTS[exchange] = c
+    return c.markets or {}
 
 
 def contract_size(exchange: str, symbol: str, futures: bool = True) -> float:
@@ -23,13 +48,7 @@ def contract_size(exchange: str, symbol: str, futures: bool = True) -> float:
         return _CS_CACHE[k]
     cs = 1.0
     try:
-        import ccxt
-        opts = {"defaultType": "swap"}
-        if exchange == "okx":
-            opts["fetchMarkets"] = ["swap"]
-        c = getattr(ccxt, exchange)({"enableRateLimit": True, "timeout": 20000,
-                                     "options": opts})
-        m = c.load_markets()
+        m = _markets_of(exchange)
         u = symbol.upper()
         base = u[:-4] if u.endswith("USDT") else u
         for cand in (f"{base}/USDT:USDT", f"{base}/USDT"):
