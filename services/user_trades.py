@@ -99,12 +99,25 @@ def stats(user_id: str):
             "net_pct": round(sum(r["pnl_pct"] for r in mc), 2),
             "net_usdt": round(sum(r.get("pnl_usdt") or 0 for r in mc), 2),
         }
+    # 📊 نفصل الربح عن الخسارة — لا الصافي وحده.
+    gw_pct = round(sum(r["pnl_pct"] for r in wins), 2)
+    gl_pct = round(sum(r["pnl_pct"] for r in losses), 2)
+    gw_usd = round(sum(r.get("pnl_usdt") or 0 for r in wins), 2)
+    gl_usd = round(sum(r.get("pnl_usdt") or 0 for r in losses), 2)
+    open_rows = [r for r in rows if r.get("status") == "open"]
     return {
-        "open": len([r for r in rows if r.get("status") == "open"]),
+        "open": len(open_rows),
         "closed": len(closed), "wins": len(wins), "losses": len(losses),
         "win_rate": round(len(wins) / len(closed) * 100, 1) if closed else 0,
         "net_pct": round(sum(r["pnl_pct"] for r in closed), 2),
         "net_usdt": round(sum(r.get("pnl_usdt") or 0 for r in closed), 2),
+        "gross_win_pct": gw_pct, "gross_loss_pct": gl_pct,
+        "gross_win_usdt": gw_usd, "gross_loss_usdt": gl_usd,
+        "avg_win_pct": round(gw_pct / len(wins), 2) if wins else 0,
+        "avg_loss_pct": round(gl_pct / len(losses), 2) if losses else 0,
+        "best": max((r["pnl_pct"] for r in closed), default=None),
+        "worst": min((r["pnl_pct"] for r in closed), default=None),
         "by_market": by_market,
-        "recent": closed[:8],
+        "recent": closed[:40],
+        "open_list": open_rows,
     }

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { X, Check, Ban, Send } from "lucide-react";
 import { api } from "../lib/api.js";
+import TradeLedger from "./TradeLedger.jsx";
 
 const DURATIONS = [7, 30, 90, 180, 365];
 
@@ -239,53 +240,7 @@ export default function UserSheet({ userId, onClose, onChanged }) {
           </div>
         )}
 
-        {d?.ledger && d.ledger.closed > 0 && (
-          <div style={{ padding: 12, borderRadius: 12, marginBottom: 14, background: "rgba(74,222,128,0.07)", border: "1px solid rgba(74,222,128,0.2)" }}>
-            <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 9 }}>💰 أرباحه الحقيقية على باينانس</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 7, marginBottom: 9 }}>
-              <div style={{ padding: "9px 10px", background: "rgba(255,255,255,0.04)", borderRadius: 9 }}>
-                <div style={{ fontSize: 10.5, color: "var(--txt-3)" }}>صفقات مغلقة</div>
-                <div style={{ fontSize: 15, fontWeight: 800 }}>{d.ledger.closed} <span style={{ fontSize: 11, color: "var(--txt-3)" }}>({d.ledger.open} مفتوحة)</span></div>
-              </div>
-              <div style={{ padding: "9px 10px", background: "rgba(255,255,255,0.04)", borderRadius: 9 }}>
-                <div style={{ fontSize: 10.5, color: "var(--txt-3)" }}>نسبة النجاح</div>
-                <div style={{ fontSize: 15, fontWeight: 800 }}>{d.ledger.win_rate}%</div>
-              </div>
-              <div style={{ padding: "9px 10px", background: "rgba(34,197,94,0.10)", borderRadius: 9 }}>
-                <div style={{ fontSize: 10.5, color: "var(--txt-3)" }}>رابحة</div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: "#22c55e" }}>{d.ledger.wins}</div>
-              </div>
-              <div style={{ padding: "9px 10px", background: "rgba(239,68,68,0.10)", borderRadius: 9 }}>
-                <div style={{ fontSize: 10.5, color: "var(--txt-3)" }}>خاسرة</div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: "#ef4444" }}>{d.ledger.losses}</div>
-              </div>
-            </div>
-            <div style={{
-              padding: "10px 12px", borderRadius: 9, textAlign: "center",
-              background: (d.ledger.net_usdt || 0) >= 0 ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)",
-            }}>
-              <div style={{ fontSize: 10.5, color: "var(--txt-3)" }}>صافي الربح الفعلي</div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: (d.ledger.net_usdt || 0) >= 0 ? "#22c55e" : "#ef4444" }} dir="ltr">
-                {(d.ledger.net_usdt || 0) >= 0 ? "+" : ""}{d.ledger.net_usdt} USDT
-              </div>
-              <div style={{ fontSize: 11, color: "var(--txt-3)", marginTop: 2 }} dir="ltr">
-                ({(d.ledger.net_pct || 0) >= 0 ? "+" : ""}{d.ledger.net_pct}%)
-              </div>
-            </div>
-            {(d.ledger.recent || []).length > 0 && (
-              <div style={{ display: "grid", gap: 4, marginTop: 9 }}>
-                {d.ledger.recent.slice(0, 5).map((t, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, padding: "6px 9px", background: "rgba(255,255,255,0.03)", borderRadius: 7 }}>
-                    <span><b>{t.symbol}</b> · {t.direction}</span>
-                    <span style={{ color: t.pnl_pct >= 0 ? "#22c55e" : "#ef4444", fontWeight: 700 }} dir="ltr">
-                      {t.pnl_pct >= 0 ? "+" : ""}{Number(t.pnl_pct).toFixed(2)}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {d?.ledger ? <TradeLedger data={d.ledger} ar /> : null}
 
         <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8 }}>📊 تداوله الفعلي</div>
         {d?.auto_trades && d.auto_trades.total > 0 ? (

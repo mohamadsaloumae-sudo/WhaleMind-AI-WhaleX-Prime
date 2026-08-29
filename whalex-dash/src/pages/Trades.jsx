@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { livePositions, api } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
+import TradeLedger from "../components/TradeLedger.jsx";
 
 export default function Trades() {
   const { t } = useLang();
@@ -58,62 +59,7 @@ export default function Trades() {
       {!connected && <div className="alert info">{t("requiresBinance")}</div>}
       {msg && <div className="card" style={{ marginBottom: 12, padding: 10, fontSize: 13, textAlign: "center" }}>{msg}</div>}
 
-      {ledger && (ledger.closed > 0 || ledger.open > 0) && (
-        <div className="card" style={{ marginBottom: 12 }}>
-          <div className="card-title">📒 {t("myLedger") || "سجلّ تداولي"}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 7, marginBottom: 9 }}>
-            <div style={{ padding: "9px 10px", background: "rgba(255,255,255,0.04)", borderRadius: 9 }}>
-              <div style={{ fontSize: 10.5, color: "var(--txt-3)" }}>{t("closedTrades") || "صفقات مغلقة"}</div>
-              <div style={{ fontSize: 15, fontWeight: 800 }}>
-                {ledger.closed} <span style={{ fontSize: 11, color: "var(--txt-3)" }}>({ledger.open} {t("openLbl") || "مفتوحة"})</span>
-              </div>
-            </div>
-            <div style={{ padding: "9px 10px", background: "rgba(255,255,255,0.04)", borderRadius: 9 }}>
-              <div style={{ fontSize: 10.5, color: "var(--txt-3)" }}>{t("winRateLbl") || "نسبة النجاح"}</div>
-              <div style={{ fontSize: 15, fontWeight: 800 }}>{ledger.win_rate}%</div>
-            </div>
-            <div style={{ padding: "9px 10px", background: "rgba(34,197,94,0.10)", borderRadius: 9 }}>
-              <div style={{ fontSize: 10.5, color: "var(--txt-3)" }}>{t("winsLbl") || "رابحة"}</div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: "#22c55e" }}>{ledger.wins}</div>
-            </div>
-            <div style={{ padding: "9px 10px", background: "rgba(239,68,68,0.10)", borderRadius: 9 }}>
-              <div style={{ fontSize: 10.5, color: "var(--txt-3)" }}>{t("lossesLbl") || "خاسرة"}</div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: "#ef4444" }}>{ledger.losses}</div>
-            </div>
-          </div>
-          <div style={{
-            padding: "10px 12px", borderRadius: 9, textAlign: "center",
-            background: (ledger.net_usdt || 0) >= 0 ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)",
-          }}>
-            <div style={{ fontSize: 10.5, color: "var(--txt-3)" }}>{t("netRealized") || "صافي الربح الفعلي"}</div>
-            <div dir="ltr" style={{ fontSize: 18, fontWeight: 800, color: (ledger.net_usdt || 0) >= 0 ? "#22c55e" : "#ef4444" }}>
-              {(ledger.net_usdt || 0) >= 0 ? "+" : ""}{ledger.net_usdt} USDT
-            </div>
-            <div dir="ltr" style={{ fontSize: 11, color: "var(--txt-3)", marginTop: 2 }}>
-              ({(ledger.net_pct || 0) >= 0 ? "+" : ""}{ledger.net_pct}%)
-            </div>
-          </div>
-          {(ledger.recent || []).length > 0 && (
-            <div style={{ display: "grid", gap: 4, marginTop: 9 }}>
-              {ledger.recent.slice(0, 8).map((r, i) => (
-                <div key={i} style={{
-                  display: "flex", justifyContent: "space-between", alignItems: "center",
-                  fontSize: 11.5, padding: "7px 9px",
-                  background: "rgba(255,255,255,0.03)", borderRadius: 7,
-                }}>
-                  <span><b>{r.symbol}</b> · {r.direction}
-                    {r.close_reason ? <span style={{ color: "var(--txt-3)", marginInlineStart: 5 }}>· {r.close_reason}</span> : null}
-                  </span>
-                  <span dir="ltr" style={{ color: (r.pnl_pct || 0) >= 0 ? "#22c55e" : "#ef4444", fontWeight: 700 }}>
-                    {(r.pnl_pct || 0) >= 0 ? "+" : ""}{Number(r.pnl_pct || 0).toFixed(2)}%
-                    {r.pnl_usdt != null ? " · " + ((r.pnl_usdt >= 0 ? "+" : "") + Number(r.pnl_usdt).toFixed(2) + "$") : ""}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <TradeLedger data={ledger} ar={(localStorage.getItem("whalex_lang") || "ar") !== "en"} />
 
       <div className="card">
         <div className="card-title">{t("openTrades")}</div>
