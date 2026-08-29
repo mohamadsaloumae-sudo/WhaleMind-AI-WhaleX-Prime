@@ -108,10 +108,56 @@ async def sweep() -> dict:
             except Exception as e:
                 log.error("🛡️ يتيمة %s: %s", sym, str(e)[:60])
 
-    if out["orphans"]:
-        log.warning("🛡️ حارس اليتيمة: %d مشترك · %d يتيمة · أُغلق %d",
-                    out["users"], out["orphans"], out["closed"])
+        # 👻 المصالحة العكسية: صفقة "مفتوحة" في سجلّنا وليست على المنصّة.
+        #    مقيس: FETUSDT و ONGUSDT بقيتا open ساعتين بعد أن أغلقهما
+        #    أمر الوقف على باينانس — لأن close_position_for_user تخرج
+        #    قبل log_close حين لا تجد مركزاً.
+        try:
+            out["ghosts"] = out.get("ghosts", 0) + _close_ghosts(
+                uid, {p["symbol"] for p in pos}, cl)
+        except Exception as e:
+            log.debug("أشباح %s: %s", uid[:8], str(e)[:60])
+
+    if out["orphans"] or out.get("ghosts"):
+        log.warning("🛡️ الحارس: %d مشترك · %d يتيمة (أُغلق %d) · %d شبح سُجّل",
+                    out["users"], out["orphans"], out["closed"], out.get("ghosts", 0))
     return out
+
+
+def _close_ghosts(user_id: str, live: set, client) -> int:
+    """يُغلق في السجلّ ما لم يعد على المنصّة — بسعر السوق الحاليّ."""
+    from services.user_trades import log_close
+    n = 0
+    try:
+        c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
+        rows = [dict(r) for r in c.execute(
+            "SELECT symbol, opened_at FROM user_trades "
+            "WHERE user_id=? AND status='open'", (user_id,))]
+        c.close()
+    except Exception:
+        return 0
+    import time as _t
+    for r in rows:
+        sym = r["symbol"]
+        if sym in live:
+            continue
+        if (_t.time() - (r.get("opened_at") or 0)) < GRACE_SEC:
+            continue
+        px = 0.0
+        try:
+            px = float(client.futures_symbol_ticker(symbol=sym).get("price") or 0)
+        except Exception:
+            pass
+        if px <= 0:
+            continue
+        try:
+            log_close(user_id, sym, px, 0.0, "closed_on_exchange", "futures")
+            n += 1
+            log.warning("👻 سُجّل إغلاق %s للمستخدم %s (أُغلقت على المنصّة)",
+                        sym, user_id[:8])
+        except Exception as e:
+            log.debug("شبح %s: %s", sym, str(e)[:50])
+    return n
 
 
 async def guard_loop():
