@@ -142,6 +142,37 @@ def message_for(d: dict) -> tuple:
                 "المنصّة التي تريد، ثم سيبدأ التنفيذ عليها تلقائياً.\n\n"
                 "وصفحة دليل الاستخدام تشرح خطوات كل منصّة بالتفصيل.")
 
+    # 🪙 محفظة السبوت منفصلة عن محفظة العقود في باينانس، ومشترك
+    #    فعّل تداول السبوت ومحفظته فارغة لا يُشترى له شيء والرفض صامت.
+    #    مقيس: 4 من 5 مفعّلين برصيد سبوت بين صفر و2.55 دولار.
+    if d.get("spot_auto") and (d.get("spot_balance") or 0) < 5:
+        return ("spot_empty",
+                "🪙 تنبيه من "
+                "وِيل إكس\n\n"
+                "فعّلت تداول "
+                "السبوت، لكن "
+                "محفظة السبوت "
+                "عندك فيها "
+                f"{(d.get('spot_balance') or 0):.2f} دولار "
+                "فقط، فلا يُشترى "
+                "لك شيء.\n\n"
+                "ومحفظة السبوت "
+                "منفصلة عن محفظة "
+                "العقود في "
+                "المنصّة.\n\n"
+                "الحلّ:\n"
+                "١. ادخل محفظتك "
+                "في المنصّة\n"
+                "٢. اختر تحويل "
+                "داخلي\n"
+                "٣. حوّل ١٠ دولارات "
+                "على الأقلّ من "
+                "محفظة العقود "
+                "إلى محفظة "
+                "السبوت\n\n"
+                "وسيبدأ الشراء "
+                "تلقائياً.")
+
     if not d.get("auto_trade_on"):
         return ("auto_off",
                 "⚙️ تنبيه من وِيل إكس\n\n"
@@ -197,6 +228,16 @@ def check_all() -> dict:
                     d["missed_exchanges"] = cnt
             except Exception:
                 pass
+            # نُمرّر إعداد السبوت الخاصّ بالمشترك للتشخيص
+            try:
+                c3 = sqlite3.connect(DB)
+                r3 = c3.execute("SELECT spot_auto_enabled FROM "
+                                "user_binance_credentials WHERE user_id=?",
+                                (uid,)).fetchone()
+                c3.close()
+                d["spot_auto"] = bool(r3 and r3[0])
+            except Exception:
+                d["spot_auto"] = False
             key, text = message_for(d)
             if not key:
                 out["ok"] += 1
