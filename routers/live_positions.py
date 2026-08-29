@@ -258,6 +258,18 @@ async def binance_positions(user=Depends(get_current_user)):
         _pos_safe = get_open_positions(uid)
     except Exception:
         return {"positions": [], "connected": True, "error": "تعذّر الجلب"}
+    # 📅 وقت الفتح من سجلّ المشترك — الصفحة تعرضه
+    _opened = {}
+    try:
+        import sqlite3 as _sq3
+        _cq = _sq3.connect("/opt/whalex/db/whalex.db")
+        for _r in _cq.execute("SELECT symbol, opened_at FROM user_trades "
+                              "WHERE user_id=? AND status='open'", (uid,)):
+            _opened[_r[0]] = _r[1]
+        _cq.close()
+    except Exception:
+        pass
+    _enrich_open = _opened
     for p in _pos_safe:
         entry = p.get("entry_price", 0)
         mark = p.get("mark_price", 0)
