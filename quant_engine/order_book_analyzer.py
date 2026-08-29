@@ -181,6 +181,13 @@ async def _fetch_ob_multi(symbol: str, exchange: str, limit: int):
         except Exception:
             pass
         _OB_CACHE[_k] = (time.time(), _snap)
+        # 🧹 نحذف المنتهية — عمرها 8 ثوانٍ وكانت تبقى إلى الأبد،
+        #    فيتراكم آلاف اللقطات لعملات لم تعد تُفحص.
+        if len(_OB_CACHE) > 200:
+            _now = time.time()
+            for _dk in [k for k, v in list(_OB_CACHE.items())
+                        if _now - v[0] > _OB_TTL * 4]:
+                _OB_CACHE.pop(_dk, None)
         return _snap
     except Exception as e:
         log.warning("📏 دفتر %s/%s فشل: %s", exchange, symbol, e)

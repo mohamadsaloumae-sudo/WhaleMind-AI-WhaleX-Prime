@@ -8,7 +8,10 @@ log=logging.getLogger('ob_stream')
 from quant_engine.order_book_analyzer import OrderBookSnapshot, detect_walls
 
 WS = "wss://fstream.binance.com/public/stream?streams="
-_books = defaultdict(lambda: deque(maxlen=1800))
+# 🔴 كان 1800 لقطة لكل عملة، والمستعمل 50 فقط (سطرا 22 و38).
+#    مقيس: 31,755 لقطة حيّة تلتهم مئات الميجابايت، و372 عملة
+#    × 1800 = 670 ألف لقطة محتملة. و120 تكفي بفارق أمان مضاعف.
+_books = defaultdict(lambda: deque(maxlen=120))
 _signals = {}
 
 def _build(sym, d):
