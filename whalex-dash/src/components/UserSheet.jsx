@@ -163,6 +163,82 @@ export default function UserSheet({ userId, onClose, onChanged }) {
           </div>
         )}
 
+        {d?.link_check && (
+          <div style={{
+            padding: 12, borderRadius: 12, marginBottom: 14,
+            background: d.link_check.ok ? "rgba(34,197,94,0.07)" : "rgba(234,179,8,0.07)",
+            border: "1px solid " + (d.link_check.ok ? "rgba(34,197,94,0.25)" : "rgba(234,179,8,0.3)"),
+          }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 9 }}>
+              🔑 حالة الربط بباينانس
+              {d.link_check.ok ? (
+                <span style={{ color: "#22c55e", marginInlineStart: 8 }}>✓ سليم</span>
+              ) : (
+                <span style={{ color: "#eab308", marginInlineStart: 8 }}>
+                  {(d.link_check.problems || []).length} مشكلة
+                </span>
+              )}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 6, marginBottom: 9 }}>
+              {[
+                ["المفتاح", d.link_check.key_valid],
+                ["تداول فيوتشر", d.link_check.futures_enabled],
+                ["تداول سبوت", d.link_check.spot_enabled],
+                ["قائمة العناوين", d.link_check.ip_restricted],
+                ["التداول الآليّ", d.link_check.auto_trade_on],
+                ["السحب مغلق", d.link_check.withdraw_enabled === false],
+              ].map(([k, v], i) => (
+                <div key={i} style={{
+                  display: "flex", justifyContent: "space-between",
+                  padding: "7px 9px", background: "rgba(255,255,255,0.04)",
+                  borderRadius: 8, fontSize: 11.5,
+                }}>
+                  <span style={{ color: "var(--txt-3)" }}>{k}</span>
+                  <span style={{ color: v === true ? "#22c55e" : v === false ? "#ef4444" : "var(--txt-3)", fontWeight: 700 }}>
+                    {v === true ? "✓" : v === false ? "✗" : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 7, marginBottom: 9 }}>
+              <div style={{ flex: 1, padding: "8px 10px", background: "rgba(255,255,255,0.04)", borderRadius: 8 }}>
+                <div style={{ fontSize: 10, color: "var(--txt-3)" }}>رصيد الفيوتشر</div>
+                <div style={{ fontSize: 13.5, fontWeight: 800 }} dir="ltr">
+                  {d.link_check.futures_balance == null ? "—" : d.link_check.futures_balance.toFixed(2) + "$"}
+                </div>
+              </div>
+              <div style={{ flex: 1, padding: "8px 10px", background: "rgba(255,255,255,0.04)", borderRadius: 8 }}>
+                <div style={{ fontSize: 10, color: "var(--txt-3)" }}>رصيد السبوت</div>
+                <div style={{ fontSize: 13.5, fontWeight: 800 }} dir="ltr">
+                  {d.link_check.spot_balance == null ? "—" : d.link_check.spot_balance.toFixed(2) + "$"}
+                </div>
+              </div>
+            </div>
+            {(d.link_check.problems || []).length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                {d.link_check.problems.map((p, i) => (
+                  <div key={i} style={{ fontSize: 11.5, color: "#ef4444", marginBottom: 3 }}>• {p}</div>
+                ))}
+              </div>
+            )}
+            {(d.link_check.advice || []).length > 0 && (
+              <div style={{ padding: "9px 11px", background: "rgba(45,212,191,0.08)", borderRadius: 9 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--brand, #2dd4bf)", marginBottom: 5 }}>
+                  💡 التوجيه — انسخه وأرسله له
+                </div>
+                {d.link_check.advice.map((a, i) => (
+                  <div key={i} style={{ fontSize: 11.5, lineHeight: 1.8 }}>{i + 1}. {a}</div>
+                ))}
+              </div>
+            )}
+            {d.link_check.error && (
+              <div style={{ fontSize: 11, color: "#eab308", marginTop: 7 }} dir="ltr">
+                {d.link_check.error}
+              </div>
+            )}
+          </div>
+        )}
+
         {d?.ledger && d.ledger.closed > 0 && (
           <div style={{ padding: 12, borderRadius: 12, marginBottom: 14, background: "rgba(74,222,128,0.07)", border: "1px solid rgba(74,222,128,0.2)" }}>
             <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 9 }}>💰 أرباحه الحقيقية على باينانس</div>
