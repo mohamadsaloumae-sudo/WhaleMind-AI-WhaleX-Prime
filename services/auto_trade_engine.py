@@ -139,18 +139,16 @@ async def execute_for_user_tracked(user_id: str, signal: dict) -> dict:
                 from services.telegram import send_message
                 from core.config import get_settings
                 _adm = get_settings().telegram_admin_chat_id
-                try:
-                    from services.notifier import push_note
-                    await push_note("futures", "alert",
-                                    f"⚠️ افتراق ورقي/حقيقي · {signal['symbol']} {signal['direction']}\n"
-                                    f"فُتحت ورقياً وفشل التنفيذ الحقيقي: {result.get('error')}")
-                except Exception:
-                    pass
+                # 🔇 تشخيص للإدارة فقط — لا يُدفَع إلى جرس المشتركين.
+                #    كان push_note("futures", ...) يُظهر للمشترك عبارة
+                #    "فُتحت ورقياً" فيظنّ أن لدينا صفقات ورقية، ونظامنا
+                #    حقيقيّ بالكامل. الرسالة تُشخّص فشل التنفيذ عنده هو
+                #    (هامش · مفتاح · سقف) وتخصّ الإدارة لا المشترك.
                 if _adm:
                     await send_message(_adm,
-                        f"⚠️ <b>افتراق ورقي/حقيقي</b>\n"
-                        f"{signal['symbol']} {signal['direction']} فُتحت ورقياً "
-                        f"لكن التنفيذ الحقيقي <b>فشل</b>:\n"
+                        f"⚠️ <b>فشل تنفيذ</b>\n"
+                        f"{signal['symbol']} {signal['direction']} لم تُنفَّذ "
+                        f"لهذا المشترك:\n"
                         f"<code>{result.get('error')}</code>")
             except Exception:
                 pass
