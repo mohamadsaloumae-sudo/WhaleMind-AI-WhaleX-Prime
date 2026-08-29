@@ -158,9 +158,68 @@ export default function UserSheet({ userId, onClose, onChanged }) {
             display: "grid", placeItems: "center", cursor: "pointer", color: "#04121a", opacity: busy ? .5 : 1,
           }}><Send size={16} /></button>
         </div>
+        {/* 💬 المحادثة كاملةً — كانت سطراً واحداً بلا وقت ولا سجلّ،
+            فلا نرى ما أرسلناه ولا متى. والقائمة مقلوبة (الأحدث أوّلاً)
+            من الواجهة، فنعكسها لتقرأ كأي دردشة. */}
         {sentLog.length > 0 && (
-          <div style={{ fontSize: 11, color: "var(--txt-3)", marginBottom: 14, lineHeight: 1.8 }}>
-            آخر رسالة: {String(sentLog[0]?.message || "").slice(0, 60)}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8 }}>
+              💬 المحادثة ({sentLog.length})
+            </div>
+            <div style={{
+              maxHeight: 300, overflowY: "auto", padding: "8px 4px",
+              background: "rgba(255,255,255,0.02)", borderRadius: 10,
+            }}>
+              {[...sentLog].reverse().map((m, i, arr) => {
+                const dmStamp = (ts) => {
+                  if (!ts) return "";
+                  const d = new Date(Number(ts) * 1000);
+                  return d.toLocaleTimeString("ar-AE", {
+                    timeZone: "Asia/Dubai", hour: "2-digit", minute: "2-digit" });
+                };
+                const dmDay = (ts) => {
+                  if (!ts) return "";
+                  return new Date(Number(ts) * 1000)
+                    .toLocaleDateString("ar-AE", { timeZone: "Asia/Dubai" });
+                };
+                const dmLabel = (ts) => {
+                  const k = dmDay(ts);
+                  const now = new Date();
+                  const today = now.toLocaleDateString("ar-AE", { timeZone: "Asia/Dubai" });
+                  const y = new Date(now.getTime() - 86400000)
+                    .toLocaleDateString("ar-AE", { timeZone: "Asia/Dubai" });
+                  if (k === today) return "اليوم";
+                  if (k === y) return "أمس";
+                  return k;
+                };
+                const newDay = i === 0 || dmDay(m.created_at) !== dmDay(arr[i - 1]?.created_at);
+                return (
+                  <div key={i}>
+                    {newDay && (
+                      <div style={{ textAlign: "center", margin: "8px 0 10px" }}>
+                        <span style={{
+                          fontSize: 10, color: "var(--txt-3)",
+                          background: "rgba(255,255,255,0.06)",
+                          padding: "3px 11px", borderRadius: 10,
+                        }}>{dmLabel(m.created_at)}</span>
+                      </div>
+                    )}
+                    <div style={{
+                      marginInlineStart: "auto", maxWidth: "88%", width: "fit-content",
+                      background: "rgba(45,212,191,0.13)",
+                      borderRadius: "12px 12px 4px 12px",
+                      padding: "8px 11px", marginBottom: 7,
+                      fontSize: 12, lineHeight: 1.75, whiteSpace: "pre-wrap",
+                    }}>
+                      {m.message}
+                      <div dir="ltr" style={{ fontSize: 9.5, opacity: .55, marginTop: 3 }}>
+                        {dmStamp(m.created_at)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
