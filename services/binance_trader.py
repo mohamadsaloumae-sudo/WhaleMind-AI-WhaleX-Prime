@@ -627,11 +627,21 @@ async def close_position_for_user(user_id: str, symbol: str, direction: str) -> 
                 _ep = float(p.get("entryPrice") or 0)
             except Exception:
                 pass
+            # ⚠️ باينانس لم تعد تُرجع leverage في positionInformation،
+            #    فنحسبها من القيمة الاسمية ÷ الهامش المبدئيّ.
+            #    مقيس: notional 50.77$ ÷ initialMargin 10.15$ = 5.0x
             _lev = 1.0
             try:
-                _lev = abs(float(p.get("leverage") or 1)) or 1.0
+                _lev = abs(float(p.get("leverage") or 0)) or 0.0
+                if _lev <= 0:
+                    _no = abs(float(p.get("notional") or 0))
+                    _im = abs(float(p.get("initialMargin") or 0))
+                    if _no > 0 and _im > 0:
+                        _lev = round(_no / _im, 1)
+                if _lev <= 0:
+                    _lev = 1.0
             except Exception:
-                pass
+                _lev = 1.0
             _pct = 0.0
             if _ep > 0 and _fill > 0:
                 _raw = (_fill - _ep) / _ep * 100.0
