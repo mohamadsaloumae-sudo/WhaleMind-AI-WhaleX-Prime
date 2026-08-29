@@ -857,13 +857,41 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
         )
         
         order_id = order["orderId"]
-        # 📒 سجلّ حقيقي لهذا المستخدم
+        # 📒 سجلّ حقيقي لهذا المستخدم — بسعر التنفيذ الفعليّ ورافعته.
+        #    مقيس على حساب مشترك: GIGGLEUSDT سجّلناها بدخول 44.4 بينما
+        #    نُفّذت على باينانس بـ42.74 — فرق 3.9% جعلنا نراها +9.80%
+        #    وهي عنده -1.75%. والسبب أنّنا كنّا نسجّل سعر الإشارة لا
+        #    سعر التعبئة، ورافعة الإشارة لا الرافعة المضبوطة فعلاً.
         try:
             from services.user_trades import log_open as _lo
-            _entry_px = float(signal.get("entry") or 0) if isinstance(signal, dict) else 0
-            _lo(user_id, symbol, direction, _entry_px, quantity,
-                float(signal.get("leverage") or 1) if isinstance(signal, dict) else 1,
-                str(order_id), "futures")
+            _real_fill = 0.0
+            try:
+                _real_fill = float(order.get("avgPrice") or 0)
+            except Exception:
+                _real_fill = 0.0
+            if _real_fill <= 0:
+                # أمر السوق قد يعود بلا avgPrice — نقرؤه من الأمر نفسه
+                try:
+                    _od = client.futures_get_order(symbol=symbol, orderId=order_id)
+                    _real_fill = float(_od.get("avgPrice") or 0)
+                except Exception:
+                    pass
+            if _real_fill <= 0:
+                try:
+                    _real_fill = float(client.futures_symbol_ticker(
+                        symbol=symbol).get("price") or 0)
+                except Exception:
+                    pass
+            if _real_fill <= 0:
+                _real_fill = float(signal.get("entry") or 0) if isinstance(signal, dict) else 0
+            _sig_px = float(signal.get("entry") or 0) if isinstance(signal, dict) else 0
+            if _sig_px > 0 and _real_fill > 0:
+                _slip = abs(_real_fill - _sig_px) / _sig_px * 100
+                if _slip > 0.5:
+                    log.warning("📒 انزلاق %s: إشارة %.8g → تنفيذ %.8g (%.2f%%)",
+                                symbol, _sig_px, _real_fill, _slip)
+            _lo(user_id, symbol, direction, _real_fill, quantity,
+                float(leverage), str(order_id), "futures")
         except Exception as _le:
             log.debug("ledger open: %s", _le)
         log.info("✅ Trade opened: %s %s qty=%s (user %s, order %s)",
