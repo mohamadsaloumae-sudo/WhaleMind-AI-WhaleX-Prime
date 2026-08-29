@@ -619,14 +619,36 @@ async def close_position_for_user(user_id: str, symbol: str, direction: str) -> 
         #    ولا يرى المشترك ولا الإدارة أي سجلّ تداول حقيقيّ.
         try:
             from services.user_trades import log_close as _lc
-            _fill = 0.0
+            # 💵 سعر الخروج الفعليّ من التعبئة نفسها.
+            #    أمر السوق يعود بـavgPrice=0 لحظة إنشائه، فكنّا نسقط
+            #    إلى سعر المؤشّر وهو تقريبيّ. والمشترك يقارن سجلّنا
+            #    بباينانس فيرى فرقاً ويظنّه تلاعباً.
+            _exit_real = 0.0
             try:
-                _fill = float(_order.get("avgPrice") or 0)
-                if _fill <= 0:
+                _exit_real = float(_order.get("avgPrice") or 0)
+            except Exception:
+                _exit_real = 0.0
+            if _exit_real <= 0:
+                import time as _tt
+                for _try in range(3):
+                    try:
+                        _od = client.futures_get_order(
+                            symbol=symbol, orderId=_order["orderId"])
+                        _exit_real = float(_od.get("avgPrice") or 0)
+                        if _exit_real > 0:
+                            break
+                    except Exception:
+                        pass
+                    _tt.sleep(0.4)
+            _fill = _exit_real
+            if _fill <= 0:
+                try:
                     _fill = float(client.futures_symbol_ticker(
                         symbol=symbol).get("price") or 0)
-            except Exception:
-                pass
+                    log.warning("💵 %s: تعذّر سعر التعبئة — استُعمل المؤشّر",
+                                symbol)
+                except Exception:
+                    pass
             _ep = 0.0
             try:
                 _ep = float(p.get("entryPrice") or 0)
