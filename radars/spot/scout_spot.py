@@ -755,6 +755,14 @@ async def tracker_loop():
                                     s.closed_at = datetime.utcnow()
                                     db.commit()
                                     _log_result(0, "expired_no_price")
+                                    # 💵 نبيع بسعر السوق ولو تعذّرت قراءته —
+                                    #    السجلّ لا يُغلق دون تنفيذ حقيقيّ.
+                                    try:
+                                        await _sell_on_exchange(s.symbol,
+                                                                "expired_no_price", 0.0)
+                                    except Exception as _se:
+                                        log.error("🪙💵 بيع %s بلا سعر: %s",
+                                                  s.symbol, _se)
                                     log.warning("🪙⌛ %s أُغلقت بلا سعر بعد %.0f ساعة",
                                                 s.symbol, _ag / 3600)
                             except Exception as _ee:
@@ -958,6 +966,12 @@ async def tracker_loop():
                         elif age > 72 * 3600 and st == 0:
                             s.is_active = False; s.pnl_pct = round(pnl, 2); s.close_reason = "expired"; s.closed_at = datetime.utcnow(); db.commit()
                             _log_result(0, "expired")
+                            # 💵 لا إغلاق في السجلّ بلا بيع على المنصّة —
+                            #    وإلا بقيت العملة في محفظة المشترك.
+                            try:
+                                await _sell_on_exchange(s.symbol, "expired", px)
+                            except Exception as _se:
+                                log.error("🪙💵 بيع %s عند المهلة: %s", s.symbol, _se)
                             log.info("🪙⌛ %s expired %.1f%%", s.symbol, pnl)
                 finally:
                     db.close()
