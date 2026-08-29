@@ -585,8 +585,13 @@ async def close_position_for_user(user_id: str, symbol: str, direction: str) -> 
                     "exchange": _ad.name_ar}
         return {"success": False, "error": _r.get("error", "فشل الإغلاق")}
     
+    # ⚠️ كان يستدعي _client غير الموجودة، فكل إغلاق حقيقيّ يفشل صامتاً:
+    #    36 إغلاقاً ورقياً في ساعتين وصفر إغلاق على البورصة — أي صفقات
+    #    المشتركين تبقى مفتوحة بلا حصاد ولا قفل ولا وقف.
     try:
-        client = _client(creds)
+        client = Client(api_key=creds["api_key"],
+                        api_secret=creds["api_secret"],
+                        testnet=bool(creds.get("is_testnet")))
     except Exception as e:
         return {"success": False, "error": f"عميل: {e}"}
     try:
