@@ -14,6 +14,7 @@ const AR = {
   market: "السوق", tabOpen: "المفتوحة", tabClosed: "المغلقة",
   none: "لا صفقات بعد", h: "س", m: "د", still: "ما زالت مفتوحة",
   futures: "عقود آجلة", spot: "فوريّ", meme: "ميم كوينز",
+  nowPrice: "السعر الحاليّ", livePnl: "الربح اللحظيّ",
 };
 const EN = {
   title: "📒 Live trading ledger", closed: "Closed", open: "open",
@@ -27,6 +28,7 @@ const EN = {
   market: "Market", tabOpen: "Open", tabClosed: "Closed",
   none: "No trades yet", h: "h", m: "m", still: "still open",
   futures: "Futures", spot: "Spot", meme: "Memecoins",
+  nowPrice: "Current price", livePnl: "Live PnL",
 };
 
 const REASON_AR = {
@@ -102,8 +104,12 @@ function TradeCard({ t, L, ar, isOpen }) {
         padding: "9px 11px", marginBottom: 6, borderRadius: 9, cursor: "pointer",
         background: isOpen ? "rgba(234,179,8,0.06)"
           : (Number(t.pnl_pct) || 0) >= 0 ? "rgba(34,197,94,0.06)" : "rgba(239,68,68,0.06)",
-        borderInlineStart: "3px solid " + (isOpen ? "#eab308"
-          : (Number(t.pnl_pct) || 0) >= 0 ? "#22c55e" : "#ef4444"),
+        borderInlineStart: "3px solid " + (
+          isOpen
+            ? (t.live_pnl != null
+                ? (t.live_pnl >= 0 ? "#22c55e" : "#ef4444")
+                : "#eab308")
+            : (Number(t.pnl_pct) || 0) >= 0 ? "#22c55e" : "#ef4444"),
       }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 12.5, fontWeight: 800 }}>
@@ -116,7 +122,9 @@ function TradeCard({ t, L, ar, isOpen }) {
           </span>
         </span>
         {isOpen ? (
-          <span style={{ fontSize: 11, color: "#eab308", fontWeight: 700 }}>{L.still}</span>
+          t.live_pnl != null
+            ? <Amount pct={t.live_pnl} usdt={t.live_usdt} />
+            : <span style={{ fontSize: 11, color: "#eab308", fontWeight: 700 }}>{L.still}</span>
         ) : (
           <Amount pct={t.pnl_pct} usdt={t.pnl_usdt} />
         )}
@@ -124,7 +132,7 @@ function TradeCard({ t, L, ar, isOpen }) {
       {show && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 5, marginTop: 8 }}>
           <Cell k={L.entry} v={t.entry} dir="ltr" />
-          <Cell k={L.exit} v={t.exit_price || "—"} dir="ltr" />
+          <Cell k={isOpen ? L.nowPrice : L.exit} v={t.exit_price || t.live_price || "—"} dir="ltr" />
           <Cell k={L.qty} v={t.qty} dir="ltr" />
           <Cell k={L.lev} v={(t.leverage || 1) + "x"} dir="ltr" />
           <Cell k={L.value} v={num(value) + "$"} dir="ltr" />

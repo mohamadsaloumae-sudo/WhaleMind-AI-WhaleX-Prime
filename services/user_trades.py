@@ -82,7 +82,7 @@ def stats(user_id: str):
     try:
         c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
         rows = [dict(r) for r in c.execute(
-            "SELECT * FROM user_trades WHERE user_id=? ORDER BY id DESC LIMIT 300", (user_id,))]
+            "SELECT * FROM user_trades WHERE user_id=? ORDER BY id DESC LIMIT 2000", (user_id,))]
         c.close()
     except Exception:
         return {}
@@ -118,6 +118,38 @@ def stats(user_id: str):
         "best": max((r["pnl_pct"] for r in closed), default=None),
         "worst": min((r["pnl_pct"] for r in closed), default=None),
         "by_market": by_market,
-        "recent": closed[:40],
-        "open_list": open_rows,
+        # 📜 كل المغلقة بلا حدّ — الإدارة والمشترك يريان السجلّ كاملاً.
+        "recent": closed,
+        # 💹 ربح لحظيّ للمفتوحة — نجلب أسعار باينانس دفعةً واحدة.
+        "open_list": _with_live(open_rows),
     }
+
+
+def _with_live(rows: list) -> list:
+    """يُضيف live_pnl لكل صفقة مفتوحة — سعر واحد لكل الرموز."""
+    if not rows:
+        return rows
+    try:
+        import urllib.request
+        import json as _j
+        with urllib.request.urlopen(
+                "https://fapi.binance.com/fapi/v1/ticker/price", timeout=6) as r:
+            px = {d["symbol"]: float(d["price"]) for d in _j.loads(r.read())}
+    except Exception as e:
+        log.debug("أسعار حيّة: %s", e)
+        return rows
+    for t in rows:
+        try:
+            cur = px.get(t["symbol"])
+            if not cur or not t.get("entry"):
+                continue
+            sign = 1 if t.get("direction") == "LONG" else -1
+            lev = float(t.get("leverage") or 1)
+            t["live_price"] = cur
+            t["live_pnl"] = round(
+                (cur - float(t["entry"])) / float(t["entry"]) * 100 * lev * sign, 2)
+            t["live_usdt"] = round(
+                float(t["entry"]) * float(t.get("qty") or 0) * t["live_pnl"] / 100 / max(1.0, lev), 2)
+        except Exception:
+            pass
+    return rows
