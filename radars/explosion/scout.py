@@ -477,6 +477,17 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
     except Exception as e:
         log.error("scout signal error: %s", e)
     _save_to_signals_table(sig, "🎯 Peak Hunter SHORT\n" + "\n".join(sigs))
+
+    # 🔴 التنفيذ الحقيقيّ على باينانس — كان مفقوداً.
+    #    Peak Hunter يحفظ الإشارة ويُرسلها للقناة، لكنّه لم يكن
+    #    يستدعي محرّك التنفيذ إطلاقاً، فلا تُفتح لأي مشترك.
+    #    نفس عطل رادار MX الذي كان معطّلاً 9 أيام.
+    try:
+        import asyncio as _aio
+        from services.auto_trade_engine import on_signal_approved as _osa
+        _aio.create_task(_osa(sig))
+    except Exception as _te:
+        log.error("🔴 Peak Hunter: تعذّر إرسال %s للتنفيذ: %s", sig.symbol, _te)
     try:
         from services.notifier import push_note
         await push_note("futures", "signal",
