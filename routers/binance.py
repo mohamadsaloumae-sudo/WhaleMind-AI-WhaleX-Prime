@@ -246,7 +246,10 @@ async def positions(user=Depends(get_current_user)):
     if not creds:
         raise HTTPException(status_code=404, detail="not_connected")
     
-    return {"positions": get_open_positions(uid)}
+    try:
+        return {"positions": get_open_positions(uid)}
+    except Exception as _pe:
+        raise HTTPException(status_code=503, detail="تعذّر جلب المراكز")
 
 
 @router.post("/auto-trade")

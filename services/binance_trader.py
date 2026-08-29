@@ -497,21 +497,49 @@ def get_open_positions(user_id: str) -> list:
         positions = client.futures_position_information()
         active = []
         for p in positions:
-            amt = float(p["positionAmt"])
-            if amt != 0:
-                active.append({
-                    "symbol": p["symbol"],
-                    "direction": "LONG" if amt > 0 else "SHORT",
-                    "size": abs(amt),
-                    "entry_price": float(p["entryPrice"]),
-                    "mark_price": float(p["markPrice"]),
-                    "unrealized_pnl": float(p["unRealizedProfit"]),
-                    "leverage": int(p["leverage"]),
-                })
+            amt = float(p.get("positionAmt") or 0)
+            if amt == 0:
+                continue
+            active.append({
+                "symbol": p.get("symbol", ""),
+                "direction": "LONG" if amt > 0 else "SHORT",
+                "size": abs(amt),
+                "entry_price": float(p.get("entryPrice") or 0),
+                "mark_price": float(p.get("markPrice") or 0),
+                "unrealized_pnl": float(p.get("unRealizedProfit") or 0),
+                "leverage": _lev_of(p),
+            })
         return active
     except Exception as e:
-        log.debug("Positions %s: %s", user_id, e)
-        return []
+        # ⚠️ الفشل ليس "لا مراكز" — نرمي كي لا يمرّ سقف المراكز
+        #    ومانع التكرار على قائمة فارغة كاذبة.
+        log.error("جلب المراكز %s: %s", user_id[:8], e)
+        raise
+
+
+def _lev_of(p: dict) -> int:
+    """الرافعة من الحقل إن وُجد، وإلا من القيمة الاسمية ÷ الهامش.
+
+    باينانس أزالت حقل leverage من positionInformation، وكان الكود
+    يقرأ p["leverage"] مباشرةً فيرمي KeyError. والاستثناء كان يُبتلَع
+    ويُرجع قائمة فارغة — فسقف المراكز ومانع التكرار توقّفا تماماً.
+    مقيس: حساب فيه 11 مركزاً أرجعت الدالة له صفراً، ومشترك فُتحت له
+    184 صفقة في يوم واحد، وMUBARAKUSDT فُتحت مرّتين لنفس المشترك.
+    """
+    try:
+        v = float(p.get("leverage") or 0)
+        if v > 0:
+            return int(v)
+    except Exception:
+        pass
+    try:
+        no = abs(float(p.get("notional") or 0))
+        im = abs(float(p.get("initialMargin") or 0))
+        if no > 0 and im > 0:
+            return max(1, int(round(no / im)))
+    except Exception:
+        pass
+    return 1
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -740,7 +768,13 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
         return {"success": False, "error": f"grade {signal.get('grade')} not allowed"}
     
     # تحقق max positions + منع التكرار على نفس العملة
-    _open = get_open_positions(user_id)
+    # 🛡️ فشل الجلب يمنع الفتح — ولا يُعامَل كـ"لا مراكز".
+    try:
+        _open = get_open_positions(user_id)
+    except Exception as _pe:
+        log.error("🛡️ %s: تعذّر جلب المراكز — لا نفتح: %s",
+                  user_id[:8], str(_pe)[:60])
+        return {"success": False, "error": "تعذّر جلب المراكز"}
     if len(_open) >= creds["max_open_positions"]:
         return {"success": False, "error": f"max positions reached ({len(_open)})"}
     if any(p.get("symbol") == signal["symbol"] for p in _open):

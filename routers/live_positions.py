@@ -258,7 +258,12 @@ async def binance_positions(user=Depends(get_current_user)):
     if not get_credentials(uid):
         return {"positions": [], "connected": False}
     out = []
-    for p in get_open_positions(uid):
+    # 🛡️ الدالة ترمي عند فشل الاتّصال — الصفحة تعرض فارغاً لا تنكسر
+    try:
+        _pos_safe = get_open_positions(uid)
+    except Exception:
+        return {"positions": [], "connected": True, "error": "تعذّر الجلب"}
+    for p in _pos_safe:
         entry = p.get("entry_price", 0)
         mark = p.get("mark_price", 0)
         lev = p.get("leverage", 1)
