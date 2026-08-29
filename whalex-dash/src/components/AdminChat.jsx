@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { MessageCircle, X, Send, User, Paperclip } from "lucide-react";
 import { api } from "../lib/api.js";
 
@@ -197,7 +198,10 @@ export default function AdminChat() {
         </div>
       ))}
 
-      {open && (
+      {/* 🚪 النافذة تُلحَق بـbody مباشرةً — داخل شجرة المكوّنات قد
+          يُقيّدها أب له transform أو overflow، فلا تملأ الشاشة ويختفي
+          شريط الكتابة تحت أزرار النظام. وهذه الطريقة المعيارية. */}
+      {open && createPortal((
         <div onClick={() => setOpen(null)} style={{
           position: "fixed", inset: 0, zIndex: 9998,
           background: "rgba(0,0,0,.7)", display: "grid", placeItems: "center",
@@ -324,7 +328,7 @@ export default function AdminChat() {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
     </div>
   );
 }
