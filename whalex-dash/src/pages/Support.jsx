@@ -41,7 +41,20 @@ export default function Support() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, busy]);
+  // 📜 لا نُنزّل إن كان يقرأ رسائل قديمة — كان يقفز مع كل تحديث،
+  //    فيسحب المستخدم لأعلى وترجع القائمة فوراً.
+  const atBottomRef = useRef(true);
+  const boxRef = useRef(null);
+  const onScroll = (e) => {
+    const el = e.currentTarget;
+    atBottomRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 90;
+  };
+  useEffect(() => {
+    if (atBottomRef.current) {
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [msgs, busy]);
 
   useEffect(() => {
     fetch(`/api/support/topics?lang=${lang}`)
@@ -97,7 +110,7 @@ export default function Support() {
         </div>
       </header>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div ref={boxRef} onScroll={onScroll} style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
         {msgs.length === 0 && (
           <div style={{ textAlign: "center", color: "var(--txt-3)", fontSize: 13, marginTop: 30, lineHeight: 2 }}>
             {ar ? "👋 مرحباً بك\nاسأل عن أي شيء يخصّ النظام" : "👋 Welcome\nAsk anything about the system"}

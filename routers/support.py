@@ -216,7 +216,7 @@ async def pending(limit: int = 50):
     _init()
     try:
         c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
-        rows = c.execute("SELECT id,user_id,message,created_at FROM support_messages "
+        rows = c.execute("SELECT id,user_id,message,created_at,replied_at FROM support_messages "
                          "WHERE (reply IS NULL OR reply='') ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
         c.close()
         out = []

@@ -23,6 +23,30 @@ export default function ChatWidget() {
   const lastSeenRef = useRef(-1);
   useEffect(() => { openRef.current = open; }, [open]);
   const endRef = useRef(null);
+
+  // 🕐 وقت كل رسالة وفاصل التاريخ — كأي دردشة.
+  const fmtStamp = (ts) => {
+    if (!ts) return "";
+    const d = new Date(Number(ts) * 1000);
+    return d.toLocaleTimeString("ar-AE", {
+      timeZone: "Asia/Dubai", hour: "2-digit", minute: "2-digit",
+    });
+  };
+  const dayKey = (ts) => {
+    if (!ts) return "";
+    const d = new Date(Number(ts) * 1000);
+    return d.toLocaleDateString("ar-AE", { timeZone: "Asia/Dubai" });
+  };
+  const dayLabel = (ts) => {
+    const k = dayKey(ts);
+    const now = new Date();
+    const today = now.toLocaleDateString("ar-AE", { timeZone: "Asia/Dubai" });
+    const y = new Date(now.getTime() - 86400000)
+      .toLocaleDateString("ar-AE", { timeZone: "Asia/Dubai" });
+    if (k === today) return "اليوم";
+    if (k === y) return "أمس";
+    return k;
+  };
   const boxRef = useRef(null);
   // 📜 لا نجرّه للأسفل إلا إن كان هناك أصلاً — وإلا نُفسد قراءته
   const atBottomRef = useRef(true);
@@ -217,13 +241,28 @@ export default function ChatWidget() {
             )}
             {msgs.map((m, i) => (
               <div key={i} style={{ marginBottom: 13 }}>
+                {(i === 0 || dayKey(m.created_at) !== dayKey(msgs[i - 1]?.created_at)) && (
+                  <div style={{
+                    textAlign: "center", margin: "10px 0 12px",
+                    fontSize: 10.5, color: "var(--txt-3)",
+                  }}>
+                    <span style={{
+                      background: "rgba(255,255,255,0.06)",
+                      padding: "3px 11px", borderRadius: 10,
+                    }}>{dayLabel(m.created_at)}</span>
+                  </div>
+                )}
                 {m.message ? (
                 <div style={{
                   marginInlineStart: "auto", maxWidth: "85%", width: "fit-content",
                   background: "rgba(45,212,191,.13)", borderRadius: "13px 13px 4px 13px",
                   padding: "9px 12px", fontSize: 12.5, color: "var(--txt-1)",
                   lineHeight: 1.7,
-                }}>{m.message}</div>
+                }}>{m.message}
+                  <div style={{ fontSize: 9.5, opacity: .55, marginTop: 3, textAlign: "start" }} dir="ltr">
+                    {fmtStamp(m.created_at)}
+                  </div>
+                </div>
                 ) : null}
                 {m.media ? (
                   <div style={{ marginInlineStart: "auto", width: "fit-content", maxWidth: "85%" }}>
@@ -252,7 +291,11 @@ export default function ChatWidget() {
                     background: "var(--bg-2)", borderRadius: "13px 13px 13px 4px",
                     padding: "9px 12px", fontSize: 12.5, color: "var(--txt-2)",
                     lineHeight: 1.75,
-                  }}>🐋 {clean(m.reply)}</div>
+                  }}>🐋 {clean(m.reply)}
+                    <div style={{ fontSize: 9.5, opacity: .55, marginTop: 3 }} dir="ltr">
+                      {fmtStamp(m.replied_at || m.created_at)}
+                    </div>
+                  </div>
                 )}
               </div>
             ))}
