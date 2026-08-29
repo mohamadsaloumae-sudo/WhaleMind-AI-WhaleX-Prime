@@ -60,6 +60,13 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(_og(), name="orphan_guard")
     except Exception as _oge:
         log.warning("حارس اليتيمة: %s", _oge)
+    # 🚑 منقذ الهامش — يُحرّر رصيد المشترك حين يضيق تحت الاحتياطيّ.
+    #    مقيس: مشترك رصيده 10.14$ بقي متاحاً 2.17$ بعد أربع صفقات.
+    try:
+        from services.margin_rescue import rescue_loop as _mr
+        asyncio.create_task(_mr(), name="margin_rescue")
+    except Exception as _mre:
+        log.warning("منقذ الهامش: %s", _mre)
     # 🔭 Explosion Scout — رادار الطبقة الثانية (وضع تجريبي، منفصل تماماً)
     try:
         from radars.explosion.scout import scout_loop
