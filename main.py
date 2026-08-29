@@ -53,6 +53,13 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(_lw(), name="link_watcher")
     except Exception as _lwe:
         log.warning("حارس الربط: %s", _lwe)
+    # 🛡️ حارس اليتيمة — لا مركز على المنصّة بلا حارس في النظام.
+    #    مقيس: 10 صفقات بقيت مكشوفة على حسابين بعد فشل الإغلاق الصامت.
+    try:
+        from services.orphan_guard import guard_loop as _og
+        asyncio.create_task(_og(), name="orphan_guard")
+    except Exception as _oge:
+        log.warning("حارس اليتيمة: %s", _oge)
     # 🔭 Explosion Scout — رادار الطبقة الثانية (وضع تجريبي، منفصل تماماً)
     try:
         from radars.explosion.scout import scout_loop
