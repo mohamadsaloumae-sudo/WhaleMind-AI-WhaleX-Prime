@@ -265,6 +265,17 @@ async def _emit(row, sc, direction, reasons, price, lv, rsi, rpos, vr, pm_fn):
         log.error("MX save_signal: %s", e)
     log.info("🌐📡 إشارة: %s %s @%.6g | %s | نقاط %.1f | %s",
              row["symbol"], direction, price, ad.name_en, sc, " · ".join(reasons))
+
+    # 💰 التنفيذ الحقيقي للمشتركين — كان مربوطاً برادار PH وحده،
+    #    وأغلب الإشارات من MX، فلم تُنفَّذ صفقة حقيقية منذ 20 أغسطس.
+    #    مقيس: 15 إشارة MX في ساعة وصفر محاولة تنفيذ، ومشترك رصيده
+    #    101.96$ وإعداداته سليمة لم يفتح له النظام صفقة واحدة.
+    try:
+        import asyncio as _aio
+        from services.auto_trade_engine import on_signal_approved as _osa
+        _aio.create_task(_osa(sig))
+    except Exception as _ae:
+        log.error("MX auto_trade: %s", _ae)
     msg = (
         f"🌐 <b>WhaleX Multi</b> — عملة حصرية\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
