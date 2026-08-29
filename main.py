@@ -67,6 +67,22 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(_mr(), name="margin_rescue")
     except Exception as _mre:
         log.warning("منقذ الهامش: %s", _mre)
+    # 🧹 تحرير الذاكرة المفكوكة كل عشر دقائق — بايثون يحتفظ بالساحات
+    #    المحرّرة ولا يُعيدها للنظام، فتنمو RSS بلا سبب حقيقيّ.
+    async def _trim_loop():
+        import gc
+        while True:
+            await asyncio.sleep(600)
+            try:
+                from services.ccxt_pool import trim
+                n = trim()
+                log.info("🧹 تحرير الذاكرة: %d كائن", n)
+            except Exception as _te:
+                log.debug("تحرير: %s", _te)
+    try:
+        asyncio.create_task(_trim_loop(), name="mem_trim")
+    except Exception:
+        pass
     # 🔭 Explosion Scout — رادار الطبقة الثانية (وضع تجريبي، منفصل تماماً)
     try:
         from radars.explosion.scout import scout_loop

@@ -40,9 +40,10 @@ def refresh() -> dict:
     best = {}; stats = {}; _listed = {}
     for ex in EXCHANGES:
         try:
-            e = getattr(ccxt, ex)({"enableRateLimit": True, "timeout": 25000,
-                                   "options": {"defaultType": "spot"}})
-            m = e.load_markets(); tk = e.fetch_tickers()
+            # 🏊 عميل مشترك — لا نُعيد تحميل الأسواق كل دورة
+            from services.ccxt_pool import get as _pool, markets as _mk
+            e = _pool(ex, "spot", 25000)
+            m = _mk(ex, "spot"); tk = e.fetch_tickers()
             cand = []
             for k, v in m.items():
                 if not (v.get("spot") and v.get("active")): continue

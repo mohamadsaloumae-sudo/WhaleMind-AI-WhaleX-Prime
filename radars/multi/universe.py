@@ -85,9 +85,11 @@ def refresh() -> dict:
     stats = {}
     for ex in EXCHANGES:
         try:
-            e = getattr(ccxt, ex)({"enableRateLimit": True, "timeout": 25000,
-                                   "options": {"defaultType": "swap"}})
-            m = e.load_markets()
+            # 🏊 عميل مشترك — كان يُنشأ جديداً وتُحمَّل أسواقه كل دورة
+            #    (7 منصّات × 190 ميجا = 1.3 جيجا تُهدر في كل تحديث).
+            from services.ccxt_pool import get as _pool, markets as _mk
+            e = _pool(ex, "swap", 25000)
+            m = _mk(ex, "swap")
             tk = e.fetch_tickers()
             has_oi = bool(e.has.get("fetchOpenInterest"))
             n = 0
