@@ -121,23 +121,10 @@ async def execute_for_user_tracked(user_id: str, signal: dict) -> dict:
                 result.get("quantity"),
                 result.get("order_id"),
             )
-            # ─ ربط الصفقة الحقيقية بالسجل الورقي المفتوح (سجل واحد يديره المدير) ─
-            try:
-                import asyncio as _aio
-                from radars.futures.position_manager import mark_position_real
-                _linked = False
-                for _i in range(4):
-                    if mark_position_real(signal["symbol"], signal["direction"], user_id,
-                                          qty=result.get("quantity") or 0,
-                                          lev=result.get("leverage") or 0):
-                        _linked = True
-                        break
-                    await _aio.sleep(1)
-                if not _linked:
-                    log.error("🔗 لا سجل ورقي مطابق لربط %s %s — تحقق يدوياً!",
-                              signal["symbol"], signal["direction"])
-            except Exception as _pe:
-                log.error("real position link failed: %s", _pe, exc_info=True)
+            # ℹ️ لا حاجة لربط الصفقة: المدير يُغلق عبر
+            #    close_all_real_users(symbol, direction) لكل من فتحها.
+            #    وmark_position_real غير موجودة في position_manager فتُسجّل
+            #    خطأ مع كل فتح (10/ربع ساعة) بلا أثر.
         else:
             log.warning(
                 "⚠️ Auto-Trade FAILED [%dms]: %s → %s %s — %s",
