@@ -713,6 +713,25 @@ async def tracker_loop():
                     for s in sigs:
                         px = _prices.get(s.symbol)
                         if not px:
+                            # 🕐 مهلة قصوى للصفقة التي لا يُقرأ سعرها.
+                            #    مقيس: MMTUSDT عمرها 150 ساعة و9BIT 64،
+                            #    وكلّها خرجت من الكون أو تغيّرت منصّتها،
+                            #    فلا سعر لها ولا تُغلق أبداً — تبقى معلّقة.
+                            try:
+                                _ca = getattr(s, "created_at", None)
+                                _ts = _ca.timestamp() if hasattr(_ca, "timestamp") else 0
+                                _ag = (now - _ts) if _ts else 0
+                                if _ag > 72 * 3600:
+                                    s.is_active = False
+                                    s.pnl_pct = 0.0
+                                    s.close_reason = "expired_no_price"
+                                    s.closed_at = datetime.utcnow()
+                                    db.commit()
+                                    _log_result(0, "expired_no_price")
+                                    log.warning("🪙⌛ %s أُغلقت بلا سعر بعد %.0f ساعة",
+                                                s.symbol, _ag / 3600)
+                            except Exception as _ee:
+                                log.debug("مهلة بلا سعر %s: %s", s.symbol, _ee)
                             continue
                         st = _track.get(s.id)
                         if st is None:  # أول رؤية (أو بعد restart): هيّئ الطور بصمت
