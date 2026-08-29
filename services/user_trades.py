@@ -54,12 +54,25 @@ def log_close(user_id: str, symbol: str, exit_price: float, pnl_pct: float,
     init()
     try:
         c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
-        row = c.execute("SELECT id, entry, qty, leverage FROM user_trades "
+        row = c.execute("SELECT id, entry, qty, leverage, direction FROM user_trades "
                         "WHERE user_id=? AND symbol=? AND status='open' AND market=? "
                         "ORDER BY id DESC LIMIT 1", (user_id, symbol, market)).fetchone()
         if not row:
             c.close(); return
         d = dict(row)
+        # 🧮 نحسب النتيجة من سجلّنا نحن — دخولنا واتّجاهنا ورافعتنا.
+        #    وكان الحساب يأتي من بيانات باينانس بعد الإغلاق، وهي متضاربة:
+        #    صفقة LONG دخولها 0.008482 وخروجها 0.008865 سُجّلت -2.85%
+        #    بدل +13.5%، لأن entryPrice تغيّر والإشارة انقلبت.
+        try:
+            _e = float(d.get("entry") or 0)
+            _x = float(exit_price or 0)
+            if _e > 0 and _x > 0:
+                _sign = 1 if str(d.get("direction") or "LONG").upper() == "LONG" else -1
+                _lv = float(d.get("leverage") or 1) or 1.0
+                pnl_pct = (_x - _e) / _e * 100.0 * _lv * _sign
+        except Exception:
+            pass
         _usdt = 0.0
         try:
             _notional = (d.get("entry") or 0) * (d.get("qty") or 0)
