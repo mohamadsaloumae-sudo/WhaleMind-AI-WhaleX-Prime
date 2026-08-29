@@ -403,6 +403,10 @@ async def _live_taker(c, sym: str):
 
 _track: dict = {}           # sig_id -> stage (0 لم يلمس، 1/2 بعد TP1/TP2)
 _peak: dict = {}
+# ⏱ الوقت — كان يُستورَد محلّياً في دالة واحدة، فحصاد الركود
+#    يفشل بـ"name '_t' is not defined" (16 مرّة في 15 دقيقة).
+import time as _t
+
 _peak_at: dict = {}
 # 🔧 ظروف الدخول — كانت تُهمَل فلا نتعلّم من الصفقات الميّتة شيئاً.
 #    مقيس: 66 صفقة في 24 ساعة بفوز 27%، وأعمدة rsi/taker/range_pos
