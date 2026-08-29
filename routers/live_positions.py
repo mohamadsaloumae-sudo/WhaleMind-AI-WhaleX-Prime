@@ -247,14 +247,9 @@ async def binance_positions(user=Depends(get_current_user)):
     """صفقات Binance الحقيقية — حيّة + قابلة للإغلاق."""
     from services.binance_trader import get_credentials, get_open_positions
     uid = user["sub"]
-    if not get_credentials(uid):
-        try:
-            import sqlite3
-            cx = sqlite3.connect("/opt/whalex/db/whalex.db")
-            r = cx.execute("SELECT user_id FROM user_binance_credentials LIMIT 1").fetchone()
-            cx.close()
-            if r and r[0]: uid = r[0]
-        except Exception: pass
+    # 🔒 كان هنا: من ليس مربوطاً يُعطى user_id أوّل مشترك في القاعدة،
+    #    فيرى صفقات غيره ورصيده. تسريب بيانات صريح — أُزيل.
+    #    غير المربوط لا يرى شيئاً، وهذا الصواب.
     if not get_credentials(uid):
         return {"positions": [], "connected": False}
     out = []
