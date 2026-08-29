@@ -46,6 +46,13 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(run_position_manager())
     from services.prices import start_price_stream
     asyncio.create_task(start_price_stream(), name="prices")
+    # 🔔 حارس الربط — يفحص مفاتيح المشتركين كل ستّ ساعات ويُرشدهم.
+    #    مقيس: 8 من 9 مشتركين عندهم خلل، وأغلبه صلاحية العقود الآجلة.
+    try:
+        from services.link_watcher import watcher_loop as _lw
+        asyncio.create_task(_lw(), name="link_watcher")
+    except Exception as _lwe:
+        log.warning("حارس الربط: %s", _lwe)
     # 🔭 Explosion Scout — رادار الطبقة الثانية (وضع تجريبي، منفصل تماماً)
     try:
         from radars.explosion.scout import scout_loop
