@@ -440,11 +440,38 @@ def _binance_only_syms() -> set:
         cn = sqlite3.connect("/opt/whalex/spot_universe.db")
         rows = cn.execute("SELECT symbol FROM spot_universe WHERE exchange='binance'").fetchall()
         cn.close()
-        _BN_ONLY["syms"] = {r[0] for r in rows}
+        _syms = {r[0] for r in rows}
+        # 🕳️ سدّ الثغرة: عملة خرجت من الكون ونصّ إشارتها "باينانس"
+        #    كانت تسقط بين الحارسين — _open_symbols_by_ex تتخطّاها
+        #    لأن منصّتها باينانس، وهذه القائمة لا تشملها لأنها خارج
+        #    الكون. فلا سعر لها أبداً ولا تُغلق.
+        #    مقيس: MMTUSDT عمرها 150 ساعة و9BIT 64، وكلّها بسعر صفر.
+        _syms |= _open_binance_syms()
+        _BN_ONLY["syms"] = _syms
         _BN_ONLY["ts"] = _t.time()
     except Exception:
         pass
     return _BN_ONLY["syms"]
+
+
+def _open_binance_syms() -> set:
+    """رموز الصفقات المفتوحة التي منصّتها باينانس أو مجهولة."""
+    out = set()
+    try:
+        from db.database import get_session, Signal
+        db = get_session()
+        try:
+            rows = [(x.symbol, x.strategies) for x in db.query(Signal).filter(
+                Signal.radar_type == "spot", Signal.is_active == True).all()]
+        finally:
+            db.close()
+        for sym, strat in rows:
+            ex = _ex_from_sig(strat) or "binance"
+            if ex == "binance":
+                out.add(sym)
+    except Exception as e:
+        log.debug("رموز المفتوحة الباينانسية: %s", e)
+    return out
 
 
 def _multi_prices_sync() -> dict:
