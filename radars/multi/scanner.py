@@ -347,7 +347,17 @@ async def multi_scan_loop(position_manager_fn=None):
                         if atrp < MIN_ATR_PCT:
                             _hit("flat")
                             continue
-                        if sc < SCORE_MIN:
+                        # 🌡️ نبض السوق يُعدّل العتبة: الإشارة المخالفة لاتّجاه
+                        #    السوق تحتاج نقاطاً أعلى، والموافقة تمرّ أسهل. ولا يُمنع
+                        #    شيء — الإشارة القوية تمرّ في كل الأحوال.
+                        #    مقيس: BTC هابط + لونج = 48 صفقة بفوز 45% و -39.8%.
+                        _adj = 0.0
+                        try:
+                            from services.market_pulse import score_adjust as _sa
+                            _adj = _sa(direction)
+                        except Exception:
+                            _adj = 0.0
+                        if sc < SCORE_MIN + _adj:
                             _hit("weak_score")
                             continue
                         # 🧠 هل نكرّر الإعداد الذي خسر هنا سابقاً؟

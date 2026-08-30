@@ -67,6 +67,67 @@ def _measure() -> dict:
     return out
 
 
+def advice() -> dict:
+    """توجيه الرادار حسب حالة السوق — أوزان لا أوامر.
+
+    الرادار يقرأ هذا ويُعدّل ميزانه: يُخفّض عتبة الاتّجاه الموافق
+    ويرفعها للمخالف. ولا يُمنَع شيء — الإشارة القوية تمرّ دائماً.
+
+    مقيس: BTC هابط + إشارة لونج = 48 صفقة بفوز 45% و -39.8%،
+    بينما العرضيّ + شورت = 383 صفقة بفوز 65% و +83.6%.
+    """
+    t = _state.get("trend", "unknown")
+    v = _state.get("vol", "unknown")
+    b = _state.get("breadth", "unknown")
+    out = {"long_bias": 0.0, "short_bias": 0.0, "size_mult": 1.0,
+           "note": "", "trend": t, "vol": v, "breadth": b}
+
+    if t == "down_hard":
+        out["long_bias"], out["short_bias"] = +1.0, -0.5
+        out["note"] = "السوق يهبط بقوّة — ركّز على الشورت واحذر اللونج"
+    elif t == "down":
+        out["long_bias"], out["short_bias"] = +0.5, -0.25
+        out["note"] = "السوق مائل للهبوط — الشورت أولى"
+    elif t == "up_hard":
+        out["long_bias"], out["short_bias"] = -0.5, +1.0
+        out["note"] = "السوق يصعد بقوّة — ركّز على اللونج واحذر الشورت"
+    elif t == "up":
+        out["long_bias"], out["short_bias"] = -0.25, +0.5
+        out["note"] = "السوق مائل للصعود — اللونج أولى"
+    else:
+        out["note"] = "السوق عرضيّ — تأنَّ ولا ترجيح لاتّجاه"
+
+    if v == "violent":
+        out["size_mult"] = 0.6
+        out["long_bias"] += 0.4
+        out["short_bias"] += 0.4
+        out["note"] += " · تقلّب عنيف: مبلغ أصغر وشروط أشدّ"
+    elif v == "choppy":
+        out["size_mult"] = 0.8
+        out["note"] += " · تقلّب مرتفع"
+
+    if b == "sell" and t in ("down", "down_hard"):
+        out["short_bias"] -= 0.25
+        out["note"] += " · اتّساع بيع يؤكّد الهبوط"
+    elif b == "buy" and t in ("up", "up_hard"):
+        out["long_bias"] -= 0.25
+        out["note"] += " · اتّساع شراء يؤكّد الصعود"
+    # حدّ أقصى ±1.0 — لا نُشدّد أكثر من نقطة كاملة
+    out["long_bias"] = max(-1.0, min(1.0, out["long_bias"]))
+    out["short_bias"] = max(-1.0, min(1.0, out["short_bias"]))
+    return out
+
+
+def score_adjust(direction: str) -> float:
+    """كم نُضيف لعتبة النقاط لهذا الاتّجاه؟ موجب = أشدّ."""
+    try:
+        a = advice()
+        return float(a["long_bias"] if str(direction).upper() == "LONG"
+                     else a["short_bias"])
+    except Exception:
+        return 0.0
+
+
 def get_state() -> dict:
     """الحالة الحالية — للقراءة من أي رادار. لا تمنع شيئاً."""
     return dict(_state)
@@ -92,10 +153,10 @@ async def pulse_loop():
                     c.commit(); c.close()
                 except Exception as e:
                     log.debug("حفظ النبض: %s", e)
-                log.info("🌡️ السوق: %s · %s · اتّساع %s (%d%% صاعدة) "
-                         "| BTC ساعة %+.2f%%",
-                         m["trend"], m["vol"], m["breadth"],
-                         m["up_pct"], m["btc_1h"])
+                _a = advice()
+                log.info("🌡️ %s | لونج %+.2f · شورت %+.2f · حجم ×%.1f",
+                         _a["note"], _a["long_bias"], _a["short_bias"],
+                         _a["size_mult"])
         except Exception as e:
             log.error("نبض السوق: %s", e)
         await asyncio.sleep(EVERY)
