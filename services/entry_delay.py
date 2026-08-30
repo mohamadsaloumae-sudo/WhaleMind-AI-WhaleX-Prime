@@ -30,12 +30,23 @@ _stats = {"seen": 0, "waited": 0, "dropped": 0, "passed": 0}
 
 
 def is_suspect(sig) -> bool:
-    """هل الإشارة من الحالة النادرة الخطرة؟"""
+    """هل الإشارة من الحالة النادرة الخطرة؟
+
+    ⚠️ ob_pressure و cvd_flow ليسا على كائن الإشارة — يُجلبان من
+    live_context كما يفعل ml_recorder تماماً. وكانت الوحدة تقرؤهما
+    من sig فتجدهما صفراً دائماً، فلا تلتقط شيئاً أبداً.
+    """
     try:
         d = str(getattr(sig, "direction", "") or "").upper()
         rp = float(getattr(sig, "range_pos", 0) or 0)
-        ob = float(getattr(sig, "ob_pressure", 0) or 0)
-        cv = str(getattr(sig, "cvd_flow", "") or "")
+        ob, cv = 0.0, ""
+        try:
+            from quant_engine.ml_brain import live_context
+            _lc = live_context(str(getattr(sig, "symbol", "")))
+            ob = float(_lc.get("ob_pressure") or 0)
+            cv = str(_lc.get("cvd_flow") or "")
+        except Exception as _le:
+            log.debug("سياق حيّ: %s", _le)
         if d == "SHORT":
             return rp >= 0.90 and ob > 0.05 and cv == "up"
         if d == "LONG":
