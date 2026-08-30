@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLang } from "../context/LangContext.jsx";
 
 /**
  * 📱 زرّا تثبيت التطبيق — بحجم الأزرار المعتمدة عالمياً.
@@ -6,8 +7,10 @@ import { useEffect, useState } from "react";
  * آيفون: توجيه، لأن آبل تمنع التثبيت البرمجيّ.
  */
 export default function InstallButtons() {
+  const { lang } = useLang();
+  const ar = lang !== "en";
   const [evt, setEvt] = useState(null);
-  const [sheet, setSheet] = useState(false);
+  const [sheet, setSheet] = useState(null);
 
   useEffect(() => {
     const onP = (e) => { e.preventDefault(); setEvt(e); };
@@ -19,11 +22,16 @@ export default function InstallButtons() {
   const isIos = /iphone|ipad|ipod/i.test(ua);
   const isSaf = /safari/i.test(ua) && !/crios|fxios|edgios/i.test(ua);
 
+  // 🤖 كروم لا يُطلق beforeinstallprompt إلا بعد تفاعل وبشروطه.
+  //    فإن لم يجهز الحدث نعرض إرشاد كروم بدل زرّ ميّت.
   async function android() {
-    if (!evt) return;
-    evt.prompt();
-    await evt.userChoice;
-    setEvt(null);
+    if (evt) {
+      evt.prompt();
+      await evt.userChoice;
+      setEvt(null);
+      return;
+    }
+    setSheet("android");
   }
 
   function ios() {
@@ -31,14 +39,16 @@ export default function InstallButtons() {
       window.location.href = "x-safari-https://whalemindhybridai.online/";
       return;
     }
-    setSheet(true);
+    setSheet("ios");
   }
 
   const btn = {
     display: "inline-flex", alignItems: "center", gap: 8,
     padding: "9px 16px", borderRadius: 9, cursor: "pointer",
-    background: "#0d1b24", border: "1px solid #24404e",
-    color: "#eaf6f4", fontSize: 12.5, fontWeight: 600,
+    background: "linear-gradient(180deg,#12b39f,#0d8b7c)",
+    border: "1px solid rgba(255,255,255,.14)",
+    color: "#03151a", fontSize: 12.5, fontWeight: 700,
+    boxShadow: "0 2px 10px rgba(15,163,146,.25)",
     fontFamily: "inherit", whiteSpace: "nowrap",
   };
 
@@ -46,16 +56,15 @@ export default function InstallButtons() {
     <>
       <div style={{ marginTop: 18, display: "flex", gap: 9,
                     justifyContent: "center", flexWrap: "wrap" }}>
-        <button onClick={android} disabled={!evt}
-                style={{ ...btn, opacity: evt ? 1 : .45,
-                         cursor: evt ? "pointer" : "default" }}>
-          <Android /> تثبيت
+        <button onClick={android}
+                style={btn}>
+          <Android /> {ar ? "تثبيت" : "Install"}
         </button>
         <button onClick={ios} style={btn}>
-          <Apple /> تثبيت
+          <Apple /> {ar ? "تثبيت" : "Install"}
         </button>
       </div>
-      {sheet && <IosGuide onClose={() => setSheet(false)} />}
+      {sheet && <Guide kind={sheet} ar={ar} onClose={() => setSheet(null)} />}
     </>
   );
 }
@@ -74,7 +83,8 @@ const Apple = () => (
   </svg>
 );
 
-function IosGuide({ onClose }) {
+function Guide({ kind, ar, onClose }) {
+  const ios = kind === "ios";
   return (
     <div onClick={onClose} style={{
       position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,.75)",
@@ -98,10 +108,12 @@ function IosGuide({ onClose }) {
                style={{ borderRadius: 11 }} />
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 16, color: "#eaf6f4" }}>
-              التثبيت على آيفون
+              {ios ? (ar ? "التثبيت على آيفون" : "Install on iPhone")
+                   : (ar ? "التثبيت على أندرويد" : "Install on Android")}
             </div>
             <div style={{ fontSize: 11.5, color: "#8fa9b4", marginTop: 2 }}>
-              من متصفّح سفاري
+              {ios ? (ar ? "من متصفّح سفاري" : "From Safari")
+                   : (ar ? "من متصفّح كروم" : "From Chrome")}
             </div>
           </div>
           <button onClick={onClose} style={{
@@ -109,13 +121,19 @@ function IosGuide({ onClose }) {
             fontSize: 26, cursor: "pointer", lineHeight: 1,
           }}>×</button>
         </div>
-        <Step n="١" t={<>اضغط زرّ المشاركة <Share /> في شريط سفاري الأسفل</>} />
-        <Step n="٢" t={<>اختر <b style={{ color: "#eaf6f4" }}>إضافة إلى الشاشة الرئيسية</b></>} />
-        <Step n="٣" t={<>اضغط <b style={{ color: "#eaf6f4" }}>إضافة</b> في الأعلى</>} />
-        <div style={{ textAlign: "center", marginTop: 14 }}>
-          <div style={{ fontSize: 26, color: "#0fa392",
-                        animation: "wxBob 1.5s ease-in-out infinite" }}>⬇︎</div>
-        </div>
+        <Step n="١" t={ios
+          ? <>اضغط زرّ المشاركة <Share /> في شريط سفاري الأسفل</>
+          : <>اضغط زرّ القائمة <Dots /> أعلى المتصفّح</>} />
+        <Step n="٢" t={ios
+          ? <>اختر <b style={{ color: "#eaf6f4" }}>إضافة إلى الشاشة الرئيسية</b></>
+          : <>اختر <b style={{ color: "#eaf6f4" }}>تثبيت التطبيق</b></>} />
+        <Step n="٣" t={<>اضغط <b style={{ color: "#eaf6f4" }}>{ios ? "إضافة" : "تثبيت"}</b> للتأكيد</>} />
+        {ios && (
+          <div style={{ textAlign: "center", marginTop: 14 }}>
+            <div style={{ fontSize: 26, color: "#0fa392",
+                          animation: "wxBob 1.5s ease-in-out infinite" }}>⬇︎</div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -145,4 +163,10 @@ const Share = () => (
             strokeLinecap="round"/>
     </svg>
   </span>
+);
+
+const Dots = () => (
+  <span style={{ display: "inline-block", padding: "1px 9px", margin: "0 3px",
+                 borderRadius: 6, background: "#132a38", color: "#eaf6f4",
+                 letterSpacing: 1.5, verticalAlign: "middle" }}>⋮</span>
 );
