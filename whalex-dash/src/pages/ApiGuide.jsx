@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import PlanCalc from "../components/PlanCalc.jsx";
 import { useLang } from "../context/LangContext.jsx";
 
 const SERVER_IP = "178.105.49.200";
@@ -316,6 +317,11 @@ export default function ApiGuide() {
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "4px 2px 40px" }}>
       <h2 style={{ fontSize: 20, margin: "6px 0 4px" }}>{L("📚 دليل الاستخدام", "📚 User Guide")}</h2>
+
+      {/* 🧮 حاسبة الخطّة — أوّل ما يحتاجه المشترك قبل أن يربط حسابه:
+          كم يضع، وبأي إعدادات، وكم يتوقّع. والأرقام من أداء النظام
+          الحقيقيّ خلال ثلاثين يوماً لا من تقدير. */}
+      <PlanCalc />
       <div style={{
         fontSize: 13.5, fontWeight: 800, margin: "14px 0 6px",
         display: "flex", alignItems: "center", gap: 7,

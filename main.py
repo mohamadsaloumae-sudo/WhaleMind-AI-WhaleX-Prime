@@ -194,6 +194,13 @@ app.include_router(trial_router)
 from routers.referral import router as ref_router
 app.include_router(ref_router)
 
+# 🧮 حاسبة خطّة التداول — تُعطي المشترك إعداداته حسب رأس ماله
+try:
+    from routers.plan import router as plan_router
+    app.include_router(plan_router)
+except Exception as _pe:
+    log.warning("حاسبة الخطّة: %s", _pe)
+
 @app.get("/", include_in_schema=False)
 async def root(): return RedirectResponse("/static/index.html", 302)
 
