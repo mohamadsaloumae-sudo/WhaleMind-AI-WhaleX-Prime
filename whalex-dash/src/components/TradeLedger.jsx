@@ -11,6 +11,8 @@ const AR = {
   entry: "سعر الدخول", exit: "سعر الخروج", qty: "الكمّية",
   lev: "الرافعة", value: "قيمة الصفقة", reason: "سبب الإغلاق",
   openedAt: "وقت الفتح", closedAt: "وقت الإغلاق", duration: "المدّة",
+  commission: "رسوم باينانس", netAfter: "الصافي بعد الرسوم",
+  totalCom: "إجمالي الرسوم", netFees: "صافي بعد الرسوم",
   market: "السوق", tabOpen: "المفتوحة", tabClosed: "المغلقة",
   none: "لا صفقات بعد", h: "س", m: "د", still: "ما زالت مفتوحة",
   futures: "عقود آجلة", spot: "فوريّ", meme: "ميم كوينز",
@@ -25,6 +27,8 @@ const EN = {
   entry: "Entry", exit: "Exit", qty: "Quantity",
   lev: "Leverage", value: "Position size", reason: "Close reason",
   openedAt: "Opened", closedAt: "Closed", duration: "Duration",
+  commission: "Binance fees", netAfter: "Net after fees",
+  totalCom: "Total fees", netFees: "Net after fees",
   market: "Market", tabOpen: "Open", tabClosed: "Closed",
   none: "No trades yet", h: "h", m: "m", still: "still open",
   futures: "Futures", spot: "Spot", meme: "Memecoins",
@@ -136,6 +140,16 @@ function TradeCard({ t, L, ar, isOpen }) {
           <Cell k={L.qty} v={t.qty} dir="ltr" />
           <Cell k={L.lev} v={(t.leverage || 1) + "x"} dir="ltr" />
           <Cell k={L.value} v={num(value) + "$"} dir="ltr" />
+          {/* 💵 رسوم باينانس الحقيقية والصافي بعدها — المشترك يرى
+              ما دفعه فعلاً. مقيس: 91% من خسارة حساب كانت رسوماً. */}
+          {t.commission > 0 && (
+            <Cell k={L.commission} v={"-" + num(t.commission) + "$"} dir="ltr" />
+          )}
+          {t.net_usdt != null && (
+            <Cell k={L.netAfter}
+                  v={(t.net_usdt >= 0 ? "+" : "") + num(t.net_usdt) + "$"}
+                  dir="ltr" />
+          )}
           <Cell k={L.duration} v={fmtDur(t.opened_at, t.closed_at, L)} />
           <Cell k={L.openedAt} v={fmtTime(t.opened_at, ar)} dir="ltr" />
           <Cell k={L.closedAt} v={t.closed_at ? fmtTime(t.closed_at, ar) : "—"} dir="ltr" />
@@ -168,6 +182,15 @@ export default function TradeLedger({ data, ar = true }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 6, marginBottom: 8 }}>
         <Cell k={L.closed} v={`${data.closed} (${data.open} ${L.open})`} />
         <Cell k={L.winRate} v={`${data.win_rate}%`} />
+        {data.total_commission > 0 && (
+          <Cell k={L.totalCom} v={"-" + num(data.total_commission) + "$"}
+                dir="ltr" />
+        )}
+        {data.net_after_fees != null && (
+          <Cell k={L.netFees}
+                v={(data.net_after_fees >= 0 ? "+" : "") +
+                   num(data.net_after_fees) + "$"} dir="ltr" />
+        )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 6, marginBottom: 8 }}>
