@@ -143,7 +143,6 @@ function Guide({ kind, ar, onClose }) {
             fontSize: 26, cursor: "pointer", lineHeight: 1,
           }}>×</button>
         </div>
-        {!ios && <WhyBox />}
         <Step n="١" t={ios
           ? <>اضغط زرّ المشاركة <Share /> في شريط سفاري الأسفل</>
           : <>اضغط زرّ القائمة <Dots /> أعلى المتصفّح</>} />
@@ -193,35 +192,3 @@ const Dots = () => (
                  borderRadius: 6, background: "#132a38", color: "#eaf6f4",
                  letterSpacing: 1.5, verticalAlign: "middle" }}>⋮</span>
 );
-
-/* 🔬 يُظهر سبب عدم إطلاق كروم لحدث التثبيت */
-function WhyBox() {
-  const ua = navigator.userAgent;
-  const inst = window.matchMedia?.("(display-mode: standalone)")?.matches;
-  const samsung = /SamsungBrowser/i.test(ua);
-  const chrome = /Chrome/i.test(ua) && !samsung;
-  const rows = [
-    ["المتصفّح", samsung ? "سامسونج إنترنت" : chrome ? "كروم" : "آخر"],
-    ["التطبيق مثبَّت", inst ? "نعم" : "لا"],
-    ["حدث التثبيت", window.__wxInstall ? "جاهز" : "غير متاح"],
-  ];
-  const why = samsung
-    ? "سامسونج إنترنت ألغى التثبيت بضغطة من الإصدار ٢٧ — افتح الرابط في كروم"
-    : inst
-    ? "التطبيق مثبَّت عندك، وكروم لا يعرض التثبيت لمن ثبّته"
-    : "كروم يكبح العرض ٣ أشهر لمن رفض شريط التثبيت سابقاً — اتبع الخطوات";
-  return (
-    <div id="wxWhy" style={{
-      background: "#0e2530", borderRadius: 11, padding: "12px 14px",
-      marginBottom: 16, fontSize: 12, color: "#9fb8c2", lineHeight: 1.9,
-    }}>
-      {rows.map(([k, v]) => (
-        <div key={k} style={{ display: "flex", justifyContent: "space-between" }}>
-          <span>{k}</span><b style={{ color: "#d6e8ee" }}>{v}</b>
-        </div>
-      ))}
-      <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #1c3d4c",
-                    color: "#f0b429", fontSize: 11.5 }}>{why}</div>
-    </div>
-  );
-}
