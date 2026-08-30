@@ -16,13 +16,27 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="WhaleX Prime" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <script type="module" crossorigin src="/assets/index-Ol0qoq17.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/react-C09Vc3wl.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-BiTLAksx.js">
-    <link rel="modulepreload" crossorigin href="/assets/router-DBLkQ0A-.js">
-    <link rel="modulepreload" crossorigin href="/assets/icons-oWL2k02H.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-DdIVfoon.css">
-  </head>
+    <script>
+    // 📱 نلتقط حدث التثبيت مبكّراً جداً — كروم يُطلقه فور تحميل
+    //    الصفحة، وقبل أن يُحمَّل React بثانية أو أكثر. فالمستمع داخل
+    //    المكوّن يصل متأخّراً والحدث يضيع، فيظهر الزرّ ميّتاً.
+    window.__wxInstall = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window.__wxInstall = e;
+      window.dispatchEvent(new Event('wx-install-ready'));
+    });
+    window.addEventListener('appinstalled', function () {
+      window.__wxInstall = null;
+    });
+  </script>
+  <script type="module" crossorigin src="/assets/index-BbWFVxTZ.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/react-C09Vc3wl.js">
+  <link rel="modulepreload" crossorigin href="/assets/vendor-BiTLAksx.js">
+  <link rel="modulepreload" crossorigin href="/assets/router-DBLkQ0A-.js">
+  <link rel="modulepreload" crossorigin href="/assets/icons-oWL2k02H.js">
+  <link rel="stylesheet" crossorigin href="/assets/index-DdIVfoon.css">
+</head>
   <body>
     <div id="root"></div>
   </body>

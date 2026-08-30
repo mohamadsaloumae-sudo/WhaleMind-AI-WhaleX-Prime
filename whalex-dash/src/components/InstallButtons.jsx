@@ -13,9 +13,16 @@ export default function InstallButtons() {
   const [sheet, setSheet] = useState(null);
 
   useEffect(() => {
+    // 📱 الحدث مُلتقَط في index.html قبل تحميل React — نقرؤه من هناك
+    if (window.__wxInstall) setEvt(window.__wxInstall);
+    const ready = () => setEvt(window.__wxInstall);
     const onP = (e) => { e.preventDefault(); setEvt(e); };
+    window.addEventListener("wx-install-ready", ready);
     window.addEventListener("beforeinstallprompt", onP);
-    return () => window.removeEventListener("beforeinstallprompt", onP);
+    return () => {
+      window.removeEventListener("wx-install-ready", ready);
+      window.removeEventListener("beforeinstallprompt", onP);
+    };
   }, []);
 
   const ua = navigator.userAgent;
@@ -25,9 +32,11 @@ export default function InstallButtons() {
   // 🤖 كروم لا يُطلق beforeinstallprompt إلا بعد تفاعل وبشروطه.
   //    فإن لم يجهز الحدث نعرض إرشاد كروم بدل زرّ ميّت.
   async function android() {
-    if (evt) {
-      evt.prompt();
-      await evt.userChoice;
+    const p = evt || window.__wxInstall;
+    if (p) {
+      p.prompt();
+      await p.userChoice;
+      window.__wxInstall = null;
       setEvt(null);
       return;
     }
