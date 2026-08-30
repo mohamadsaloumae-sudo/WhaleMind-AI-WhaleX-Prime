@@ -102,6 +102,11 @@ def stats(user_id: str):
     except Exception:
         return {}
     closed = [r for r in rows if r.get("status") == "closed" and r.get("pnl_pct") is not None]
+    # 💵 مجموع ما دفعه المشترك عمولةً، وصافيه بعدها.
+    #    مقيس: حساب خسر 2.53$ في يوم، 91% منها عمولات لا خسائر تداول.
+    _com = sum(float(r.get("commission") or 0) for r in closed)
+    _net = sum(float(r["net_usdt"] if r.get("net_usdt") is not None
+                     else (r.get("pnl_usdt") or 0)) for r in closed)
     wins = [r for r in closed if r["pnl_pct"] > 0]
     losses = [r for r in closed if r["pnl_pct"] <= 0]
     by_market = {}
@@ -121,6 +126,8 @@ def stats(user_id: str):
     gl_usd = round(sum(r.get("pnl_usdt") or 0 for r in losses), 2)
     open_rows = [r for r in rows if r.get("status") == "open"]
     return {
+        "total_commission": round(_com, 4),
+        "net_after_fees": round(_net, 4),
         "open": len(open_rows),
         "closed": len(closed), "wins": len(wins), "losses": len(losses),
         "win_rate": round(len(wins) / len(closed) * 100, 1) if closed else 0,

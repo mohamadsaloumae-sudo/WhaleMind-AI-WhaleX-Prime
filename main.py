@@ -75,6 +75,12 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(_mp(), name="market_pulse")
     except Exception as _mpe:
         log.warning("نبض السوق: %s", _mpe)
+    # 💵 عمولة كل صفقة من باينانس — المشترك يرى صافيه الحقيقيّ
+    try:
+        from services.commission_sync import sync_loop as _cs
+        asyncio.create_task(_cs(), name="commission_sync")
+    except Exception as _cse:
+        log.warning("مزامنة العمولات: %s", _cse)
     # 🧹 تحرير الذاكرة المفكوكة كل عشر دقائق — بايثون يحتفظ بالساحات
     #    المحرّرة ولا يُعيدها للنظام، فتنمو RSS بلا سبب حقيقيّ.
     async def _trim_loop():
