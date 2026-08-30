@@ -1,21 +1,15 @@
 import { useEffect, useState } from "react";
 
 /**
- * 📱 زرّا تثبيت التطبيق — يكتشفان الجهاز ويتصرّفان.
- *
- * أندرويد: ضغطة واحدة تُثبّت عبر beforeinstallprompt.
- * آيفون في كروم: ننقله إلى سفاري (آبل تمنع التثبيت خارج سفاري).
- * آيفون في سفاري: إرشاد بصريّ — سهم متحرّك يُشير لزرّ المشاركة.
+ * 📱 زرّا تثبيت التطبيق — بحجم الأزرار المعتمدة عالمياً.
+ * أندرويد: تثبيت مباشر بضغطة واحدة (بلا توجيهات).
+ * آيفون: توجيه، لأن آبل تمنع التثبيت البرمجيّ.
  */
 export default function InstallButtons() {
   const [evt, setEvt] = useState(null);
-  const [sheet, setSheet] = useState(null);   // "ios" | "android" | null
-  const [done, setDone] = useState(false);
+  const [sheet, setSheet] = useState(false);
 
   useEffect(() => {
-    const std = window.matchMedia?.("(display-mode: standalone)")?.matches
-      || window.navigator.standalone === true;
-    setDone(std);
     const onP = (e) => { e.preventDefault(); setEvt(e); };
     window.addEventListener("beforeinstallprompt", onP);
     return () => window.removeEventListener("beforeinstallprompt", onP);
@@ -26,70 +20,61 @@ export default function InstallButtons() {
   const isSaf = /safari/i.test(ua) && !/crios|fxios|edgios/i.test(ua);
 
   async function android() {
-    if (evt) { evt.prompt(); await evt.userChoice; setEvt(null); return; }
-    setSheet("android");
+    if (!evt) return;
+    evt.prompt();
+    await evt.userChoice;
+    setEvt(null);
   }
 
   function ios() {
     if (isIos && !isSaf) {
       window.location.href = "x-safari-https://whalemindhybridai.online/";
-      setTimeout(() => setSheet("ios"), 900);
       return;
     }
-    setSheet("ios");
+    setSheet(true);
   }
 
-  // 📌 يظهران دائماً — حتى لمن ثبّته، فالإدارة تحتاج رؤيتهما
-  //    لشرح التثبيت للمشتركين، ومن ثبّته يرى حالته بوضوح.
   const btn = {
-    flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
-    gap: 7, padding: "15px 10px", borderRadius: 16, cursor: "pointer",
-    background: "rgba(15,163,146,.09)", border: "1px solid rgba(15,163,146,.28)",
-    color: "#eaf6f4", fontSize: 13, fontWeight: 600,
+    display: "inline-flex", alignItems: "center", gap: 8,
+    padding: "9px 16px", borderRadius: 9, cursor: "pointer",
+    background: "#0d1b24", border: "1px solid #24404e",
+    color: "#eaf6f4", fontSize: 12.5, fontWeight: 600,
+    fontFamily: "inherit", whiteSpace: "nowrap",
   };
 
   return (
     <>
-      <div style={{ marginTop: 22, direction: "rtl" }}>
-        <div style={{ fontSize: 12.5, color: done ? "#0fa392" : "#8fa9b4",
-                      marginBottom: 10, textAlign: "center" }}>
-          {done ? "✓ التطبيق مثبَّت على جهازك" : "ثبّت التطبيق على جهازك"}
-        </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={android} style={btn}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9.5" stroke="#0fa392" strokeWidth="1.6"/>
-              <circle cx="12" cy="12" r="3.4" stroke="#0fa392" strokeWidth="1.6"/>
-              <path d="M12 2.5v6M20.5 16.5l-5.2-3M3.5 16.5l5.2-3"
-                    stroke="#0fa392" strokeWidth="1.6" strokeLinecap="round"/>
-            </svg>
-            أندرويد
-            <span style={{ fontSize: 10.5, color: "#7c98a4", fontWeight: 400 }}>
-              تثبيت مباشر
-            </span>
-          </button>
-          <button onClick={ios} style={btn}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-              <path d="M16.2 12.6c0-2.4 1.9-3.5 2-3.6-1.1-1.6-2.8-1.8-3.4-1.9-1.5-.15-2.9.85-3.6.85-.75 0-1.9-.83-3.1-.8-1.6.02-3.05.92-3.87 2.34-1.65 2.87-.42 7.1 1.18 9.42.78 1.13 1.72 2.4 2.94 2.36 1.18-.05 1.63-.77 3.06-.77 1.42 0 1.83.77 3.07.74 1.27-.02 2.07-1.16 2.85-2.3.9-1.32 1.27-2.6 1.29-2.66-.03-.01-2.47-.95-2.5-3.76z"
-                    fill="#0fa392"/>
-              <path d="M13.9 5.3c.65-.79 1.09-1.88.97-2.97-.94.04-2.07.62-2.74 1.4-.6.7-1.13 1.81-.99 2.88 1.05.08 2.12-.53 2.76-1.31z"
-                    fill="#0fa392"/>
-            </svg>
-            آيفون
-            <span style={{ fontSize: 10.5, color: "#7c98a4", fontWeight: 400 }}>
-              عبر سفاري
-            </span>
-          </button>
-        </div>
+      <div style={{ marginTop: 18, display: "flex", gap: 9,
+                    justifyContent: "center", flexWrap: "wrap" }}>
+        <button onClick={android} disabled={!evt}
+                style={{ ...btn, opacity: evt ? 1 : .45,
+                         cursor: evt ? "pointer" : "default" }}>
+          <Android /> تثبيت
+        </button>
+        <button onClick={ios} style={btn}>
+          <Apple /> تثبيت
+        </button>
       </div>
-
-      {sheet && <Guide kind={sheet} onClose={() => setSheet(null)} />}
+      {sheet && <IosGuide onClose={() => setSheet(false)} />}
     </>
   );
 }
 
-function Guide({ kind, onClose }) {
-  const ios = kind === "ios";
+/* شعار أندرويد الرسميّ */
+const Android = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="#3DDC84">
+    <path d="M17.6 9.48l1.84-3.18a.38.38 0 00-.14-.52.38.38 0 00-.52.14l-1.87 3.23a11.4 11.4 0 00-9.82 0L5.22 5.92a.38.38 0 00-.52-.14.38.38 0 00-.14.52L6.4 9.48A10.8 10.8 0 001 18h22a10.8 10.8 0 00-5.4-8.52M7 15.25a.94.94 0 11.94-.94.94.94 0 01-.94.94m10 0a.94.94 0 11.94-.94.94.94 0 01-.94.94"/>
+  </svg>
+);
+
+/* شعار آبل الرسميّ */
+const Apple = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="#eaf6f4">
+    <path d="M17.05 12.54c-.02-2.6 2.12-3.85 2.22-3.91-1.21-1.77-3.09-2.01-3.76-2.04-1.6-.16-3.12.94-3.93.94-.81 0-2.06-.92-3.39-.9-1.74.03-3.35.99-4.24 2.51-1.81 3.14-.46 7.79 1.3 10.34.86 1.25 1.88 2.65 3.22 2.6 1.29-.05 1.78-.83 3.34-.83 1.56 0 2 .83 3.37.81 1.39-.02 2.27-1.27 3.12-2.53.98-1.45 1.39-2.85 1.41-2.92-.03-.01-2.7-1.04-2.73-4.11M14.6 4.72c.71-.86 1.19-2.06 1.06-3.25-1.02.04-2.26.68-3 1.54-.66.76-1.24 1.98-1.08 3.15 1.14.09 2.31-.58 3.02-1.44"/>
+  </svg>
+);
+
+function IosGuide({ onClose }) {
   return (
     <div onClick={onClose} style={{
       position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,.75)",
@@ -100,24 +85,23 @@ function Guide({ kind, onClose }) {
         padding: "24px 20px",
         paddingBottom: "calc(28px + env(safe-area-inset-bottom, 0px))",
         direction: "rtl", textAlign: "right",
-        animation: "wxUp .32s ease-out",
+        animation: "wxUp .3s ease-out",
       }}>
         <style>{`
           @keyframes wxUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-          @keyframes wxBob{0%,100%{transform:translateY(0);opacity:.55}
-                           50%{transform:translateY(9px);opacity:1}}
+          @keyframes wxBob{0%,100%{transform:translateY(0);opacity:.5}
+                           50%{transform:translateY(8px);opacity:1}}
         `}</style>
-
         <div style={{ display: "flex", alignItems: "center", gap: 12,
                       marginBottom: 20 }}>
-          <img src="/icon-192.png" alt="" width="44" height="44"
-               style={{ borderRadius: 12 }} />
+          <img src="/icon-192.png" alt="" width="42" height="42"
+               style={{ borderRadius: 11 }} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 16.5, color: "#eaf6f4" }}>
-              {ios ? "التثبيت على آيفون" : "التثبيت على أندرويد"}
+            <div style={{ fontWeight: 700, fontSize: 16, color: "#eaf6f4" }}>
+              التثبيت على آيفون
             </div>
-            <div style={{ fontSize: 12, color: "#8fa9b4", marginTop: 2 }}>
-              {ios ? "من متصفّح سفاري" : "من متصفّح كروم"}
+            <div style={{ fontSize: 11.5, color: "#8fa9b4", marginTop: 2 }}>
+              من متصفّح سفاري
             </div>
           </div>
           <button onClick={onClose} style={{
@@ -125,60 +109,40 @@ function Guide({ kind, onClose }) {
             fontSize: 26, cursor: "pointer", lineHeight: 1,
           }}>×</button>
         </div>
-
-        <Step n="١" text={ios
-          ? <>اضغط زرّ المشاركة <Share/> في شريط سفاري الأسفل</>
-          : <>اضغط زرّ القائمة <Dots/> أعلى المتصفّح</>} />
-        <Step n="٢" text={ios
-          ? <>اختر <b style={{color:"#eaf6f4"}}>إضافة إلى الشاشة الرئيسية</b></>
-          : <>اختر <b style={{color:"#eaf6f4"}}>تثبيت التطبيق</b></>} />
-        <Step n="٣" text={<>اضغط <b style={{color:"#eaf6f4"}}>إضافة</b> — وسيظهر التطبيق على شاشتك</>} />
-
-        {ios && (
-          <div style={{ textAlign: "center", marginTop: 18 }}>
-            <div style={{ fontSize: 30, color: "#0fa392",
-                          animation: "wxBob 1.5s ease-in-out infinite" }}>⬇︎</div>
-            <div style={{ fontSize: 11.5, color: "#7c98a4", marginTop: 2 }}>
-              زرّ المشاركة في الأسفل
-            </div>
-          </div>
-        )}
+        <Step n="١" t={<>اضغط زرّ المشاركة <Share /> في شريط سفاري الأسفل</>} />
+        <Step n="٢" t={<>اختر <b style={{ color: "#eaf6f4" }}>إضافة إلى الشاشة الرئيسية</b></>} />
+        <Step n="٣" t={<>اضغط <b style={{ color: "#eaf6f4" }}>إضافة</b> في الأعلى</>} />
+        <div style={{ textAlign: "center", marginTop: 14 }}>
+          <div style={{ fontSize: 26, color: "#0fa392",
+                        animation: "wxBob 1.5s ease-in-out infinite" }}>⬇︎</div>
+        </div>
       </div>
     </div>
   );
 }
 
-function Step({ n, text }) {
-  return (
-    <div style={{ display: "flex", gap: 12, alignItems: "flex-start",
-                  marginBottom: 15 }}>
-      <div style={{
-        width: 27, height: 27, borderRadius: 9, flexShrink: 0,
-        background: "rgba(15,163,146,.16)", color: "#0fa392",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 13.5, fontWeight: 700,
-      }}>{n}</div>
-      <div style={{ fontSize: 14, color: "#c3d6dd", lineHeight: 1.75,
-                    paddingTop: 3 }}>{text}</div>
-    </div>
-  );
-}
+const Step = ({ n, t }) => (
+  <div style={{ display: "flex", gap: 11, marginBottom: 14 }}>
+    <div style={{
+      width: 25, height: 25, borderRadius: 8, flexShrink: 0,
+      background: "rgba(15,163,146,.16)", color: "#0fa392",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: 13, fontWeight: 700,
+    }}>{n}</div>
+    <div style={{ fontSize: 13.5, color: "#c3d6dd", lineHeight: 1.7,
+                  paddingTop: 3 }}>{t}</div>
+  </div>
+);
 
 const Share = () => (
-  <span style={{ display: "inline-flex", alignItems: "center",
-                 padding: "2px 8px", margin: "0 4px", borderRadius: 7,
-                 background: "#123", verticalAlign: "middle" }}>
-    <svg width="13" height="16" viewBox="0 0 14 18" fill="none">
+  <span style={{ display: "inline-flex", padding: "2px 7px", margin: "0 3px",
+                 borderRadius: 6, background: "#132a38",
+                 verticalAlign: "middle" }}>
+    <svg width="12" height="15" viewBox="0 0 14 18" fill="none">
       <path d="M7 1v11M7 1L3.6 4.4M7 1l3.4 3.4" stroke="#4da6ff"
-            strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M2 8v8h10V8" stroke="#4da6ff" strokeWidth="1.5"
+            strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M2 8v8h10V8" stroke="#4da6ff" strokeWidth="1.6"
             strokeLinecap="round"/>
     </svg>
   </span>
-);
-
-const Dots = () => (
-  <span style={{ display: "inline-block", padding: "2px 9px", margin: "0 4px",
-                 borderRadius: 7, background: "#123", color: "#eaf6f4",
-                 letterSpacing: 1.5, verticalAlign: "middle" }}>⋮</span>
 );
