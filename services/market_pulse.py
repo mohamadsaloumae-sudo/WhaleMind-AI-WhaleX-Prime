@@ -24,6 +24,7 @@ EVERY = 300
 OFF_FLAG = "/opt/whalex/db/market_pulse.off"
 
 _state = {"ts": 0, "trend": "unknown", "vol": "unknown",
+          "mkt_rsi": 50.0,
           "breadth": "unknown", "btc_1h": 0.0, "up_pct": 0,
           "vol_p90": 0.0}
 
@@ -49,6 +50,17 @@ def _measure() -> dict:
     kl1 = ex.fetch_ohlcv("BTCUSDT", "1h", limit=2)
     out["btc_5m"] = (float(kl5[-1][4]) - float(kl5[0][1])) / float(kl5[0][1]) * 100
     out["btc_1h"] = (float(kl1[-1][4]) - float(kl1[-1][1])) / float(kl1[-1][1]) * 100
+    # 📉 إشباع السوق: متوسط RSI لأنشط العملات.
+    #    مقيس على 3,704 صفقة: اللونج حين متوسط RSI للسوق دون 45
+    #    أعطى 1,236 صفقة بفوز 48% و -289.4% — أكبر خسارة في النظام.
+    #    والشورت في نفس الحالة ربح +169.6%. فالخطر أن نشتري القاع
+    #    في سوق ما زال يهبط.
+    try:
+        out["mkt_rsi"] = _market_rsi(ex)
+    except Exception as _re:
+        log.debug("RSI السوق: %s", _re)
+        out["mkt_rsi"] = 50.0
+
     tk = ex.fetch_tickers()
     ch = [float(v.get("percentage") or 0) for k, v in tk.items()
           if k.endswith("USDT:USDT") and v.get("percentage") is not None]
@@ -97,6 +109,16 @@ def advice() -> dict:
     else:
         out["note"] = "السوق عرضيّ — تأنَّ ولا ترجيح لاتّجاه"
 
+    # 📉 السوق مُشبَع بيعاً — اللونج خطر (السكّين الهابطة)
+    _mr = float(_state.get("mkt_rsi") or 50)
+    if _mr < 42:
+        out["long_bias"] = 99.0        # منع فعليّ
+        out["note"] = (f"السوق مُشبَع بيعاً (RSI {_mr:.0f}) — "
+                       f"اللونج ممنوع، الشورت أولى")
+    elif _mr < 46:
+        out["long_bias"] += 0.5
+        out["note"] += f" · ضعف عامّ (RSI {_mr:.0f}) — اللونج أشدّ"
+
     if v == "violent":
         out["size_mult"] = 0.6
         out["long_bias"] += 0.4
@@ -113,7 +135,8 @@ def advice() -> dict:
         out["long_bias"] -= 0.25
         out["note"] += " · اتّساع شراء يؤكّد الصعود"
     # حدّ أقصى ±1.0 — لا نُشدّد أكثر من نقطة كاملة
-    out["long_bias"] = max(-1.0, min(1.0, out["long_bias"]))
+    if out["long_bias"] < 90:
+        out["long_bias"] = max(-1.0, min(1.0, out["long_bias"]))
     out["short_bias"] = max(-1.0, min(1.0, out["short_bias"]))
     return out
 
@@ -126,6 +149,39 @@ def score_adjust(direction: str) -> float:
                      else a["short_bias"])
     except Exception:
         return 0.0
+
+
+def _market_rsi(ex, n: int = 30) -> float:
+    """متوسط RSI لأنشط العملات — مقياس إشباع السوق."""
+    import sqlite3 as _sq
+    syms = []
+    try:
+        cn = _sq.connect("/opt/whalex/multi_universe.db")
+        syms = [r[0] for r in cn.execute(
+            "SELECT symbol FROM multi_universe WHERE exchange='binance' "
+            "LIMIT ?", (n,))]
+        cn.close()
+    except Exception:
+        pass
+    if not syms:
+        syms = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT"]
+    vals = []
+    for sym in syms[:n]:
+        try:
+            kl = ex.fetch_ohlcv(sym, "15m", limit=30)
+            cl = [float(k[4]) for k in kl]
+            if len(cl) < 15:
+                continue
+            g = l = 0.0
+            for i in range(-14, 0):
+                d = cl[i] - cl[i - 1]
+                if d > 0: g += d
+                else: l -= d
+            rs = (g / 14) / ((l / 14) or 1e-9)
+            vals.append(100 - 100 / (1 + rs))
+        except Exception:
+            continue
+    return round(sum(vals) / len(vals), 1) if vals else 50.0
 
 
 def get_state() -> dict:
