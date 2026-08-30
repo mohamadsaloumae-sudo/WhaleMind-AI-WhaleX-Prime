@@ -739,6 +739,15 @@ async def close_all_real_users(symbol: str, direction: str) -> int:
     return n
 
 
+# ⚡ نداءات باينانس متزامنة وتحجب حلقة الأحداث كلّها، فتنفيذ تسعة
+#    مشتركين يصير تسلسلاً رغم asyncio.gather. مقيس: 17 ثانية بين
+#    الإشارة وظهور الصفقة، والمشترك الأخير يدخل بسعر يبعد عشر ثوانٍ
+#    عن الأوّل. فنُخرجها إلى خيوط منفصلة.
+async def _aio_th(fn, *a, **kw):
+    import asyncio as _a
+    return await _a.to_thread(lambda: fn(*a, **kw))
+
+
 async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
     """
     ينفّذ إشارة على حساب المستخدم
@@ -774,7 +783,7 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
     # تحقق max positions + منع التكرار على نفس العملة
     # 🛡️ فشل الجلب يمنع الفتح — ولا يُعامَل كـ"لا مراكز".
     try:
-        _open = get_open_positions(user_id)
+        _open = await _aio_th(get_open_positions, user_id)
     except Exception as _pe:
         log.error("🛡️ %s: تعذّر جلب المراكز — لا نفتح: %s",
                   user_id[:8], str(_pe)[:60])
@@ -827,13 +836,13 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
     try:
         from services.margin_guard import check as _mg_check
         _bal = 0.0
-        for _b in client.futures_account_balance():
+        for _b in await _aio_th(client.futures_account_balance):
             if _b.get("asset") == "USDT":
                 _bal = float(_b.get("balance") or 0)
                 break
         _used = 0.0
         try:
-            for _p in client.futures_position_information():
+            for _p in await _aio_th(client.futures_position_information):
                 if abs(float(_p.get("positionAmt") or 0)) > 0:
                     _used += abs(float(_p.get("initialMargin") or 0))
         except Exception:
@@ -888,7 +897,7 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
     try:
         # 1. فحص أقصى رافعة مسموحة للعملة، وتقييد اختيار المستخدم ضمنها
         try:
-            _br = client.futures_leverage_bracket(symbol=symbol)
+            _br = await _aio_th(client.futures_leverage_bracket, symbol=symbol)
             _max_lev = int(_br[0]["brackets"][0]["initialLeverage"])
             if leverage > _max_lev:
                 log.info("رافعة %s: طُلب %dx، أقصى %dx → نستخدم %dx", symbol, leverage, _max_lev, _max_lev)
@@ -902,7 +911,8 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
             return {"success": False, "error": f"notional {_notional:.2f}$ < 5$ (زد المبلغ أو الرافعة)"}
 
         # 3. ضبط الرافعة
-        client.futures_change_leverage(symbol=symbol, leverage=leverage)
+        await _aio_th(client.futures_change_leverage, symbol=symbol,
+                      leverage=leverage)
 
         # 4. حساب الكمية (بدقة العملة)
         entry = signal["entry"]
