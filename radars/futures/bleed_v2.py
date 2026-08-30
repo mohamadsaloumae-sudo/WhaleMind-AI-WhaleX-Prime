@@ -13,6 +13,15 @@ log = logging.getLogger("bleed")
 BLEED_MIN_TRAVEL = 0.45
 BLEED_MIN_ADVERSE = 5
 BLEED_MIN_AGE_MIN = 8
+
+# 🚨 طوارئ الصفقة الصغيرة — كاشف النزيف مقفل أوّل ثماني دقائق،
+#    والانفجارات القاتلة تقع قبلها: ZKC ضربت الوقف بـ-13.55% في
+#    4.2 دقيقة، وSKR بـ-12.81% في 4.0، وHNT بـ-16.32% في 3.1.
+#    فثماني صفقات صنعت -104.7% بينما الخروج التكتيكيّ ربح +56.8%
+#    من 167 صفقة. والمدير لم يكن مسموحاً له بالتدخّل أصلاً.
+#    مقيس على 358 مساراً حقيقياً بشموع الدقيقة: القطع عند 60% من
+#    مسافة الوقف يُعطي +83.8 نقطة، وموجب في النصفين (+42.7 و+41.1).
+YOUNG_TRAVEL = 0.60
 STALE_HOURS = 3.0
 STALE_BAND = 2.0
 
@@ -57,6 +66,14 @@ def evaluate_exit(pnl, sl_pnl, peak_pnl, age_min, closes, is_long):
     fl = lock_floor(peak_pnl)
     if fl is not None and pnl <= fl:
         return True, f"🔒 قفل: قمّة {peak_pnl:+.1f}% → أرضية {fl:+.1f}%"
+    # 🚨 الصفقة الصغيرة: إن قطعت 60% نحو الوقف قبل أن يفتح كاشف
+    #    النزيف بابه، نخرج فوراً — فالانتظار يُكلّفنا ضعف الخسارة.
+    if pnl < 0 and age_min < BLEED_MIN_AGE_MIN and sl_pnl < 0:
+        _tr = pnl / sl_pnl
+        if _tr >= YOUNG_TRAVEL:
+            return True, (f"🚨 طوارئ: قطعت {_tr*100:.0f}% نحو الوقف "
+                          f"خلال {age_min:.1f}د")
+
     if pnl < 0 and age_min >= BLEED_MIN_AGE_MIN:
         tr = (pnl / sl_pnl) if sl_pnl < 0 else 0.0
         if tr >= BLEED_MIN_TRAVEL:
