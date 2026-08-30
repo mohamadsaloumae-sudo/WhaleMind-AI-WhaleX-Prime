@@ -14,7 +14,18 @@ function useLangSpotMsg() {
   return ar ? "رادار السبوت قيد الإطلاق — المرحلة الثانية 🚧" : "Spot radar launching — phase 2 🚧";
 }
 
-const fmtPx = (n) => { const v = Number(n) || 0; return v >= 100 ? v.toFixed(2) : v >= 1 ? v.toFixed(3) : v >= 0.01 ? v.toFixed(4) : v.toFixed(6); };
+// 🔢 صيغة سعر واحدة لكل الأماكن — الخانات تتبع حجم السعر،
+//    والأصفار الزائدة تُحذف. كان سعر الدخول يُصاغ بـtoPrecision
+//    والحاليّ بـtoFixed، فيظهر 0.500000 مرّة و 0.5 مرّة.
+const _trimZeros = (s) => s.indexOf(".") < 0 ? s : s.replace(/0+$/, "").replace(/\.$/, "");
+const fmtPx = (n) => {
+  const v = Number(n);
+  if (!Number.isFinite(v) || v === 0) return "—";
+  const a = Math.abs(v);
+  const d = a >= 1000 ? 2 : a >= 1 ? 4 : a >= 0.01 ? 5
+          : a >= 0.0001 ? 7 : a >= 0.000001 ? 9 : 11;
+  return _trimZeros(v.toFixed(d));
+};
 
 export default function Signals() {
   const { t, lang } = useLang();
@@ -58,7 +69,7 @@ export default function Signals() {
               </div>
               <div style={{ fontSize: 13, color: "var(--txt-2)", display: "grid", gap: 6 }}>
                 <div>🌐 {lang === "ar" ? "الشبكة" : "Chain"}: <b style={{ color: "var(--txt-1)" }}>{s.chain}</b></div>
-                <div>🎯 {lang === "ar" ? "سعر الدخول" : "Entry"}: <b style={{ color: "var(--txt-1)" }}><Masked value={s.entry_price ? Number(Number(s.entry_price).toPrecision(6)) : "—"} chars={5} /></b></div>
+                <div>🎯 {lang === "ar" ? "سعر الدخول" : "Entry"}: <b style={{ color: "var(--txt-1)" }}><Masked value={s.entry_price ? fmtPx(s.entry_price) : "—"} chars={5} /></b></div>
                 <div>💧 {lang === "ar" ? "السيولة" : "Liquidity"}: <b>${Number(s.liq || 0).toLocaleString()}</b></div>
                 <div>📊 {lang === "ar" ? "الحجم 24س" : "Volume 24h"}: <b>${Number(s.vol || 0).toLocaleString()}</b></div>
                 <span className="badge" style={{ background: "rgba(74,222,128,0.15)", color: "var(--brand)", width: "fit-content" }}>✅ {lang === "ar" ? "اجتاز كل الفيتوهات" : "Passed all vetoes"}</span>
