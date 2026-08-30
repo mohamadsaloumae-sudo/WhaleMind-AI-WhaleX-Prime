@@ -225,6 +225,21 @@ async def on_signal_approved(sig) -> None:
     # نتحقق Grade A/S فقط (للأمان)
     if sig.grade not in ("A", "S"):
         return
+
+    # ⏳ الإشارة المشبوهة تنتظر ثلاث دقائق قبل التنفيذ — والباقي يمرّ
+    #    فوراً. المشبوهة: شورت عند قمّة النطاق ودفتره شراء وتدفّقه صاعد
+    #    (أو عكسها للونج)، وهي 7% من الإشارات. مقيس على 37 صفقة بسعر
+    #    الدخول الحقيقيّ بعد الانتظار: +15.3 نقطة، وموجب في النصفين
+    #    (+12.0 و +3.3). وأي خطأ هنا يُمرّر الإشارة كما لو لم توجد.
+    try:
+        from services.entry_delay import should_enter as _sd
+        _ok, _why = await _sd(sig)
+        if not _ok:
+            log.warning("⏳🚫 %s %s أُلغيت: %s",
+                        sig.symbol, sig.direction, _why)
+            return
+    except Exception as _de:
+        log.error("⏳ الانتظار %s: %s — نمرّ", sig.symbol, _de)
     
     # نُحوّل Signal إلى dict
     signal_dict = {
