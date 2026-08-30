@@ -42,28 +42,47 @@ export default function InstallButtons() {
     setSheet("ios");
   }
 
-  const btn = {
-    display: "inline-flex", alignItems: "center", gap: 8,
-    padding: "9px 16px", borderRadius: 9, cursor: "pointer",
-    background: "linear-gradient(180deg,#12b39f,#0d8b7c)",
-    border: "1px solid rgba(255,255,255,.14)",
-    color: "#03151a", fontSize: 12.5, fontWeight: 700,
-    boxShadow: "0 2px 10px rgba(15,163,146,.25)",
-    fontFamily: "inherit", whiteSpace: "nowrap",
+  // 🏷️ شارة التنزيل بالمقاس المعتمد عالمياً: شعار يمين، سطران
+  //    نصّ — علويّ صغير وسفليّ كبير. وهو الشكل الذي اعتاده كل
+  //    مستخدم فيعرف من نظرة واحدة أن التثبيت من هنا.
+  const badge = {
+    display: "inline-flex", alignItems: "center", gap: 10,
+    padding: "8px 15px", borderRadius: 10, cursor: "pointer",
+    background: "#000", border: "1px solid #3a3a3c",
+    minWidth: 148, fontFamily: "inherit", textAlign: "right",
+    transition: "transform .12s, border-color .12s",
   };
+  const topLine = { fontSize: 9.5, color: "#bdbdbf", lineHeight: 1.25,
+                    fontWeight: 500, letterSpacing: .2 };
+  const bigLine = { fontSize: 15, color: "#fff", lineHeight: 1.2,
+                    fontWeight: 700, marginTop: 1 };
 
   return (
     <>
-      <div style={{ marginTop: 18, display: "flex", gap: 9,
-                    justifyContent: "center", flexWrap: "wrap" }}>
-        <button onClick={android}
-                style={btn}>
-          <Android /> {ar ? "تثبيت" : "Install"}
+      <div style={{ marginTop: 20, display: "flex", gap: 11,
+                    justifyContent: "center", flexWrap: "wrap",
+                    direction: "rtl" }}>
+        <button onClick={android} style={badge}
+                onMouseDown={(e) => e.currentTarget.style.transform = "scale(.97)"}
+                onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}>
+          <Android />
+          <span>
+            <div style={topLine}>{ar ? "ثبّت الآن على" : "GET IT ON"}</div>
+            <div style={bigLine}>{ar ? "أندرويد" : "Android"}</div>
+          </span>
         </button>
-        <button onClick={ios} style={btn}>
-          <Apple /> {ar ? "تثبيت" : "Install"}
+
+        <button onClick={ios} style={badge}
+                onMouseDown={(e) => e.currentTarget.style.transform = "scale(.97)"}
+                onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}>
+          <Apple />
+          <span>
+            <div style={topLine}>{ar ? "ثبّت الآن على" : "DOWNLOAD ON"}</div>
+            <div style={bigLine}>{ar ? "آيفون" : "iPhone"}</div>
+          </span>
         </button>
       </div>
+
       {sheet && <Guide kind={sheet} ar={ar} onClose={() => setSheet(null)} />}
     </>
   );
@@ -71,7 +90,7 @@ export default function InstallButtons() {
 
 /* 🤖 شعار أندرويد الرسميّ — الروبوت كاملاً */
 const Android = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="#3DDC84">
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="#3DDC84">
     <path d="M6.28 9.33a1.1 1.1 0 00-1.1 1.1v4.63a1.1 1.1 0 002.2 0v-4.63a1.1 1.1 0 00-1.1-1.1zm11.44 0a1.1 1.1 0 00-1.1 1.1v4.63a1.1 1.1 0 002.2 0v-4.63a1.1 1.1 0 00-1.1-1.1zM8.1 9.5v6.62c0 .5.4.9.9.9h.72v2.36a1.1 1.1 0 002.2 0V17h1.66v2.38a1.1 1.1 0 002.2 0V17h.72c.5 0 .9-.4.9-.9V9.5H8.1z"/>
     <path d="M15.02 5.03l.93-1.7a.23.23 0 00-.09-.31.23.23 0 00-.31.09l-.95 1.73a6.9 6.9 0 00-5.2 0l-.95-1.73a.23.23 0 00-.31-.09.23.23 0 00-.09.31l.93 1.7A6.2 6.2 0 005.9 8.6h12.2a6.2 6.2 0 00-3.08-3.57zM9.4 7.15a.6.6 0 110-1.2.6.6 0 010 1.2zm5.2 0a.6.6 0 110-1.2.6.6 0 010 1.2z"/>
   </svg>
@@ -79,7 +98,7 @@ const Android = () => (
 
 /* شعار آبل الرسميّ */
 const Apple = () => (
-  <svg width="19" height="19" viewBox="0 0 24 24" fill="#03151a">
+  <svg width="25" height="25" viewBox="0 0 24 24" fill="#fff">
     <path d="M17.05 12.54c-.02-2.6 2.12-3.85 2.22-3.91-1.21-1.77-3.09-2.01-3.76-2.04-1.6-.16-3.12.94-3.93.94-.81 0-2.06-.92-3.39-.9-1.74.03-3.35.99-4.24 2.51-1.81 3.14-.46 7.79 1.3 10.34.86 1.25 1.88 2.65 3.22 2.6 1.29-.05 1.78-.83 3.34-.83 1.56 0 2 .83 3.37.81 1.39-.02 2.27-1.27 3.12-2.53.98-1.45 1.39-2.85 1.41-2.92-.03-.01-2.7-1.04-2.73-4.11M14.6 4.72c.71-.86 1.19-2.06 1.06-3.25-1.02.04-2.26.68-3 1.54-.66.76-1.24 1.98-1.08 3.15 1.14.09 2.31-.58 3.02-1.44"/>
   </svg>
 );
