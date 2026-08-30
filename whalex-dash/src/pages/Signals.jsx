@@ -22,9 +22,13 @@ const fmtPx = (n) => {
   const v = Number(n);
   if (!Number.isFinite(v) || v === 0) return "—";
   const a = Math.abs(v);
-  const d = a >= 1000 ? 2 : a >= 1 ? 4 : a >= 0.01 ? 5
-          : a >= 0.0001 ? 7 : a >= 0.000001 ? 9 : 11;
-  return _trimZeros(v.toFixed(d));
+  // الكبير: خانتان تكفيان. والصغير: ستّ أرقام معنوية كاملة —
+  // فالخانات الثابتة تقصّ الدقّة (0.019708 كانت تُعرض 0.01971).
+  if (a >= 1000) return _trimZeros(v.toFixed(2));
+  if (a >= 1) return _trimZeros(v.toFixed(4));
+  const p = Number(v.toPrecision(6));
+  return _trimZeros(p.toFixed(Math.min(14, Math.max(6,
+    Math.ceil(-Math.log10(a)) + 6))));
 };
 
 export default function Signals() {
