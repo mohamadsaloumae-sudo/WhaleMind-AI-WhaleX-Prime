@@ -67,6 +67,14 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(_mr(), name="margin_rescue")
     except Exception as _mre:
         log.warning("منقذ الهامش: %s", _mre)
+    # 🌡️ نبض السوق — يقيس ويُسجّل فقط، ولا يمنع إشارة ولا يُعدّل قراراً.
+    #    حقول حالة السوق كانت ميّتة (regime فارغ في 91% من السجلّ)،
+    #    فنجمع بيانات حقيقية أوّلاً ثم نقيس أثرها قبل أن نبني عليها.
+    try:
+        from services.market_pulse import pulse_loop as _mp
+        asyncio.create_task(_mp(), name="market_pulse")
+    except Exception as _mpe:
+        log.warning("نبض السوق: %s", _mpe)
     # 🧹 تحرير الذاكرة المفكوكة كل عشر دقائق — بايثون يحتفظ بالساحات
     #    المحرّرة ولا يُعيدها للنظام، فتنمو RSS بلا سبب حقيقيّ.
     async def _trim_loop():
