@@ -39,8 +39,8 @@ export default function InstallButtons() {
     setSheet("ios");
   }
 
-  if (done) return null;
-
+  // 📌 يظهران دائماً — حتى لمن ثبّته، فالإدارة تحتاج رؤيتهما
+  //    لشرح التثبيت للمشتركين، ومن ثبّته يرى حالته بوضوح.
   const btn = {
     flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
     gap: 7, padding: "15px 10px", borderRadius: 16, cursor: "pointer",
@@ -51,9 +51,9 @@ export default function InstallButtons() {
   return (
     <>
       <div style={{ marginTop: 22, direction: "rtl" }}>
-        <div style={{ fontSize: 12.5, color: "#8fa9b4", marginBottom: 10,
-                      textAlign: "center" }}>
-          ثبّت التطبيق على جهازك
+        <div style={{ fontSize: 12.5, color: done ? "#0fa392" : "#8fa9b4",
+                      marginBottom: 10, textAlign: "center" }}>
+          {done ? "✓ التطبيق مثبَّت على جهازك" : "ثبّت التطبيق على جهازك"}
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={android} style={btn}>
