@@ -67,7 +67,9 @@ export default function LivePositions() {
 
   useEffect(() => {
     loadRadar();
-    const id = setInterval(loadRadar, 1000);
+    // ⚡ نداء كل ثانية يُغرق الخادم ويُبطئ الواجهة — والأسعار
+    //    تتحدّث كل بضع ثوانٍ على أي حال. ثانيتان أخفّ وأسرع استجابةً.
+    const id = setInterval(loadRadar, 2000);
     return () => clearInterval(id);
   }, []);
 

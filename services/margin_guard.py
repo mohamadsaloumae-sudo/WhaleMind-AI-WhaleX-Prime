@@ -22,7 +22,8 @@ MIN_RESERVE_USD = 3.0       # أو 3$ أيّهما أكبر — للحسابات
 OFF_FLAG = "/opt/whalex/db/margin_guard.off"
 
 
-ABS_CAP = 12                # سقف مطلق مهما كبر الرصيد
+ABS_CAP = 30                # سقف مطلق — الهامش هو الحاكم الحقيقيّ
+#   كان 12 فيمنع المشترك من أخذ كل إشارات البوت رغم اتّساع رصيده.
 
 
 def max_positions_for(balance: float, trade_amount: float = 0.0) -> int:

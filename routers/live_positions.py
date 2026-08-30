@@ -120,6 +120,33 @@ async def price_bench():
     return {"total_ms": round(sum(x["ms"] for x in out), 1), "slowest": out[:8]}
 
 
+@router.get("/mem-diag")
+async def mem_diag():
+    """🔬 تشخيص الذاكرة — أكثر الكائنات عدداً في العمليّة الحيّة."""
+    import gc
+    from collections import Counter
+    gc.collect()
+    objs = gc.get_objects()
+    c = Counter(type(o).__name__ for o in objs)
+    big = []
+    for o in objs:
+        try:
+            if isinstance(o, dict) and len(o) > 2000:
+                big.append(("dict", len(o)))
+            elif isinstance(o, (list, set)) and len(o) > 5000:
+                big.append((type(o).__name__, len(o)))
+        except Exception:
+            pass
+    big.sort(key=lambda x: -x[1])
+    import resource
+    return {
+        "rss_mb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024),
+        "objects": len(objs),
+        "top_types": c.most_common(14),
+        "big_containers": big[:14],
+    }
+
+
 @router.get("/stream-health")
 async def stream_health():
     """⚡ صحّة بثّ الأسعار — من داخل عملية الخدمة."""

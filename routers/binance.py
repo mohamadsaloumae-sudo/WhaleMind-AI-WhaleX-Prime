@@ -59,7 +59,9 @@ class ConnectBody(BaseModel):
 class AutoTradeBody(BaseModel):
     enabled: Optional[bool] = None
     trade_amount_usdt: Optional[float] = Field(None, ge=1, le=10000)
-    max_open_positions: Optional[int] = Field(None, ge=1, le=10)
+    max_open_positions: Optional[int] = Field(None, ge=1, le=30)
+    # 📈 كان الحدّ 10 فلا يستطيع المشترك أخذ كل إشارات البوت.
+    #    وحارس الهامش يحكم فعلياً حسب رصيده، فالحدّ هنا شكليّ.
     allowed_grades: Optional[str] = Field(None, pattern="^[ASB,]+$")
     leverage: Optional[int] = Field(None, ge=1, le=125)
     spot_enabled: bool | None = None
