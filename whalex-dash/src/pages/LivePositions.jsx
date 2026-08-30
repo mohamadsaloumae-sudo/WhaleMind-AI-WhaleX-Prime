@@ -59,7 +59,13 @@ export default function LivePositions() {
       const r = await fetch(`/api/live/radar-positions?market=${getMarket()}`,
         { headers: { Authorization: `Bearer ${localStorage.getItem("wx_token") || ""}` } })
         .then((x) => x.json());
-      setRadar(r?.positions || []);
+      // 🕐 ترتيب زمنيّ موحَّد في كل الصفحات: الأقدم أعلى والأحدث
+      //    أسفل. فالمشترك يرى التسلسل نفسه أينما نظر، والصفقة
+      //    الجديدة تظهر في الأسفل ولا تُزحزح ما يقرؤه.
+      const _byTime = (a, b) =>
+        (Number(a?.opened_at ?? a?.ts ?? 0) || 0) -
+        (Number(b?.opened_at ?? b?.ts ?? 0) || 0);
+      setRadar([...(r?.positions || [])].sort(_byTime));
     } catch { /* */ }
     finally { setLoaded(true); }
   }
