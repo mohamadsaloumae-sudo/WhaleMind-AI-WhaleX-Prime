@@ -1,4 +1,5 @@
 import { T } from "./sections.js";
+import InstallButtons from "../components/InstallButtons.jsx";
 
 // 🌐 قنواتنا — نفس شعارات القائمة
 const WA_CHANNEL = "https://whatsapp.com/channel/0029Vb8KTaF6RGJFztzS0Q3K";
@@ -66,6 +67,8 @@ export default function Social({ lang = "ar" }) {
           </a>
         ))}
       </div>
+      {/* 📱 زرّا تثبيت التطبيق — تحت شعارات التواصل */}
+      <InstallButtons />
     </section>
   );
 }
