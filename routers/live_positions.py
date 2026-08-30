@@ -199,6 +199,12 @@ async def radar_positions(market: str = "futures"):
                                 "radar": "WhaleX Spot 🪙", "entry": s.entry, "current": px,
                                 "pnl_pct": round(pnl, 2),
                                 "opened_at": int(s.created_at.timestamp()) if s.created_at else 0})
+                # 🕐 الأقدم أعلى — ترتيب زمنيّ موحَّد في كل الصفحات
+                try:
+                    out.sort(key=lambda x: float(
+                        x.get("opened_at") or x.get("ts") or 0))
+                except Exception:
+                    pass
                 return {"positions": out}
             finally:
                 db.close()
@@ -266,6 +272,12 @@ async def radar_positions(market: str = "futures"):
         except Exception as e:
             log.debug("radar parse: %s", e)
             continue
+    # 🕐 الأقدم أعلى — ترتيب زمنيّ موحَّد في كل الصفحات
+    try:
+        out.sort(key=lambda x: float(
+            x.get("opened_at") or x.get("ts") or 0))
+    except Exception:
+        pass
     return {"positions": out}
 
 
@@ -310,6 +322,12 @@ async def my_spot_positions(user=Depends(get_current_user)):
             "radar": "WhaleX Spot",
             "pnl_pct": round((px - e) / e * 100, 2) if e else 0,
         })
+    # 🕐 الأقدم أعلى — ترتيب زمنيّ موحَّد في كل الصفحات
+    try:
+        out.sort(key=lambda x: float(
+            x.get("opened_at") or x.get("ts") or 0))
+    except Exception:
+        pass
     return {"positions": out}
 
 
