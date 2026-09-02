@@ -20,22 +20,24 @@ export default function Privacy() {
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "8px 4px 48px",
                   direction: ar ? "rtl" : "ltr",
                   textAlign: ar ? "right" : "left" }}>
-      {/* ↩️ زرّ رجوع — الصفحة تُفتَح مستقلّة بلا شريط تنقّل،
-          فبلا هذا الزرّ يعلق الزائر فيها. */}
-      <button id="wxBack" onClick={() => {
-        if (window.history.length > 1) window.history.back();
-        else window.location.href = "/";
-      }} style={{
-        display: "inline-flex", alignItems: "center", gap: 6,
-        background: "none", border: "1px solid var(--line,#24404e)",
-        color: "var(--txt-2,#a8bfc9)", borderRadius: 10,
-        padding: "7px 14px", fontSize: 13, cursor: "pointer",
-        fontFamily: "inherit", marginBottom: 14,
-      }}>{ar ? "→ رجوع" : "← Back"}</button>
 
-      <h2 style={{ fontSize: 20, margin: "6px 0 4px" }}>
-        {ar ? "🔒 سياسة الخصوصية" : "🔒 Privacy Policy"}
-      </h2>
+      <div style={{ display: "flex", alignItems: "center",
+                    justifyContent: "space-between", margin: "6px 0 4px" }}>
+        <h2 style={{ fontSize: 20, margin: 0 }}>
+          {ar ? "🔒 سياسة الخصوصية" : "🔒 Privacy Policy"}
+        </h2>
+        <button aria-label="close" onClick={() =>
+          window.history.length > 1 ? window.history.back()
+                                    : (window.location.href = "/")}
+          style={{ background: "none", border: "none", padding: 6,
+                   color: "var(--txt-3,#7c98a4)", cursor: "pointer",
+                   display: "flex", alignItems: "center" }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
       <div style={{ fontSize: 12, color: "var(--txt-3,#7c98a4)",
                     marginBottom: 20 }}>
         {ar ? "آخر تحديث: أغسطس 2026" : "Last updated: August 2026"}
@@ -84,15 +86,6 @@ export default function Privacy() {
         <span dir="ltr">support@whalemindhybridai.online</span>
       </S>
 
-      <button onClick={() => {
-        if (window.history.length > 1) window.history.back();
-        else window.location.href = "/";
-      }} style={{
-        width: "100%", marginTop: 24, padding: "12px 0",
-        background: "var(--brand,#0fa392)", border: "none",
-        borderRadius: 12, color: "#03151a", fontSize: 14.5,
-        fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-      }}>{ar ? "رجوع إلى التطبيق" : "Back to app"}</button>
     </div>
   );
 }
