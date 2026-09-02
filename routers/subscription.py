@@ -63,7 +63,9 @@ def sub_stats():
     """عدّاد المشتركين (أساس ترحيبيّ 500 + المشتركون الفعليّون)"""
     db = get_session()
     try:
-        real = db.query(User).filter(User.tier == "pro").count()
+        # كل من سجَّل انضمَّ فعلاً — لا المدفوعون وحدهم.
+        # كان يحسب pro فقط فتجمَّد العدّاد عند 638.
+        real = db.query(User).count()
         return {"subscribers": 500 + real}
     finally:
         db.close()

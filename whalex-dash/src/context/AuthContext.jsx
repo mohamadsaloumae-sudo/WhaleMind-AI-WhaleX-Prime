@@ -3,7 +3,7 @@
 //  يحفظ حالة المستخدم (التوكن، الباقة) عبر التطبيق.
 // ════════════════════════════════════════════════════════════
 import { createContext, useContext, useState, useEffect } from "react";
-import { getToken, setToken } from "../lib/api.js";
+import { getToken, setToken, api } from "../lib/api.js";
 
 const AuthCtx = createContext(null);
 
@@ -25,8 +25,12 @@ export function AuthProvider({ children }) {
     const t = getToken();
     if (t) {
       const info = decodeTier(t);
-      if (info && info.exp * 1000 > Date.now()) setUser(info);
-      else setToken("");
+      if (info && info.exp * 1000 > Date.now()) {
+        setUser(info);
+        api.get("/api/auth/me")
+          .then((m) => { if (m && m.uid) setUser((u) => ({ ...(u||{}), ...m })); })
+          .catch(() => {});
+      } else setToken("");
     }
     setReady(true);
   }, []);

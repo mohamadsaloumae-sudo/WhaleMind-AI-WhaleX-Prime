@@ -22,6 +22,7 @@ class User(Base):
     tg_link_code = Column(String, nullable=True)
     reset_code   = Column(String, nullable=True)
     reset_expires= Column(Integer, nullable=True)
+    display_id   = Column(Integer, nullable=True)
 
 class Trade(Base):
     __tablename__ = "trades"

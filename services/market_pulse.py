@@ -158,7 +158,7 @@ def _market_rsi(ex, n: int = 30) -> float:
     try:
         cn = _sq.connect("/opt/whalex/multi_universe.db")
         syms = [r[0] for r in cn.execute(
-            "SELECT symbol FROM multi_universe WHERE exchange='binance' "
+            "SELECT symbol FROM universe WHERE exchange='binance' "
             "LIMIT ?", (n,))]
         cn.close()
     except Exception:

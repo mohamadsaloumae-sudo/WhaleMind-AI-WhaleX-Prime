@@ -32,6 +32,7 @@ const Referral = lazy(() => import("../pages/Referral.jsx"));
 const ApiGuide = lazy(() => import("../pages/ApiGuide.jsx"));
 const History = lazy(() => import("../pages/History.jsx"));
 const Profile = lazy(() => import("../pages/Profile.jsx"));
+const More = lazy(() => import("../pages/More.jsx"));
 
 // كل عنصر: { path, label, icon, component, adminOnly?, hideNav? }
 export const PAGES = [
@@ -50,5 +51,6 @@ export const PAGES = [
   { path: "/profile",      label: "حسابي",           icon: UserCircle,      component: Profile },
   { path: "/referral",     label: "برنامج الإحالة",   icon: Gift,            component: Referral },
   { path: "/support",      label: "خدمة العملاء",    icon: MessageCircle,   component: Support },
+  { path: "/more",         label: "المزيد",          icon: LayoutDashboard, component: More },
   { path: "/admin",        label: "لوحة الإدارة",     icon: Shield,          component: Admin, adminOnly: true },
 ];

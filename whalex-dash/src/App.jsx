@@ -14,6 +14,8 @@ import Login from "./pages/Login.jsx";
 // 📦 المقدّمة والقانونية كسولتان — المسجَّل لا يحمّلهما إطلاقاً
 const Landing = React.lazy(() => import("./pages/Landing.jsx"));
 const LegalPage = React.lazy(() => import("./pages/Legal.jsx"));
+// 📄 صفحتان عامّتان لجوجل بلاي — تعملان بلا تسجيل دخول
+const PrivacyPage = React.lazy(() => import("./pages/Privacy.jsx"));
 
 function Protected() {
   const { user, ready } = useAuth();
@@ -39,6 +41,10 @@ function Protected() {
           />
         );
       })}
+      {/* 🔒 روابط عامّة يطلبها مراجع جوجل بلاي — بلا Layout
+          وبلا تسجيل دخول، فالمراجع يفتحها من متصفّح نظيف. */}
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<LegalPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     </Suspense>

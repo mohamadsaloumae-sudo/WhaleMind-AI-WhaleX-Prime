@@ -36,6 +36,8 @@ def list_users(user=Depends(require_admin)):
         for u in users:
             st = live_status(db, u.id)
             out.append({"id": u.id, "username": u.username,
+                        "display_id": getattr(u, "display_id", None),
+                        "email": u.email,
                         "tier": "admin" if u.tier == "admin" else st["tier"],
                         "is_pro": st["is_pro"], "days_left": st["days_left"],
                         "level_ar": st["level_ar"], "icon": st["icon"],
@@ -169,6 +171,20 @@ def user_detail(user_id: str, user=Depends(require_admin)):
     import sqlite3
     from datetime import datetime as _dt
     out = {"user_id": user_id}
+    # 👤 الاسم والبريد — كان يظهر "مشترك" لمن لا بريد له
+    try:
+        import sqlite3 as _sq0
+        _c0 = _sq0.connect("/opt/whalex/db/whalex.db")
+        _r0 = _c0.execute(
+            "SELECT username, email, created_at FROM users WHERE id=?",
+            (user_id,)).fetchone()
+        _c0.close()
+        if _r0:
+            out["username"] = _r0[0]
+            out["email"] = _r0[1]
+            out["created_at"] = str(_r0[2] or "")
+    except Exception as _e0:
+        log.debug("user head: %s", _e0)
     db = get_session()
     try:
         u = db.query(User).filter(User.id == user_id).first()

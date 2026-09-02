@@ -22,7 +22,7 @@ import os
 
 log = logging.getLogger("mx_picker")
 
-TOP_N = 5
+TOP_N = 1
 MIN_RANK = 1.5
 OFF_FLAG = "/opt/whalex/db/picker.off"
 

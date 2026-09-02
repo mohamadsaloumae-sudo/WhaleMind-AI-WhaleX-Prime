@@ -812,7 +812,7 @@ async def should_tactical_exit(pos: Position, price: float, ob: dict, ls_change:
     age_sec = _t.time() - getattr(pos, "opened_at", 0)
     # ⚡ 20 ثانية بدل 90 — الحارس صار لحظياً.
     #    مقيس: 牛来USDT عاشت 3.2 دقيقة وماتت قبل أن يراها الكاشف.
-    if age_sec < 20:
+    if age_sec < 5:
         return False, ""
 
     # ① انقلاب الأوردر بوك البنيوي (depth=100 + جدار ضخم)
@@ -829,8 +829,15 @@ async def should_tactical_exit(pos: Position, price: float, ob: dict, ls_change:
         _pk2 = getattr(pos, "peak_price", 0) or 0
         _peak2 = calc_pnl(pos, _pk2) if _pk2 else pnl_pct
         _prev2 = getattr(pos, "_pnl_2min", None)
-        _hh, _hw = _harv(pos.id, pnl_pct, _peak2, age_sec, _prev2)
+        # 🚫 بيك هنتر لا يُحصَد — استراتيجيته انتظار الانهيار الكامل،
+        #    والحصاد يقاطعه عند اول ركود. مقيس: UAIUSDT خرج 1.7%
+        #    والذروة 2.6% · STARUSDT خرج 1.1% والذروة 3.1%.
+        if (getattr(pos, "tier", "") or "").upper() == "PH":
+            _hh, _hw = False, ""
+        else:
+            _hh, _hw = _harv(pos.id, pnl_pct, _peak2, age_sec, _prev2)
         if _hh:
+            probe_harvest(pos, pnl_pct, _peak2, _hw, price)
             return True, f"{_hw}"
     except Exception as _he:
         log.debug("harvest %s: %s", pos.symbol, _he)
@@ -956,8 +963,8 @@ PROFIT_LOCK_LADDER = ((40.0, 25.0), (25.0, 15.0), (15.0, 8.0), (10.0, 5.0))
 #       لأن قمة 20.93 تقع في شريحة السلّم (15, 8) فتضمن 8% فقط.
 #    ① السقف الصلب: تراجع 5 نقاط من القمة (وألا يقلّ الضمان عن 40% منها)
 #    ② العين الذكية: is_real_reversal تُغلق قبله عند انقلاب بنيوي مؤكّد
-PEAK_GIVEBACK = 5.0
-PEAK_MIN_KEEP = 0.40
+PEAK_GIVEBACK = 3.0
+PEAK_MIN_KEEP = 0.65
 PEAK_ARM_AT = 6.0
 PEAK_EYE_DROP = 2.0        # لا نستشير العين قبل تراجع نقطتين (تجنّب الزبزبة)
 
@@ -1308,7 +1315,8 @@ async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_p
     #    (القفل التدريجي · التكتيكي · الأرضية) لم يكن ينفَّذ على البورصة.
     try:
         from services.binance_trader import close_all_real_users
-        _n = await close_all_real_users(pos.symbol, pos.direction)
+        _rs = reason.value if hasattr(reason, "value") else str(reason)
+        _n = await close_all_real_users(pos.symbol, pos.direction, _rs)
         if _n:
             log.info("🔴 أُغلق حقيقياً لـ%d مستخدم: %s %s (%s)",
                      _n, pos.symbol, pos.direction, reason.value if hasattr(reason, "value") else reason)
@@ -1629,3 +1637,56 @@ async def run_position_manager():
         except Exception as e:
             log.error("PM loop error: %s", e)
         await asyncio.sleep(2)
+
+
+# ═══════════════════════════════════════════════════════════════
+# مسبار الحصاد — تسجيل بحت لقياس هل التدفّق يتنبّأ بالاستمرار
+# ═══════════════════════════════════════════════════════════════
+# السؤال: الحصاد يخرج عند ركود 5 دقائق. لكن الركود له معنيان:
+#   امتصاص (الحركة انتهت) او تجميع (الحركة تستأنف).
+# والحصاد يرى السعر وحده فلا يميّز بينهما.
+# نسجّل حالة الدفتر والتدفّق لحظة كل حصاد، ونقارنها لاحقاً
+# بما حدث بعدها. لا يغيّر قراراً — تسجيل فقط.
+# الاطفاء: touch /opt/whalex/db/harvest_probe.off
+HARVEST_PROBE_OFF = "/opt/whalex/db/harvest_probe.off"
+_PROBE_DB = "/opt/whalex/db/harvest_probe.db"
+
+
+def _probe_init():
+    import sqlite3
+    c = sqlite3.connect(_PROBE_DB)
+    c.execute("""CREATE TABLE IF NOT EXISTS probe(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts INTEGER, symbol TEXT, direction TEXT, tier TEXT,
+        pnl REAL, peak REAL, why TEXT,
+        ob_pressure REAL, cvd_flow TEXT,
+        px_at REAL, px_15m REAL, moved_pct REAL, checked INTEGER DEFAULT 0)""")
+    c.commit(); c.close()
+
+
+def probe_harvest(pos, pnl_pct, peak_pnl, why, price):
+    import os as _os, sqlite3 as _sq, time as _t
+    if _os.path.exists(HARVEST_PROBE_OFF):
+        return
+    try:
+        _probe_init()
+        ob, cv = None, None
+        try:
+            from quant_engine.ml_brain import live_context
+            lc = live_context(str(getattr(pos, "symbol", "")))
+            ob = lc.get("ob_pressure")
+            cv = lc.get("cvd_flow")
+        except Exception:
+            pass
+        c = _sq.connect(_PROBE_DB)
+        c.execute("INSERT INTO probe(ts,symbol,direction,tier,pnl,peak,why,"
+                  "ob_pressure,cvd_flow,px_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                  (int(_t.time()), str(getattr(pos, "symbol", "")),
+                   str(getattr(pos, "direction", "")),
+                   str(getattr(pos, "tier", "")),
+                   float(pnl_pct or 0), float(peak_pnl or 0), str(why)[:60],
+                   float(ob) if ob is not None else None,
+                   str(cv) if cv else None, float(price or 0)))
+        c.commit(); c.close()
+    except Exception:
+        pass

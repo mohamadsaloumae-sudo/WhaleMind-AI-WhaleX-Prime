@@ -62,7 +62,7 @@ def _cd_save(sym: str):
 #     6.5 → +0.142% ( 21 صفقة/يوم)  ✅ وموجب في النصفين
 #   فالقلّة الرابحة خير من الكثرة التي تأكلها العمولة.
 SCORE_MIN = 6.5
-MIN_ATR_PCT = 0.5
+MIN_ATR_PCT = 1.5   # كان 0.5 — مقيس على 2572 صفقة: وقف <3% اعطى -804% ووقف 3%+ اعطى +307%
 MAX_SL_PCT = 8.0
 
 W_RSI = 2.0
@@ -392,7 +392,20 @@ async def multi_scan_loop(position_manager_fn=None):
             if _batch:
                 try:
                     from radars.multi.picker import pick as _pick, rank as _rank
-                    _picked, _left = _pick(_batch, 5)
+                    _picked, _left = _pick(_batch, 1)
+                    # 5 اشارات كحد اقصى في الساعة - سقف على الاصدار
+                    import time as _tt
+                    _hr = int(_tt.time()) // 3600
+                    if getattr(multi_scan_loop, "_hr", None) != _hr:
+                        multi_scan_loop._hr = _hr
+                        multi_scan_loop._n = 0
+                    log.info("MX CAP DEBUG: hr=%s n=%s picked=%s",
+                             _hr, multi_scan_loop._n, len(_picked))
+                    if multi_scan_loop._n >= 5:
+                        log.info("MX hourly cap 5 reached - skipping")
+                        _picked = []
+                    else:
+                        multi_scan_loop._n += len(_picked)
                     for _it in _picked:
                         try:
                             _it[0] = dict(_it[0]) if not isinstance(_it[0], dict) else _it[0]

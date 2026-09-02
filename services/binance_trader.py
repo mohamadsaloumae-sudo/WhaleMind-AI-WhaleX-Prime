@@ -587,7 +587,7 @@ def _fmt_qty(client, symbol: str, qty: float) -> float:
     return round(float(qty), q)
 
 
-async def close_position_for_user(user_id: str, symbol: str, direction: str) -> dict:
+async def close_position_for_user(user_id: str, symbol: str, direction: str, reason: str = "") -> dict:
     """🔴 إغلاق حقيقي بأمر سوق reduceOnly — على منصّة العملة نفسها.
     🎯 صفقة بيتجت تُغلق بمفاتيح بيتجت. وبلا هذا التوجيه تبقى مفتوحة بلا حماية.
     """
@@ -637,10 +637,14 @@ async def close_position_for_user(user_id: str, symbol: str, direction: str) -> 
         if abs(_amt) <= 0:
             return {"success": False, "error": "لا مركز مفتوح"}
         _side = "SELL" if _amt > 0 else "BUY"
-        _order = client.futures_create_order(
-            symbol=symbol, side=_side, type="MARKET",
-            quantity=abs(_amt), reduceOnly=True,
-        )
+        _order = None
+        if _is_planned(reason) and not os.path.exists(LIMIT_EXIT_OFF):
+            _order, _m = _limit_exit(client, symbol, _side, abs(_amt))
+        if not _order:
+            _order = client.futures_create_order(
+                symbol=symbol, side=_side, type="MARKET",
+                quantity=abs(_amt), reduceOnly=True,
+            )
         # نلغي أوامر الوقف المعلّقة حتى لا تبقى يتيمة
         try:
             client.futures_cancel_all_open_orders(symbol=symbol)
@@ -717,7 +721,7 @@ async def close_position_for_user(user_id: str, symbol: str, direction: str) -> 
         return {"success": False, "error": str(e)}
 
 
-async def close_all_real_users(symbol: str, direction: str) -> int:
+async def close_all_real_users(symbol: str, direction: str, reason: str = "") -> int:
     """يُغلق المركز حقيقياً لكل مستخدم عليه تداول آلي مفعّل."""
     n = 0
     try:
@@ -731,7 +735,7 @@ async def close_all_real_users(symbol: str, direction: str) -> int:
         return 0
     for r in rows:
         try:
-            res = await close_position_for_user(r["user_id"], symbol, direction)
+            res = await close_position_for_user(r["user_id"], symbol, direction, reason)
             if res.get("success"):
                 n += 1
         except Exception as e:
@@ -918,13 +922,15 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
         entry = signal["entry"]
         quantity = _fmt_qty(client, symbol, (trade_usdt * leverage) / entry)
         
-        # 3. فتح الصفقة (Market order)
-        order = client.futures_create_order(
-            symbol=symbol,
-            side=side,
-            type="MARKET",
-            quantity=quantity,
-        )
+        # 3. فتح الصفقة — حدّ أوّلاً، وسوقيّ فقط عند الإطفاء
+        if os.path.exists(LIMIT_ENTRY_OFF):
+            order = client.futures_create_order(
+                symbol=symbol, side=side, type="MARKET", quantity=quantity)
+        else:
+            order, _why = await _aio_th(_limit_entry, client, symbol, side, direction,
+                                       quantity, float(entry))
+            if not order:
+                return {"success": False, "error": _why or "limit not filled"}
         
         order_id = order["orderId"]
         # 📒 سجلّ حقيقي لهذا المستخدم — بسعر التنفيذ الفعليّ ورافعته.
@@ -1150,3 +1156,202 @@ async def close_spot_all(symbol: str, reason: str = "close"):
 # ═══════════════════════════════════════════════════════════════
 
 init_db()
+
+
+# ═══════════════════════════════════════════════════════════════
+# POOL: subscriber client pool (overrides get_client above)
+# ═══════════════════════════════════════════════════════════════
+# Measured: each Client() build = 266ms (server_time + exchange_info).
+# Called 2-3x per subscriber per trade -> 10 subscribers = 10 seconds
+# before the first order reaches Binance.
+# Live proof: HEMIUSDT signal 23:41:06 -> fill 23:41:18 (11.1s).
+# Kill switch: touch /opt/whalex/db/client_pool.off
+_CLIENT_POOL: dict = {}
+_POOL_TTL = 3600
+_POOL_OFF = "/opt/whalex/db/client_pool.off"
+
+
+def _creds_fp(creds: dict) -> str:
+    raw = f"{creds.get('api_key', '')}|{creds.get('is_testnet')}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def drop_client(user_id: str = "") -> None:
+    if user_id:
+        _CLIENT_POOL.pop(user_id, None)
+    else:
+        _CLIENT_POOL.clear()
+
+
+def get_client(user_id: str) -> Optional[Client]:
+    creds = get_credentials(user_id)
+    if not creds:
+        return None
+    if os.path.exists(_POOL_OFF):
+        try:
+            return Client(api_key=creds["api_key"],
+                          api_secret=creds["api_secret"],
+                          testnet=creds["is_testnet"])
+        except Exception as e:
+            log.error("Client init error for %s: %s", user_id, e)
+            return None
+    fp = ""
+    try:
+        fp = _creds_fp(creds)
+        ent = _CLIENT_POOL.get(user_id)
+        if ent and ent[1] == fp and (time.time() - ent[2]) < _POOL_TTL:
+            return ent[0]
+    except Exception as _fe:
+        log.debug("pool lookup: %s", _fe)
+    try:
+        client = Client(api_key=creds["api_key"],
+                        api_secret=creds["api_secret"],
+                        testnet=creds["is_testnet"])
+        if fp:
+            _CLIENT_POOL[user_id] = (client, fp, time.time())
+            log.info("POOL client %s (total %d)",
+                     user_id[:8], len(_CLIENT_POOL))
+        return client
+    except Exception as e:
+        log.error("Client init error for %s: %s", user_id, e)
+        return None
+
+
+# ═══════════════════════════════════════════════════════════════
+# LIMIT ENTRY - zero slippage
+# ═══════════════════════════════════════════════════════════════
+# Measured Sep 1: 龙虾USDT signal 0.085916 filled at 0.079531 for
+# subscribers = 7.43% slippage = 37% of margin at 5x leverage,
+# before the trade even started. System logged it then opened anyway
+# because type="MARKET" has no price ceiling.
+# Industry standard (freqtrade / MQL5 / exchange Chase Limit):
+#   entry -> limit, stoploss -> market, timeout then cancel,
+#   never convert to market.
+# Kill switch: touch /opt/whalex/db/limit_entry.off
+LIMIT_ENTRY_OFF = "/opt/whalex/db/limit_entry.off"
+LIMIT_WAIT_SEC = 30.0
+LIMIT_FLEE_PCT = 1.0
+LIMIT_POLL_SEC = 1.0
+
+
+def _limit_entry(client, symbol, side, direction, quantity, sig_px):
+    import time as _t
+    try:
+        px = _fmt_price(client, symbol, sig_px)
+        order = client.futures_create_order(
+            symbol=symbol, side=side, type="LIMIT",
+            timeInForce="GTC", price=px, quantity=quantity)
+    except Exception as e:
+        log.warning("limit order %s: %s", symbol, e)
+        return None, f"limit failed: {e}"
+    oid = order.get("orderId")
+    t0 = _t.time()
+    filled = 0.0
+    while (_t.time() - t0) < LIMIT_WAIT_SEC:
+        _t.sleep(LIMIT_POLL_SEC)
+        try:
+            od = client.futures_get_order(symbol=symbol, orderId=oid)
+        except Exception as e:
+            log.debug("poll %s: %s", symbol, e)
+            continue
+        st = od.get("status")
+        filled = float(od.get("executedQty") or 0)
+        if st == "FILLED":
+            log.info("LIMIT FILLED %s @%s (%.0fs)", symbol, px, _t.time()-t0)
+            return od, ""
+        if st in ("CANCELED", "EXPIRED", "REJECTED"):
+            return (od if filled > 0 else None), f"cancelled ({st})"
+        try:
+            live = float(client.futures_symbol_ticker(
+                symbol=symbol).get("price") or 0)
+        except Exception:
+            continue
+        if live <= 0 or sig_px <= 0:
+            continue
+        drift = ((sig_px - live) if direction == "SHORT"
+                 else (live - sig_px)) / sig_px * 100
+        if drift > LIMIT_FLEE_PCT:
+            try:
+                client.futures_cancel_order(symbol=symbol, orderId=oid)
+            except Exception:
+                pass
+            if filled > 0:
+                od = client.futures_get_order(symbol=symbol, orderId=oid)
+                log.info("LIMIT PARTIAL %s %.0f%% then fled %.2f%%", symbol,
+                         filled/float(quantity)*100, drift)
+                return od, ""
+            log.info("LIMIT CANCEL %s - price fled %.2f%%", symbol, drift)
+            return None, f"price fled {drift:.2f}%"
+    try:
+        client.futures_cancel_order(symbol=symbol, orderId=oid)
+    except Exception:
+        pass
+    try:
+        od = client.futures_get_order(symbol=symbol, orderId=oid)
+        filled = float(od.get("executedQty") or 0)
+    except Exception:
+        od = None
+    if filled > 0:
+        log.info("LIMIT PARTIAL %s %.0f%% at timeout", symbol,
+                 filled/float(quantity)*100)
+        return od, ""
+    log.info("LIMIT CANCEL %s - timeout %.0fs no fill", symbol, LIMIT_WAIT_SEC)
+    return None, "timeout no fill"
+
+
+# ═══════════════════════════════════════════════════════════════
+# LIMIT EXIT - planned exits only
+# ═══════════════════════════════════════════════════════════════
+# Measured: trade closed -4.77% in system, -6.20% and -6.18% for
+# subscribers = 1.4% extra exit slippage.
+# Standard (BloFin / NinjaTrader / Topstep):
+#   planned exit -> limit (slippage impossible)
+#   emergency    -> market (getting out beats price)
+# Never cancel here - we always exit, limit first then market.
+# Kill switch: touch /opt/whalex/db/limit_exit.off
+LIMIT_EXIT_OFF = "/opt/whalex/db/limit_exit.off"
+EXIT_WAIT_SEC = 8.0
+EXIT_POLL_SEC = 0.5
+# مطابقة حرفية لقيم ExitReason — الخروج المخطط فقط
+PLANNED_EXITS = ("tactical_exit", "tp1_hit", "tp2_hit", "tp3_hit",
+                 "explosion")
+
+
+def _is_planned(reason):
+    """مطابقة تامّة — لا جزئية، حتى لا يُصنَّف طارئ كمخطَّط."""
+    return str(reason or "").strip().lower() in PLANNED_EXITS
+
+
+def _limit_exit(client, symbol, side, qty):
+    import time as _t
+    try:
+        live = float(client.futures_symbol_ticker(
+            symbol=symbol).get("price") or 0)
+        if live <= 0:
+            raise ValueError("no price")
+        px = _fmt_price(client, symbol, live)
+        o = client.futures_create_order(
+            symbol=symbol, side=side, type="LIMIT", timeInForce="GTC",
+            price=px, quantity=qty, reduceOnly=True)
+    except Exception as e:
+        log.debug("limit exit %s: %s", symbol, e)
+        return None, "limit-failed"
+    oid = o.get("orderId")
+    t0 = _t.time()
+    while (_t.time() - t0) < EXIT_WAIT_SEC:
+        _t.sleep(EXIT_POLL_SEC)
+        try:
+            od = client.futures_get_order(symbol=symbol, orderId=oid)
+        except Exception:
+            continue
+        if od.get("status") == "FILLED":
+            log.info("EXIT LIMIT %s @%s (%.1fs)", symbol, px, _t.time()-t0)
+            return od, "limit"
+        if od.get("status") in ("CANCELED", "EXPIRED", "REJECTED"):
+            break
+    try:
+        client.futures_cancel_order(symbol=symbol, orderId=oid)
+    except Exception:
+        pass
+    log.info("EXIT LIMIT %s timeout -> market", symbol)
+    return None, "timeout"

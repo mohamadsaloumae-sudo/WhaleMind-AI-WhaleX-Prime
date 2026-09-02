@@ -9,6 +9,16 @@ import { api } from "../lib/api.js";
  */
 export default function AdminChat() {
   const [threads, setThreads] = useState([]);
+  const [tq, setTq] = useState("");
+  // 🔍 بحث المحادثات — threads الأصلية تبقى للعدّاد و find
+  const _tz = (x) => String(x || "")
+    .replace(/[أإآ]/g, "ا").replace(/ى/g, "ي")
+    .replace(/ة/g, "ه").replace(/[ًٌٍَُِّْـ]/g, "").toLowerCase().trim();
+  const _tq = _tz(tq);
+  const _fThreads = !_tq ? threads : threads.filter((t) =>
+    _tz(t.username).includes(_tq) ||
+    String(t.display_id || "").includes(_tq) ||
+    String(t.user_id || "").toLowerCase().includes(_tq));
   const [open, setOpen] = useState(null);      // user_id
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState("");
@@ -154,6 +164,17 @@ export default function AdminChat() {
       <div className="card-title" style={{ marginBottom: 12 }}>
         💬 المحادثات ({threads.reduce((a, t) => a + (t.unread || 0), 0)} تنتظر)
       </div>
+      <input
+        value={tq}
+        onChange={(e) => setTq(e.target.value)}
+        placeholder="🔍 اسم المشترك"
+        style={{
+          width: "100%", padding: "9px 12px", borderRadius: 9, marginBottom: 10,
+          border: "1px solid rgba(255,255,255,.10)",
+          background: "rgba(255,255,255,.05)", color: "var(--txt-1)",
+          fontSize: 13.5, outline: "none", boxSizing: "border-box",
+        }}
+      />
 
       {threads.length === 0 && (
         <div style={{ fontSize: 12.5, color: "var(--txt-3)", padding: "10px 0" }}>
@@ -161,7 +182,7 @@ export default function AdminChat() {
         </div>
       )}
 
-      {threads.map((t) => (
+      {_fThreads.map((t) => (
         <div key={t.user_id}
           onClick={() => setOpen(t.user_id)}
           style={{
@@ -176,6 +197,10 @@ export default function AdminChat() {
               <span style={{ fontSize: 13, fontWeight: 700, color: "var(--txt-1)" }}>
                 {t.username}
               </span>
+              {t.display_id && (
+                <span style={{ fontSize: 10, color: "var(--txt-3)",
+                               fontFamily: "monospace" }}>{t.display_id}</span>
+              )}
               {t.tier && t.tier !== "free" && (
                 <span style={{
                   fontSize: 9.5, fontWeight: 800, padding: "1px 6px", borderRadius: 5,

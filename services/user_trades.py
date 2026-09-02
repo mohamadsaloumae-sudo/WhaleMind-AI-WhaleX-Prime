@@ -97,7 +97,7 @@ def stats(user_id: str):
         rows = [dict(r) for r in c.execute(
             # 🕐 الأقدم أوّلاً — ترتيب زمنيّ موحَّد في كل الصفحات
             "SELECT * FROM user_trades WHERE user_id=? "
-            "ORDER BY COALESCE(opened_at,0) ASC, id ASC LIMIT 2000", (user_id,))]
+            "ORDER BY COALESCE(opened_at,0) DESC, id DESC LIMIT 2000", (user_id,))]
         c.close()
     except Exception:
         return {}

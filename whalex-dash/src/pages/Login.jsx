@@ -13,6 +13,10 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [email, setEmail] = useState("");
+  // 🎁 كود الإحالة — من الرابط أو يدوياً
+  const [refCode, setRefCode] = useState(() => {
+    try { return localStorage.getItem("wx_ref") || ""; } catch { return ""; }
+  });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -35,7 +39,8 @@ export default function Login() {
         login(res.access_token);
       } else {
         const res = await auth.register(username.trim(), password, email.trim(),
-          localStorage.getItem("wx_ref") || "");
+          refCode.trim().toUpperCase() ||
+            (localStorage.getItem("wx_ref") || ""));
         if (res.needs_link) {
           setLinkData({ code: res.link_code, bot: res.bot });
         } else if (res.access_token) {
@@ -105,10 +110,9 @@ export default function Login() {
   }
 
   return (
-    <div style={{
+    <div className="wx-auth" style={{
       minHeight: "100vh", display: "flex", alignItems: "center",
       justifyContent: "center", padding: 20,
-      background: "radial-gradient(circle at 50% 0%, #142033, #0a0e1a)",
     }}>
       <button className="lang-btn" onClick={toggle}
               style={{ position: "fixed", top: 18, insetInlineEnd: 18 }}>
@@ -225,6 +229,19 @@ export default function Login() {
                 <div className="field">
                   <label>{t("emailOptional")}</label>
                   <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+                </div>
+              )}
+              {mode === "register" && (
+                <div className="field">
+                  <label>{lang === "ar" ? "كود الإحالة (اختياري)"
+                                        : "Referral code (optional)"}</label>
+                  <input
+                    value={refCode}
+                    onChange={(e) => setRefCode(e.target.value.toUpperCase())}
+                    placeholder="WX000000"
+                    autoComplete="off"
+                    style={{ direction: "ltr", textTransform: "uppercase" }}
+                  />
                 </div>
               )}
               <div className="field">

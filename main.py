@@ -60,6 +60,13 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(_og(), name="orphan_guard")
     except Exception as _oge:
         log.warning("حارس اليتيمة: %s", _oge)
+    # 🚦 بوابة الأهلية — لا نحاول مع من لا تكتمل شروطه.
+    #    مقيس: 355 محاولة فاشلة لمشترك واحد بمفتاح معطّل.
+    try:
+        from services.eligibility import eligibility_loop as _el
+        asyncio.create_task(_el(), name="eligibility")
+    except Exception as _ele:
+        log.warning("بوابة الأهلية: %s", _ele)
     # 🚑 منقذ الهامش — يُحرّر رصيد المشترك حين يضيق تحت الاحتياطيّ.
     #    مقيس: مشترك رصيده 10.14$ بقي متاحاً 2.17$ بعد أربع صفقات.
     try:

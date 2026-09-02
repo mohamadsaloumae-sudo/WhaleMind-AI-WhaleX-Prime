@@ -84,7 +84,10 @@ export default function UserSheet({ userId, onClose, onChanged }) {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 800 }}>{d?.email || "مشترك"}</div>
+            <div style={{ fontSize: 15, fontWeight: 800 }}>{d?.username || d?.email || "مشترك"}</div>
+            {d?.email && d?.username && (
+              <div style={{ fontSize: 11.5, color: "var(--txt-2)" }}>{d.email}</div>
+            )}
             <div style={{ fontSize: 10.5, color: "var(--txt-3)", overflow: "hidden", textOverflow: "ellipsis" }}>{userId}</div>
           </div>
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.06)", border: "none", color: "inherit", width: 32, height: 32, borderRadius: 9, cursor: "pointer" }}><X size={17} /></button>

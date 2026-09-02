@@ -1,13 +1,39 @@
-// الإعدادات
+// الإعدادات — أيقونات في صف واحد
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useLang } from "../context/LangContext.jsx";
-import { User, Shield, LogOut, Bell, BellOff } from "lucide-react";
+import { LogOut, Bell, BellOff, Languages } from "lucide-react";
 import { enablePush, disablePush, isPushEnabled, pushSupported } from "../lib/pushSetup.js";
 
+function Act({ icon, label, on, onClick, danger, busy }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={busy}
+      style={{
+        background: "none", border: "none", padding: 0,
+        cursor: busy ? "wait" : "pointer", opacity: busy ? .5 : 1,
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+      }}
+    >
+      <div style={{
+        width: 58, height: 58, borderRadius: 16,
+        background: danger ? "rgba(220,72,72,.14)"
+          : on ? "rgba(46,160,110,.16)" : "rgba(255,255,255,.06)",
+        color: danger ? "#e46767" : on ? "#4bcf92" : "var(--txt-2)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>{icon}</div>
+      <span style={{
+        fontSize: 11.5, color: "var(--txt-2)", textAlign: "center",
+        lineHeight: 1.25, maxWidth: 76,
+      }}>{label}</span>
+    </button>
+  );
+}
+
 export default function Settings() {
-  const { user, logout } = useAuth();
-  const { t } = useLang();
+  const { logout } = useAuth();
+  const { t, lang, toggle: swapLang } = useLang();
   const [pushOn, setPushOn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -28,45 +54,42 @@ export default function Settings() {
     setBusy(false);
   }
 
+
   return (
-    <div style={{ maxWidth: 560 }}>
-      <div className="card" style={{ marginBottom: 16 }}>
-
-        <div className="card-title"><User size={14} style={{ verticalAlign: "middle", marginInlineEnd: 6 }} /> {t("account")}</div>
-        <div style={{ display: "grid", gap: 12, fontSize: 14 }}>
-          <div className="toggle-row" style={{ margin: 0 }}>
-            <span style={{ color: "var(--txt-2)" }}>{t("userId")}</span>
-            <span style={{ fontFamily: "monospace" }}>{user?.uid}</span>
-          </div>
-          <div className="toggle-row" style={{ margin: 0 }}>
-            <span style={{ color: "var(--txt-2)" }}>{t("plan")}</span>
-            <span className="badge grade">{user?.tier}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-title"><Bell size={14} style={{ verticalAlign: "middle", marginInlineEnd: 6 }} /> {t("notifTitle")}</div>
-        <p style={{ fontSize: 13.5, color: "var(--txt-2)", marginBottom: 16 }}>{t("notifDesc")}</p>
-        {!pushSupported() ? (
-          <p style={{ fontSize: 13, color: "var(--txt-3)" }}>{t("notifUnsupported")}</p>
-        ) : (
-          <button className="btn" onClick={toggle} disabled={busy}
-            style={{ background: pushOn ? "transparent" : "var(--brand)",
-                     color: pushOn ? "var(--txt-2)" : "#071520",
-                     border: pushOn ? "1px solid var(--brand-dim)" : "none", fontWeight: 700 }}>
-            {pushOn ? <BellOff size={16} /> : <Bell size={16} />}
-            {busy ? "..." : (pushOn ? t("notifDisable") : t("notifEnable"))}
-          </button>
+    <div style={{ maxWidth: 560, padding: "4px 2px" }}>
+      <div style={{
+        display: "flex", gap: 22, flexWrap: "wrap",
+        justifyContent: "flex-start", padding: "10px 4px 18px",
+      }}>
+        {pushSupported() && (
+          <Act
+            icon={pushOn ? <BellOff size={24} /> : <Bell size={24} />}
+            label={pushOn ? t("notifDisable") : t("notifEnable")}
+            on={pushOn} onClick={toggle} busy={busy}
+          />
         )}
-        {note && <p style={{ fontSize: 13, marginTop: 12 }}>{note}</p>}
+        <Act
+          icon={<Languages size={24} />}
+          label={lang === "ar" ? "English" : "العربية"}
+          onClick={swapLang}
+        />
+        <Act
+          icon={<LogOut size={24} />}
+          label={t("logout")}
+          danger onClick={logout}
+        />
       </div>
 
-      <div className="card">
-        <div className="card-title"><Shield size={14} style={{ verticalAlign: "middle", marginInlineEnd: 6 }} /> {t("security")}</div>
-        <p style={{ fontSize: 13.5, color: "var(--txt-2)", marginBottom: 16 }}>{t("securityDesc")}</p>
-        <button className="btn btn-danger" onClick={logout}><LogOut size={16} /> {t("logout")}</button>
-      </div>
+      {!pushSupported() && (
+        <p style={{ fontSize: 13, color: "var(--txt-3)", padding: "0 4px" }}>
+          {t("notifUnsupported")}
+        </p>
+      )}
+      {note && (
+        <p style={{ fontSize: 13, color: "var(--txt-2)", padding: "0 4px" }}>
+          {note}
+        </p>
+      )}
     </div>
   );
 }

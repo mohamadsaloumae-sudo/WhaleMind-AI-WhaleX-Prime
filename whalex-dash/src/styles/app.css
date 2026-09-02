@@ -508,5 +508,163 @@ table, pre, code { max-width: 100%; overflow-x: auto; }
 .sidebar {
   overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+}
+
+/* شاشة الدخول — تصميم عصريّ بهوية WhaleX */
+.wx-auth {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(1200px 700px at 50% -12%, rgba(15,163,146,.16), transparent 62%),
+    radial-gradient(900px 600px at 92% 108%, rgba(15,163,146,.08), transparent 60%),
+    linear-gradient(168deg, #08192a 0%, #071520 46%, #050d16 100%) !important;
+}
+.wx-auth::before {
+  content: "";
+  position: absolute;
+  width: 520px; height: 520px;
+  top: -180px; left: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(15,163,146,.22), transparent 68%);
+  filter: blur(70px);
+  pointer-events: none;
+  animation: wxBreathe 9s ease-in-out infinite;
+}
+@keyframes wxBreathe {
+  0%, 100% { opacity: .55; transform: translateX(-50%) scale(1); }
+  50%      { opacity: .85; transform: translateX(-50%) scale(1.1); }
+}
+.wx-auth::after {
+  content: "";
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
+  background-size: 46px 46px;
+  -webkit-mask-image: radial-gradient(circle at 50% 34%, #000 0%, transparent 74%);
+  mask-image: radial-gradient(circle at 50% 34%, #000 0%, transparent 74%);
+  pointer-events: none;
+}
+.wx-auth > .card {
+  position: relative;
+  z-index: 2;
+  background: rgba(12, 28, 42, .62) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  backdrop-filter: blur(22px) saturate(140%);
+  border: 1px solid rgba(255,255,255,.09) !important;
+  border-radius: 22px !important;
+  padding: 32px 28px !important;
+  box-shadow:
+    0 24px 64px rgba(0,0,0,.5),
+    0 0 0 1px rgba(15,163,146,.07) inset,
+    0 1px 0 rgba(255,255,255,.05) inset;
+  animation: wxRise .5s cubic-bezier(.22,.9,.3,1) both;
+}
+@keyframes wxRise {
+  from { opacity: 0; transform: translateY(16px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+.wx-auth > .card::before {
+  content: "";
+  position: absolute; top: 0; left: 12%; right: 12%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(15,163,146,.65), transparent);
+}
+.wx-auth .field { margin-bottom: 15px; }
+.wx-auth .field label {
+  font-size: 12px;
+  letter-spacing: .2px;
+  color: rgba(255,255,255,.52);
+}
+.wx-auth .field input,
+.wx-auth .field select {
+  background: rgba(255,255,255,.045) !important;
+  border: 1px solid rgba(255,255,255,.09) !important;
+  border-radius: 12px !important;
+  padding: 13px 14px !important;
+  font-size: 14.5px;
+  color: #eaf4f2;
+  transition: border-color .18s, box-shadow .18s, background .18s;
+}
+.wx-auth .field input::placeholder { color: rgba(255,255,255,.26); }
+.wx-auth .field input:focus,
+.wx-auth .field select:focus {
+  background: rgba(255,255,255,.07) !important;
+  border-color: rgba(15,163,146,.55) !important;
+  box-shadow: 0 0 0 3px rgba(15,163,146,.13);
+  outline: none;
+}
+.wx-auth .btn-primary,
+.wx-auth button[type="submit"] {
+  background: linear-gradient(135deg, #12b8a4, #0b8d7f) !important;
+  border: none !important;
+  border-radius: 12px !important;
+  padding: 13px !important;
+  font-weight: 700;
+  font-size: 15px;
+  color: #04121a !important;
+  box-shadow: 0 8px 22px rgba(15,163,146,.26);
+  transition: transform .15s, box-shadow .2s, filter .2s;
+}
+.wx-auth .btn-primary:hover,
+.wx-auth button[type="submit"]:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow: 0 12px 28px rgba(15,163,146,.34);
+}
+.wx-auth .mode-switch {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+}
+.wx-auth .mode-switch button {
+  border-radius: 9px !important;
+  padding: 9px !important;
+  font-size: 13.5px;
+}
+.wx-auth .mode-switch button.active {
+  background: rgba(15,163,146,.17) !important;
+  color: #24d3bd !important;
+}
+.wx-auth .alert {
+  border-radius: 11px;
+  font-size: 13px;
+  padding: 11px 14px;
+  border: 1px solid transparent;
+}
+.wx-auth .alert.error {
+  background: rgba(239,68,68,.10);
+  border-color: rgba(239,68,68,.24);
+  color: #ff8f8f;
+}
+.wx-auth .lang-btn {
+  background: rgba(255,255,255,.055) !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
+  border-radius: 11px !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  z-index: 3;
+}
+@media (max-width: 480px) {
+  .wx-auth > .card { padding: 26px 20px !important; border-radius: 18px !important; }
+  .wx-auth::before { width: 360px; height: 360px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wx-auth::before { animation: none; }
+  .wx-auth > .card { animation: none; }
+}
+
+
+/* 📜 إخفاء شريط التمرير — التمرير يبقى يعمل بالسحب والعجلة.
+   نمط قياسيّ في التطبيقات الحديثة على الجوال. */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }

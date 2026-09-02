@@ -21,12 +21,12 @@ import time
 
 log = logging.getLogger("harvest")
 
-MIN_PROFIT = 1.5
+MIN_PROFIT = 1.0
 STALL_SEC = 300
 GIVEBACK_MAX = 0.35
 EXPLOSIVE_RISE = 1.5
-MIN_AGE_SEC = 240
-MAX_PROFIT = 5.0          # ما فوقه يُترَك لسلّم القفل
+MIN_AGE_SEC = 60
+MAX_PROFIT = 6.0          # ما فوقه يُترَك لسلّم القفل
 BIG_WINNER = 8.0
 OFF_FLAG = "/opt/whalex/db/harvest.off"
 

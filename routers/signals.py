@@ -149,7 +149,7 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
                 "SELECT symbol, entry, exit_price, pnl_pct, outcome, reason, ts, "
                 "opened_ts, exchange, path, strategies FROM spot_results "
                 "WHERE ts > (strftime('%s', date('now','+4 hours')) - 14400) "
-                "ORDER BY COALESCE(ts,0) ASC LIMIT 300").fetchall()
+                "ORDER BY COALESCE(ts,0) DESC LIMIT 300").fetchall()
             con.close()
             _lbl = {"dip": "🪙 صيد القاع", "pullback": "📈 ارتداد في اتجاه صاعد",
                     "breakout": "🚀 اختراق مؤكَّد"}
@@ -190,7 +190,7 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
             WHERE pnl_pct IS NOT NULL AND closed_at IS NOT NULL
               AND result IN ('win','loss')
               AND closed_at > (strftime('%s', date('now','+4 hours')) - 14400)
-            ORDER BY COALESCE(closed_at,0) ASC LIMIT 300
+            ORDER BY COALESCE(closed_at,0) DESC LIMIT 300
         """).fetchall()
         con.close()
         out = []

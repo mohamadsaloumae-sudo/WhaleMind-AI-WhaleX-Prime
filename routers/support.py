@@ -546,12 +546,14 @@ async def all_threads():
             (uid, lr)).fetchone()[0]
         unread[uid] = n
     out = []
-    for r in c.execute("SELECT id, username, email, tier FROM users ORDER BY tier DESC"):
+    for r in c.execute("SELECT id, username, email, tier, display_id "
+                       "FROM users ORDER BY tier DESC"):
         uid = r["id"]
         st = stats.get(uid, {})
         out.append({
             "user_id": uid,
             "username": r["username"] or r["email"] or "مستخدم",
+            "display_id": r["display_id"],
             "tier": r["tier"] or "free",
             "total": st.get("total", 0),
             "last_msg": st.get("last_msg", ""),

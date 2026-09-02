@@ -6,6 +6,7 @@
 
 export const TRANSLATIONS = {
   ar: {
+    "nav./more": "المزيد",
     // عام
     appName: "WhaleX",
     tagline: "منصّة إشارات التداول الذكية",
@@ -189,6 +190,7 @@ export const TRANSLATIONS = {
   },
 
   en: {
+    "nav./more": "More",
     appName: "WhaleX",
     tagline: "Automated Trading · From Signal to Close",
     systemRunning: "System online",

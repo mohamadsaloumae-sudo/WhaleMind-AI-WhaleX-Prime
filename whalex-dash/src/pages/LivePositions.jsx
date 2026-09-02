@@ -63,8 +63,8 @@ export default function LivePositions() {
       //    أسفل. فالمشترك يرى التسلسل نفسه أينما نظر، والصفقة
       //    الجديدة تظهر في الأسفل ولا تُزحزح ما يقرؤه.
       const _byTime = (a, b) =>
-        (Number(a?.opened_at ?? a?.ts ?? 0) || 0) -
-        (Number(b?.opened_at ?? b?.ts ?? 0) || 0);
+        (Number(b?.opened_at ?? b?.ts ?? 0) || 0) -
+        (Number(a?.opened_at ?? a?.ts ?? 0) || 0);
       setRadar([...(r?.positions || [])].sort(_byTime));
     } catch { /* */ }
     finally { setLoaded(true); }
@@ -115,7 +115,24 @@ export default function LivePositions() {
                  alt={p.exchange} width="20" height="20"
                  style={{ borderRadius: 5, flexShrink: 0 }}
                  onError={(e) => { e.target.style.display = "none"; }} />
-            <span style={{
+            <span
+              title="انقر لنسخ الرمز"
+              onClick={(e) => {
+                e.stopPropagation();
+                const _t = p.symbol;
+                const _done = () => window.dispatchEvent(new CustomEvent(
+                  "wx-toast", { detail: { message: `نُسخ ${_t}` } }));
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                  navigator.clipboard.writeText(_t).then(_done).catch(() => {});
+                } else {
+                  const _a = document.createElement("textarea");
+                  _a.value = _t; document.body.appendChild(_a);
+                  _a.select();
+                  try { document.execCommand("copy"); } catch (_) {}
+                  _a.remove(); _done();
+                }
+              }}
+              style={{
               fontWeight: 700, fontSize: 15, whiteSpace: "nowrap",
               flexShrink: 0, direction: "ltr",
             }}>{p.symbol}

@@ -202,7 +202,7 @@ async def radar_positions(market: str = "futures"):
                 # 🕐 الأقدم أعلى — ترتيب زمنيّ موحَّد في كل الصفحات
                 try:
                     out.sort(key=lambda x: float(
-                        x.get("opened_at") or x.get("ts") or 0))
+                        x.get("opened_at") or x.get("ts") or 0), reverse=True)
                 except Exception:
                     pass
                 return {"positions": out}
@@ -275,7 +275,7 @@ async def radar_positions(market: str = "futures"):
     # 🕐 الأقدم أعلى — ترتيب زمنيّ موحَّد في كل الصفحات
     try:
         out.sort(key=lambda x: float(
-            x.get("opened_at") or x.get("ts") or 0))
+            x.get("opened_at") or x.get("ts") or 0), reverse=True)
     except Exception:
         pass
     return {"positions": out}
@@ -325,7 +325,7 @@ async def my_spot_positions(user=Depends(get_current_user)):
     # 🕐 الأقدم أعلى — ترتيب زمنيّ موحَّد في كل الصفحات
     try:
         out.sort(key=lambda x: float(
-            x.get("opened_at") or x.get("ts") or 0))
+            x.get("opened_at") or x.get("ts") or 0), reverse=True)
     except Exception:
         pass
     return {"positions": out}
@@ -379,3 +379,91 @@ async def binance_positions(user=Depends(get_current_user)):
             "leverage": lev, "size": p.get("size", 0),
         })
     return {"positions": out, "connected": True}
+
+
+# ═══════════════════════════════════════════════════════════════
+# Subscriber's OWN positions - priced from THEIR fill, not radar
+# ═══════════════════════════════════════════════════════════════
+# Measured: entry slip 0.045% + exit slip 0.056% raw = 0.43% leveraged.
+# On a trade near breakeven that flips +0.2% into -0.23%, so the app
+# showed a win while Binance showed a loss. user_trades already holds
+# each subscriber's real fill; nothing was reading it for display.
+# Read-only. Does not touch radar-positions or any execution path.
+@router.get("/my-positions")
+async def my_positions(user=Depends(get_current_user)):
+    import asyncio as _aio
+    uid = user["sub"]
+    out = []
+    try:
+        cx = sqlite3.connect("/opt/whalex/db/whalex.db")
+        cx.row_factory = sqlite3.Row
+        rows = [dict(r) for r in cx.execute(
+            "SELECT symbol, direction, entry, qty, leverage, order_id, opened_at "
+            "FROM user_trades WHERE user_id=? AND status='open' "
+            "AND market='futures'", (uid,))]
+        cx.close()
+    except Exception as e:
+        log.warning("my-positions db: %s", e)
+        return {"positions": []}
+    if not rows:
+        return {"positions": []}
+    _levels = {}
+    try:
+        cn = sqlite3.connect(POS_DB)
+        for (data,) in cn.execute(
+                "SELECT data FROM active_positions WHERE status='open'"):
+            try:
+                d = json.loads(data)
+                if d.get("symbol"):
+                    _levels[d["symbol"]] = d
+            except Exception:
+                pass
+        cn.close()
+    except Exception as e:
+        log.debug("my-positions levels: %s", e)
+    _syms = list(dict.fromkeys([r["symbol"] for r in rows if r.get("symbol")]))
+    _prices = {}
+    try:
+        _rr = await _aio.gather(*[_get_price(s) for s in _syms],
+                               return_exceptions=True)
+        for _s, _p in zip(_syms, _rr):
+            if isinstance(_p, (int, float)) and _p > 0:
+                _prices[_s] = _p
+    except Exception as e:
+        log.debug("my-positions prices: %s", e)
+    for r in rows:
+        try:
+            symbol = r.get("symbol")
+            entry = float(r.get("entry") or 0)
+            if not symbol or entry <= 0:
+                continue
+            direction = str(r.get("direction") or "").upper()
+            lev = float(r.get("leverage") or 1)
+            cur = float(_prices.get(symbol) or 0)
+            if cur <= 0:
+                cur = entry
+            if direction == "LONG":
+                pnl = (cur - entry) / entry * 100 * lev
+            else:
+                pnl = (entry - cur) / entry * 100 * lev
+            _lv = _levels.get(symbol, {})
+            out.append({
+                "symbol": symbol, "direction": direction,
+                "entry": entry, "current": cur,
+                "pnl_pct": round(pnl, 2), "leverage": lev,
+                "size": r.get("qty"), "order_id": r.get("order_id"),
+                "opened_at": r.get("opened_at") or 0,
+                "radar_type": _lv.get("radar_type", "futures"),
+                "tier": _lv.get("tier", ""), "exchange": _sym_ex(symbol),
+                "sl": _lv.get("sl"), "tp1": _lv.get("tp1"),
+                "tp2": _lv.get("tp2"), "tp3": _lv.get("tp3"),
+                "tp1_hit": _lv.get("tp1_hit", False),
+            })
+        except Exception as e:
+            log.debug("my-positions row: %s", e)
+            continue
+    try:
+        out.sort(key=lambda x: float(x.get("opened_at") or 0), reverse=True)
+    except Exception:
+        pass
+    return {"positions": out}

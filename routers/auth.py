@@ -97,7 +97,7 @@ def me(user=Depends(get_current_user)):
         u = db.query(User).filter(User.id == user["sub"]).first()
         if not u:
             return {"uid": user["sub"], "tier": user["tier"], "username": "Guest"}
-        return {"uid": u.id, "tier": u.tier, "username": u.username, "demo_balance": u.demo_balance}
+        return {"uid": u.id, "tier": u.tier, "username": u.username, "email": u.email, "display_id": getattr(u, "display_id", None), "demo_balance": u.demo_balance}
     finally:
         db.close()
 

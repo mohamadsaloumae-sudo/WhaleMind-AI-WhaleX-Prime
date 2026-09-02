@@ -1,6 +1,6 @@
 // ☰ قائمة جانبية — انزلاق ناعم، صفوف مرتّبة، تتبع اتجاه اللغة
 import { useState, useEffect } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { PAGES } from "../lib/pages.js";
 import { useLang } from "../context/LangContext.jsx";
@@ -11,6 +11,7 @@ import QuickSettings from "./QuickSettings.jsx";
 
 
 export default function DrawerMenu() {
+  const _nav = useNavigate();
   const { t, lang } = useLang();
 
   const [open, setOpen] = useState(false);
@@ -38,7 +39,7 @@ export default function DrawerMenu() {
     <>
       <button
         className="wx-drawer-btn"
-        onClick={() => setOpen(true)}
+        onClick={() => _nav("/more")}
         title={t("more")}
         aria-label="menu"
         style={{

@@ -12,7 +12,7 @@ log = logging.getLogger("bleed")
 
 BLEED_MIN_TRAVEL = 0.45
 BLEED_MIN_ADVERSE = 5
-BLEED_MIN_AGE_MIN = 8
+BLEED_MIN_AGE_MIN = 3
 STALE_HOURS = 3.0
 STALE_BAND = 2.0
 

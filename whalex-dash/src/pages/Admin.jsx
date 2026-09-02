@@ -10,6 +10,16 @@ export default function Admin() {
   const { t, lang } = useLang();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
+  const [uq, setUq] = useState("");
+  // 🔍 بحث المستخدمين — لا يمسّ users الأصلية
+  const _nz = (t) => String(t || "")
+    .replace(/[أإآ]/g, "ا").replace(/ى/g, "ي")
+    .replace(/ة/g, "ه").replace(/[ًٌٍَُِّْـ]/g, "").toLowerCase().trim();
+  const _uq = _nz(uq);
+  const fUsers = !_uq ? users : users.filter((u) =>
+    _nz(u.username).includes(_uq) || _nz(u.email).includes(_uq) ||
+    String(u.display_id || "").includes(_uq) ||
+    String(u.id || "").toLowerCase().includes(_uq));
   // 👤 لوحة المشترك في العنوان أيضاً — فلا تُغلق عند التحديث.
   const [sheetUser, _setSheetRaw] = useState(() => {
     try {
@@ -28,7 +38,14 @@ export default function Admin() {
   const [bcast, setBcast] = useState("");
   const [refs, setRefs] = useState(null);      // 🎁 الإحالات
   const [wds, setWds] = useState([]);          // طلبات السحب
-  const [openRef, setOpenRef] = useState(null); // 👤 الحساب المفتوح
+  const [openRef, setOpenRef] = useState(null);
+  const [rq, setRq] = useState("");
+  // 🔍 بحث الإحالات — لا يمسّ refs الأصلية
+  const _rq = _nz(rq);
+  const _fRefs = !refs?.referrers ? []
+    : !_rq ? refs.referrers
+    : refs.referrers.filter((r) =>
+        _nz(r.code).includes(_rq) || _nz(r.name).includes(_rq)); // 👤 الحساب المفتوح
   // 📑 التبويب في العنوان — فالتحديث يُبقيك مكانك بدل الرجوع للرئيسية.
   const _readTab = () => {
     try {
@@ -202,15 +219,28 @@ export default function Admin() {
           </div>
         </div>
 
-        <div className="card-title">{t("manageUsers")} ({users.length})</div>
+        <div className="card-title">
+          {t("manageUsers")} ({fUsers.length}{uq ? ` / ${users.length}` : ""})
+        </div>
+        <input
+          value={uq}
+          onChange={(e) => setUq(e.target.value)}
+          placeholder="🔍 اسم · بريد · ID"
+          style={{
+            width: "100%", padding: "9px 12px", borderRadius: 9, marginBottom: 10,
+            border: "1px solid rgba(255,255,255,.10)",
+            background: "rgba(255,255,255,.05)", color: "var(--txt-1)",
+            fontSize: 13.5, outline: "none", boxSizing: "border-box",
+          }}
+        />
         {sheetUser && (
           <UserSheet userId={sheetUser} onClose={() => setSheetUser(null)} onChanged={load} />
         )}
-        {users.length === 0 ? (
+        {fUsers.length === 0 ? (
           <div className="empty">{t("adminHint")}</div>
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
-            {users.map((u) => (
+            {fUsers.map((u) => (
               <div key={u.id} onClick={() => setSheetUser(u.id)} style={{
                 display: "flex", justifyContent: "space-between", alignItems: "center",
                 padding: "12px 14px", background: "var(--bg-2)", borderRadius: "var(--radius-sm)",
@@ -218,6 +248,10 @@ export default function Admin() {
               }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{u.username}</div>
+                  {u.display_id && (
+                    <div style={{ fontSize: 10.5, color: "var(--txt-3)",
+                                  fontFamily: "monospace" }}>ID {u.display_id}</div>
+                  )}
                   <div style={{ fontSize: 11, color: "var(--txt-3)", display: "flex", gap: 7, alignItems: "center" }}>
                     <span>{u.created_at ? new Date(u.created_at).toLocaleDateString(lang === "ar" ? "ar-AE" : "en-US", { timeZone: "Asia/Dubai" }) : ""}</span>
                     {u.has_binance ? (
@@ -270,7 +304,20 @@ export default function Admin() {
       )}
       {tab==="referrals" && refs && !refs.error && (
         <div className="card" style={{ marginTop: 16, padding: 16 }}>
-          <div className="card-title" style={{ marginBottom: 12 }}>🎁 الإحالات</div>
+          <div className="card-title" style={{ marginBottom: 12 }}>
+            🎁 الإحالات ({_fRefs.length}{rq ? ` / ${refs.referrers.length}` : ""})
+          </div>
+          <input
+            value={rq}
+            onChange={(e) => setRq(e.target.value)}
+            placeholder="🔍 كود أو اسم المُحيل"
+            style={{
+              width: "100%", padding: "9px 12px", borderRadius: 9, marginBottom: 10,
+              border: "1px solid rgba(255,255,255,.10)",
+              background: "rgba(255,255,255,.05)", color: "var(--txt-1)",
+              fontSize: 13.5, outline: "none", boxSizing: "border-box",
+            }}
+          />
 
           <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
             {[["مُحيل", refs.referrers.length],
@@ -332,7 +379,7 @@ export default function Admin() {
             </>
           )}
 
-          {refs.referrers.map((r) => {
+          {_fRefs.map((r) => {
             const open = openRef === r.code;
             const ST = {
               subscribed: ["✅", "مشترك", "#22c55e"],

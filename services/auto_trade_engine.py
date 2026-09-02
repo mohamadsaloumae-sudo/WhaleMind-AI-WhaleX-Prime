@@ -191,6 +191,20 @@ async def broadcast_signal_to_traders(signal: dict) -> dict:
              signal.get("grade"))
     
     # 2. تنفيذ بالتوازي (كل مستخدم مستقل)
+    # 🚦 بوابة الأهلية — لا نحاول مع من لا تكتمل شروطه
+    try:
+        from services.eligibility import allowed as _elig
+        _ok_users = []
+        for _u in active_users:
+            _ok, _why = _elig(_u)
+            if _ok:
+                _ok_users.append(_u)
+            else:
+                log.info("🚦 %s تُخطّى — %s", _u[:8], _why)
+        active_users = _ok_users
+    except Exception as _ge:
+        log.debug("بوابة الأهلية: %s", _ge)
+
     tasks = [execute_for_user_tracked(uid, signal) for uid in active_users]
     results = await asyncio.gather(*tasks, return_exceptions=True)
     

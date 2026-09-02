@@ -65,12 +65,44 @@ async def _price(symbol: str) -> float:
         return float(r.json().get("price") or 0)
 
 
+AGAINST_FLOW_OFF = "/opt/whalex/db/against_flow.off"
+
+
+def against_flow(sig) -> bool:
+    """شورت مع تيّار صاعد أو لونج مع تيّار هابط — MX فقط.
+
+    مقيس على 1433 صفقة MX/باينانس:
+      SHORT + cvd=down/flat  →  +0.43%  (+171 اجمالاً)
+      SHORT + cvd=up         →  -0.70%  (-151)
+      LONG  + cvd=down       →  -0.39%  (-178)
+    والنمط يصمد في 5 ايام من 6. ورفض الخانتين يرفع
+    الصافي من -228% الى +101%.
+    """
+    try:
+        if os.path.exists(AGAINST_FLOW_OFF):
+            return False
+        if (str(getattr(sig, "tier", "") or "")).upper() != "MX":
+            return False
+        d = str(getattr(sig, "direction", "") or "").upper()
+        from quant_engine.ml_brain import live_context
+        cv = str(live_context(str(getattr(sig, "symbol", ""))).get(
+            "cvd_flow") or "").lower()
+        return (d == "SHORT" and cv == "up") or (d == "LONG" and cv == "down")
+    except Exception as e:
+        log.debug("against_flow: %s", e)
+        return False
+
+
 async def should_enter(sig) -> tuple:
     """يُعيد (ندخل؟، السبب). الإشارة العادية تمرّ فوراً."""
     _stats["seen"] += 1
     if os.path.exists(OFF_FLAG):
         _stats["passed"] += 1
         return True, ""
+    # 🌊 ضد التيّار — رفض فوريّ بلا انتظار، فالانتظار لا يعكس التيّار
+    if against_flow(sig):
+        _stats["dropped"] += 1
+        return False, "ضد تيّار التدفّق"
     if not is_suspect(sig):
         _stats["passed"] += 1
         return True, ""
