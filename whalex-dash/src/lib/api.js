@@ -37,11 +37,47 @@ async function request(method, path, body) {
   return data;
 }
 
+// ⚡ تخزين لحظيّ في الذاكرة — الصفحة تعرض آخر ما لديها فوراً
+//    ثم تُحدّثه في الخلفية صامتاً. فالتنقّل بين الشاشات لا يُظهر
+//    "جارٍ التحميل" بعد أوّل مرّة، والبيانات تبقى حديثة.
+//    ولا يمسّ أي صفحة — كلّها تمرّ من api.get.
+const _memCache = new Map();
+const _inFlight = new Map();
+const FRESH_MS = 4000;          // تحت هذا العمر نُرجع المحفوظ بلا طلب
+
+function _cachedGet(p) {
+  const now = Date.now();
+  const hit = _memCache.get(p);
+
+  // طلب جارٍ لنفس المسار؟ ننتظره بدل إطلاق ثانٍ
+  if (_inFlight.has(p)) {
+    return hit ? Promise.resolve(hit.data) : _inFlight.get(p);
+  }
+  // حديث بما يكفي
+  if (hit && now - hit.ts < FRESH_MS) return Promise.resolve(hit.data);
+
+  const req = request("GET", p)
+    .then((d) => { _memCache.set(p, { data: d, ts: Date.now() }); return d; })
+    .finally(() => _inFlight.delete(p));
+  _inFlight.set(p, req);
+
+  // لدينا نسخة قديمة؟ نعرضها فوراً والتحديث يجري خلفها
+  return hit ? Promise.resolve(hit.data) : req;
+}
+
+export function clearApiCache(prefix) {
+  if (!prefix) { _memCache.clear(); return; }
+  for (const k of [..._memCache.keys()]) {
+    if (k.startsWith(prefix)) _memCache.delete(k);
+  }
+}
+
 export const api = {
-  get:  (p)    => request("GET", p),
-  post: (p, b) => request("POST", p, b),
-  put:  (p, b) => request("PUT", p, b),
-  del:  (p)    => request("DELETE", p),
+  get:  (p)    => _cachedGet(p),
+  getFresh: (p) => request("GET", p),
+  post: (p, b) => request("POST", p, b).finally(() => _memCache.clear()),
+  put:  (p, b) => request("PUT", p, b).finally(() => _memCache.clear()),
+  del:  (p)    => request("DELETE", p).finally(() => _memCache.clear()),
 };
 
 // ─── نداءات جاهزة (مختصرات) ───
