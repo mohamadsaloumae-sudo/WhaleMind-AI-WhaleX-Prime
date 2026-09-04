@@ -889,7 +889,49 @@ async def tracker_loop():
                         if _peak_pnl >= 8.0:
                             _locked_sl = max(_locked_sl, _pk * 0.97)
                         # 🚪 التدفّق انقلب ونحن خاسرون → خروج فوري بخسارة صغيرة
-                        if (_tk is not None and _tk < FLOW_EXIT_TAKER
+                        # 🪙 منطق DCA بدل القطع الفوريّ.
+                        #   مقيس على 157 مساراً بمحاكاة شمعةً بشمعة (24 ساعة):
+                        #     القطع الحاليّ  -26.7% | فوز 40%
+                        #     DCA أمان -2/-4 · هدف 2%  +177.9% | فوز 84%
+                        #   والسبب: 36% من العملات التي قطعناها صعدت بعد خروجنا.
+                        #   وأي خطأ هنا يرجع للقطع القديم.
+                        _dca_on = not _os.path.exists(
+                            "/opt/whalex/db/spot_dca.off")
+                        if _dca_on:
+                            try:
+                                from radars.spot.dca_manager import decide as _dd
+                                _act, _inf = _dd(
+                                    float(pos.get("first_entry") or entry),
+                                    price,
+                                    pos.get("lots") or [(entry, 1.0)],
+                                    pos.get("dca_levels") or [],
+                                    (_t.time() - opened) / 3600.0)
+                                if _act == "take_profit":
+                                    _dyn_exit, _dyn_why = True, "dca_tp"
+                                elif _act == "stop":
+                                    _dyn_exit, _dyn_why = True, "dca_stop"
+                                elif _act == "safety":
+                                    _lv = _inf.get("level")
+                                    _lots = list(pos.get("lots")
+                                                 or [(entry, 1.0)])
+                                    _lots.append((price, 1.0))
+                                    pos["lots"] = _lots
+                                    pos["dca_levels"] = list(
+                                        pos.get("dca_levels") or []) + [_lv]
+                                    pos["first_entry"] = float(
+                                        pos.get("first_entry") or entry)
+                                    from radars.spot.dca_manager import (
+                                        avg_entry as _ae)
+                                    entry = _ae(_lots)
+                                    pos["entry"] = entry
+                                    log.info("🪙➕ %s أمان %.1f%% @%.8g "
+                                             "— المتوسط %.8g (%d أوامر)",
+                                             sym, _lv, price, entry, len(_lots))
+                            except Exception as _de:
+                                log.error("🪙 DCA %s: %s — نرجع للقطع", sym, _de)
+                                _dca_on = False
+                        if (not _dca_on and _tk is not None
+                                and _tk < FLOW_EXIT_TAKER
                                 and FLOW_MAX_LOSS <= pnl <= FLOW_CHECK_LOSS):
                             _dyn_exit, _dyn_why = True, "flow_cut"
                         # 👁️ عين الانقلاب — الفيوتشر عنده دفتر 100 مستوى
