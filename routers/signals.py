@@ -188,7 +188,7 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
                    score, confidence
             FROM training_signals
             WHERE pnl_pct IS NOT NULL AND closed_at IS NOT NULL
-              AND result IN ('win','loss')
+              AND result IS NOT NULL AND result != 'void'
               AND (closed_at > (strftime('%s','now','+4 hours','start of day','-4 hours')) OR timestamp > (strftime('%s','now','+4 hours','start of day','-4 hours')))
             ORDER BY COALESCE(closed_at,0) DESC LIMIT 300
         """).fetchall()
@@ -268,7 +268,7 @@ def signals_monthly(market: str = "futures", user=Depends(get_current_user)):
         rows = con.execute("""
             SELECT pnl_pct, outcome FROM training_signals
             WHERE pnl_pct IS NOT NULL AND closed_at IS NOT NULL
-              AND result IN ('win','loss')
+              AND result IS NOT NULL AND result != 'void'
               AND closed_at > (strftime('%s', date('now','+4 hours','start of month')) - 14400)
         """).fetchall()
         con.close()
