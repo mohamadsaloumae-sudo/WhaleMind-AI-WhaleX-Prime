@@ -767,6 +767,20 @@ def guardian_leverage(
 
     # 5. SL/TP من ATR الفعلي
     sl_distance = atr_val * 1.5
+    # 🛡️ سقف مطلق للوقف: 8% من الهامش مهما كان تقلّب العملة.
+    #   مقيس على صفقات حقيقية: 龙虾USDT وقفها -25.4% من الهامش
+    #   (5.1% سعريّ × رافعة 5)، وGPRO -20.9%، وTRIA -26.3%.
+    #   فمن يخسر صفقة واحدة يخسر ربع حسابه. والسبب أن الوقف يتبع
+    #   ATR بلا حدّ، والرافعة تُضاعفه.
+    #   والحدّ: 8% ÷ الرافعة = أقصى مسافة سعرية مسموحة.
+    MAX_SL_MARGIN = 8.0
+    _max_dist = price * (MAX_SL_MARGIN / max(1.0, leverage)) / 100.0
+    if sl_distance > _max_dist:
+        log.info("🛡️ %s وقف مقصوص: %.2f%% → %.2f%% سعريّ "
+                 "(الهامش %.0f%% بدل %.0f%%)",
+                 symbol, sl_distance / price * 100, _max_dist / price * 100,
+                 MAX_SL_MARGIN, sl_distance / price * 100 * leverage)
+        sl_distance = _max_dist
     tp1_distance = atr_val * 2.0
     tp2_distance = atr_val * 3.5
     tp3_distance = atr_val * 5.5
