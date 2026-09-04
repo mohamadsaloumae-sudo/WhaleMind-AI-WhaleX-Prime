@@ -1164,6 +1164,27 @@ async def _sell_on_exchange(symbol: str, reason: str, price: float = 0.0):
 async def _emit_signal(r: dict):
     """🪙 إصدار إشارة السبوت: قاعدة + قناة + تنفيذ — من منصّة العملة نفسها."""
     sym = r["symbol"]; ex = r.get("exchange", "binance")
+    # 🪙🧠 الدماغ يُقيّم أوّلاً — قبل حرّاس السقف. فهو يقيس تسعة
+    #    حقول (ضغط الشراء · الحجم · بولنجر · RSI-2 · RSI-14 · ATR ·
+    #    موضع النطاق · المسار · الساعة) بينما الحرّاس يقيسون الدرجة
+    #    وحدها. وبقاؤه بعدهم يعني أنه لا يرى إشارة أبداً حين تمتلئ
+    #    المراكز — فلا يتعلّم ولا يمنع.
+    _brain_gate = True
+    try:
+        from quant_engine.spot_brain_v2 import should_enter as _sg
+        _bf = {
+            "taker": r.get("taker"), "vol_infl": r.get("vol_infl"),
+            "rsi14": r.get("rsi"), "range_pos": r.get("range_pos"),
+            "path": r.get("path"), "hour_utc": _t.gmtime().tm_hour,
+        }
+        _brain_gate, _bp, _bw = _sg(_bf)
+        log.info("🪙🧠 الدماغ: %s نجاح %.0f%% | %s", sym, _bp * 100, _bw[:56])
+        if not _brain_gate:
+            log.info("🪙🛑 %s منعها الدماغ — %s", sym, _bw[:56])
+            return
+    except Exception as _bge:
+        log.warning("🪙🧠 بوّابة الدماغ %s: %s", sym, _bge)
+
     # 🛡️ سقف الانكشاف: لا نفتح بلا حدّ
     _open = _open_spot_count()
     if _open >= MAX_OPEN_SPOT:
