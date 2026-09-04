@@ -801,6 +801,15 @@ async def tracker_loop():
                             _track[s.id] = st
                         age = now - (s.created_at.timestamp() if s.created_at else now)
                         pnl = (px - s.entry) / s.entry * 100 if s.entry else 0.0
+                        # 🪙🧠 نبضة تتبّع المسار — تُغذّي الدماغ بـMAE و MFE وزمن
+                        #    القمّة. فبلا مسار يتعلّم النتيجة ولا يعرف الرحلة:
+                        #    صفقة ربحت 2% بعد أن نزلت -5% تختلف جذرياً عن أخرى
+                        #    ربحت 2% مباشرةً.
+                        try:
+                            from services.lifecycle_recorder import track as _lt2
+                            _lt2(s.symbol, 'LONG', float(s.entry or 0), float(px), 1.0)
+                        except Exception:
+                            pass
 
                         async def _announce(txt):
                             if ch:
@@ -824,6 +833,42 @@ async def tracker_loop():
                                                     float(pnl))
                             except Exception as _be:
                                 log.debug("🧠 دماغ السبوت %s: %s", s.symbol, _be)
+                            # 🪙🧠 الدماغ الثاني — الصفّ كاملاً بـ28 حقلاً
+                            #    مع مسار الصفقة، فيتعلّم كيف ربح وكيف خسر
+                            #    لا النتيجة وحدها.
+                            try:
+                                from quant_engine.spot_brain_v2 import record as _r2
+                                from services.lifecycle_recorder import finish as _lf2
+                                _mp = _lf2(s.symbol, "LONG", reason) or {}
+                                _rs = str(reason or "").lower()
+                                _bar = ("sl" if "sl" in _rs else
+                                        "time" if ("stall" in _rs or "expire" in _rs)
+                                        else "tp" if ("harvest" in _rs or "lock" in _rs)
+                                        else "tactical")
+                                _r2({
+                                    "symbol": s.symbol,
+                                    "exchange": getattr(s, "exchange", None),
+                                    "path": getattr(s, "path", None),
+                                    "entry": float(entry), "exit_price": float(price),
+                                    "pnl_pct": float(pnl), "outcome": int(outcome),
+                                    "opened_ts": int(opened),
+                                    "closed_ts": int(_t.time()),
+                                    "duration_min": _mp.get("duration_min"),
+                                    "rsi14": getattr(s, "rsi", None),
+                                    "range_pos": getattr(s, "range_pos", None),
+                                    "taker": getattr(s, "taker", None),
+                                    "vol_infl": getattr(s, "vol_infl", None),
+                                    "mae_pct": _mp.get("mae_pct"),
+                                    "mfe_pct": _mp.get("mfe_pct"),
+                                    "time_to_peak_min": _mp.get("time_to_peak_min"),
+                                    "barrier": _bar, "reason": reason,
+                                    "hour_utc": _t.gmtime().tm_hour,
+                                })
+                                log.info("🪙🧠 سُجّل: %s %+.2f%% | أعمق %s | أعلى %s | %s",
+                                         s.symbol, pnl, _mp.get("mae_pct"),
+                                         _mp.get("mfe_pct"), _bar)
+                            except Exception as _b2:
+                                log.warning("🪙🧠 تسجيل الدماغ %s: %s", s.symbol, _b2)
                             try:
                                 import sqlite3
                                 cx = sqlite3.connect("/opt/whalex/db/whalex.db")
