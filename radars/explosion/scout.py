@@ -330,6 +330,11 @@ def _build_signal(symbol: str, price: float, candles: list, peak: float,
     atr_v = atr(candles)
     if atr_v <= 0:
         atr_v = price * 0.01
+    # 🛡️ سقف الوقف 8% من الهامش — مقيس على صفقات حقيقية:
+    #   龙虾USDT وقفها -25.4% و4USDT -38.8%، فمن يخسر صفقة واحدة
+    #   يخسر ثلث حسابه. والسبب أن الوقف يتبع ATR بلا حدّ والرافعة
+    #   تُضاعفه. والحدّ: 8% ÷ الرافعة = أقصى مسافة سعرية.
+    MAX_SL_MARGIN = 8.0
     sl = price + atr_v * 1.5
     tp1 = price - atr_v * 1.5
     tp2 = price - atr_v * 3.0
@@ -357,6 +362,17 @@ def _build_signal(symbol: str, price: float, candles: list, peak: float,
     _sl_pct = abs(sl - price) / price * 100 if price > 0 else 2.0
     _lev = 10.0 / _sl_pct if _sl_pct > 0 else 5.0
     _lev = max(5.0, min(15.0, round(_lev, 1)))      # 5x حدّ أدنى (قرار Mohamad)
+    # 🛡️ الحدّ الأدنى 5x يكسر معادلة الرافعة: وقف 5% سعريّ يُعطي
+    #   رافعة 2 نظرياً، فتُرفَع إلى 5 وتصير الخسارة -25% من الهامش.
+    #   مقيس: 龙虾USDT -25.4% و4USDT -38.8% وTRIA -26.3%.
+    #   فنُضيّق الوقف ليُطابق الرافعة بدل أن نرفع الرافعة.
+    _max_sl_px = MAX_SL_MARGIN / _lev
+    if _sl_pct > _max_sl_px:
+        _d = price * _max_sl_px / 100.0
+        log.info("🛡️ %s وقف مقصوص: %.2f%% → %.2f%% سعريّ (هامش %.0f%%)",
+                 sym, _sl_pct, _max_sl_px, MAX_SL_MARGIN)
+        sl = price + _d
+        _sl_pct = _max_sl_px
     strats = ["🔭 Explosion Scout — انهيار OB"] + ob_signals + [f"هبوط من الذروة: -{drop:.1f}%"]
     return Signal(
         symbol=symbol, direction="SHORT", grade="A",

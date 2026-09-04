@@ -921,6 +921,7 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
 
     from shadow_tracker import shadow_loop
     from radars.explosion.scout_long_v2 import scout_long_v2_loop  # 🔬 نضوب الرافعة
+    from radars.explosion.dip_hunter import dip_hunter_loop  # 🎯 صيد القاع
     from radars.multi.scanner import multi_scan_loop  # 🌐 العملات الحصرية
     from radars.multi.price_stream import price_stream_loop  # ⚡ أسعار لحظية
     # 🚫 Long القديم مُطفأ: خسر -228% على 424 صفقة (منطق صيد القاع مُثبت الفشل)
@@ -947,6 +948,7 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
         _membership_guard(),  # 🎟️ دورة حياة الاشتراك
         shadow_loop(),
         scout_long_v2_loop(position_manager_fn=position_manager_fn),
+        dip_hunter_loop(position_manager_fn=position_manager_fn),
         # 🌐 ماسح المنصّات: 68 عقداً حصرياً على 6 منصّات (غير موجودة على باينانس)
         multi_scan_loop(position_manager_fn=position_manager_fn),
         price_stream_loop(),   # ⚡ WebSocket لكل منصّة

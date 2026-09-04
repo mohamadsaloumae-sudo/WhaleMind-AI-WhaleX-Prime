@@ -96,6 +96,13 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(_st(), name="spot_trainer")
     except Exception as _ste:
         log.warning("تدريب السبوت: %s", _ste)
+    # 🧠 مصالحة صفوف التدريب المعلّقة — 52% منها كانت بلا نتيجة
+    #    لأن متتبّع السبوت يكتب في spot_results ولا يُحدّث ml_training.
+    try:
+        from services.ml_reconcile import reconcile_loop as _mrl
+        asyncio.create_task(_mrl(), name="ml_reconcile")
+    except Exception as _mre:
+        log.warning("مصالحة التدريب: %s", _mre)
     # 🧹 تحرير الذاكرة المفكوكة كل عشر دقائق — بايثون يحتفظ بالساحات
     #    المحرّرة ولا يُعيدها للنظام، فتنمو RSS بلا سبب حقيقيّ.
     async def _trim_loop():
