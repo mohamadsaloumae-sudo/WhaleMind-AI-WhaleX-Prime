@@ -1172,10 +1172,17 @@ async def _emit_signal(r: dict):
     _brain_gate = True
     try:
         from quant_engine.spot_brain_v2 import should_enter as _sg
+        # ⚠️ المؤشّرات داخل meta لا في الجذر — وقراءتها من الجذر
+        #    كانت تُرجع None فيُقيّم الدماغ بحقلين من تسعة (41% للكلّ).
+        _mt = r.get("meta") or {}
         _bf = {
-            "taker": r.get("taker"), "vol_infl": r.get("vol_infl"),
-            "rsi14": r.get("rsi"), "range_pos": r.get("range_pos"),
-            "path": r.get("path"), "hour_utc": _t.gmtime().tm_hour,
+            "taker": _mt.get("taker"),
+            "vol_infl": _mt.get("v_infl"),
+            "rsi14": _mt.get("rsi"),
+            "range_pos": _mt.get("range_pos"),
+            "atr_pct": r.get("atr_pct"),
+            "path": r.get("path"),
+            "hour_utc": _t.gmtime().tm_hour,
         }
         _brain_gate, _bp, _bw = _sg(_bf)
         log.info("🪙🧠 الدماغ: %s نجاح %.0f%% | %s", sym, _bp * 100, _bw[:56])
