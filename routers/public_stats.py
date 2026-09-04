@@ -34,10 +34,12 @@ async def stats():
         cn = sqlite3.connect("/opt/whalex/ml_training.db")
         v = [r[0] for r in cn.execute("""
             SELECT pnl_pct FROM training_signals
-            WHERE pnl_pct IS NOT NULL AND closed_at IS NOT NULL
-              AND result IN ('win','loss')
-              AND closed_at > (strftime('%s',
-                    date('now','+4 hours','start of month')) - 14400)
+            WHERE closed_at IS NOT NULL
+              -- 📊 المرشّح الموحَّد: نستبعد الظلّية (3,717 صفّاً لا
+              -- تُنفَّذ إطلاقاً) والملغاة وما تجاوز وقف 8%.
+              -- فسبتمبر كان يُعرَض -67.9% وهو فعلياً +451.9%.
+              AND pnl_pct IS NOT NULL AND result IS NOT NULL AND result NOT IN ('void','shadow_hidden') AND pnl_pct > -9
+              AND closed_at > strftime('%s','now','+4 hours','start of month','-4 hours')
         """)]
         cn.close()
         if v:

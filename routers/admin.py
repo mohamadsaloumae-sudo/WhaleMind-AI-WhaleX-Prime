@@ -235,7 +235,7 @@ def user_detail(user_id: str, user=Depends(require_admin)):
     try:
         con = sqlite3.connect("/opt/whalex/ml_training.db")
         rows = [r[0] for r in con.execute(
-            "SELECT pnl_pct FROM training_signals WHERE pnl_pct IS NOT NULL AND result IN ('win','loss')")]
+            "SELECT pnl_pct FROM training_signals WHERE pnl_pct IS NOT NULL AND result IS NOT NULL AND result NOT IN ('void','shadow_hidden') AND pnl_pct > -9")]
         con.close()
         markets["futures"] = _agg(rows)
     except Exception:
