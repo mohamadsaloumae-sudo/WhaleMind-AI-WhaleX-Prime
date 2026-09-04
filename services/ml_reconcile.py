@@ -55,14 +55,10 @@ def reconcile() -> dict:
                      1 if (hit["pnl_pct"] or 0) > 0 else 0,
                      hit["reason"], "closed", r["id"]))
                 fixed += 1
-            elif age_h >= STALE_HOURS:
-                # ② لم تُفتح أصلاً — نُغلقها بلا نتيجة تداول
-                m.execute(
-                    "UPDATE training_signals SET closed_at=?, pnl_pct=0, "
-                    "outcome=NULL, close_reason='never_executed', "
-                    "result='void' WHERE id=?",
-                    (int(time.time()), r["id"]))
-                expired += 1
+            # ⚠️ لا نُغلق المعلّقة بـvoid — صفحة المراكز تُصفّي على
+            #    result IN ('win','loss')، فكل صفّ void يختفي من أمام
+            #    المشتركين. والصفّ بلا نتيجة يبقى معلّقاً بلا ضرر:
+            #    النموذج يتجاهله، والصفحة لا تعرضه أصلاً.
         m.commit()
         pending = len(rows) - fixed - expired
         m.close(); w.close()

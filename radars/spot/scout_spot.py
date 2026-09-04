@@ -2,6 +2,7 @@
 المنطق: قاع نطاق صامد + RSI مضغوط + دخول أموال هادئ (Taker-buy + حجم) + شرارة خضراء → BUY.
 """
 import asyncio, time, logging, uuid
+import os as _os   # 🪙 لأعلام الإطفاء (DCA وغيرها)
 from datetime import datetime
 
 import httpx
