@@ -88,6 +88,14 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(_cs(), name="commission_sync")
     except Exception as _cse:
         log.warning("مزامنة العمولات: %s", _cse)
+    # 🪙🧠 تدريب دماغ السبوت كل ست ساعات — بلا هذه الحلقة يتجمّد
+    #    النموذج على بياناته الأولى ولا يتعلّم من صفقة جديدة أبداً،
+    #    وهذا ما قتل الدماغ الأوّل (180 صفّاً وآخر تسجيل قبل 308 ساعة).
+    try:
+        from services.spot_trainer import train_loop as _st
+        asyncio.create_task(_st(), name="spot_trainer")
+    except Exception as _ste:
+        log.warning("تدريب السبوت: %s", _ste)
     # 🧹 تحرير الذاكرة المفكوكة كل عشر دقائق — بايثون يحتفظ بالساحات
     #    المحرّرة ولا يُعيدها للنظام، فتنمو RSS بلا سبب حقيقيّ.
     async def _trim_loop():

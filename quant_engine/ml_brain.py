@@ -31,6 +31,21 @@ def _bin(name: str, v) -> Optional[str]:
             return "<35" if x < 35 else "35-50" if x < 50 else "50-65" if x < 65 else "65+"
         if name == "range_pos":
             return "<0.3" if x < 0.3 else "0.3-0.6" if x < 0.6 else "0.6-0.85" if x < 0.85 else "0.85+"
+        if name == "mae_pct":
+            return ("عميق" if v <= -8 else "متوسّط" if v <= -3
+                    else "ضحل" if v < -0.5 else "نظيف")
+        if name == "mfe_pct":
+            return ("كبير" if v >= 8 else "جيّد" if v >= 3
+                    else "ضعيف" if v >= 1 else "ميّت")
+        if name == "time_to_peak_min":
+            return ("فوريّ" if v <= 5 else "سريع" if v <= 20
+                    else "بطيء" if v <= 90 else "متأخّر")
+        if name == "duration_min":
+            return ("<10د" if v < 10 else "10-45د" if v < 45
+                    else "45-180د" if v < 180 else "3س+")
+        if name == "atr_pct_entry":
+            return ("هادئة" if v < 1.5 else "عادية" if v < 4
+                    else "متقلّبة" if v < 8 else "عنيفة")
         if name == "funding":
             return "neg" if x < -0.0001 else "pos" if x > 0.0001 else "zero"
         if name == "oi_change":
@@ -51,10 +66,19 @@ def _bin(name: str, v) -> Optional[str]:
         return None
     return None
 
-FEATURES = ["direction","grade","tier","regime","btc_trend","hawk_phase",
-            "confidence","score","rsi","range_pos","funding","oi_change",
-            "hawk_modifier","volume_ratio","key_strat_count","hour_utc",
-            "ob_pressure","cvd_flow"]
+# 🧠 حُذفت أربعة حقول ميّتة كانت تُعلّم النموذج من فراغ:
+#   funding و oi_change و key_strat_count فارغة 96% — فقيمها
+#   "zero" و "flat" و "0-1" تعني "لم نقرأ" لا "القيمة صفر"،
+#   وكانت تحمل 78-92% من العيّنات فتُشوّه الأوزان.
+#   و hawk_modifier قيمة واحدة لكل الصفقات ووزنه -0.0 بالضبط.
+#   وأُضيفت ستّة حقول مسار (المعيار الأكاديميّ: الحواجز الثلاثة):
+#   كم تحمّلت الصفقة قبل نتيجتها، وكم بلغت وكم تركنا، ومتى بلغت
+#   قمّتها، وأي حاجز لُمس أوّلاً — فيتعلّم الرحلة لا النتيجة وحدها.
+FEATURES = ["direction","grade","tier","regime","btc_trend",
+            "confidence","score","rsi","range_pos","volume_ratio",
+            "hour_utc","ob_pressure","cvd_flow",
+            "mae_pct","mfe_pct","time_to_peak_min","duration_min",
+            "atr_pct_entry","barrier"]
 
 def live_context(symbol: str) -> dict:
     """سياق حي لحظة القرار (sync، صفر REST): ضغط العمق + اتجاه التدفق المنفَّذ.
