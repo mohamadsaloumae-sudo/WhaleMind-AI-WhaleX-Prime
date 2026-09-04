@@ -135,6 +135,20 @@ def path_breakout(closes, highs, lows, vols, tbuys, book):
 def evaluate(closes, highs, lows, vols, tbuys, book=None) -> dict:
     book = book or {}
     if len(closes) < 50: return {"ok": False, "reason": "بيانات قليلة"}
+    # 📐 مرشّح المعايير العالمية — معكوساً كما قاسه سجلّنا.
+    #   الكتاب يقول اشترِ المُشبَع بيعاً، وسجلّنا يقول إنه يستمرّ
+    #   في الموت: z<-1.5 فوز 26% · بولنجر تحت السفليّ 25% ·
+    #   RSI-2<10 فوز 25% · RSI-14<30 فوز 23%.
+    #   والأثر المقيس على 199 إشارة: -31.3% → +7.1% وفوز 43% → 51%
+    #   وموجب في النصفين (+14 و +25).
+    try:
+        from radars.spot.std_filter import check as _std
+        _ok, _sw = _std(closes)
+        if not _ok:
+            return {"ok": False, "reason": _sw}
+    except Exception as _se:
+        log.debug("مرشّح المعايير: %s", _se)
+
     reg, reg_why = regime(closes, highs, lows)
     px = closes[-1]; atr = atr_pct(highs, lows, closes)
     cands = []
