@@ -24,6 +24,26 @@ GRACE_SEC = 180          # نُمهل الصفقة الجديدة ثلاث دق�
 OFF_FLAG = "/opt/whalex/db/orphan_guard.off"
 
 
+
+def _real_exit_px(client, sym: str) -> float:
+    """آخر سعر تنفيذ فعليّ على باينانس — لا سعر السوق."""
+    import time as _t
+    try:
+        t0 = int((_t.time() - 7200) * 1000)
+        trs = client.futures_account_trades(symbol=sym, startTime=t0)
+        if trs:
+            # آخر صفقة أغلقت المركز (لها ربح محقَّق)
+            for tr in reversed(trs):
+                if abs(float(tr.get("realizedPnl") or 0)) > 0:
+                    return float(tr["price"])
+            return float(trs[-1]["price"])
+    except Exception as e:
+        log.debug("سعر التنفيذ %s: %s", sym, e)
+    try:
+        return float(client.futures_symbol_ticker(symbol=sym).get("price") or 0)
+    except Exception:
+        return 0.0
+
 def _paper_symbols() -> set:
     try:
         c = sqlite3.connect(POS_DB)
@@ -145,7 +165,11 @@ def _close_ghosts(user_id: str, live: set, client) -> int:
             continue
         px = 0.0
         try:
-            px = float(client.futures_symbol_ticker(symbol=sym).get("price") or 0)
+            # 💵 سعر الخروج من آخر تنفيذ حقيقيّ لا من سعر السوق.
+            #    مقيس على EDGEUSDT: سعر السوق كان 0.653 بينما التنفيذ
+            #    الفعليّ 0.656، فسجّلنا -0.194$ والحقيقة -0.776$ —
+            #    أي ربع الخسارة الحقيقية.
+            px = _real_exit_px(client, sym)
         except Exception:
             pass
         if px <= 0:
