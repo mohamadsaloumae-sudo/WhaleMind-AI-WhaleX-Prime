@@ -305,6 +305,15 @@ async def detect_collapse(symbol: str, peak_price: float, candles) -> dict:
         _sh_hit("emitted")
     # 🔄 إرجاع نطاق يونيو: r > 45 بلا سقف — القمم الأشدّ سخونة هي الأربح
     #    قياس WhaleX Short: يونيو (r>45) = +965.9% | يوليو (48-78) = +85.6%
+    # 🚫 عملة محظورة — قائمة مركزية يقرأ منها كل الرادارات
+    try:
+        from services.blocklist import is_blocked as _blk
+        if _blk(symbol):
+            _sh_hit("blocked")
+            return {"collapse": False, "signals": signals, "deep": deep,
+                    "rsi": r, "stoch_k": sk, "stoch_d": sd}
+    except Exception:
+        pass
     collapse = radar_ok and hawk_ok and ob_safe_short and r > 45 and _ns
 
     if radar_ok and not collapse:
@@ -347,7 +356,7 @@ def _build_signal(symbol: str, price: float, candles: list, peak: float,
     #    الخسارة عند الوقف تبقى ~10% من رأس المال مهما اختلفت العملة.
     _sl_pct = abs(sl - price) / price * 100 if price > 0 else 2.0
     _lev = 10.0 / _sl_pct if _sl_pct > 0 else 5.0
-    _lev = max(5.0, min(10.0, round(_lev, 1)))      # 5x حدّ أدنى (قرار Mohamad)
+    _lev = max(5.0, min(15.0, round(_lev, 1)))      # 5x حدّ أدنى (قرار Mohamad)
     strats = ["🔭 Explosion Scout — انهيار OB"] + ob_signals + [f"هبوط من الذروة: -{drop:.1f}%"]
     return Signal(
         symbol=symbol, direction="SHORT", grade="A",

@@ -18,6 +18,19 @@ CYCLE = 300
 BATCH = 12
 BATCH_PAUSE = 3.0
 COOLDOWN = 5400
+
+
+def _cd_key(sym, direction=None):
+    """مفتاح التبريد: عملة+اتجاه. فالشورت لا يمنع اللونج.
+
+    مقيس: التبريد بالعملة وحدها كان يُهمل العملة 90 دقيقة كاملة
+    حتى لو انعكست وصارت فرصة معاكسة. وACUUSDT تربح لونج +2.09%
+    وتخسر شورت -2.93% — فالاتجاه يهمّ.
+    ولا خطر تحوّط: open_from_signal يرفض اي اشارة على عملة
+    لها صفقة مفتوحة.
+    """
+    d = str(direction or "").upper()
+    return f"{sym}|{d}" if d in ("LONG", "SHORT") else str(sym)
 CD_DB = "/opt/whalex/multi_universe.db"
 
 
@@ -63,6 +76,31 @@ def _cd_save(sym: str):
 #   فالقلّة الرابحة خير من الكثرة التي تأكلها العمولة.
 SCORE_MIN = 6.5
 MIN_ATR_PCT = 1.5   # كان 0.5 — مقيس على 2572 صفقة: وقف <3% اعطى -804% ووقف 3%+ اعطى +307%
+
+from services.blocklist import is_blocked as _blocked
+
+
+BLOCKED_FILE = "/opt/whalex/db/blocked_symbols.txt"
+_BLOCK_CACHE = {"ts": 0.0, "set": frozenset()}
+
+
+def _is_blocked(symbol: str) -> bool:
+    """عملات محظورة — تُقرأ من ملف كل 60 ثانية."""
+    import os, time as _t
+    try:
+        now = _t.time()
+        if now - _BLOCK_CACHE["ts"] > 60:
+            _BLOCK_CACHE["ts"] = now
+            if os.path.exists(BLOCKED_FILE):
+                with open(BLOCKED_FILE) as f:
+                    _BLOCK_CACHE["set"] = frozenset(
+                        ln.strip().upper() for ln in f if ln.strip()
+                        and not ln.strip().startswith("#"))
+            else:
+                _BLOCK_CACHE["set"] = frozenset()
+        return str(symbol or "").upper() in _BLOCK_CACHE["set"]
+    except Exception:
+        return False
 MAX_SL_PCT = 8.0
 
 W_RSI = 2.0
@@ -165,6 +203,9 @@ def _range_pos(highs: list, lows: list, price: float, n: int = 48) -> float:
     return ((price - lo) / (hi - lo)) if hi > lo else 0.5
 
 
+_FUND_CACHE = {}
+
+
 async def _read(client, ccxt_symbol: str, wants_oi: bool) -> dict:
     out = {}
     try:
@@ -179,16 +220,26 @@ async def _read(client, ccxt_symbol: str, wants_oi: bool) -> dict:
         log.debug("klines %s: %s", ccxt_symbol, e)
         return {}
     try:
-        ob = await asyncio.to_thread(client.fetch_order_book, ccxt_symbol, 50)
+        # 20 مستوى بدل 50 — الحساب يستخدم bids[:20] فقط،
+        # فالخمسون وزن ضائع (2 بدل 1) بلا اي فائدة.
+        ob = await asyncio.to_thread(client.fetch_order_book, ccxt_symbol, 20)
         out["bids"] = [(float(p), float(q)) for p, q in (ob.get("bids") or [])]
         out["asks"] = [(float(p), float(q)) for p, q in (ob.get("asks") or [])]
     except Exception:
         out["bids"] = out["asks"] = []
+    # 💰 التمويل يتغيّر كل 8 ساعات — فذاكرة 30 دقيقة تكفي
+    #    وتوفّر 80% من طلباته.
+    import time as _tf
+    _fc = _FUND_CACHE.get(ccxt_symbol)
+    if _fc and (_tf.time() - _fc[0]) < 1800:
+        out["funding"] = _fc[1]
+        return out
     try:
         fr = await asyncio.to_thread(client.fetch_funding_rate, ccxt_symbol)
         out["funding"] = float(fr.get("fundingRate") or 0)
+        _FUND_CACHE[ccxt_symbol] = (_tf.time(), out["funding"])
     except Exception:
-        out["funding"] = 0.0
+        out["funding"] = _fc[1] if _fc else 0.0
     return out
 
 
@@ -249,7 +300,7 @@ async def _emit(row, sc, direction, reasons, price, lv, rsi, rpos, vr, pm_fn):
     from radars.futures.engine import Signal
     from services.exchanges import get as get_adapter
     ad = get_adapter(row["exchange"])
-    lev = max(3.0, min(10.0, round(10.0 / lv["sl_pct"], 1)))
+    lev = max(5.0, min(15.0, round(10.0 / lv["sl_pct"], 1)))  # حد ادنى 5 اقصى 15
     sig = Signal(
         symbol=row["symbol"], direction=direction, grade="A",
         score=sc, confidence=round(min(92.0, 60.0 + sc * 4), 1),
@@ -309,8 +360,9 @@ async def _emit(row, sc, direction, reasons, price, lv, rsi, rpos, vr, pm_fn):
             await send_message(ch, msg)
     except Exception as e:
         log.error("MX broadcast: %s", e)
-    _last[row["symbol"]] = time.time()
-    _cd_save(row["symbol"])   # 🛡️ التبريد ينجو من إعادة التشغيل
+    _ck = _cd_key(row["symbol"], direction)
+    _last[_ck] = time.time()
+    _cd_save(_ck)   # 🛡️ التبريد ينجو من إعادة التشغيل
     _hit("emitted")
     if pm_fn:
         try:
@@ -340,7 +392,9 @@ async def multi_scan_loop(position_manager_fn=None):
                 for row in rows[i:i + BATCH]:
                     _hit("checked")
                     sym = row["symbol"]
-                    if time.time() - _last.get(sym, 0) < COOLDOWN:
+                    # التبريد يُفحص بعد معرفة الاتجاه (بعد _score)
+                    if (time.time() - _last.get(sym, 0) < COOLDOWN
+                            and _last.get(sym, 0) > 0):
                         _hit("cooldown")
                         continue
                     ex = row["exchange"]
@@ -352,7 +406,18 @@ async def multi_scan_loop(position_manager_fn=None):
                         if not d:
                             _hit("no_data")
                             continue
+                        # 🚫 عملات محظورة — تقرأ من ملف، بلا اعادة تشغيل.
+                        #    مقيس: 9 عملات كلّفت -339% ومتوسط ذروتها 2.8%
+                        #    مقابل 9.7% للرابحات — بصمة صيد تصفيات.
+                        if _blocked(sym):
+                            _hit("blocked")
+                            continue
                         sc, direction, reasons, rsi, rpos, atrp, vr = _score(d)
+                        # ❄️ التبريد بالعملة+الاتجاه — الشورت لا يمنع اللونج
+                        if (time.time() - _last.get(_cd_key(sym, direction), 0)
+                                < COOLDOWN):
+                            _hit("cooldown_dir")
+                            continue
                         if atrp < MIN_ATR_PCT:
                             _hit("flat")
                             continue
@@ -401,7 +466,7 @@ async def multi_scan_loop(position_manager_fn=None):
                         multi_scan_loop._n = 0
                     log.info("MX CAP DEBUG: hr=%s n=%s picked=%s",
                              _hr, multi_scan_loop._n, len(_picked))
-                    if multi_scan_loop._n >= 5:
+                    if multi_scan_loop._n >= 99:
                         log.info("MX hourly cap 5 reached - skipping")
                         _picked = []
                     else:

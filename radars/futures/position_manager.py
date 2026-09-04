@@ -784,8 +784,10 @@ async def is_real_reversal(symbol: str, is_long: bool, opened_at: float = 0) -> 
         #   والـ iceberg أصلاً، ومحميّ بتأكيد الاستمرارية. نسجّل فقط، لا نغلق هنا (درس ETH "جبل ثلجي 0x").
         if wtype == "حقيقي":
             log.debug("wall-advisory %s: جدار حقيقي معاكس %.0fx — رأي (الميزان يقرّر)", symbol, w.get('ratio',0))
+            _wall_probe(symbol, is_long, "حقيقي", w.get("ratio", 0))
         if wtype == "جبل_ثلجي":
             log.debug("wall-advisory %s: جبل ثلجي معاكس — رأي (الميزان يقرّر)", symbol)
+            _wall_probe(symbol, is_long, "جبل_ثلجي", w.get("ratio", 0))
         if wtype == "وهمي":
             return False, "جدار وهمي اختفى — فخ قطيع، الاتجاه مستمر"
         return False, ""  # لا_جدار أو غير معروف → لا انقلاب
@@ -806,6 +808,16 @@ async def should_tactical_exit(pos: Position, price: float, ob: dict, ls_change:
 
     is_long = pos.direction == "LONG"
     pnl_pct = calc_pnl(pos, price)
+    # 🧠 نبضة تتبّع المسار — تُغذّي النموذج بـMAE وMFE وزمن القمّة.
+    #    المعيار الأكاديميّ (الحواجز الثلاثة) يشترط تسجيل المسار
+    #    لا النتيجة وحدها: صفقة ربحت 2% بعد أن نزلت -5% تختلف
+    #    جذرياً عن صفقة ربحت 2% مباشرةً.
+    try:
+        from services.lifecycle_recorder import track as _lt
+        _lt(pos.symbol, pos.direction, float(pos.entry), price,
+            float(getattr(pos, 'leverage', 1) or 1))
+    except Exception:
+        pass
 
     # ضابط الوقت: لا خروج تكتيكي في أول 90 ثانية
     import time as _t
@@ -1143,17 +1155,17 @@ async def monitor_position(pos: Position):
 
     price_move_pct = abs(price - pos.entry) / pos.entry * 100 if pos.entry > 0 else 0
     against = (is_long and price < pos.entry) or (not is_long and price > pos.entry)
-    HARD_STOP_MOVE = 4.5  # حركة 4.5% (=13.5% مع رافعة): يقص الخسائر الكبيرة، الأرباح (TP) تبقى
+    # الحدّ متكيّف مع الرافعة — الخسارة -8% مهما كانت.
+    #   كان 4.5% ثابتاً محسوباً على رافعة 3، والفعلية 5 فصار -22.5%.
+    #   مقيس 3 ايام: 22 ضربة وقف بمتوسط -14.1% التهمت 223 صفقة رابحة.
+    #   ولا تأجيل — الأرضية حدّ طوارئ لا مجال فيه للتنفّس.
+    HARD_STOP_MOVE = 8.0 / max(1.0, float(getattr(pos, "leverage", 5) or 5))
     if against and price_move_pct >= HARD_STOP_MOVE:
-        _br, _why = await _should_breathe(pos, price, pnl_pct)
-        if _br:
-            log.info("HARD STOP مؤجَّل (تنفّس) %s: %s | حركة=%.1f%% pnl=%.1f%%",
-                     pos.symbol, _why, price_move_pct, pnl_pct)
-        else:
-            log.warning("HARD STOP %s %s @ حركة=%.1f%% pnl=%.1f%% (%s)",
-                        pos.symbol, pos.direction, price_move_pct, pnl_pct, _why)
-            await _close_position(pos, price, ExitReason.SL_HIT, pnl_pct)
-            return
+        log.warning("HARD STOP %s %s @ حركة=%.2f%% pnl=%.1f%% (حد %.2f%%)",
+                    pos.symbol, pos.direction, price_move_pct, pnl_pct,
+                    HARD_STOP_MOVE)
+        await _close_position(pos, price, ExitReason.SL_HIT, pnl_pct)
+        return
 
     # ─ SL / Trailing Stop ─
     sl_hit = (is_long and price <= pos.sl) or (not is_long and price >= pos.sl)
@@ -1687,6 +1699,44 @@ def probe_harvest(pos, pnl_pct, peak_pnl, why, price):
                    float(pnl_pct or 0), float(peak_pnl or 0), str(why)[:60],
                    float(ob) if ob is not None else None,
                    str(cv) if cv else None, float(price or 0)))
+        c.commit(); c.close()
+    except Exception:
+        pass
+
+
+# ═══════════════════════════════════════════════════════════════
+# مسبار الجدران — تسجيل بحت لقرارات لم تُتَّخذ
+# ═══════════════════════════════════════════════════════════════
+# is_real_reversal تحسب دفتر 100 مستوى وتصنّف الجدران، ثم تخرج
+# بـreturn False دائماً — عُطّلت بعد "درس ETH جبل ثلجي".
+# نسجّل ماذا كانت ستقرّر، ونقارن بما حدث للسعر بعد 15 دقيقة.
+# لا يغيّر قراراً — تسجيل فقط.
+# الاطفاء: touch /opt/whalex/db/wall_probe.off
+WALL_PROBE_OFF = "/opt/whalex/db/wall_probe.off"
+_WALL_DB = "/opt/whalex/db/wall_probe.db"
+
+
+def _wall_probe(symbol, is_long, wtype, ratio):
+    import os as _o, sqlite3 as _s, time as _t
+    if _o.path.exists(WALL_PROBE_OFF):
+        return
+    try:
+        c = _s.connect(_WALL_DB)
+        c.execute("""CREATE TABLE IF NOT EXISTS wall(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER,
+            symbol TEXT, direction TEXT, wtype TEXT, ratio REAL,
+            px_at REAL, px_15m REAL, moved_pct REAL, checked INTEGER DEFAULT 0)""")
+        px = 0.0
+        try:
+            from radars.multi.price_stream import get_price as _gp
+            px = float(_gp(symbol) or 0)
+        except Exception:
+            pass
+        c.execute("INSERT INTO wall(ts,symbol,direction,wtype,ratio,px_at) "
+                  "VALUES(?,?,?,?,?,?)",
+                  (int(_t.time()), str(symbol),
+                   "LONG" if is_long else "SHORT",
+                   str(wtype), float(ratio or 0), px))
         c.commit(); c.close()
     except Exception:
         pass

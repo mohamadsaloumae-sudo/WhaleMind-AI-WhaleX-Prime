@@ -150,6 +150,14 @@ def update_result_by_match(symbol: str, direction: str, entry: float,
                            peak_pnl: float = None, close_reason: str = None):
     """تحديث نتيجة آخر إشارة مفتوحة مطابقة (symbol+direction+entry قريب).
     يُستخدم عند إغلاق صفقة لربط النتيجة بالإشارة المسجّلة."""
+    # 🧠 نكتب مسار الصفقة قبل نتيجتها — MAE و MFE وزمن القمّة والمدّة
+    #    والحاجز الذي لُمس أوّلاً. فالنموذج كان يعرف الدخول والنتيجة
+    #    ولا يعرف الرحلة بينهما.
+    try:
+        from services.lifecycle_recorder import finish as _lf
+        _lf(symbol, direction, close_reason or "")
+    except Exception:
+        pass
     try:
         outcome = 1 if pnl_pct > 0 else 0
         conn = sqlite3.connect(DB_PATH)

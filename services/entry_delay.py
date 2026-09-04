@@ -103,6 +103,18 @@ async def should_enter(sig) -> tuple:
     if against_flow(sig):
         _stats["dropped"] += 1
         return False, "ضد تيّار التدفّق"
+    # 🕯️ تأكيد شمعة الدقيقة — للمستنفَدة فقط (استنفاد 200%+).
+    #    معيار freqtrade: الاشارة من إطار 5د والتأكيد من إغلاق 1د.
+    #    مقيس: الخبيثة تدخل عند استنفاد 300% والسليمة 130%.
+    try:
+        from services.candle_confirm import should_enter_candle as _cc
+        _ok, _cw = await _cc(str(getattr(sig, "symbol", "")),
+                             str(getattr(sig, "direction", "")))
+        if not _ok:
+            _stats["dropped"] += 1
+            return False, _cw
+    except Exception as _ce:
+        log.debug("بوابة الشمعة: %s", _ce)
     if not is_suspect(sig):
         _stats["passed"] += 1
         return True, ""

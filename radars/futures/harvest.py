@@ -72,7 +72,12 @@ def should_harvest(pos_id: str, pnl: float, peak_pnl: float,
     note_peak(pos_id, peak_pnl, now)
     pk, at = _PEAK_AT.get(pos_id, (peak_pnl, now))
 
-    if pk > 0 and (pk - pnl) / pk >= GIVEBACK_MAX:
+    # 🌾 التراجع المسموح يتّسع مع قوّة الحركة — كل صفقة تُقاس بذروتها هي.
+    #    كان 35% ثابتاً للجميع، فيحصد الصفقة القويّة كما الضعيفة.
+    #    مقيس على المسبار: 4 من 6 حالات واصل السعر لصالحنا بعد الحصاد.
+    _gb = (0.35 if pk < 2.0 else 0.42 if pk < 3.0 else
+           0.50 if pk < 4.0 else 0.58 if pk < 5.0 else 0.65)
+    if pk > 0 and (pk - pnl) / pk >= _gb:
         return True, f"🌾 حصاد: تراجعت من {pk:+.1f}% إلى {pnl:+.1f}%"
 
     stalled = now - at

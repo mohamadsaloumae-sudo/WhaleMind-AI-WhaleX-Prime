@@ -975,12 +975,27 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
         
         # 4. وضع SL
         sl_side = "SELL" if direction == "LONG" else "BUY"
+        # 🛡️ سقف الخسارة -8% على المنصّة نفسها — تنفّذه فوراً بلا انتظار
+        #    دورة الفحص. مقيس 3 سبتمبر: BULLAUSDT وقفها عند حركة 8%
+        #    = -40% بالرافعة، وأُغلقت -18.55% في دقيقة واحدة.
+        _cap_mv = 8.0 / max(1.0, float(leverage or 5))
+        _cap_sl = entry * (1 - _cap_mv / 100) if direction == "LONG" \
+            else entry * (1 + _cap_mv / 100)
+        _use_sl = signal["sl"]
+        try:
+            _rsl = float(signal["sl"])
+            if direction == "LONG":
+                _use_sl = max(_rsl, _cap_sl)
+            else:
+                _use_sl = min(_rsl, _cap_sl)
+        except Exception:
+            pass
         try:
             client.futures_create_order(
                 symbol=symbol,
                 side=sl_side,
                 type="STOP_MARKET",
-                stopPrice=_fmt_price(client, symbol, signal["sl"]),
+                stopPrice=_fmt_price(client, symbol, _use_sl),
                 closePosition=True,
             )
         except Exception as e:
@@ -1096,11 +1111,48 @@ async def execute_spot_buy(user_id: str, signal: dict) -> dict:
     if spend < 5:
         return {"success": False, "error": f"رصيد Spot غير كافٍ ({bal:.2f}$، الأدنى 5$)"}
     try:
-        order = client.order_market_buy(symbol=sym, quoteOrderQty=round(spend, 2))
+        # 🎯 حدّ اوّلاً، وسوقيّ فقط عند الاطفاء
+        if os.path.exists(SPOT_LIMIT_OFF):
+            order = client.order_market_buy(symbol=sym,
+                                            quoteOrderQty=round(spend, 2))
+        else:
+            order, _why = _spot_limit_buy(
+                client, sym, spend, float(signal.get("entry", 0) or 0))
+            if not order:
+                return {"success": False, "error": _why or "limit not filled"}
         qty = float(order.get("executedQty", 0) or 0)
+        # 💵 سعر التعبئة الحقيقيّ لا سعر الإشارة — كان يسجّل الإشارة
+        #    فيرى المشترك رقماً مختلفاً عن باينانس. مقيس على الفيوتشر:
+        #    GIGGLEUSDT سجّلناها 44.4 ونُفّذت 42.74 (فرق 3.9%)،
+        #    فرأيناها +9.80% وهي عنده -1.75%.
+        _fill = 0.0
+        try:
+            _fl = order.get("fills") or []
+            _tq = sum(float(f.get("qty") or 0) for f in _fl)
+            _tv = sum(float(f.get("qty") or 0) * float(f.get("price") or 0)
+                      for f in _fl)
+            if _tq > 0:
+                _fill = _tv / _tq
+        except Exception:
+            pass
+        if _fill <= 0:
+            try:
+                _cq = float(order.get("cummulativeQuoteQty") or 0)
+                if _cq > 0 and qty > 0:
+                    _fill = _cq / qty
+            except Exception:
+                pass
+        if _fill <= 0:
+            _fill = float(signal.get("entry", 0) or 0)
+        _sig_px = float(signal.get("entry", 0) or 0)
+        if _sig_px > 0 and _fill > 0:
+            _sl = abs(_fill - _sig_px) / _sig_px * 100
+            if _sl > 0.5:
+                log.warning("🪙📒 انزلاق %s: إشارة %.8g → تنفيذ %.8g (%.2f%%)",
+                            sym, _sig_px, _fill, _sl)
         conn = sqlite3.connect(DB_PATH)
         conn.execute("INSERT INTO spot_positions(user_id,symbol,qty,entry,order_id,status,ts) VALUES(?,?,?,?,?,?,?)",
-                     (user_id, sym, qty, float(signal.get("entry", 0) or 0),
+                     (user_id, sym, qty, _fill,
                       str(order.get("orderId", "")), "open", int(time.time())))
         conn.commit(); conn.close()
         log.info("🪙✅ Spot BUY %s qty=%s spend=%.2f$ (user %s)", sym, qty, spend, user_id)
@@ -1139,7 +1191,11 @@ async def close_spot_all(symbol: str, reason: str = "close"):
             free = float(_b["free"]) if _b else 0.0
             q = _fmt_spot_qty(client, symbol, free)
             if q > 0:
-                client.order_market_sell(symbol=symbol, quantity=q)
+                _so = None
+                if not os.path.exists(SPOT_LIMIT_OFF):
+                    _so, _m = _spot_limit_sell(client, symbol, q)
+                if not _so:
+                    client.order_market_sell(symbol=symbol, quantity=q)
                 log.info("🪙💰 Spot SELL %s qty=%s (user %s, %s)", symbol, q, uid, reason)
         except Exception as e:
             log.error("🪙❌ Spot sell %s: %s", symbol, e)
@@ -1354,4 +1410,105 @@ def _limit_exit(client, symbol, side, qty):
     except Exception:
         pass
     log.info("EXIT LIMIT %s timeout -> market", symbol)
+    return None, "timeout"
+
+
+# ═══════════════════════════════════════════════════════════════
+# SPOT LIMIT — دخول وخروج بالحدّ، لا انزلاق
+# ═══════════════════════════════════════════════════════════════
+# نفس معيار الفيوتشر: دخول بحدّ ومهلة ثمّ الغاء، وخروج بحدّ
+# قصير ثمّ ارتداد الى السوق (الخروج مضمون دائماً).
+# الاطفاء: touch /opt/whalex/db/spot_limit.off
+SPOT_LIMIT_OFF = "/opt/whalex/db/spot_limit.off"
+SPOT_WAIT_SEC = 30.0
+SPOT_FLEE_PCT = 1.0
+SPOT_POLL_SEC = 1.0
+SPOT_EXIT_WAIT = 8.0
+SPOT_EXIT_POLL = 0.5
+
+
+def _spot_limit_buy(client, sym, spend, sig_px):
+    import time as _t
+    try:
+        if sig_px <= 0:
+            return None, "no signal price"
+        qty = _fmt_spot_qty(client, sym, spend / sig_px)
+        if qty <= 0:
+            return None, "qty too small"
+        o = client.order_limit_buy(symbol=sym, quantity=qty,
+                                   price=f"{sig_px:.10f}".rstrip("0"))
+    except Exception as e:
+        log.warning("spot limit buy %s: %s", sym, e)
+        return None, f"limit failed: {e}"
+    oid = o.get("orderId")
+    t0 = _t.time()
+    while (_t.time() - t0) < SPOT_WAIT_SEC:
+        _t.sleep(SPOT_POLL_SEC)
+        try:
+            od = client.get_order(symbol=sym, orderId=oid)
+        except Exception:
+            continue
+        st = od.get("status")
+        filled = float(od.get("executedQty") or 0)
+        if st == "FILLED":
+            log.info("SPOT LIMIT FILLED %s (%.0fs)", sym, _t.time() - t0)
+            return od, ""
+        if st in ("CANCELED", "EXPIRED", "REJECTED"):
+            return (od if filled > 0 else None), f"cancelled ({st})"
+        try:
+            live = float(client.get_symbol_ticker(symbol=sym).get("price") or 0)
+        except Exception:
+            continue
+        if live <= 0:
+            continue
+        drift = (live - sig_px) / sig_px * 100
+        if drift > SPOT_FLEE_PCT:
+            try:
+                client.cancel_order(symbol=sym, orderId=oid)
+            except Exception:
+                pass
+            if filled > 0:
+                return client.get_order(symbol=sym, orderId=oid), ""
+            log.info("SPOT LIMIT CANCEL %s - fled %.2f%%", sym, drift)
+            return None, f"price fled {drift:.2f}%"
+    try:
+        client.cancel_order(symbol=sym, orderId=oid)
+        od = client.get_order(symbol=sym, orderId=oid)
+        if float(od.get("executedQty") or 0) > 0:
+            return od, ""
+    except Exception:
+        pass
+    log.info("SPOT LIMIT CANCEL %s - timeout", sym)
+    return None, "timeout no fill"
+
+
+def _spot_limit_sell(client, sym, qty):
+    import time as _t
+    try:
+        live = float(client.get_symbol_ticker(symbol=sym).get("price") or 0)
+        if live <= 0:
+            return None, "no price"
+        o = client.order_limit_sell(symbol=sym, quantity=qty,
+                                    price=f"{live:.10f}".rstrip("0"))
+    except Exception as e:
+        log.debug("spot limit sell %s: %s", sym, e)
+        return None, "limit-failed"
+    oid = o.get("orderId")
+    t0 = _t.time()
+    while (_t.time() - t0) < SPOT_EXIT_WAIT:
+        _t.sleep(SPOT_EXIT_POLL)
+        try:
+            od = client.get_order(symbol=sym, orderId=oid)
+        except Exception:
+            continue
+        if od.get("status") == "FILLED":
+            log.info("SPOT EXIT LIMIT %s (%.1fs)", sym, _t.time() - t0)
+            return od, "limit"
+        if od.get("status") in ("CANCELED", "EXPIRED", "REJECTED"):
+            break
+    try:
+        client.cancel_order(symbol=sym, orderId=oid)
+    except Exception:
+        pass
+    log.info("SPOT EXIT LIMIT %s timeout -> market", sym)
     return None, "timeout"
