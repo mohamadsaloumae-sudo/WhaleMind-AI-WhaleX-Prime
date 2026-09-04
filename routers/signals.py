@@ -110,7 +110,7 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
         _mdb = _os.path.join(_os.path.dirname(__file__), "..", "db", "memecoin.db")
         try:
             con = _sq.connect(_mdb); con.row_factory = _sq.Row
-            rows = con.execute("SELECT symbol, address, entry_price, exit_price, pnl_pct, peak_price, ts, closed_ts, chain, score, url, liq, vol FROM meme_signals WHERE status='closed' AND pnl_pct IS NOT NULL AND closed_ts > (strftime('%s','now') - 86400) ORDER BY closed_ts DESC LIMIT 300").fetchall()
+            rows = con.execute("SELECT symbol, address, entry_price, exit_price, pnl_pct, peak_price, ts, closed_ts, chain, score, url, liq, vol FROM meme_signals WHERE status='closed' AND pnl_pct IS NOT NULL AND closed_ts > (strftime('%s','now','+4 hours','start of day','-4 hours')) ORDER BY closed_ts DESC LIMIT 300").fetchall()
             con.close()
             _CH = {"solana": "Solana", "ethereum": "Ethereum", "bsc": "BSC", "base": "Base", "arbitrum": "Arbitrum", "polygon": "Polygon"}
             out = []
@@ -148,7 +148,7 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
             rows = con.execute(
                 "SELECT symbol, entry, exit_price, pnl_pct, outcome, reason, ts, "
                 "opened_ts, exchange, path, strategies FROM spot_results "
-                "WHERE ts > (strftime('%s','now') - 86400) "
+                "WHERE ts > (strftime('%s','now','+4 hours','start of day','-4 hours')) "
                 "ORDER BY COALESCE(ts,0) DESC LIMIT 300").fetchall()
             con.close()
             _lbl = {"dip": "🪙 صيد القاع", "pullback": "📈 ارتداد في اتجاه صاعد",
@@ -189,7 +189,7 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
             FROM training_signals
             WHERE pnl_pct IS NOT NULL AND closed_at IS NOT NULL
               AND result IN ('win','loss')
-              AND closed_at > (strftime('%s','now') - 86400)
+              AND closed_at > (strftime('%s','now','+4 hours','start of day','-4 hours'))
             ORDER BY COALESCE(closed_at,0) DESC LIMIT 300
         """).fetchall()
         con.close()
