@@ -972,30 +972,29 @@ async def tracker_loop():
                         if _dca_on:
                             try:
                                 from radars.spot.dca_manager import decide as _dd
-                                _act, _inf = _dd(
-                                    float(pos.get("first_entry") or entry),
-                                    price,
-                                    pos.get("lots") or [(entry, 1.0)],
-                                    pos.get("dca_levels") or [],
-                                    (_t.time() - opened) / 3600.0)
+                                # ⚠️ الكائن اسمه s لا pos — والقاموس pos
+                                #    غير موجود هنا، فكان NameError يقع
+                                #    قبل التنفيذ ويُبتلَع بلا أثر.
+                                _fe = float(getattr(s, "first_entry", 0)
+                                            or s.entry)
+                                _lots0 = getattr(s, "lots", None) or [(s.entry, 1.0)]
+                                _lvls = getattr(s, "dca_levels", None) or []
+                                _act, _inf = _dd(_fe, price, _lots0, _lvls,
+                                                 (_t.time() - opened) / 3600.0)
                                 if _act == "take_profit":
                                     _dyn_exit, _dyn_why = True, "dca_tp"
                                 elif _act == "stop":
                                     _dyn_exit, _dyn_why = True, "dca_stop"
                                 elif _act == "safety":
                                     _lv = _inf.get("level")
-                                    _lots = list(pos.get("lots")
-                                                 or [(entry, 1.0)])
-                                    _lots.append((price, 1.0))
-                                    pos["lots"] = _lots
-                                    pos["dca_levels"] = list(
-                                        pos.get("dca_levels") or []) + [_lv]
-                                    pos["first_entry"] = float(
-                                        pos.get("first_entry") or entry)
+                                    _lots = list(_lots0) + [(price, 1.0)]
+                                    s.lots = _lots
+                                    s.dca_levels = list(_lvls) + [_lv]
+                                    s.first_entry = _fe
                                     from radars.spot.dca_manager import (
                                         avg_entry as _ae)
-                                    entry = _ae(_lots)
-                                    pos["entry"] = entry
+                                    s.entry = _ae(_lots)
+                                    entry = s.entry
                                     log.info("🪙➕ %s أمان %.1f%% @%.8g "
                                              "— المتوسط %.8g (%d أوامر)",
                                              sym, _lv, price, entry, len(_lots))
