@@ -289,13 +289,40 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
 
     log.info("🪙🎯 SPOT SIGNAL: %s BUY @%.6g grade=%s taker=%.0f%% vol=%.2fx rsi=%.0f",
              sym, entry, grade, taker * 100, v_infl, rsi_v)
+    # نحسب معايير الدماغ من الشموع المتاحة. ولا نبتلع الخطأ صامتاً:
+    #   القيم تبقى None فيمرّ الدماغ بالأساس بدل أن يُعطَّل بلا أثر.
+    _z_v = _bb_v = _rsi2_v = _atr_v = None
+    _path_name = "pullback"
     try:
-        from quant_engine.spot_brain import record_spot_signal, predict_spot
-        _pp, _note = predict_spot(taker, v_infl, rsi_v, range_pos)
-        log.info("🪙🧠 توقّع النموذج: %s نجاح %.0f%% | %s", sym, _pp * 100, _note)
-        record_spot_signal(sym, taker, v_infl, rsi_v, range_pos)
+        from radars.spot.std_filter import zscore as _zf, bb_position as _bf, rsi_n as _rf
+        _z_v = _zf(closes)
+        _bb_v = _bf(closes)
+        _rsi2_v = _rf(closes, 2)
+        if len(closes) >= 15:
+            _d = [abs(closes[i] - closes[i - 1]) for i in range(-14, 0)]
+            _atr_v = round(sum(_d) / 14 / (closes[-1] or 1) * 100, 3)
+    except Exception as _fe:
+        log.debug("معايير الدماغ: %s", _fe)
+
+    # 🪙🧠 الدماغ الثاني — نموذج أوزان مُدرَّب على 446 صفقة بـ28 حقلاً.
+    #   القديم مات: 180 صفّاً و65% بلا نتيجة وآخر تسجيل قبل 308 ساعة.
+    #   وأبرز ما كشفه التدريب: taker 0.55-0.65 فوز 50% · حجم معتدل
+    #   (1.2-2×) فوز 50% بينما المتطرّف (2-4×) فوز 34.6% · واختراق
+    #   فوز 47.1% بينما الارتداد (79% من صفقاتنا) فوز 34.5%.
+    #   ويمنع دون احتمال 30%.
+    try:
+        from quant_engine.spot_brain_v2 import should_enter as _se2
+        _feats = {"taker": taker, "vol_infl": v_infl, "rsi14": rsi_v,
+                  "range_pos": range_pos, "path": _path_name,
+                  "rsi2": _rsi2_v, "bb_pos": _bb_v, "zscore": _z_v,
+                  "atr_pct": _atr_v, "hour_utc": _t.gmtime().tm_hour}
+        _ok2, _pp, _note = _se2(_feats)
+        log.info("🪙🧠 الدماغ: %s نجاح %.0f%% | %s", sym, _pp * 100, _note[:60])
+        if not _ok2:
+            log.info("🪙🛑 %s مُنعت — %s", sym, _note[:60])
+            return
     except Exception as _be:
-        log.debug("spot brain: %s", _be)
+        log.debug("spot brain2: %s", _be)
 
     # ── حفظ للميني آب (معزول: radar_type='spot') ──
     try:
