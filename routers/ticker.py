@@ -83,7 +83,43 @@ async def _news() -> list:
     return out
 
 
+# 🌐 ترجمة العناوين — MyMemory رسميّ ومجانيّ (338ms مقيس).
+#    وGoogle غير الرسميّ يُعطي 429 تحت الضغط فلا نعتمده.
+#    ونُخزّن كل عنوان مترجَماً إلى الأبد: العناوين تتكرّر بين
+#    التحديثات، فبلا تخزين نستهلك الحصّة اليومية في ساعات.
+_tr_cache = {}
+_TR_MAX = 600
+
+
+async def _translate(text: str) -> str:
+    if text in _tr_cache:
+        return _tr_cache[text]
+    try:
+        async with httpx.AsyncClient(
+                timeout=12, headers={"User-Agent": "Mozilla/5.0"}) as c:
+            r = await c.get("https://api.mymemory.translated.net/get",
+                            params={"q": text[:480], "langpair": "en|ar"})
+            d = r.json()
+        out = ((d.get("responseData") or {}).get("translatedText") or "").strip()
+        # نرفض ما لا يحوي حروفاً عربية — فالمصدر يُرجع الأصل عند الفشل
+        if out and any("\u0600" <= ch <= "\u06ff" for ch in out):
+            if len(_tr_cache) > _TR_MAX:
+                _tr_cache.clear()
+            _tr_cache[text] = out
+            return out
+    except Exception as e:
+        log.debug("translate: %s", e)
+    return text
+
+
 @router.get("/ticker")
-async def ticker():
+async def ticker(lang: str = "ar"):
     """أسعار حيّة + عناوين — للشريط المتحرّك."""
-    return {"prices": await _prices(), "news": await _news()}
+    news = await _news()
+    if lang == "ar" and news:
+        out = []
+        for it in news:
+            out.append({"title": await _translate(it["title"]),
+                        "en": it["title"]})
+        news = out
+    return {"prices": await _prices(), "news": news}

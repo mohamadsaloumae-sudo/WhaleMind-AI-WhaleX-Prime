@@ -15,7 +15,8 @@ export default function Ticker({ lang = "ar" }) {
   useEffect(() => {
     let dead = false;
     const load = () => {
-      fetch("/api/public/ticker")
+      // 🌐 اللغة تُمرَّر للخادم: العربية تُترجَم والإنجليزية كما وردت
+      fetch(`/api/public/ticker?lang=${ar ? "ar" : "en"}`)
         .then((r) => r.json())
         .then((x) => { if (!dead) setD(x); })
         .catch(() => {});
@@ -23,7 +24,7 @@ export default function Ticker({ lang = "ar" }) {
     load();
     const id = setInterval(load, 45000);
     return () => { dead = true; clearInterval(id); };
-  }, []);
+  }, [ar]);
 
   if (!d || !(d.prices || []).length) return null;
 
