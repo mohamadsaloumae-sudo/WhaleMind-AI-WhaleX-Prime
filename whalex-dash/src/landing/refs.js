@@ -7,7 +7,7 @@ export const REFS = {
   bybit: "https://www.bybit.com/invite?ref=QDWX77P&medium=referral&utm_campaign=evergreen&share_to=post",
   mexc: "https://s.mexc.com/referral/rVuAM1ZWMc",
   bingx: "https://bingx.com/invite",
-  bitget: "https://www.bitget.com/referral",
+  bitget: "https://share.bitget.com/u/MWQNB0PK?clacCode=8YRUD3XM",
   gate: "https://www.gate.io/signup",
   okx: "https://www.okx.com/join",
 };
