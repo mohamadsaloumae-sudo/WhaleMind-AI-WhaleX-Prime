@@ -145,8 +145,12 @@ export default function Positions() {
           <div style={{ display: "grid", gap: 10 }}>
             {history.map((x, i) => {
               const win = x.is_win;
+              // 🏷️ الاسم من الخادم — مصدر واحد (services/radar_names.py).
+              //    كان يُحسب هنا فيقع DIP في else ويظهر Predator خطأً.
               const radar =
-                x.tier === "MEME" ? ("🐸 WhaleX Meme" + (x.chain_label ? " · " + x.chain_label : ""))
+                x.radar ? (x.tier === "MEME" && x.chain_label
+                           ? x.radar + " · " + x.chain_label : x.radar)
+                : x.tier === "MEME" ? ("🐸 WhaleX Meme" + (x.chain_label ? " · " + x.chain_label : ""))
                 : x.tier === "SPOT" || x.direction === "SPOT" ? "🪙 WhaleX Spot"
                 : x.tier === "PH" ? (x.direction === "LONG" ? "📈 WhaleX Long" : "🎯 WhaleX Short")
                 : "⚡ WhaleX Predator";

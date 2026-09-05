@@ -980,7 +980,7 @@ async def tracker_loop():
                                             or s.entry)
                                 _lots0 = getattr(s, "lots", None) or [(s.entry, 1.0)]
                                 _lvls = getattr(s, "dca_levels", None) or []
-                                _act, _inf = _dd(_fe, price, _lots0, _lvls,
+                                _act, _inf = _dd(_fe, px, _lots0, _lvls,
                                                  (_t.time() - opened) / 3600.0)
                                 if _act == "take_profit":
                                     _dyn_exit, _dyn_why = True, "dca_tp"
@@ -988,7 +988,7 @@ async def tracker_loop():
                                     _dyn_exit, _dyn_why = True, "dca_stop"
                                 elif _act == "safety":
                                     _lv = _inf.get("level")
-                                    _lots = list(_lots0) + [(price, 1.0)]
+                                    _lots = list(_lots0) + [(px, 1.0)]
                                     s.lots = _lots
                                     s.dca_levels = list(_lvls) + [_lv]
                                     s.first_entry = _fe
@@ -998,7 +998,7 @@ async def tracker_loop():
                                     entry = s.entry
                                     log.info("🪙➕ %s أمان %.1f%% @%.8g "
                                              "— المتوسط %.8g (%d أوامر)",
-                                             s.symbol, _lv, price,
+                                             s.symbol, _lv, px,
                                              s.entry, len(_lots))
                             except Exception as _de:
                                 log.error("🪙 DCA %s: %s — نرجع للقطع", s.symbol, _de)

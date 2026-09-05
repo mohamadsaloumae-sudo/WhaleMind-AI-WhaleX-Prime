@@ -13,6 +13,15 @@ from routers.auth import get_current_user
 log = logging.getLogger("live_positions")
 router = APIRouter(prefix="/api/live", tags=["Live Positions"])
 
+def _rlabel(tier):
+    """اسم الرادار الموحّد — مصدر واحد لكل النظام."""
+    try:
+        from services.radar_names import label
+        return label(tier)
+    except Exception:
+        return ""
+
+
 POS_DB = "/opt/whalex/positions.db"
 _price_cache = {}
 _price_ts = {}
@@ -193,7 +202,8 @@ async def radar_positions(market: str = "futures"):
                     pnl = (px - s.entry) / s.entry * 100 if s.entry else 0.0
                     out.append({"symbol": s.symbol, "direction": "LONG", "leverage": 1,
                                 # 📊 الشارت يحتاجها: سبوت بلا لاحقة .P · والمستويات
-                                "radar_type": "spot", "tier": "SPOT", "exchange": _spot_ex(s.symbol),
+                                "radar_type": "spot", "tier": "SPOT", "radar": _rlabel("SPOT"),
+                                "exchange": _spot_ex(s.symbol),
                                 "sl": getattr(s, "sl", None), "tp1": getattr(s, "tp1", None),
                                 "tp2": getattr(s, "tp2", None), "tp3": getattr(s, "tp3", None),
                                 "radar": "WhaleX Spot 🪙", "entry": s.entry, "current": px,
@@ -262,7 +272,7 @@ async def radar_positions(market: str = "futures"):
                 "tp1_hit": d.get("tp1_hit", False),
                 "opened_at": d.get("opened_at", 0),
                 "radar_type": d.get("radar_type", "futures"),
-                "tier": d.get("tier", ""),
+                "tier": d.get("tier", ""), "radar": _rlabel(d.get("tier", "")),
                 # 📊 منصّة العملة — يحتاجها الشارت لبناء رمز TradingView الصحيح
                 "exchange": _sym_ex(symbol),
                 # 📊 المستويات — يعرضها الشارت أسفله
@@ -454,7 +464,8 @@ async def my_positions(user=Depends(get_current_user)):
                 "size": r.get("qty"), "order_id": r.get("order_id"),
                 "opened_at": r.get("opened_at") or 0,
                 "radar_type": _lv.get("radar_type", "futures"),
-                "tier": _lv.get("tier", ""), "exchange": _sym_ex(symbol),
+                "tier": _lv.get("tier", ""), "radar": _rlabel(_lv.get("tier", "")),
+                "exchange": _sym_ex(symbol),
                 "sl": _lv.get("sl"), "tp1": _lv.get("tp1"),
                 "tp2": _lv.get("tp2"), "tp3": _lv.get("tp3"),
                 "tp1_hit": _lv.get("tp1_hit", False),

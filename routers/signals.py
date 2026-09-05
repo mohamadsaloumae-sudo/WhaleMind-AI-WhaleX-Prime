@@ -7,6 +7,15 @@ from typing import List
 
 router = APIRouter(prefix="/api/signals", tags=["Signals"])
 
+def _rlabel(tier):
+    """اسم الرادار الموحّد — مصدر واحد لكل النظام."""
+    try:
+        from services.radar_names import label
+        return label(tier)
+    except Exception:
+        return ""
+
+
 def _fmt(sigs):
     return [{
         "id": s.id, "radar_type": s.radar_type, "symbol": s.symbol,
@@ -135,7 +144,7 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
                     "peak_price": r["peak_price"],
                     "peak_pct": round((_pk - _e) / _e * 100, 2) if (_e and _pk) else None,
                     "liq": r["liq"], "vol": r["vol"],
-                    "grade": str(r["score"]), "tier": "MEME",
+                    "grade": str(r["score"]), "tier": "MEME", "radar": _rlabel("MEME"),
                     "strategies": "DexScreener - " + _lbl,
                 })
             return {"history": out}
@@ -168,7 +177,7 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
                     "exchange": r["exchange"] or "",   # لا نفترض باينانس — المجهول يبقى بلا شعار
                     "path": r["path"] or "",
                     "reason": r["reason"] or "",
-                    "grade": "A", "tier": "SPOT",
+                    "grade": "A", "tier": "SPOT", "radar": _rlabel("SPOT"),
                     "strategies": r["strategies"] or _lbl.get(r["path"], "🪙 Spot"),
                 })
             return {"history": out}
@@ -197,7 +206,7 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
               AND pnl_pct > -9
               -- 🔴 صفحة الفيوتشر كانت تعرض صفقات السبوت (tier=SP)
               --    برافعة 1x، فتختلط الأسواق ويشوّه الإحصاء.
-              AND tier IN ('MX','PH','A','B','S')
+              AND tier IN ('MX','PH','A','B','S','DIP','LV2')
               AND (closed_at > (strftime('%s','now','+4 hours','start of day','-4 hours')) OR timestamp > (strftime('%s','now','+4 hours','start of day','-4 hours')))
             ORDER BY COALESCE(closed_at,0) DESC LIMIT 300
         """).fetchall()
@@ -207,7 +216,7 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
             out.append({
                 "symbol": r["symbol"], "direction": r["direction"],
                 "entry": r["entry"], "exit_price": r["exit_price"],
-                "grade": r["grade"], "tier": r["tier"],
+                "grade": r["grade"], "tier": r["tier"], "radar": _rlabel(r["tier"]),
                 "result": r["result"], "pnl_pct": r["pnl_pct"],
                 "is_win": bool(r["outcome"]), "closed_at": r["closed_at"],
                 "strategies": r["strategies"],

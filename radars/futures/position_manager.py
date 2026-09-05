@@ -240,14 +240,22 @@ def _maybe_save_peak(pos):
 
 
 def _pos_delete(pos_id):
-    """Delete a position from DB."""
+    """نُغلق الصفقة في السجلّ ولا نحذفها.
+
+    كان DELETE يمحوها تماماً، فلا تظهر في صفحة المغلقة ولا في
+    السجلّ الزمنيّ — والمشترك يراها تُفتح ثمّ تختفي بلا اثر.
+    مقيس 5 سبتمبر: آخر صف closed كان 30 اغسطس رغم عشرات
+    الصفقات المغلقة يومياً.
+    """
     try:
         conn = _sqlite.connect(POS_DB)
-        conn.execute("DELETE FROM active_positions WHERE id=?", (pos_id,))
+        conn.execute(
+            "UPDATE active_positions SET status='closed', updated_at=? "
+            "WHERE id=?", (int(_time.time()), pos_id))
         conn.commit()
         conn.close()
     except Exception as e:
-        log.error("pos_delete error: %s", e)
+        log.error("pos_close error: %s", e)
 
 
 def _pos_load_all():

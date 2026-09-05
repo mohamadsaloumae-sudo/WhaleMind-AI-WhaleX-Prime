@@ -76,6 +76,11 @@ export default function LiveShowcase({ lang = "ar" }) {
           background: "rgba(255,255,255,.02)",
         }}>
           <span style={{
+            fontSize: 10, fontWeight: 800, color: T.txt3,
+            padding: "2px 7px", borderRadius: 6,
+            background: "rgba(255,255,255,.06)", letterSpacing: .2,
+          }}>{p.system_icon || ""} {p.system || "Futures"}</span>
+          <span style={{
             width: 7, height: 7, borderRadius: 7, background: T.brand2,
             boxShadow: `0 0 10px ${T.brand2}`,
             animation: "wxPulse 1.6s ease-in-out infinite",
@@ -103,7 +108,7 @@ export default function LiveShowcase({ lang = "ar" }) {
               background: isLong ? "rgba(34,197,94,.14)" : "rgba(239,68,68,.14)",
               color: isLong ? T.brand2 : T.red,
             }}>
-              {p.direction} {Math.round(p.leverage)}x
+              {p.direction}{p.leverage > 1 ? ` ${Math.round(p.leverage)}x` : ""}
             </span>
             <span style={{ fontSize: 10.5, color: T.txt3, marginInlineStart: "auto" }}>
               {ex[0]}
