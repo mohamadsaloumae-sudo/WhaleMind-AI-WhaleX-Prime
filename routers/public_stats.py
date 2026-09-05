@@ -34,10 +34,12 @@ async def stats():
         # 📊 من المصدر الموحَّد — لا استعلام محلّيّ
         from services.stats_core import summary as _sm
         _s = _sm('futures', 'month')
-        v = [_s['net_pct']] if _s['total_trades'] else []
-        if v:
-            out["net_month"] = round(sum(v), 1)
-            out["trades_month"] = len(v)
+        # 🔢 العدد من total_trades لا من طول القائمة — كانت
+        #    v = [net_pct] فيعطي len(v)=1 دائماً مهما بلغ العدد.
+        #    مقيس 5 سبتمبر: 78 صفقة اليوم والعدّاد يعرض 1.
+        if _s.get('total_trades'):
+            out["net_month"] = round(float(_s['net_pct']), 1)
+            out["trades_month"] = int(_s['total_trades'])
     except Exception as e:
         log.debug("stats month: %s", e)
     try:
@@ -55,6 +57,25 @@ async def stats():
             "WHERE status!='closed'").fetchone()[0]
     except Exception as e:
         log.debug("stats live: %s", e)
+    # 📊 الأنظمة الثلاثة — إضافة لا تمسّ الحقول القديمة.
+    #    كانت الصفحة تعرض الفيوتشر وحده فلا يرى الزائر السبوت والميم.
+    try:
+        from services.stats_core import summary as _sm2
+        _sys = {}
+        for _k, _nm in (("futures", "Futures"), ("spot", "Spot"),
+                        ("meme", "Meme")):
+            _d = _sm2(_k, "month")
+            _sys[_k] = {
+                "name": _nm,
+                "trades": int(_d.get("total_trades") or 0),
+                "wins": int(_d.get("wins_count") or 0),
+                "losses": int(_d.get("losses_count") or 0),
+                "win_rate": float(_d.get("win_rate") or 0.0),
+                "net_pct": round(float(_d.get("net_pct") or 0.0), 1),
+            }
+        out["systems"] = _sys
+    except Exception as e:
+        log.debug("stats systems: %s", e)
     _CACHE["s"] = (out, time.time())
     return out
 
