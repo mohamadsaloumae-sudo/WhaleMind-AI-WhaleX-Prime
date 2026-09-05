@@ -209,6 +209,9 @@ app.include_router(ws_router)
 # 📊 أرقام عامّة لصفحة المقدّمة — بلا مصادقة
 from routers.public_stats import router as public_router
 app.include_router(public_router)
+# 📈 شريط الأسعار والأخبار — باينانس + Cointelegraph، بلا مفاتيح
+from routers.ticker import router as ticker_router
+app.include_router(ticker_router)
 # 🎁 التجربة المجانية
 from routers.trial import router as trial_router
 app.include_router(trial_router)

@@ -2,6 +2,7 @@
  * 📋 ترتيب أقسام المقدّمة
  * إضافة قسم: ملف + سطر هنا. إخفاؤه: enabled: false. ترتيبه: حرّك السطر.
  */
+import Ticker from "./Ticker.jsx";
 import Hero from "./Hero.jsx";
 import LiveShowcase from "./LiveShowcase.jsx";
 import LiveStats from "./LiveStats.jsx";
@@ -17,6 +18,9 @@ import Social from "./Social.jsx";
 import Legal from "./Legal.jsx";
 
 export const SECTIONS = [
+  // 📈 شريط الأسعار والأخبار أعلى الصفحة — أوّل ما يراه الزائر
+  //    فيعرف فوراً أنه نظام كريبتو حيّ لا صفحة تسويقية ساكنة.
+  { id: "ticker", Component: Ticker, enabled: true },
   { id: "hero", Component: Hero, enabled: true },
   { id: "showcase", Component: LiveShowcase, enabled: true },
   { id: "stats", Component: LiveStats, enabled: true },
