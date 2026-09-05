@@ -15,12 +15,22 @@ router = APIRouter(prefix="/api/history", tags=["History"])
 #    تداول حقيقيّ. ومقيس: مع الظلّية 3,354 صفقة بـ+478.3%، وبدونها
 #    1,938 صفقة بـ+841.0%. وهذا ما تعرضه صفحة الإحصاء، فالرقمان
 #    يجب أن يتّفقا — رقمان مختلفان يهدمان الثقة.
+# 📊 نفس مرشّح services/stats_core — الظلّية لا تُعرَض ولا تُحسَب.
+#   كان هذا الملفّ يستعمل result IN ('win','loss') وحده، فتظهر
+#   الظلّية في السجلّ الزمنيّ وتختفي من المراكز: -87% مقابل +483%
+#   لنفس الشهر. والمشترك لا يعرف أيّهما يُصدّق.
+_F_FUT = ("result IS NOT NULL AND result NOT LIKE 'shadow%' "
+          "AND result NOT IN ('void','shadow_hidden') AND pnl_pct > -9")
+_F_SPOT = "pnl_pct > -9"
+_F_MEME = "status = 'closed' AND pnl_pct > -9"
+
 SYSTEMS = {
     "futures": ("/opt/whalex/ml_training.db", "training_signals", "closed_at",
-                "pnl_pct", "result IN ('win','loss')"),
-    "spot": ("/opt/whalex/db/whalex.db", "spot_results", "ts", "pnl_pct", ""),
+                "pnl_pct", _F_FUT),
+    "spot": ("/opt/whalex/db/whalex.db", "spot_results", "ts", "pnl_pct",
+             _F_SPOT),
     "meme": ("/opt/whalex/db/memecoin.db", "meme_signals", "closed_ts",
-             "pnl_pct", "status = 'closed'"),
+             "pnl_pct", _F_MEME),
 }
 
 LABELS = {"futures": "Futures", "spot": "Spot", "meme": "Memecoins"}
@@ -31,7 +41,7 @@ TZ_OFFSET = 4 * 3600
 #    وspot_training يحمل ما قبله (19 يوليو إلى 22 أغسطس، 153 صفقة).
 #    والمشترك بينهما صفر، فالجمع يُعيد التاريخ الضائع بلا تكرار.
 EXTRA_SOURCES = {
-    "spot": [("/opt/whalex/db/whalex.db", "spot_training", "ts", "pnl", "")],
+    "spot": [("/opt/whalex/db/whalex.db", "spot_training", "ts", "pnl", "pnl > -9")],
 }
 
 

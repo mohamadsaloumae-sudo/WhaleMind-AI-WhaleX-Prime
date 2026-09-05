@@ -31,17 +31,10 @@ async def stats():
     try:
         # 🎯 نفس استعلام صفحة الصفقات حرفياً — رقمان مختلفان يهدمان الثقة.
         #    الفرق كان: result IN ('win','loss') يستثني غير المكتملة.
-        cn = sqlite3.connect("/opt/whalex/ml_training.db")
-        v = [r[0] for r in cn.execute("""
-            SELECT pnl_pct FROM training_signals
-            WHERE closed_at IS NOT NULL
-              -- 📊 المرشّح الموحَّد: نستبعد الظلّية (3,717 صفّاً لا
-              -- تُنفَّذ إطلاقاً) والملغاة وما تجاوز وقف 8%.
-              -- فسبتمبر كان يُعرَض -67.9% وهو فعلياً +451.9%.
-              AND pnl_pct IS NOT NULL AND result IS NOT NULL AND result NOT IN ('void','shadow_hidden') AND pnl_pct > -9
-              AND closed_at > strftime('%s','now','+4 hours','start of month','-4 hours')
-        """)]
-        cn.close()
+        # 📊 من المصدر الموحَّد — لا استعلام محلّيّ
+        from services.stats_core import summary as _sm
+        _s = _sm('futures', 'month')
+        v = [_s['net_pct']] if _s['total_trades'] else []
         if v:
             out["net_month"] = round(sum(v), 1)
             out["trades_month"] = len(v)

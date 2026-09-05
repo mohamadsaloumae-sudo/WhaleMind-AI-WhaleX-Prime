@@ -227,72 +227,13 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
 
 @router.get("/monthly")
 def signals_monthly(market: str = "futures", user=Depends(get_current_user)):
-    """ملخّص الشهر (من تاريخ 1 بتوقيت دبي): رابحة/خاسرة + المجاميع"""
-    import sqlite3
-    if market == "meme":
-        import os as _os
-        _mdb = _os.path.join(_os.path.dirname(__file__), "..", "db", "memecoin.db")
-        try:
-            _mc = sqlite3.connect(_mdb); _mc.row_factory = sqlite3.Row
-            _rows = _mc.execute("""
-                SELECT pnl_pct FROM meme_signals
-                WHERE status='closed' AND pnl_pct IS NOT NULL
-                  AND closed_ts > (strftime('%s', date('now','+4 hours','start of month')) - 14400)
-            """).fetchall()
-            _mc.close()
-            _w = [r["pnl_pct"] for r in _rows if r["pnl_pct"] >= 0]
-            _l = [r["pnl_pct"] for r in _rows if r["pnl_pct"] < 0]
-            _tp = sum(_w); _tl = sum(abs(x) for x in _l)
-            return {"wins_count": len(_w), "losses_count": len(_l),
-                    "total_profit_pct": round(_tp, 2), "total_loss_pct": round(_tl, 2),
-                    "net_pct": round(_tp - _tl, 2), "total_trades": len(_rows)}
-        except Exception:
-            return {"wins_count": 0, "losses_count": 0, "total_profit_pct": 0,
-                    "total_loss_pct": 0, "net_pct": 0, "total_trades": 0}
-    if market == "spot":
-        try:
-            con = sqlite3.connect("/opt/whalex/db/whalex.db"); con.row_factory = sqlite3.Row
-            rows = con.execute("""
-                SELECT pnl_pct, outcome FROM spot_results
-                WHERE pnl_pct IS NOT NULL
-                  AND ts > (strftime('%s', date('now','+4 hours','start of month')) - 14400)
-            """).fetchall()
-            con.close()
-            _w = [r for r in rows if r["outcome"]]; _l = [r for r in rows if not r["outcome"]]
-            _tp = sum(r["pnl_pct"] for r in _w); _tl = sum(abs(r["pnl_pct"]) for r in _l)
-            return {"wins_count": len(_w), "losses_count": len(_l),
-                    "total_profit_pct": round(_tp, 2), "total_loss_pct": round(_tl, 2),
-                    "net_pct": round(_tp - _tl, 2), "total_trades": len(rows)}
-        except Exception:
-            return {"wins_count": 0, "losses_count": 0, "total_profit_pct": 0,
-                    "total_loss_pct": 0, "net_pct": 0, "total_trades": 0}
-    try:
-        con = sqlite3.connect("/opt/whalex/ml_training.db")
-        con.row_factory = sqlite3.Row
-        # بداية الشهر بتوقيت دبي (UTC+4): أول يوم في الشهر منتصف الليل، محوّل لـUTC
-        rows = con.execute("""
-            SELECT pnl_pct, outcome FROM training_signals
-            WHERE pnl_pct IS NOT NULL AND closed_at IS NOT NULL
-              -- 🔴 نُخفي الظلّية (shadow) — هي تتبّع نظريّ لا يُنفَّذ على
-              -- باينانس إطلاقاً، ووجودها شوّه إحصاء سبتمبر: 566 صفقة
-              -- بفوز 46% و -67.9%، بينما الحقيقيّ 306 صفقة بفوز 63%
-              -- و +451.9%. والمشترك يرى خسارة وهمية فيفقد ثقته.
-              AND result IS NOT NULL AND result NOT IN ('void', 'shadow_hidden')
-              AND pnl_pct > -9
-              AND closed_at > (strftime('%s', date('now','+4 hours','start of month')) - 14400)
-        """).fetchall()
-        con.close()
-        wins = [r for r in rows if r["outcome"]]
-        losses = [r for r in rows if not r["outcome"]]
-        total_profit = sum(r["pnl_pct"] for r in wins)
-        total_loss = sum(abs(r["pnl_pct"]) for r in losses)
-        return {
-            "wins_count": len(wins),
-            "losses_count": len(losses),
-            "total_profit_pct": round(total_profit, 2),
-            "total_loss_pct": round(total_loss, 2),
-            "net_pct": round(total_profit - total_loss, 2),
-            "total_trades": len(rows),
-        }
-    except Exception as e:
-        return {"wins_count": 0, "losses_count": 0, "total_profit_pct": 0, "total_loss_pct": 0, "net_pct": 0, "error": str(e)}
+    """ملخّص الشهر — من المصدر الموحَّد وحده.
+
+    كانت كل صفحة تحسب بشرطها فتختلف الأرقام: المراكز +451.9%
+    والسجلّ -87% لنفس البيانات. والآن لا استعلام إحصائيّ خارج
+    services/stats_core.
+    """
+    from services.stats_core import summary
+    return summary(market, "month")
+
+
