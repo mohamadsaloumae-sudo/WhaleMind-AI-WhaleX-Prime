@@ -1,4 +1,5 @@
 import { T } from "./sections.js";
+import { refOf } from "./refs.js";
 
 const LIST = [
   ["Binance", "270"], ["Bybit", "521"], ["OKX", "294"],
@@ -29,22 +30,41 @@ export default function Exchanges({ lang = "ar" }) {
         maxWidth: 420, margin: "0 auto",
         display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 9,
       }}>
-        {LIST.map(([name, id]) => (
-          <div key={id} style={{
-            background: T.card, border: `1px solid ${T.border}`,
-            borderRadius: 13, padding: "13px 6px", textAlign: "center",
-          }}>
-            <img
-              src={`https://s2.coinmarketcap.com/static/img/exchanges/64x64/${id}.png`}
-              alt={name} width="28" height="28"
-              style={{ borderRadius: 7, marginBottom: 6 }}
-              onError={(e) => { e.target.style.display = "none"; }}
-            />
-            <div style={{ fontSize: 9.5, color: T.txt2, fontWeight: 600 }}>
-              {name}
-            </div>
-          </div>
-        ))}
+        {LIST.map(([name, id]) => {
+          // 🔗 الشعار يفتح صفحة التسجيل — بلا نصّ إضافيّ يُشوّه القسم.
+          const href = refOf(name);
+          return (
+            <a key={id} href={href || undefined}
+               target={href ? "_blank" : undefined}
+               rel={href ? "noopener noreferrer" : undefined}
+               style={{
+                 background: T.card, border: `1px solid ${T.border}`,
+                 borderRadius: 13, padding: "13px 6px", textAlign: "center",
+                 textDecoration: "none", display: "block",
+                 cursor: href ? "pointer" : "default",
+                 transition: "transform .15s, border-color .15s",
+               }}
+               onMouseEnter={(e) => {
+                 if (!href) return;
+                 e.currentTarget.style.transform = "translateY(-2px)";
+                 e.currentTarget.style.borderColor = T.brand + "66";
+               }}
+               onMouseLeave={(e) => {
+                 e.currentTarget.style.transform = "none";
+                 e.currentTarget.style.borderColor = T.border;
+               }}>
+              <img
+                src={`https://s2.coinmarketcap.com/static/img/exchanges/64x64/${id}.png`}
+                alt={name} width="28" height="28"
+                style={{ borderRadius: 7, marginBottom: 6 }}
+                onError={(e) => { e.target.style.display = "none"; }}
+              />
+              <div style={{ fontSize: 9.5, color: T.txt2, fontWeight: 600 }}>
+                {name}
+              </div>
+            </a>
+          );
+        })}
         <div style={{
           background: "rgba(45,212,191,.07)", border: `1px solid ${T.brand}33`,
           borderRadius: 13, padding: "13px 6px", textAlign: "center",
