@@ -27,7 +27,7 @@ export default function Hero({ lang = "ar", onStart, onPerf }) {
         fontSize: "clamp(30px, 8.5vw, 44px)", lineHeight: 1.22,
         fontWeight: 900, margin: "0 0 18px", color: T.txt,
       }}>
-        {ar ? "تداول آلي كامل" : "Fully automated"}
+        {ar ? "تداول بالذكاء الاصطناعي" : "AI-powered trading"}
         <br />
         <span style={{
           background: `linear-gradient(95deg, ${T.brand}, ${T.brand2})`,
@@ -37,6 +37,15 @@ export default function Hero({ lang = "ar", onStart, onPerf }) {
           {ar ? "من الإشارة إلى الإغلاق" : "from signal to close"}
         </span>
       </h1>
+
+      {/* 🪙 توضيح السوق — المشاهدون يسألون في البثّ المباشر
+          "فيوتشر أم فوركس؟". فنقولها صراحةً. ونفس ألوان القسم. */}
+      <div style={{
+        fontSize: 13, fontWeight: 700, color: T.txt3,
+        margin: "-8px auto 18px", letterSpacing: .2,
+      }}>
+        {ar ? "على منصّات الكريبتو" : "on crypto exchanges"}
+      </div>
 
       <p style={{
         fontSize: 14.5, lineHeight: 1.85, color: T.txt2,
