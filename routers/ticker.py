@@ -26,34 +26,70 @@ _cache = {"p": (None, 0.0), "n": (None, 0.0)}
 
 
 async def _prices() -> list:
+    """أقوى 50 عملة بالقيمة السوقية — الترتيب من CoinPaprika
+    والسعر الحيّ من باينانس (أدقّ وأسرع تحديثاً)."""
     v, ts = _cache["p"]
     if v and time.time() - ts < PRICE_TTL:
         return v
     out = []
     try:
+        rank = _cache.get("rank", (None, 0.0))
+        syms = rank[0]
+        if not syms or time.time() - rank[1] > 3600:
+            async with httpx.AsyncClient(
+                    timeout=20, headers={"User-Agent": "Mozilla/5.0"}) as c:
+                rr = await c.get(
+                    "https://api.coinpaprika.com/v1/tickers?limit=60")
+                paprika = rr.json()
+            syms = [x["symbol"] for x in paprika
+                    if x.get("symbol") and x["symbol"] not in
+                    ("USDT", "USDC", "DAI", "BUSD", "TUSD", "FDUSD")][:50]
+            _cache["rank"] = (syms, time.time())
         async with httpx.AsyncClient(timeout=10) as c:
             r = await c.get("https://api.binance.com/api/v3/ticker/24hr")
             data = r.json()
-        m = {x["symbol"]: x for x in data if x.get("symbol") in COINS}
-        for s in COINS:
-            x = m.get(s)
+        m = {x["symbol"]: x for x in data}
+        for sy in syms:
+            x = m.get(f"{sy}USDT")
             if not x:
                 continue
             px = float(x.get("lastPrice") or 0)
             ch = float(x.get("priceChangePercent") or 0)
             if px <= 0:
                 continue
-            out.append({
-                "symbol": s.replace("USDT", ""),
-                "price": round(px, 6 if px < 1 else 2),
-                "change": round(ch, 2),
-                "up": ch >= 0,
-            })
+            out.append({"symbol": sy,
+                        "price": round(px, 6 if px < 1 else 2),
+                        "change": round(ch, 2), "up": ch >= 0})
         if out:
             _cache["p"] = (out, time.time())
     except Exception as e:
         log.debug("ticker prices: %s", e)
         return v or []
+    return out
+
+
+async def _top() -> list:
+    """🏆 أعلى عملات نظامنا ربحاً — دليل حيّ على الأداء."""
+    v, ts = _cache.get("t", (None, 0.0))
+    if v and time.time() - ts < 900:
+        return v
+    out = []
+    try:
+        import sqlite3
+        cn = sqlite3.connect("/opt/whalex/ml_training.db")
+        cut = int(time.time()) - 86400 * 7
+        for sym, net, n in cn.execute(
+                "SELECT symbol, ROUND(SUM(pnl_pct),1), COUNT(*) "
+                "FROM training_signals WHERE closed_at>? AND pnl_pct IS NOT NULL "
+                "AND result IN ('win','loss') GROUP BY symbol "
+                "HAVING COUNT(*)>=3 ORDER BY SUM(pnl_pct) DESC LIMIT 8", (cut,)):
+            out.append({"symbol": str(sym).replace("USDT", ""),
+                        "net": float(net or 0), "trades": int(n)})
+        cn.close()
+        if out:
+            _cache["t"] = (out, time.time())
+    except Exception as e:
+        log.debug("ticker top: %s", e)
     return out
 
 
@@ -122,4 +158,4 @@ async def ticker(lang: str = "ar"):
             out.append({"title": await _translate(it["title"]),
                         "en": it["title"]})
         news = out
-    return {"prices": await _prices(), "news": news}
+    return {"prices": await _prices(), "news": news, "top": await _top()}

@@ -1,5 +1,15 @@
 // التداول — ربط Binance + اختيار آلي/يدوي + إعدادات التداول
 import { useEffect, useState } from "react";
+// 🔑 اسم المنصّة في حقول المفاتيح — كان ثابتاً على "Binance"
+//    مهما اختار المشترك، فيربك من يربط MEXC أو Bybit.
+const EX_LABEL = {
+  binance: "Binance", bybit: "Bybit", mexc: "MEXC", bingx: "BingX",
+  bitget: "Bitget", gate: "Gate.io", gateio: "Gate.io", okx: "OKX",
+};
+const exLabel = (id) =>
+  EX_LABEL[String(id || "").toLowerCase()] ||
+  String(id || "Binance").toUpperCase();
+
 import { binance, memeWallet } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
 import { Bot, Hand, Link2, Unlink, Save } from "lucide-react";
@@ -369,12 +379,14 @@ export default function AutoTrade() {
               </div>
             </div>
             <div className="field">
-              <label>{t("apiKey")}</label>
-              <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} required placeholder={t("binanceKeyPlaceholder")} />
+              <label>{exLabel(exchange)} {t("apiKey")}</label>
+              <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} required
+                     placeholder={`${exLabel(exchange)} API Key`} />
             </div>
             <div className="field">
-              <label>{t("apiSecret")}</label>
-              <input type="password" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} required placeholder={t("secretPlaceholder")} />
+              <label>{exLabel(exchange)} {t("apiSecret")}</label>
+              <input type="password" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} required
+                     placeholder={`${exLabel(exchange)} API Secret`} />
             </div>
             {exchanges.find((x) => x.id === exchange)?.needs_passphrase && (
               <div className="field">
