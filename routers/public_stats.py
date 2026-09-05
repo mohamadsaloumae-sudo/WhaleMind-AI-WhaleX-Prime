@@ -114,13 +114,67 @@ async def showcase():
                     ex = symbol_exchange(sym)
                 except Exception:
                     ex = "binance"
-                best = {"symbol": sym, "direction": j.get("direction"),
+                best = {"system": "Futures", "system_icon": "⚡",
+                        "symbol": sym, "direction": j.get("direction"),
                         "entry": ent, "current": px, "pnl_pct": pnl,
                         "leverage": lev, "exchange": ex,
                         "tp1": j.get("tp1"), "sl": j.get("sl"),
                         "opened_at": j.get("opened_at")}
     except Exception as e:
         log.debug("showcase: %s", e)
+
+    # 🪙 السبوت — كانت الشاشة تعرض الفيوتشر وحده، فتختفي كلّياً
+    #    حين لا توجد صفقة فيوتشر مفتوحة رغم وجود صفقات في نظامين
+    #    آخرين. وكل مصدر داخل try مستقلّ فلا يُسقط أحدهما الباقي.
+    try:
+        from radars.futures.position_manager import get_price as _gp
+        cs = sqlite3.connect("/opt/whalex/db/whalex.db")
+        cs.row_factory = sqlite3.Row
+        _sp = [dict(x) for x in cs.execute(
+            "SELECT symbol, entry FROM spot_positions_multi "
+            "WHERE status='open' AND entry>0 LIMIT 12")]
+        cs.close()
+        _seen = set()
+        for _r in _sp:
+            _sy = _r["symbol"]
+            if _sy in _seen:
+                continue
+            _seen.add(_sy)
+            _e = float(_r["entry"] or 0)
+            _px = await _gp(_sy)
+            if not _px or _px <= 0 or _e <= 0:
+                continue
+            _p = round((_px - _e) / _e * 100, 2)
+            if best is None or _p > best.get("pnl_pct", -999):
+                best = {"system": "Spot", "system_icon": "🪙",
+                        "symbol": _sy, "direction": "LONG",
+                        "entry": _e, "current": _px, "pnl_pct": _p,
+                        "leverage": 1.0, "exchange": "binance",
+                        "tp1": None, "sl": None, "opened_at": None}
+    except Exception as e:
+        log.debug("showcase spot: %s", e)
+
+    # 🐸 الميم — الجدول يحمل pnl_pct محسوباً فلا نحتاج سعراً حياً
+    try:
+        cm = sqlite3.connect("/opt/whalex/db/memecoin.db")
+        cm.row_factory = sqlite3.Row
+        _mm = [dict(x) for x in cm.execute(
+            "SELECT symbol, entry_price, last_price, pnl_pct, ts "
+            "FROM meme_signals WHERE status='open' AND pnl_pct IS NOT NULL "
+            "ORDER BY pnl_pct DESC LIMIT 5")]
+        cm.close()
+        for _r in _mm:
+            _p = round(float(_r["pnl_pct"] or 0), 2)
+            if best is None or _p > best.get("pnl_pct", -999):
+                best = {"system": "Meme", "system_icon": "🐸",
+                        "symbol": _r["symbol"], "direction": "LONG",
+                        "entry": _r["entry_price"],
+                        "current": _r["last_price"], "pnl_pct": _p,
+                        "leverage": 1.0, "exchange": "dex",
+                        "tp1": None, "sl": None, "opened_at": _r["ts"]}
+    except Exception as e:
+        log.debug("showcase meme: %s", e)
+
     out = best or {}
     _CACHE["w"] = (out, time.time())
     return out
