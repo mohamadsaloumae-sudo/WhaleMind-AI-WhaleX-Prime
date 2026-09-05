@@ -124,6 +124,16 @@ async def _emit(symbol, d, position_manager_fn):
     _last_signal[symbol] = time.time()
     log.info("🎯📈 %s: قاع · هبوط %.1f%% · RSI %.0f @ %.8g",
              symbol, d["drop"], d["rsi"], px)
+    # 🧠 التسجيل في قاعدة التدريب — كان مفقوداً تماماً.
+    #    34 صفقة يومياً تُفتَح وتُغلق بلا أي أثر: لا تظهر في المراكز
+    #    ولا السجلّ الزمنيّ ولا تُحسَب في أي إحصاء ولا يتعلّم منها
+    #    النموذج. والمشترك يراها تُفتَح ثم لا يجدها — فيظنّ خللاً
+    #    أو تلاعباً. وهذا يهدم مصداقية النظام كلّه.
+    try:
+        from ml_recorder import record_signal
+        record_signal(sig)
+    except Exception as _re:
+        log.error("🎯 تسجيل %s: %s", symbol, _re)
     if position_manager_fn:
         try:
             await position_manager_fn(sig)
