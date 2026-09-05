@@ -4,7 +4,7 @@
  */
 export const REFS = {
   binance: "https://www.binance.com/activity/referral-entry/CPA?ref=CPA_00BOJIUJA6",
-  bybit: "https://www.bybit.com/invite",
+  bybit: "https://www.bybit.com/invite?ref=QDWX77P&medium=referral&utm_campaign=evergreen&share_to=post",
   mexc: "https://www.mexc.com/register",
   bingx: "https://bingx.com/invite",
   bitget: "https://www.bitget.com/referral",
