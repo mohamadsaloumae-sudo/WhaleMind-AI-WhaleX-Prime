@@ -42,7 +42,7 @@ export default function LiveStats({ lang = "ar" }) {
   const fmt = (n) => `${n >= 0 ? "+" : ""}${Number(n).toFixed(1)}%`;
   const box = {
     background: T.card, border: `1px solid ${T.border}`,
-    borderRadius: 12, padding: "12px 8px", textAlign: "center",
+    borderRadius: 12, padding: "14px 6px", textAlign: "center",
   };
   const lbl = { fontSize: 9.5, color: T.txt3, fontWeight: 600, marginTop: 4 };
 
@@ -53,9 +53,9 @@ export default function LiveStats({ lang = "ar" }) {
           الترتيب: أسماء الأنظمة فوق، ثم الصافي، ثم الصفقات
           المنفَّذة، ثم العملات المُراقَبة — كل مقياس صفّاً. */}
       <div style={{
-        maxWidth: 560, margin: "0 auto",
+        maxWidth: 420, margin: "0 auto",
         display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
-        gap: 8, rowGap: 8,
+        gap: 7, rowGap: 7,
       }}>
         {COLS.map((x) => (
           <div key={`h${x.k}`} style={{
