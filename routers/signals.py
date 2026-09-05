@@ -193,7 +193,11 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
               -- بفوز 46% و -67.9%، بينما الحقيقيّ 306 صفقة بفوز 63%
               -- و +451.9%. والمشترك يرى خسارة وهمية فيفقد ثقته.
               AND result IS NOT NULL AND result NOT IN ('void', 'shadow_hidden')
+              AND result NOT LIKE 'shadow%'
               AND pnl_pct > -9
+              -- 🔴 صفحة الفيوتشر كانت تعرض صفقات السبوت (tier=SP)
+              --    برافعة 1x، فتختلط الأسواق ويشوّه الإحصاء.
+              AND tier IN ('MX','PH','A','B','S')
               AND (closed_at > (strftime('%s','now','+4 hours','start of day','-4 hours')) OR timestamp > (strftime('%s','now','+4 hours','start of day','-4 hours')))
             ORDER BY COALESCE(closed_at,0) DESC LIMIT 300
         """).fetchall()

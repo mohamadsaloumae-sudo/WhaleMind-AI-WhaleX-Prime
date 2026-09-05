@@ -53,7 +53,9 @@ def reconcile() -> dict:
                     "result=? WHERE id=?",
                     (hit["pnl_pct"], int(hit["ts"]),
                      1 if (hit["pnl_pct"] or 0) > 0 else 0,
-                     hit["reason"], "closed", r["id"]))
+                     hit["reason"],
+                     "win" if (hit["pnl_pct"] or 0) > 0 else "loss",
+                     r["id"]))
                 fixed += 1
             # ⚠️ لا نُغلق المعلّقة بـvoid — صفحة المراكز تُصفّي على
             #    result IN ('win','loss')، فكل صفّ void يختفي من أمام
