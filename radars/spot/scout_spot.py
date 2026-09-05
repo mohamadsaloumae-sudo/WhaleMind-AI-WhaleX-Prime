@@ -998,9 +998,10 @@ async def tracker_loop():
                                     entry = s.entry
                                     log.info("🪙➕ %s أمان %.1f%% @%.8g "
                                              "— المتوسط %.8g (%d أوامر)",
-                                             sym, _lv, price, entry, len(_lots))
+                                             s.symbol, _lv, price,
+                                             s.entry, len(_lots))
                             except Exception as _de:
-                                log.error("🪙 DCA %s: %s — نرجع للقطع", sym, _de)
+                                log.error("🪙 DCA %s: %s — نرجع للقطع", s.symbol, _de)
                                 _dca_on = False
                         if (not _dca_on and _tk is not None
                                 and _tk < FLOW_EXIT_TAKER

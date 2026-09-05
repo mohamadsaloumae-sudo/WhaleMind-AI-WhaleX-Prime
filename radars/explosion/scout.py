@@ -370,7 +370,7 @@ def _build_signal(symbol: str, price: float, candles: list, peak: float,
     if _sl_pct > _max_sl_px:
         _d = price * _max_sl_px / 100.0
         log.info("🛡️ %s وقف مقصوص: %.2f%% → %.2f%% سعريّ (هامش %.0f%%)",
-                 sym, _sl_pct, _max_sl_px, MAX_SL_MARGIN)
+                 symbol, _sl_pct, _max_sl_px, MAX_SL_MARGIN)
         sl = price + _d
         _sl_pct = _max_sl_px
     strats = ["🔭 Explosion Scout — انهيار OB"] + ob_signals + [f"هبوط من الذروة: -{drop:.1f}%"]

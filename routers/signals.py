@@ -237,7 +237,7 @@ def signals_monthly(market: str = "futures", user=Depends(get_current_user)):
             _rows = _mc.execute("""
                 SELECT pnl_pct FROM meme_signals
                 WHERE status='closed' AND pnl_pct IS NOT NULL
-                  AND closed_ts > strftime('%s','now','+4 hours','start of month','-4 hours')
+                  AND closed_ts > (strftime('%s', date('now','+4 hours','start of month')) - 14400)
             """).fetchall()
             _mc.close()
             _w = [r["pnl_pct"] for r in _rows if r["pnl_pct"] >= 0]
@@ -254,8 +254,8 @@ def signals_monthly(market: str = "futures", user=Depends(get_current_user)):
             con = sqlite3.connect("/opt/whalex/db/whalex.db"); con.row_factory = sqlite3.Row
             rows = con.execute("""
                 SELECT pnl_pct, outcome FROM spot_results
-                WHERE pnl_pct IS NOT NULL AND pnl_pct > -9
-                  AND ts > strftime('%s','now','+4 hours','start of month','-4 hours')
+                WHERE pnl_pct IS NOT NULL
+                  AND ts > (strftime('%s', date('now','+4 hours','start of month')) - 14400)
             """).fetchall()
             con.close()
             _w = [r for r in rows if r["outcome"]]; _l = [r for r in rows if not r["outcome"]]
@@ -279,7 +279,7 @@ def signals_monthly(market: str = "futures", user=Depends(get_current_user)):
               -- و +451.9%. والمشترك يرى خسارة وهمية فيفقد ثقته.
               AND result IS NOT NULL AND result NOT IN ('void', 'shadow_hidden')
               AND pnl_pct > -9
-              AND closed_at > strftime('%s','now','+4 hours','start of month','-4 hours')
+              AND closed_at > (strftime('%s', date('now','+4 hours','start of month')) - 14400)
         """).fetchall()
         con.close()
         wins = [r for r in rows if r["outcome"]]
