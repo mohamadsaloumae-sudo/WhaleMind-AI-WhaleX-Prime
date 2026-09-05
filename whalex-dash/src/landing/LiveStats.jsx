@@ -48,19 +48,20 @@ export default function LiveStats({ lang = "ar" }) {
 
   return (
     <section style={{ padding: "0 16px 34px", background: T.bg }}>
+      {/* 🐋 ثلاثة أعمدة ثابتة لا auto-fit: الأخير كان يضع ستّة
+          عناصر في صفّ على الشاشات العريضة فتختلط الصفوف.
+          الترتيب: أسماء الأنظمة فوق، ثم الصافي، ثم الصفقات
+          المنفَّذة، ثم العملات المُراقَبة — كل مقياس صفّاً. */}
       <div style={{
-        maxWidth: 700, margin: "0 auto",
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(105px, 1fr))",
-        gap: 8,
+        maxWidth: 560, margin: "0 auto",
+        display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
+        gap: 8, rowGap: 8,
       }}>
         {COLS.map((x) => (
           <div key={`h${x.k}`} style={{
             textAlign: "center", fontSize: 11.5, fontWeight: 800,
-            color: T.txt, padding: "2px 0 4px", letterSpacing: .2,
-          }}>
-            {x.icon} {ar ? x.ar : x.en}
-          </div>
+            color: T.txt, padding: "2px 0 2px", letterSpacing: .2,
+          }}>{x.icon} {ar ? x.ar : x.en}</div>
         ))}
 
         {COLS.map((x) => {
@@ -72,7 +73,7 @@ export default function LiveStats({ lang = "ar" }) {
               border: `1px solid ${up ? T.brand2 + "44" : T.red + "33"}`,
             }}>
               <div style={{
-                fontSize: 19, fontWeight: 900, direction: "ltr",
+                fontSize: 18, fontWeight: 900, direction: "ltr",
                 color: up ? T.brand2 : T.red, letterSpacing: -.4,
               }}>{fmt(d.net_pct || 0)}</div>
               <div style={lbl}>{ar ? "صافي الشهر" : "Net month"}</div>
@@ -85,7 +86,7 @@ export default function LiveStats({ lang = "ar" }) {
           return (
             <div key={`t${x.k}`} style={box}>
               <div style={{
-                fontSize: 19, fontWeight: 900, color: T.txt,
+                fontSize: 18, fontWeight: 900, color: T.txt,
                 direction: "ltr", letterSpacing: -.4,
               }}>{d.trades || 0}</div>
               <div style={lbl}>
@@ -100,7 +101,7 @@ export default function LiveStats({ lang = "ar" }) {
             {x.coins != null ? (
               <>
                 <div style={{
-                  fontSize: 19, fontWeight: 900, color: T.brand,
+                  fontSize: 18, fontWeight: 900, color: T.brand,
                   direction: "ltr", letterSpacing: -.4,
                 }}>{x.coins}</div>
                 <div style={lbl}>{ar ? "عملة تُراقَب" : "Coins watched"}</div>
@@ -109,18 +110,18 @@ export default function LiveStats({ lang = "ar" }) {
               <>
                 <div style={{
                   display: "flex", justifyContent: "center",
-                  alignItems: "center", height: 25, gap: 2,
+                  alignItems: "center", height: 23, gap: 2,
                 }}>
                   {MEME_LOGOS.map(([nm, src]) => (
                     <span key={nm} title={nm} style={{
-                      width: 21, height: 21, borderRadius: 5,
+                      width: 19, height: 19, borderRadius: 5,
                       background: "rgba(255,255,255,.06)",
                       border: `1px solid ${T.border}`,
                       display: "inline-flex", alignItems: "center",
                       justifyContent: "center", overflow: "hidden",
                     }}>
                       <img src={src} alt={nm}
-                        style={{ width: 15, height: 15, objectFit: "contain" }}
+                        style={{ width: 14, height: 14, objectFit: "contain" }}
                         onError={(e) => { e.currentTarget.style.opacity = 0; }}
                       />
                     </span>
