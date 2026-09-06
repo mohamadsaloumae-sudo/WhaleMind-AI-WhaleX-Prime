@@ -127,7 +127,27 @@ export default function LiveStats({ lang = "ar" }) {
                     </span>
                   ))}
                 </div>
-                <div style={lbl}>{ar ? "المصادر" : "Sources"}</div>
+                {/* 🔗 ديكس سكرينر — مصدر بيانات الميم. النقر يفتح موقعهم. */}
+                <a href="https://dexscreener.com" target="_blank"
+                   rel="noopener noreferrer"
+                   onClick={(e) => e.stopPropagation()}
+                   style={{
+                     display: "inline-flex", alignItems: "center", gap: 4,
+                     marginTop: 3, textDecoration: "none",
+                     color: T.txt3, fontSize: 9.5, fontWeight: 700,
+                     letterSpacing: .1, direction: "ltr",
+                   }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                       style={{ flexShrink: 0 }}>
+                    <path d="M12 2L3 7v10l9 5 9-5V7l-9-5z"
+                          stroke={T.brand} strokeWidth="1.8"
+                          strokeLinejoin="round" />
+                    <path d="M7 11l3 3 4-5 3 3"
+                          stroke={T.brand} strokeWidth="1.8"
+                          strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  DexScreener
+                </a>
               </>
             )}
           </div>

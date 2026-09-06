@@ -980,8 +980,11 @@ async def tracker_loop():
                                             or s.entry)
                                 _lots0 = getattr(s, "lots", None) or [(s.entry, 1.0)]
                                 _lvls = getattr(s, "dca_levels", None) or []
+                                # ⏱️ العمر بالساعات — age محسوب بالثواني
+                                #    في نفس النطاق (السطر 803). وكان
+                                #    <<opened>> غير معرّف فيسقط DCA دائماً.
                                 _act, _inf = _dd(_fe, px, _lots0, _lvls,
-                                                 (_t.time() - opened) / 3600.0)
+                                                 age / 3600.0)
                                 if _act == "take_profit":
                                     _dyn_exit, _dyn_why = True, "dca_tp"
                                 elif _act == "stop":

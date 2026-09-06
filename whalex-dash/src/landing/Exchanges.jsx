@@ -65,16 +65,26 @@ export default function Exchanges({ lang = "ar" }) {
             </a>
           );
         })}
-        <div style={{
-          background: "rgba(45,212,191,.07)", border: `1px solid ${T.brand}33`,
-          borderRadius: 13, padding: "13px 6px", textAlign: "center",
-          display: "flex", flexDirection: "column", justifyContent: "center",
-        }}>
-          <div style={{ fontSize: 17, fontWeight: 900, color: T.brand }}>659</div>
-          <div style={{ fontSize: 8.5, color: T.txt3, fontWeight: 600 }}>
-            {ar ? "عملة" : "coins"}
+        {/* 🔗 ديكس سكرينر — مصدر بيانات الميم. الشعار وحده، بلا نصّ،
+            والنقر يفتح موقعهم مباشرة. */}
+        <a href="https://dexscreener.com" target="_blank"
+           rel="noopener noreferrer" title="DexScreener"
+           style={{
+             background: "rgba(45,212,191,.07)",
+             border: `1px solid ${T.brand}33`,
+             borderRadius: 13, padding: "13px 6px", textAlign: "center",
+             display: "flex", flexDirection: "column",
+             alignItems: "center", justifyContent: "center",
+             gap: 5, textDecoration: "none",
+           }}>
+          <img src="https://dexscreener.com/favicon.png" alt="DexScreener"
+               width="26" height="26"
+               style={{ borderRadius: 7, objectFit: "contain" }}
+               onError={(e) => { e.target.style.display = "none"; }} />
+          <div style={{ fontSize: 9.5, color: T.txt2, fontWeight: 600 }}>
+            DexScreener
           </div>
-        </div>
+        </a>
       </div>
     </section>
   );

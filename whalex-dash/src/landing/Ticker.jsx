@@ -47,7 +47,7 @@ export default function Ticker({ lang = "ar" }) {
       {items.map((x, i) => (
         <span key={`${k}${i}`} style={{
           display: "inline-flex", alignItems: "center", gap: 5,
-          padding: "0 14px", fontSize: 11.5, fontWeight: 700,
+          padding: "0 16px", fontSize: 13.5, fontWeight: 700,
           whiteSpace: "nowrap", direction: "ltr",
           borderRight: `1px solid ${T.border}`,
         }}>
@@ -71,10 +71,14 @@ export default function Ticker({ lang = "ar" }) {
 
   return (
     <div style={{
-      background: "rgba(255,255,255,.03)",
+      // 📌 ثابت أعلى الشاشة — الصفحة تنزلق تحته ولا يختفي.
+      position: "sticky", top: 0, zIndex: 60,
+      background: "rgba(10,20,30,.92)",
+      backdropFilter: "blur(10px)",
+      WebkitBackdropFilter: "blur(10px)",
       borderTop: `1px solid ${T.border}`,
       borderBottom: `1px solid ${T.border}`,
-      overflow: "hidden", padding: "8px 0", direction: "ltr",
+      overflow: "hidden", padding: "11px 0", direction: "ltr",
     }}>
       <style>{`
         @keyframes wxTicker {

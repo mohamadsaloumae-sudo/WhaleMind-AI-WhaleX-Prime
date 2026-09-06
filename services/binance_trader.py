@@ -14,6 +14,8 @@ WhaleMind Binance Trader Service
 import os
 import time
 import logging
+import asyncio
+import os as _os
 import sqlite3
 from typing import Optional
 from datetime import datetime
@@ -717,7 +719,8 @@ async def close_position_for_user(user_id: str, symbol: str, direction: str, rea
         return {"success": True, "order_id": str(_order.get("orderId", "")),
                 "qty": abs(_amt)}
     except Exception as e:
-        log.error("close real %s: %s", symbol, e)
+        log.error("close real %s [%s]: %s", symbol,
+                  str(user_id)[:8], e)
         return {"success": False, "error": str(e)}
 
 
@@ -733,13 +736,36 @@ async def close_all_real_users(symbol: str, direction: str, reason: str = "") ->
     except Exception as e:
         log.debug("close_all users: %s", e)
         return 0
+    _failed = []
     for r in rows:
+        _uid = r["user_id"]
         try:
-            res = await close_position_for_user(r["user_id"], symbol, direction, reason)
+            res = await close_position_for_user(_uid, symbol, direction, reason)
             if res.get("success"):
                 n += 1
+                continue
+            _why = str(res.get("error", ""))
+            # "لا مركز مفتوح" ليست فشلاً — المستخدم لم تُفتح له اصلاً
+            if "لا مركز" in _why or "not open" in _why.lower():
+                continue
+            # 🔁 اعادة محاولة واحدة — الشبكة تخطئ مرة
+            await asyncio.sleep(2.0)
+            res2 = await close_position_for_user(_uid, symbol, direction, reason)
+            if res2.get("success"):
+                n += 1
+                log.info("🔁 اُغلق بالمحاولة الثانية: %s [%s]",
+                         symbol, str(_uid)[:8])
+                continue
+            _failed.append((str(_uid)[:8], str(res2.get("error", _why))[:60]))
         except Exception as e:
-            log.debug("close user %s: %s", r["user_id"], e)
+            _failed.append((str(_uid)[:8], str(e)[:60]))
+    if _failed:
+        # ⚠️ الاغلاق الورقيّ: كنّا نسجّل الصفقة مُغلقة والمركز مفتوح
+        #    على المنصّة، فتنزف حتى يجدها حارس اليتيمة بعد دقائق.
+        #    مقيس 6 سبتمبر: DASHUSDT سجّلناها -3.97% والواقع -8.88%.
+        for _u, _w in _failed:
+            log.warning("🔴⚠️ فشل اغلاق %s للمشترك %s — %s "
+                        "(المركز قد يبقى مفتوحاً)", symbol, _u, _w)
     return n
 
 
@@ -1352,7 +1378,78 @@ def _limit_entry(client, symbol, side, direction, quantity, sig_px):
                  filled/float(quantity)*100)
         return od, ""
     log.info("LIMIT CANCEL %s - timeout %.0fs no fill", symbol, LIMIT_WAIT_SEC)
+    # 🎯 كمين السعر الافضل — الاشارة هربت، فبدل ملاحقتها ننصب
+    #    امراً عند نقطة اجود من الاشارة وننتظرها 5 دقائق.
+    #    مقيس 6 سبتمبر: 5 اشارات ضاعت بـtimeout وكانت ستعطي
+    #    ما بين +10% و+35% لطارق. والملاحقة ترفض (ذيل الشمعة).
+    if not _os.path.exists(AMBUSH_OFF):
+        _o2, _w2 = _ambush_entry(client, symbol, side, direction,
+                                 quantity, sig_px)
+        if _o2:
+            return _o2, ""
+        log.info("🎯 %s كمين: %s", symbol, _w2)
     return None, "timeout no fill"
+
+
+# ═══════════════════════════════════════════════════════════════
+# 🎯 كمين السعر الافضل — المرحلة الثانية بعد فشل الحدّ الاول
+# ═══════════════════════════════════════════════════════════════
+# الاطفاء: touch /opt/whalex/db/ambush.off
+AMBUSH_OFF = "/opt/whalex/db/ambush.off"
+AMBUSH_WINDOW = 300.0
+AMBUSH_EDGE = 1.0
+AMBUSH_POLL = 3.0
+
+
+def _ambush_entry(client, symbol, side, direction, quantity, sig_px):
+    """ينصب امر حدّ عند سعر اجود من الاشارة بـ1% وينتظره 5 دقائق."""
+    import time as _t
+    if sig_px <= 0:
+        return None, "بلا سعر اشارة"
+    _d = str(direction or "").upper()
+    tgt = sig_px * (1 + AMBUSH_EDGE / 100.0) if _d == "SHORT" \
+        else sig_px * (1 - AMBUSH_EDGE / 100.0)
+    log.info("🎯 %s كمين @%.8g (اجود %.1f%% من %.8g)",
+             symbol, tgt, AMBUSH_EDGE, sig_px)
+    t0 = _t.time()
+    while (_t.time() - t0) < AMBUSH_WINDOW:
+        _t.sleep(AMBUSH_POLL)
+        try:
+            live = float(client.futures_symbol_ticker(
+                symbol=symbol).get("price") or 0)
+        except Exception:
+            continue
+        if live <= 0:
+            continue
+        _hit = live >= tgt if _d == "SHORT" else live <= tgt
+        if not _hit:
+            continue
+        try:
+            o = client.futures_create_order(
+                symbol=symbol, side=side, type="LIMIT",
+                timeInForce="GTC", quantity=quantity,
+                price=_fmt_price(client, symbol, tgt))
+        except Exception as e:
+            return None, "تعذّر الوضع: %s" % str(e)[:50]
+        oid = o.get("orderId")
+        t1 = _t.time()
+        while (_t.time() - t1) < 20.0:
+            _t.sleep(1.0)
+            try:
+                od = client.futures_get_order(symbol=symbol, orderId=oid)
+            except Exception:
+                continue
+            if od.get("status") == "FILLED":
+                log.info("🎯✅ %s كمين امتلأ @%.8g", symbol, tgt)
+                return od, ""
+            if od.get("status") in ("CANCELED", "EXPIRED", "REJECTED"):
+                break
+        try:
+            client.futures_cancel_order(symbol=symbol, orderId=oid)
+        except Exception:
+            pass
+        return None, "الكمين لم يمتلئ"
+    return None, "انتهت مهلة الكمين"
 
 
 # ═══════════════════════════════════════════════════════════════

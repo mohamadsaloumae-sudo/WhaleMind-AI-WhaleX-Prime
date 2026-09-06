@@ -85,6 +85,16 @@ class ExchangeAdapter(ABC):
                 return {"ok": False, "error": "سعر غير متاح"}
             qty = float(c.amount_to_precision(
                 s, (usdt * (lev if futures else 1.0)) / px))
+            # 🎯 حدّ اولاً — لا انزلاق. والسعر من هذه المنصّة لا من باينانس.
+            if not _os.path.exists(EXCH_LIMIT_OFF):
+                _o, _why, _fill = _limit_entry(
+                    c, s, self._side(side), qty,
+                    float(c.price_to_precision(s, px)),
+                    self._open_params(futures), self.name_ar)
+                if not _o:
+                    return {"ok": False, "error": _why or "limit not filled"}
+                return {"ok": True, "id": str(_o.get("id", "")),
+                        "qty": qty, "price": _fill or px}
             o = c.create_order(s, "market", self._side(side), qty,
                                None, self._open_params(futures))
             log.info("🔌 %s فتح %s %s qty=%s", self.name_ar, s, side, qty)
@@ -107,8 +117,14 @@ class ExchangeAdapter(ABC):
                 if abs(amt) <= 0:
                     return {"ok": False, "error": "لا مركز مفتوح"}
                 side = "sell" if amt > 0 else "buy"
-                o = c.create_order(s, "market", side, abs(amt),
-                                   None, self._close_params())
+                # 🎯 حدّ قصير ثمّ ارتداد للسوق — الخروج مضمون دائماً.
+                o = None
+                if not _os.path.exists(EXCH_LIMIT_OFF):
+                    o, _m = _limit_exit(c, s, side, abs(amt),
+                                        self._close_params(), self.name_ar)
+                if not o:
+                    o = c.create_order(s, "market", side, abs(amt),
+                                       None, self._close_params())
             else:
                 base = s.split("/")[0]
                 free = float((c.fetch_balance().get(base) or {}).get("free") or 0)
@@ -145,3 +161,104 @@ class ExchangeAdapter(ABC):
                     "exchange": self.name_ar}
         except Exception as e:
             return {"ok": False, "error": str(e)[:150]}
+
+
+# ═══════════════════════════════════════════════════════════════
+# 🎯 أوامر الحدّ للمنصّات الست — نفس معيار باينانس
+# ═══════════════════════════════════════════════════════════════
+# الاشارة تأتي من باينانس، لكن السعر والمستويات من المنصّة نفسها
+# لحظة التنفيذ — فالوقف والاهداف صحيحة لا مأخوذة من سوق آخر.
+# الاطفاء: touch /opt/whalex/db/exch_limit.off
+import os as _os
+import time as _tm
+
+EXCH_LIMIT_OFF = "/opt/whalex/db/exch_limit.off"
+ENTRY_WAIT = 30.0
+ENTRY_POLL = 1.5
+FLEE_PCT = 3.0
+EXIT_WAIT = 8.0
+EXIT_POLL = 0.5
+
+
+def _limit_entry(c, s, side_ccxt, qty, px, params, name_ar):
+    """دخول بحدّ. يُعيد (order أو None، السبب، سعر التعبئة)."""
+    try:
+        o = c.create_order(s, "limit", side_ccxt, qty, px, params)
+    except Exception as e:
+        log.warning("🔌 %s حدّ %s: %s", name_ar, s, e)
+        return None, f"limit failed: {e}", 0.0
+    oid = o.get("id")
+    t0 = _tm.time()
+    while (_tm.time() - t0) < ENTRY_WAIT:
+        _tm.sleep(ENTRY_POLL)
+        try:
+            od = c.fetch_order(oid, s)
+        except Exception:
+            continue
+        st = (od.get("status") or "").lower()
+        filled = float(od.get("filled") or 0)
+        if st == "closed" or filled >= qty * 0.99:
+            fill = float(od.get("average") or od.get("price") or px)
+            log.info("🔌🎯 %s حدّ امتلأ %s @%.8g (%.0fث)",
+                     name_ar, s, fill, _tm.time() - t0)
+            return od, "", fill
+        if st in ("canceled", "expired", "rejected"):
+            return (od if filled > 0 else None), f"cancelled ({st})", 0.0
+        try:
+            live = float((c.fetch_ticker(s) or {}).get("last") or 0)
+        except Exception:
+            continue
+        if live <= 0:
+            continue
+        drift = ((live - px) if side_ccxt == "buy" else (px - live)) / px * 100
+        if drift > FLEE_PCT:
+            try:
+                c.cancel_order(oid, s)
+            except Exception:
+                pass
+            if filled > 0:
+                od = c.fetch_order(oid, s)
+                return od, "", float(od.get("average") or px)
+            log.info("🔌🚫 %s الغاء %s — هرب %.2f%%", name_ar, s, drift)
+            return None, f"price fled {drift:.2f}%", 0.0
+    try:
+        c.cancel_order(oid, s)
+        od = c.fetch_order(oid, s)
+        if float(od.get("filled") or 0) > 0:
+            return od, "", float(od.get("average") or px)
+    except Exception:
+        pass
+    log.info("🔌🚫 %s الغاء %s — مهلة", name_ar, s)
+    return None, "timeout no fill", 0.0
+
+
+def _limit_exit(c, s, side_ccxt, amt, params, name_ar):
+    """خروج بحدّ ثمّ ارتداد للسوق. يُعيد (order أو None، الطريقة)."""
+    try:
+        live = float((c.fetch_ticker(s) or {}).get("last") or 0)
+        if live <= 0:
+            return None, "no price"
+        o = c.create_order(s, "limit", side_ccxt, amt, live, params)
+    except Exception as e:
+        log.debug("🔌 %s حدّ خروج %s: %s", name_ar, s, e)
+        return None, "limit-failed"
+    oid = o.get("id")
+    t0 = _tm.time()
+    while (_tm.time() - t0) < EXIT_WAIT:
+        _tm.sleep(EXIT_POLL)
+        try:
+            od = c.fetch_order(oid, s)
+        except Exception:
+            continue
+        st = (od.get("status") or "").lower()
+        if st == "closed" or float(od.get("filled") or 0) >= amt * 0.99:
+            log.info("🔌🎯 %s خروج بحدّ %s (%.1fث)", name_ar, s, _tm.time() - t0)
+            return od, "limit"
+        if st in ("canceled", "expired", "rejected"):
+            break
+    try:
+        c.cancel_order(oid, s)
+    except Exception:
+        pass
+    log.info("🔌 %s خروج مهلة %s → سوق", name_ar, s)
+    return None, "timeout"

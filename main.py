@@ -103,6 +103,15 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(_mrl(), name="ml_reconcile")
     except Exception as _mre:
         log.warning("مصالحة التدريب: %s", _mre)
+    # 🪙 مصالحة صفقات السبوت العالقة — الرادار يُغلق ويكتب في
+    #    spot_results ولا يُحدّث spot_positions_multi، فتبقى مفتوحة
+    #    إلى الأبد. وSOMIUSDT بقيت 139 ساعة وشاشة العرض تحسب ربحها
+    #    بسعر اليوم فتُظهرها رابحة وهي مغلقة بخسارة.
+    try:
+        from services.spot_reconcile import reconcile_loop as _srl
+        asyncio.create_task(_srl(), name="spot_reconcile")
+    except Exception as _sre:
+        log.warning("مصالحة السبوت: %s", _sre)
     # 🧹 تحرير الذاكرة المفكوكة كل عشر دقائق — بايثون يحتفظ بالساحات
     #    المحرّرة ولا يُعيدها للنظام، فتنمو RSS بلا سبب حقيقيّ.
     async def _trim_loop():
