@@ -63,6 +63,7 @@ export default function Scanner() {
     const q = sym.trim();
     if (!q) { setSug([]); return; }
     let dead = false;
+    if (r && r.symbol && r.symbol.replace("USDT", "") === q) return;
     const t = setTimeout(async () => {
       try {
         const d = await api.get(`/api/scanner/symbols?q=${encodeURIComponent(q)}&limit=14`);
@@ -81,6 +82,8 @@ export default function Scanner() {
   async function go(s) {
     const q = (s || sym).trim().toUpperCase();
     if (!q || busy) return;
+    // 🔽 نُغلق أوّلاً — كان الإغلاق بعد setBusy فتبقى ظاهرة
+    setOpen(false); setSug([]);
     setBusy(true); setR(null); setMkt(null); setChart(false);
     setOpen(false); setSug([]);   // 🔽 تُغلق فوراً عند الاختيار
     setSym(q);
@@ -294,7 +297,9 @@ export default function Scanner() {
             padding: "11px 13px", borderRadius: 10, marginBottom: 12,
           }}>
             <div style={{
-              textAlign: ar ? "right" : "left", wordBreak: "keep-all",
+              direction: ar ? "rtl" : "ltr",
+              textAlign: ar ? "right" : "left",
+              unicodeBidi: "plaintext", lineHeight: 2,
             }}>{ar ? r.brief : r.brief_en}</div>
           </div>
 
@@ -313,7 +318,7 @@ export default function Scanner() {
               <div style={{ fontSize: 11, color: "var(--txt-3)", fontWeight: 700, margin: "12px 0 4px" }}>
                 {ar ? "بيانات السوق" : "Market data"}
               </div>
-              <Row l={ar ? "الترتيب العالميّ" : "Global rank"} v={`#${m.rank}`} />
+              <Row l={ar ? "الترتيب العالميّ" : "Global rank"} v={ar ? `رقم #${m.rank}` : `#${m.rank}`} />
               <Row l={ar ? "القيمة السوقية" : "Market cap"} v={fmtUsd(m.market_cap)} />
               <Row l={ar ? "حجم 24 ساعة" : "24h volume"} v={fmtUsd(m.vol24h_global ?? m.vol24h)} />
               {m.change_7d != null && (
