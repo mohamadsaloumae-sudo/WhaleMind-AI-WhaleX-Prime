@@ -238,6 +238,12 @@ async def scan(symbol: str = Query(...)):
                 _miss_ar.append("العمق متوازن"); _miss_en.append("balanced depth")
             if flow == "flat" or flow is None:
                 _miss_ar.append("التدفق محايد"); _miss_en.append("neutral flow")
+            elif flow == "up" and (obp or 0) < 0.15:
+                _miss_ar.append("تدفّق شراء لكن دفتر الأوامر لا يدعمه بعد")
+                _miss_en.append("buy flow but order book not backing it yet")
+            elif flow == "down" and (obp or 0) > -0.15:
+                _miss_ar.append("تدفّق بيع لكن دفتر الأوامر لا يدعمه بعد")
+                _miss_en.append("sell flow but order book not backing it yet")
             if max(p_long, p_short) < 0.45:
                 _miss_ar.append(f"ثقة النموذج منخفضة ({max(p_long,p_short)*100:.0f}%)")
                 _miss_en.append(f"low model confidence ({max(p_long,p_short)*100:.0f}%)")
