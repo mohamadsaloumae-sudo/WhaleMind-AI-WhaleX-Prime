@@ -115,6 +115,18 @@ export default function Scanner() {
   const useFut = mode === "futures" && isFut;
   const verdict = r?.ok && useFut ? V[r.verdict] : null;
 
+  // حكم السبوت مستقلّ — يُبنى من احتمالات النموذج لا من حكم الفيوتشر
+  const spotV = (() => {
+    if (!r?.ok) return null;
+    const pl = Number(r.p_long ?? 0), ps = Number(r.p_short ?? 0);
+    const rs = Number(r.rsi ?? 50);
+    if (rs > 75 || ps >= pl + 10) return "SHORT";
+    if (pl >= 55 && rs < 70) return "LONG";
+    return "WAIT";
+  })();
+  const SPOT_C = { LONG: "var(--green)", SHORT: "var(--red)", WAIT: "var(--amber)" };
+  const SPOT_IC = { LONG: "\u{1F7E2}", SHORT: "\u{1F534}", WAIT: "\u23F8" };
+
   return (
     <div style={{ padding: 16, maxWidth: 560, margin: "0 auto" }}>
       <h2 style={{ marginBottom: 3, fontSize: 20 }}>🔍 WhaleX Scanner</h2>
@@ -272,8 +284,8 @@ export default function Scanner() {
                 {verdict.ic} {ar ? verdict.ar : verdict.en}
               </span>
             ) : (
-              <span style={{ color: "var(--amber)", fontWeight: 800, fontSize: 13.5 }}>
-                🪙 {ar ? SPOT_V[r.verdict]?.ar : SPOT_V[r.verdict]?.en}
+              <span style={{ color: SPOT_C[spotV], fontWeight: 800, fontSize: 13.5 }}>
+                {SPOT_IC[spotV]} {ar ? SPOT_V[spotV]?.ar : SPOT_V[spotV]?.en}
               </span>
             )}
           </div>
