@@ -127,6 +127,26 @@ async def scanner_market(symbol: str = Query(...)):
                     "from_ath": q.get("percent_from_price_ath"),
                     "supply": d2.get("circulating_supply"),
                 })
+                # 🌐 نبذة المشروع وروابطه — من صفحة العملة نفسها
+                try:
+                    r3 = await c.get(
+                        f"https://api.coinpaprika.com/v1/coins/{cid}",
+                        timeout=12)
+                    d3 = r3.json()
+                    desc = (d3.get("description") or "").strip()
+                    links = {}
+                    for k, v in (d3.get("links") or {}).items():
+                        if isinstance(v, list) and v:
+                            links[k] = v[0]
+                    out["project"] = {
+                        "desc": desc[:700] if desc else None,
+                        "tags": [t.get("name") for t in
+                                 (d3.get("tags") or [])][:5],
+                        "started": d3.get("started_at"),
+                        "links": links,
+                    }
+                except Exception as e3:
+                    log.debug("project %s: %s", base, e3)
         except Exception as e:
             log.debug("paprika %s: %s", base, e)
     return out

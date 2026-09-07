@@ -17,6 +17,14 @@ const EX_LOGO = {
   bitget: "513", mexc: "544", gate: "302", bingx: "1064",
 };
 const LS_KEY = "wx_scanner_recent";
+// 🔗 أسماء الروابط الرسمية
+const LNK = {
+  website: ["الموقع", "Website"], explorer: ["المستكشف", "Explorer"],
+  source_code: ["الكود", "Source"], reddit: ["ريديت", "Reddit"],
+  twitter: ["إكس", "X"], telegram: ["تيليجرام", "Telegram"],
+  medium: ["ميديوم", "Medium"], youtube: ["يوتيوب", "YouTube"],
+  facebook: ["فيسبوك", "Facebook"],
+};
 
 const fmtUsd = (n) => {
   if (n == null) return "—";
@@ -44,6 +52,7 @@ export default function Scanner() {
   const [chart, setChart] = useState(false);
   // 🔀 السوق المختار — فيوتشر أو سبوت. الحكم يتبعه.
   const [mode, setMode] = useState("futures");
+  const [expand, setExpand] = useState(false);
   const [recent, setRecent] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); }
     catch { return []; }
@@ -98,6 +107,7 @@ export default function Scanner() {
   );
 
   const m = mkt?.market || {};
+  const pj = mkt?.project || {};
   const isFut = !!mkt?.futures;
   const useFut = mode === "futures" && isFut;
   const verdict = r?.ok && useFut ? V[r.verdict] : null;
@@ -303,7 +313,7 @@ export default function Scanner() {
               <div style={{ fontSize: 11, color: "var(--txt-3)", fontWeight: 700, margin: "12px 0 4px" }}>
                 {ar ? "بيانات السوق" : "Market data"}
               </div>
-              <Row l={ar ? "الترتيب العالميّ" : "Global rank"} v={ar ? `رقم ${m.rank}` : `#${m.rank}`} />
+              <Row l={ar ? "الترتيب العالميّ" : "Global rank"} v={`#${m.rank}`} />
               <Row l={ar ? "القيمة السوقية" : "Market cap"} v={fmtUsd(m.market_cap)} />
               <Row l={ar ? "حجم 24 ساعة" : "24h volume"} v={fmtUsd(m.vol24h_global ?? m.vol24h)} />
               {m.change_7d != null && (
@@ -321,6 +331,45 @@ export default function Scanner() {
             </>
           )}
 
+          {pj.desc && (
+            <>
+              <div style={{ fontSize: 11, color: "var(--txt-3)", fontWeight: 700, margin: "13px 0 5px" }}>
+                {ar ? "عن المشروع" : "About the project"}
+              </div>
+              <div style={{
+                fontSize: 12, lineHeight: 1.85, color: "var(--txt-2)",
+                background: "var(--bg-2)", padding: "11px 13px",
+                borderRadius: 10, direction: "ltr", textAlign: "left",
+                maxHeight: expand ? "none" : 96, overflow: "hidden",
+                position: "relative",
+              }}>{pj.desc}</div>
+              {pj.desc.length > 180 && (
+                <button onClick={() => setExpand(!expand)} style={{
+                  marginTop: 5, border: 0, background: "transparent",
+                  color: "var(--brand)", fontSize: 11.5, fontWeight: 700,
+                  cursor: "pointer", padding: 0,
+                }}>{expand ? (ar ? "أقلّ" : "Less") : (ar ? "المزيد" : "More")}</button>
+              )}
+            </>
+          )}
+
+          {pj.links && Object.keys(pj.links).length > 0 && (
+            <>
+              <div style={{ fontSize: 11, color: "var(--txt-3)", fontWeight: 700, margin: "13px 0 6px" }}>
+                {ar ? "الروابط الرسمية" : "Official links"}
+              </div>
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+                {Object.entries(pj.links).map(([k, u]) => (
+                  <a key={k} href={u} target="_blank" rel="noopener noreferrer"
+                    style={{
+                      padding: "6px 11px", borderRadius: 9, fontSize: 11.5,
+                      background: "var(--bg-2)", color: "var(--txt-2)",
+                      textDecoration: "none", fontWeight: 600,
+                    }}>{LNK[k] ? (ar ? LNK[k][0] : LNK[k][1]) : k}</a>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
