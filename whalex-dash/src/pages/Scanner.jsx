@@ -160,6 +160,10 @@ export default function Scanner() {
                 borderBottom: "1px solid var(--bg-2)",
                 fontWeight: 700, letterSpacing: .3, textAlign: "left",
               }}>
+                <img alt="" width="20" height="20" loading="lazy"
+                  src={`https://assets.coincap.io/assets/icons/${x.toLowerCase()}@2x.png`}
+                  style={{ borderRadius: 20, flexShrink: 0 }}
+                  onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
                 <span style={{ color: "var(--txt-0)" }}>{x}</span>
                 <span style={{ color: "var(--txt-3)", fontSize: 11,
                                fontWeight: 500 }}>USDT</span>
