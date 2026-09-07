@@ -7,6 +7,131 @@ log = logging.getLogger("scanner")
 router = APIRouter()
 
 
+@router.get("/api/scanner/symbols")
+def scanner_symbols(q: str = "", limit: int = 40):
+    """🔍 قائمة العملات للبحث الفوريّ — من ملفّات العملات والكون
+    المتعدّد. تُصفّى بأوّل حرف فلا يحتاج المستخدم كتابة الاسم كاملاً."""
+    import sqlite3 as _sq
+    out, seen = [], set()
+    qq = (q or "").strip().upper()
+    for db, tbl, col in (("/opt/whalex/coin_profiles.db", "coin_profiles", "symbol"),
+                         ("/opt/whalex/multi_universe.db", "universe", "symbol")):
+        try:
+            c = _sq.connect(f"file:{db}?mode=ro", uri=True)
+            sql = f"SELECT {col} FROM {tbl}"
+            args = ()
+            if qq:
+                sql += f" WHERE UPPER({col}) LIKE ?"
+                args = (qq + "%",)
+            sql += f" LIMIT {int(limit) * 3}"
+            for (sy,) in c.execute(sql, args):
+                base = str(sy or "").upper().replace("USDT", "")
+                if base and base not in seen:
+                    seen.add(base)
+                    out.append(base)
+            c.close()
+        except Exception:
+            pass
+    out.sort(key=lambda x: (len(x), x))
+    return {"symbols": out[:limit]}
+
+
+@router.get("/api/scanner/market")
+async def scanner_market(symbol: str = Query(...)):
+    """🌐 بطاقة العملة الشاملة: أين تُتداوَل · سبوت أم فيوتشر ·
+    القيمة السوقية والترتيب والحجم — كلّها حيّة لا ثابتة."""
+    import asyncio as _a
+    import httpx as _h
+    base = symbol.upper().replace("USDT", "").strip()
+    pair = base + "USDT"
+    out = {"symbol": base, "pair": pair, "venues": [],
+           "spot": False, "futures": False, "market": {}}
+
+    async def _binance(c):
+        v = {"id": "binance", "name": "Binance", "spot": False, "futures": False}
+        try:
+            r = await c.get("https://api.binance.com/api/v3/ticker/24hr",
+                            params={"symbol": pair}, timeout=8)
+            if r.status_code == 200:
+                v["spot"] = True
+                d = r.json()
+                out["market"]["price"] = float(d.get("lastPrice") or 0)
+                out["market"]["change24h"] = float(d.get("priceChangePercent") or 0)
+                out["market"]["vol24h"] = float(d.get("quoteVolume") or 0)
+        except Exception:
+            pass
+        try:
+            r = await c.get("https://fapi.binance.com/fapi/v1/ticker/24hr",
+                            params={"symbol": pair}, timeout=8)
+            if r.status_code == 200:
+                v["futures"] = True
+        except Exception:
+            pass
+        return v
+
+    async def _simple(c, vid, name, url, key=None):
+        v = {"id": vid, "name": name, "spot": False, "futures": False}
+        try:
+            r = await c.get(url, timeout=8)
+            if r.status_code == 200:
+                t = r.text
+                if base in t.upper() and "error" not in t.lower()[:200]:
+                    v["spot"] = True
+        except Exception:
+            pass
+        return v
+
+    # 🌐 follow_redirects إلزاميّ — CoinPaprika يُعيد 301 بدونه
+    async with _h.AsyncClient(follow_redirects=True,
+                              headers={"User-Agent": "Mozilla/5.0"}) as c:
+        tasks = [
+            _binance(c),
+            _simple(c, "bybit", "Bybit",
+                    f"https://api.bybit.com/v5/market/tickers?category=spot&symbol={pair}"),
+            _simple(c, "mexc", "MEXC",
+                    f"https://api.mexc.com/api/v3/ticker/24hr?symbol={pair}"),
+            _simple(c, "gate", "Gate.io",
+                    f"https://api.gateio.ws/api/v4/spot/tickers?currency_pair={base}_USDT"),
+            _simple(c, "okx", "OKX",
+                    f"https://www.okx.com/api/v5/market/ticker?instId={base}-USDT"),
+            _simple(c, "bitget", "Bitget",
+                    f"https://api.bitget.com/api/v2/spot/market/tickers?symbol={pair}"),
+        ]
+        res = await _a.gather(*tasks, return_exceptions=True)
+        for v in res:
+            if isinstance(v, dict) and (v["spot"] or v["futures"]):
+                out["venues"].append(v)
+                out["spot"] = out["spot"] or v["spot"]
+                out["futures"] = out["futures"] or v["futures"]
+
+        # 📊 القيمة السوقية والترتيب — حيّان من CoinPaprika
+        try:
+            r = await c.get("https://api.coinpaprika.com/v1/search",
+                            params={"q": base, "c": "currencies", "limit": 1},
+                            timeout=10)
+            cur = (r.json().get("currencies") or [])
+            if cur:
+                cid = cur[0]["id"]
+                r2 = await c.get(
+                    f"https://api.coinpaprika.com/v1/tickers/{cid}", timeout=10)
+                d2 = r2.json()
+                q = (d2.get("quotes") or {}).get("USD") or {}
+                out["market"].update({
+                    "name": d2.get("name"),
+                    "rank": d2.get("rank"),
+                    "market_cap": q.get("market_cap"),
+                    "vol24h_global": q.get("volume_24h"),
+                    "change_7d": q.get("percent_change_7d"),
+                    "change_30d": q.get("percent_change_30d"),
+                    "ath_price": q.get("ath_price"),
+                    "from_ath": q.get("percent_from_price_ath"),
+                    "supply": d2.get("circulating_supply"),
+                })
+        except Exception as e:
+            log.debug("paprika %s: %s", base, e)
+    return out
+
+
 @router.get("/api/scanner/scan")
 async def scan(symbol: str = Query(...)):
     sym = symbol.upper().replace("/", "").replace("-", "").strip()
