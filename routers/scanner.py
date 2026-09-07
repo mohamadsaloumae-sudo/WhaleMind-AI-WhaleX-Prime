@@ -245,6 +245,31 @@ async def scan(symbol: str = Query(...)):
                 _miss_ar = ["إشارات متضاربة"]; _miss_en = ["mixed signals"]
             reason_ar = " · ".join(_miss_ar); reason_en = " · ".join(_miss_en)
 
+        # 🪙 حكم السبوت — مقياسه الاتّجاه لا الضغط اللحظيّ. لا شورت فيه.
+        _ma20 = sum(closes[-20:]) / len(closes[-20:]) if len(closes) >= 20 else price
+        _above = price > _ma20
+        _slope = (_ma20 - (sum(closes[-40:-20]) / 20)) if len(closes) >= 40 else 0.0
+        spot_verdict, spot_ar, spot_en = "WAIT", "", ""
+        if ch24 < -15:
+            spot_verdict = "SHORT"
+            spot_ar = "هبوط حادّ مستمرّ — لا تُمسك سكّيناً هابطة"
+            spot_en = "Sharp ongoing drop — don't catch a falling knife"
+        elif rsi_v > 72 or range_pos > 0.88:
+            spot_verdict = "SHORT"
+            spot_ar = "قرب القمّة ومتشبّعة شرائياً — الدخول هنا مكلف"
+            spot_en = "Near the top and overbought — poor entry"
+        elif _above and _slope > 0 and rsi_v < 68 and range_pos < 0.8:
+            spot_verdict = "LONG"
+            spot_ar = "فوق متوسّط 20 والمتوسّط صاعد — اتّجاه شراء سليم"
+            spot_en = "Above rising 20-MA — healthy uptrend"
+        elif range_pos < 0.3 and rsi_v < 45 and ch24 > -8:
+            spot_verdict = "LONG"
+            spot_ar = "قرب القاع بلا انهيار — تجميع بسعر منخفض"
+            spot_en = "Near the bottom without collapse — accumulation zone"
+        else:
+            spot_ar = "الاتّجاه غير محسوم — الانتظار أوفر"
+            spot_en = "Trend undecided — waiting is cheaper"
+
         lev = 5
         try:
             lev = smart_leverage(_mk(verdict if verdict != "WAIT" else ("LONG" if p_long >= p_short else "SHORT")))
@@ -270,6 +295,7 @@ async def scan(symbol: str = Query(...)):
                    range_pos=round(range_pos, 2), ob_pressure=None if obp is None else round(obp, 2),
                    cvd_flow=flow, p_long=round(p_long * 100), p_short=round(p_short * 100),
                    verdict=verdict, reason=reason_ar, reason_en=reason_en,
+                   spot_verdict=spot_verdict, spot_reason=spot_ar, spot_reason_en=spot_en,
                    lev=int(lev), brief=brief_ar, brief_en=brief_en)
     except Exception as e:
         log.error("scan %s: %s", sym, e)

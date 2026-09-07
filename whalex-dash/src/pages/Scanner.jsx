@@ -115,13 +115,10 @@ export default function Scanner() {
   const useFut = mode === "futures" && isFut;
   const verdict = r?.ok && useFut ? V[r.verdict] : null;
 
-  // صياغة السبوت — تتبع حكم المحرّك نفسه فلا يظهر تناقض بين الوضعين
+  // حكم السبوت من الخادم — مقياسه الاتّجاه لا الضغط اللحظيّ
   const spotV = (() => {
     if (!r?.ok) return null;
-    // السبوت يتبع حكم المحرّك — لا يجوز أن يكون أجرأ منه
-    if (r.verdict === "LONG") return "LONG";
-    if (r.verdict === "SHORT") return "SHORT";
-    return "WAIT";
+    return r.spot_verdict || "WAIT";
   })();
   const SPOT_C = { LONG: "var(--green)", SHORT: "var(--red)", WAIT: "var(--amber)" };
   const SPOT_IC = { LONG: "\u{1F7E2}", SHORT: "\u{1F534}", WAIT: "\u23F8" };
@@ -301,7 +298,7 @@ export default function Scanner() {
           )}
 
           <div style={{ fontSize: 12.5, color: "var(--txt-2)", margin: "9px 0 10px", lineHeight: 1.7 }}>
-            {ar ? r.reason : r.reason_en}
+            {useFut ? (ar ? r.reason : r.reason_en) : (ar ? r.spot_reason : r.spot_reason_en)}
           </div>
           <div style={{
             fontSize: 12.5, lineHeight: 1.9, background: "var(--bg-2)",
