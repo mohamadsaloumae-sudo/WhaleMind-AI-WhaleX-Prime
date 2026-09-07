@@ -147,18 +147,23 @@ export default function Scanner() {
 
         {open && sug.length > 0 && (
           <div style={{
-            position: "absolute", top: "100%", insetInlineStart: 0, right: 0,
-            marginTop: 4, background: "var(--bg-1)", zIndex: 40,
-            border: "1px solid var(--bg-2)", borderRadius: 10,
-            maxHeight: 240, overflowY: "auto",
-            boxShadow: "0 12px 34px rgba(0,0,0,.5)",
+            position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0,
+            background: "var(--bg-1)", zIndex: 60,
+            border: "1px solid var(--bg-2)", borderRadius: 12,
+            maxHeight: 260, overflowY: "auto", direction: "ltr",
+            boxShadow: "0 16px 40px rgba(0,0,0,.6)",
           }}>
             {sug.map((x) => (
               <div key={x} onClick={() => go(x)} style={{
-                padding: "9px 13px", cursor: "pointer", fontSize: 13.5,
-                borderBottom: "1px solid var(--bg-2)", direction: "ltr",
-                fontWeight: 600,
-              }}>{x}<span style={{ color: "var(--txt-3)", fontSize: 11 }}>USDT</span></div>
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "11px 14px", cursor: "pointer", fontSize: 14,
+                borderBottom: "1px solid var(--bg-2)",
+                fontWeight: 700, letterSpacing: .3, textAlign: "left",
+              }}>
+                <span style={{ color: "var(--txt-0)" }}>{x}</span>
+                <span style={{ color: "var(--txt-3)", fontSize: 11,
+                               fontWeight: 500 }}>USDT</span>
+              </div>
             ))}
           </div>
         )}
