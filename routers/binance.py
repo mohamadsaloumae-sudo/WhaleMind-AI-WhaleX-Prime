@@ -73,6 +73,10 @@ class AutoTradeBody(BaseModel):
 # ─── ENDPOINTS ────────────────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════
 
+
+# 💵 أدنى رصيد لتفعيل التداول الآليّ
+MIN_BALANCE_USD = 10.0
+
 @router.get("/exchanges")
 async def exchanges():
     """🔌 المنصّات المدعومة — للواجهة.
@@ -262,6 +266,36 @@ async def auto_trade(body: AutoTradeBody, user=Depends(get_current_user)):
     if not creds:
         raise HTTPException(status_code=404, detail="not_connected")
     
+    # 💵 لا يُفعَّل تداول بلا رصيد كافٍ — الحساب الفارغ المفعَّل
+    #    كان يُنتج آلاف المحاولات الفاشلة يومياً تُغرق السجلّ وتُخفي
+    #    الأعطال الحقيقية، والمشترك لا يعرف السبب.
+    #    والإطفاء مسموح دائماً.
+    if body.enabled:
+        try:
+            import asyncio as _a2
+            from services.binance_trader import decrypt as _dec
+            from binance.client import Client as _C
+
+            def _read():
+                cl = _C(_dec(creds["api_key_encrypted"]),
+                        _dec(creds["api_secret_encrypted"]))
+                return sum(float(x["balance"])
+                           for x in cl.futures_account_balance()
+                           if x["asset"] == "USDT")
+
+            _bal = await _a2.to_thread(_read)
+            if _bal < MIN_BALANCE_USD:
+                log.info("💵 %s حاول التفعيل برصيد %.2f$ — مُنع", uid, _bal)
+                raise HTTPException(
+                    status_code=400,
+                    detail=(f"رصيدك {_bal:.2f}$ والحدّ الأدنى "
+                            f"{MIN_BALANCE_USD:.0f}$ — اشحن حسابك على "
+                            f"المنصّة ثم فعّل التداول الآليّ"))
+        except HTTPException:
+            raise
+        except Exception as _be:
+            log.warning("💵 تعذّر فحص رصيد %s: %s", uid, str(_be)[:60])
+
     ok = update_auto_trade_settings(
         user_id=uid,
         enabled=body.enabled,
