@@ -138,8 +138,16 @@ async def scanner_market(symbol: str = Query(...)):
                     for k, v in (d3.get("links") or {}).items():
                         if isinstance(v, list) and v:
                             links[k] = v[0]
+                    desc_ar = None
+                    if desc:
+                        try:
+                            from routers.ticker import _translate
+                            desc_ar = await _translate(desc[:480])
+                        except Exception as _te:
+                            log.debug("translate desc: %s", _te)
                     out["project"] = {
                         "desc": desc[:700] if desc else None,
+                        "desc_ar": desc_ar,
                         "tags": [t.get("name") for t in
                                  (d3.get("tags") or [])][:5],
                         "started": d3.get("started_at"),

@@ -359,10 +359,12 @@ export default function Scanner() {
               <div style={{
                 fontSize: 12, lineHeight: 1.85, color: "var(--txt-2)",
                 background: "var(--bg-2)", padding: "11px 13px",
-                borderRadius: 10, direction: "ltr", textAlign: "left",
+                borderRadius: 10,
+                direction: ar && pj.desc_ar ? "rtl" : "ltr",
+                textAlign: ar && pj.desc_ar ? "right" : "left",
                 maxHeight: expand ? "none" : 96, overflow: "hidden",
                 position: "relative",
-              }}>{pj.desc}</div>
+              }}>{ar && pj.desc_ar ? pj.desc_ar : pj.desc}</div>
               {pj.desc.length > 180 && (
                 <button onClick={() => setExpand(!expand)} style={{
                   marginTop: 5, border: 0, background: "transparent",
