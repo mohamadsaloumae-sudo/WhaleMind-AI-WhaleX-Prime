@@ -42,6 +42,8 @@ export default function Scanner() {
   const [mkt, setMkt] = useState(null);
   const [busy, setBusy] = useState(false);
   const [chart, setChart] = useState(false);
+  // 🔀 السوق المختار — فيوتشر أو سبوت. الحكم يتبعه.
+  const [mode, setMode] = useState("futures");
   const [recent, setRecent] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); }
     catch { return []; }
@@ -96,7 +98,8 @@ export default function Scanner() {
 
   const m = mkt?.market || {};
   const isFut = !!mkt?.futures;
-  const verdict = r?.ok && isFut ? V[r.verdict] : null;
+  const useFut = mode === "futures" && isFut;
+  const verdict = r?.ok && useFut ? V[r.verdict] : null;
 
   return (
     <div style={{ padding: 16, maxWidth: 560, margin: "0 auto" }}>
@@ -105,6 +108,19 @@ export default function Scanner() {
         {ar
           ? "افحص أي عملة على سبع منصّات — الحكم والمؤشّرات وبيانات السوق"
           : "Scan any coin across seven venues — verdict, indicators, market data"}
+      </div>
+
+      <div style={{ display: "flex", gap: 7, marginBottom: 11 }}>
+        {[["futures", "⚡", "فيوتشر", "Futures"],
+          ["spot", "🪙", "فوريّ", "Spot"]].map(([k, ic, a, e]) => (
+          <button key={k} onClick={() => setMode(k)} style={{
+            flex: 1, padding: "9px 0", borderRadius: 11, fontSize: 12.5,
+            fontWeight: 700, cursor: "pointer",
+            border: `1px solid ${mode === k ? "var(--brand)" : "var(--bg-2)"}`,
+            background: mode === k ? "rgba(45,212,191,.12)" : "var(--bg-1)",
+            color: mode === k ? "var(--brand)" : "var(--txt-3)",
+          }}>{ic} {ar ? a : e}</button>
+        ))}
       </div>
 
       {recent.length > 0 && (
@@ -183,8 +199,19 @@ export default function Scanner() {
         <div className="card" style={{
           marginTop: 14, padding: 12, borderRadius: 14, background: "var(--bg-1)",
         }}>
-          <div style={{ fontSize: 11.5, color: "var(--txt-3)", marginBottom: 8, fontWeight: 600 }}>
-            {ar ? "متاحة على" : "Available on"}
+          <div style={{
+            display: "flex", justifyContent: "space-between",
+            alignItems: "center", marginBottom: 8,
+          }}>
+            <span style={{ fontSize: 11.5, color: "var(--txt-3)", fontWeight: 600 }}>
+              {ar ? "متاحة على" : "Available on"}
+            </span>
+            <button onClick={() => setChart(true)} title={ar ? "الرسم" : "Chart"}
+              style={{
+                width: 30, height: 30, borderRadius: 9, cursor: "pointer",
+                border: "1px solid var(--brand)", background: "transparent",
+                color: "var(--brand)", fontSize: 14, lineHeight: 1,
+              }}>📊</button>
           </div>
           <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
             {mkt.venues.map((v) => (
@@ -227,7 +254,7 @@ export default function Scanner() {
             )}
           </div>
 
-          {!isFut && (
+          {mode === "futures" && !isFut && (
             <div style={{
               marginTop: 8, padding: "7px 10px", borderRadius: 9, fontSize: 11.5,
               background: "rgba(245,158,11,.1)", color: "var(--amber)",
@@ -242,10 +269,20 @@ export default function Scanner() {
             {ar ? r.reason : r.reason_en}
           </div>
           <div style={{
-            fontSize: 13, lineHeight: 1.75, background: "var(--bg-2)",
-            padding: "10px 12px", borderRadius: 10, marginBottom: 12,
+            fontSize: 12.5, lineHeight: 1.9, background: "var(--bg-2)",
+            padding: "11px 13px", borderRadius: 10, marginBottom: 12,
           }}>
-            {ar ? r.brief : r.brief_en}
+            {(ar ? r.brief : r.brief_en).split(/[،.]\s*/)
+              .filter((x) => x.trim().length > 3)
+              .map((line, i) => (
+                <div key={i} style={{
+                  display: "flex", gap: 7, alignItems: "flex-start",
+                  marginBottom: 3,
+                }}>
+                  <span style={{ color: "var(--brand)", flexShrink: 0 }}>·</span>
+                  <span>{line.trim()}</span>
+                </div>
+              ))}
           </div>
 
           <div style={{ fontSize: 11, color: "var(--txt-3)", fontWeight: 700, marginBottom: 4 }}>
@@ -263,7 +300,7 @@ export default function Scanner() {
               <div style={{ fontSize: 11, color: "var(--txt-3)", fontWeight: 700, margin: "12px 0 4px" }}>
                 {ar ? "بيانات السوق" : "Market data"}
               </div>
-              <Row l={ar ? "الترتيب العالميّ" : "Global rank"} v={`#${m.rank}`} />
+              <Row l={ar ? "الترتيب العالميّ" : "Global rank"} v={ar ? `رقم ${m.rank}` : `#${m.rank}`} />
               <Row l={ar ? "القيمة السوقية" : "Market cap"} v={fmtUsd(m.market_cap)} />
               <Row l={ar ? "حجم 24 ساعة" : "24h volume"} v={fmtUsd(m.vol24h_global ?? m.vol24h)} />
               {m.change_7d != null && (
@@ -281,24 +318,30 @@ export default function Scanner() {
             </>
           )}
 
-          <button onClick={() => setChart(!chart)} style={{
-            marginTop: 14, width: "100%", padding: "10px", borderRadius: 10,
-            border: "1px solid var(--brand)", background: "transparent",
-            color: "var(--brand)", fontWeight: 700, fontSize: 13, cursor: "pointer",
-          }}>
-            {chart ? (ar ? "إخفاء الرسم" : "Hide chart")
-                   : (ar ? "📈 عرض الرسم البيانيّ" : "📈 Show live chart")}
-          </button>
         </div>
       )}
 
       {chart && r?.ok && (
-        <div style={{
-          marginTop: 12, borderRadius: 14, overflow: "hidden",
-          border: "1px solid var(--bg-2)", height: 380,
+        <div onClick={() => setChart(false)} style={{
+          position: "fixed", inset: 0, zIndex: 90, padding: 14,
+          background: "rgba(0,0,0,.82)", display: "flex",
+          alignItems: "center", justifyContent: "center",
         }}>
+        <div onClick={(e) => e.stopPropagation()} style={{
+          position: "relative", width: "100%", maxWidth: 620,
+          borderRadius: 14, overflow: "hidden",
+          border: "1px solid var(--bg-2)", height: "72vh",
+          background: "var(--bg-0)",
+        }}>
+          <button onClick={() => setChart(false)} style={{
+            position: "absolute", top: 8, insetInlineEnd: 8, zIndex: 5,
+            width: 30, height: 30, borderRadius: 8, cursor: "pointer",
+            border: 0, background: "rgba(0,0,0,.6)", color: "#fff",
+            fontSize: 16, lineHeight: 1,
+          }}>✕</button>
           <iframe title="chart" style={{ width: "100%", height: "100%", border: 0 }}
             src={`https://www.tradingview.com/widgetembed/?symbol=BINANCE:${r.symbol}&interval=60&theme=dark&style=1&locale=${ar ? "ar_AE" : "en"}&hide_side_toolbar=1&save_image=0`} />
+        </div>
         </div>
       )}
 
