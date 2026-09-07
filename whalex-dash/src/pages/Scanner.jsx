@@ -72,7 +72,8 @@ export default function Scanner() {
   async function go(s) {
     const q = (s || sym).trim().toUpperCase();
     if (!q || busy) return;
-    setBusy(true); setR(null); setMkt(null); setOpen(false); setChart(false);
+    setBusy(true); setR(null); setMkt(null); setChart(false);
+    setOpen(false); setSug([]);   // 🔽 تُغلق فوراً عند الاختيار
     setSym(q);
     const next = [q, ...recent.filter((x) => x !== q)].slice(0, 10);
     setRecent(next);
@@ -111,15 +112,15 @@ export default function Scanner() {
       </div>
 
       <div style={{ display: "flex", gap: 7, marginBottom: 11 }}>
-        {[["futures", "⚡", "فيوتشر", "Futures"],
-          ["spot", "🪙", "فوريّ", "Spot"]].map(([k, ic, a, e]) => (
+        {[["futures", "العقود الآجلة", "Futures"],
+          ["spot", "العقود الفورية", "Spot"]].map(([k, a, e]) => (
           <button key={k} onClick={() => setMode(k)} style={{
             flex: 1, padding: "9px 0", borderRadius: 11, fontSize: 12.5,
             fontWeight: 700, cursor: "pointer",
             border: `1px solid ${mode === k ? "var(--brand)" : "var(--bg-2)"}`,
             background: mode === k ? "rgba(45,212,191,.12)" : "var(--bg-1)",
             color: mode === k ? "var(--brand)" : "var(--txt-3)",
-          }}>{ic} {ar ? a : e}</button>
+          }}>{ar ? a : e}</button>
         ))}
       </div>
 
@@ -208,10 +209,20 @@ export default function Scanner() {
             </span>
             <button onClick={() => setChart(true)} title={ar ? "الرسم" : "Chart"}
               style={{
-                width: 30, height: 30, borderRadius: 9, cursor: "pointer",
-                border: "1px solid var(--brand)", background: "transparent",
-                color: "var(--brand)", fontSize: 14, lineHeight: 1,
-              }}>📊</button>
+                border: 0, background: "transparent", cursor: "pointer",
+                padding: 2, lineHeight: 0,
+              }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <line x1="7" y1="3" x2="7" y2="21" stroke="var(--brand)"
+                      strokeWidth="1.4" />
+                <rect x="4.4" y="7" width="5.2" height="8" rx="1"
+                      fill="var(--brand)" />
+                <line x1="16.5" y1="3" x2="16.5" y2="21" stroke="var(--txt-3)"
+                      strokeWidth="1.4" />
+                <rect x="13.9" y="10" width="5.2" height="7" rx="1"
+                      fill="var(--txt-3)" />
+              </svg>
+            </button>
           </div>
           <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
             {mkt.venues.map((v) => (
@@ -272,17 +283,9 @@ export default function Scanner() {
             fontSize: 12.5, lineHeight: 1.9, background: "var(--bg-2)",
             padding: "11px 13px", borderRadius: 10, marginBottom: 12,
           }}>
-            {(ar ? r.brief : r.brief_en).split(/[،.]\s*/)
-              .filter((x) => x.trim().length > 3)
-              .map((line, i) => (
-                <div key={i} style={{
-                  display: "flex", gap: 7, alignItems: "flex-start",
-                  marginBottom: 3,
-                }}>
-                  <span style={{ color: "var(--brand)", flexShrink: 0 }}>·</span>
-                  <span>{line.trim()}</span>
-                </div>
-              ))}
+            <div style={{
+              textAlign: ar ? "right" : "left", wordBreak: "keep-all",
+            }}>{ar ? r.brief : r.brief_en}</div>
           </div>
 
           <div style={{ fontSize: 11, color: "var(--txt-3)", fontWeight: 700, marginBottom: 4 }}>
