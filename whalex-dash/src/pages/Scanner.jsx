@@ -324,6 +324,10 @@ export default function Scanner() {
             c={(m.change24h ?? r.change24h) >= 0 ? "var(--green)" : "var(--red)"} />
           <Row l="RSI" v={r.rsi} />
           <Row l={ar ? "موقع النطاق" : "Range position"} v={`${Math.round(r.range_pos * 100)}%`} />
+          {useFut && r.lev != null && (
+            <Row l={ar ? "الرافعة المقترحة" : "Suggested leverage"}
+                 v={`${r.lev}x`} c="var(--brand)" />
+          )}
 
           {m.rank && (
             <>
