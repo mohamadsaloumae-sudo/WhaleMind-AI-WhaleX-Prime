@@ -115,13 +115,12 @@ export default function Scanner() {
   const useFut = mode === "futures" && isFut;
   const verdict = r?.ok && useFut ? V[r.verdict] : null;
 
-  // حكم السبوت مستقلّ — يُبنى من احتمالات النموذج لا من حكم الفيوتشر
+  // صياغة السبوت — تتبع حكم المحرّك نفسه فلا يظهر تناقض بين الوضعين
   const spotV = (() => {
     if (!r?.ok) return null;
-    const pl = Number(r.p_long ?? 0), ps = Number(r.p_short ?? 0);
-    const rs = Number(r.rsi ?? 50);
-    if (rs > 75 || ps >= pl + 10) return "SHORT";
-    if (pl >= 55 && rs < 70) return "LONG";
+    // السبوت يتبع حكم المحرّك — لا يجوز أن يكون أجرأ منه
+    if (r.verdict === "LONG") return "LONG";
+    if (r.verdict === "SHORT") return "SHORT";
     return "WAIT";
   })();
   const SPOT_C = { LONG: "var(--green)", SHORT: "var(--red)", WAIT: "var(--amber)" };
@@ -277,7 +276,7 @@ export default function Scanner() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <b style={{ fontSize: 18, direction: "ltr" }}>{r.symbol}</b>
-              {m.name && <span style={{ color: "var(--txt-3)", fontSize: 12, marginInlineStart: 7 }}>{m.name}</span>}
+              {m.name && <span style={{ color: "var(--txt-3)", fontSize: 12, marginInlineStart: 9, opacity: .75 }}>· {m.name}</span>}
             </div>
             {verdict ? (
               <span style={{ color: verdict.c, fontWeight: 800, fontSize: 13.5 }}>
