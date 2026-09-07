@@ -325,8 +325,7 @@ export default function Scanner() {
           <Row l="RSI" v={r.rsi} />
           <Row l={ar ? "موقع النطاق" : "Range position"} v={`${Math.round(r.range_pos * 100)}%`} />
           {useFut && r.lev != null && (
-            <Row l={ar ? "الرافعة المقترحة" : "Suggested leverage"}
-                 v={`${r.lev}x`} c="var(--brand)" />
+            <Row l={ar ? "الرافعة المقترحة" : "Suggested leverage"} v={`${r.lev}x`} c="var(--brand)" />
           )}
 
           {m.rank && (
