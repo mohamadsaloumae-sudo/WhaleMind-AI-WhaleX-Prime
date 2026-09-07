@@ -87,6 +87,16 @@ def check(balance: float, open_count: int, open_margin: float,
         return True, wanted, "الحارس مُطفأ"
 
     cap = max_positions_for(balance, wanted)
+    # 💵 نُصغّر المبلغ ليناسب الرصيد بدل رفض الصفقة كلّياً.
+    #    مقيس: رصيد 22.55$ يطلب 25$ فيُعطى سقف صفر ويُحرَم من كل
+    #    الصفقات، مع أن المتاح 19.55$ يكفي لصفقة كاملة.
+    if cap == 0:
+        _usable = balance - max(balance * RESERVE_PCT, MIN_RESERVE_USD)
+        if _usable >= MIN_TRADE_USD:
+            wanted = round(_usable, 2)
+            cap = max_positions_for(balance, wanted)
+            log.info("💵 مبلغ مُصغَّر إلى %.2f$ ليناسب رصيد %.2f$",
+                     wanted, balance)
     if open_count >= cap:
         return False, 0.0, (f"سقف المراكز {cap} لرصيد {balance:.2f}$ "
                             f"(مفتوح {open_count})")
