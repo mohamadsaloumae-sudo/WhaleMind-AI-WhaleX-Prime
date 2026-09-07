@@ -192,6 +192,14 @@ def build_app():
         """ثلاث طرق للرمز — بعض العملاء يحذف ?token= عند الحفظ،
         فنقبله أيضاً كجزء من المسار: /<TOKEN>/sse"""
         async def dispatch(self, request, call_next):
+            p = request.url.path
+            if (False or p == "/register"
+                    or p == "/token"):
+                return await call_next(request)
+            p = request.url.path
+            if (p.startswith("/.well-known/") or p == "/register"
+                    or p == "/token"):
+                return await call_next(request)
             h = request.headers.get("authorization", "")
             tok = ""
             if h.lower().startswith("bearer "):
@@ -217,8 +225,43 @@ def build_app():
     _sec = TransportSecuritySettings(
         enable_dns_rebinding_protection=False)
     inner = mcp.sse_app(transport_security=_sec)
+
+    # 🔑 نقاط اكتشاف OAuth — التطبيق يبحث عنها ويفشل بـ"Failed to
+    #    start MCP authorization" إن لم يجدها. وهي مفتوحة بلا رمز
+    #    (لا تكشف شيئاً حسّاساً) بينما /sse يبقى محميّاً.
+    from starlette.routing import Route
+
+    async def _prot(rq):
+        b = str(rq.base_url).rstrip("/")
+        return JSONResponse({"resource": b, "authorization_servers": []})
+
+    async def _asrv(rq):
+        b = str(rq.base_url).rstrip("/")
+        return JSONResponse({
+            "issuer": b, "authorization_endpoint": b + "/authorize",
+            "token_endpoint": b + "/token",
+            "registration_endpoint": b + "/register",
+            "response_types_supported": ["code"],
+            "grant_types_supported": ["authorization_code"],
+            "code_challenge_methods_supported": ["S256"]})
+
+    async def _reg(rq):
+        return JSONResponse({"client_id": "whalex",
+                             "token_endpoint_auth_method": "none"}, 201)
+
+    async def _tok(rq):
+        return JSONResponse({"access_token": TOKEN, "token_type": "Bearer",
+                             "expires_in": 315360000})
+
     return Starlette(
-        routes=[Mount(f"/{TOKEN}", app=inner), Mount("/", app=inner)],
+        routes=[
+            Route("/.well-known/oauth-protected-resource", _prot),
+            Route("/.well-known/oauth-authorization-server", _asrv),
+            Route("/register", _reg, methods=["POST", "GET"]),
+            Route("/token", _tok, methods=["POST"]),
+            Mount(f"/{TOKEN}", app=inner),
+            Mount("/", app=inner),
+        ],
         middleware=[Middleware(Auth)])
 
 
