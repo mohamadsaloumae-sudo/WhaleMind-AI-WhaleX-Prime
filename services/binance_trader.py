@@ -1330,7 +1330,7 @@ def get_client(user_id: str) -> Optional[Client]:
 #   never convert to market.
 # Kill switch: touch /opt/whalex/db/limit_entry.off
 LIMIT_ENTRY_OFF = "/opt/whalex/db/limit_entry.off"
-LIMIT_WAIT_SEC = 30.0
+LIMIT_WAIT_SEC = 3.0
 LIMIT_FLEE_PCT = 3.0   # كان 1.0 — مقيس 8 سبتمبر: BNC +28.65% وBTR +11.41% ضاعتا بهروب 1.1-1.75%
 LIMIT_POLL_SEC = 1.0
 # ⚡ الإنقاذ السوقيّ — الحدّ لم يُملأ فندخل بالسوق إن كان السعر قريباً.
@@ -1339,7 +1339,7 @@ LIMIT_POLL_SEC = 1.0
 #    و-1.085% أسوأ حالة، فالحدّ 0.5% ثلاثة أضعاف المتوسّط ودون الأسوأ.
 #    الإطفاء: touch /opt/whalex/db/market_rescue.off
 MARKET_RESCUE_OFF = "/opt/whalex/db/market_rescue.off"
-MARKET_RESCUE_PCT = 1.5
+MARKET_RESCUE_PCT = 0.5
 
 
 def _limit_entry(client, symbol, side, direction, quantity, sig_px):
