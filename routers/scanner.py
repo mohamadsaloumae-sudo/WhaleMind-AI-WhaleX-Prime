@@ -302,8 +302,19 @@ async def scan(symbol: str = Query(...)):
         _flow_en = "Buying" if flow == "up" else ("Selling" if flow == "down" else "Neutral")
         _rsi_ar = "متشبّعة شرائياً" if rsi_v > 70 else ("متشبّعة بيعاً" if rsi_v < 30 else "متوازن")
         _rsi_en = "Overbought" if rsi_v > 70 else ("Oversold" if rsi_v < 30 else "Balanced")
-        _mdl_ar = "لونغ أرجح" if p_long > p_short else ("شورت أرجح" if p_short > p_long else "متعادل")
-        _mdl_en = "LONG favored" if p_long > p_short else ("SHORT favored" if p_short > p_long else "Even")
+        # الرقمان سؤالان منفصلان لا يجمعان 100% — لا تجوز مقارنتهما
+        _pv = p_long if verdict == "LONG" else (p_short if verdict == "SHORT" else max(p_long, p_short))
+        if verdict == "WAIT":
+            _mdl_ar, _mdl_en = "بلا اتّجاه", "No direction"
+        else:
+            _mdl_ar = ("ثقة عالية" if _pv >= 0.65 else "ثقة كافية" if _pv >= 0.45 else "ثقة ضعيفة")
+            _mdl_en = ("High confidence" if _pv >= 0.65 else "Adequate" if _pv >= 0.45 else "Low confidence")
+        _mdl_d_ar = (f"احتمال نجاح اللونغ {p_long*100:.0f}%" if verdict == "LONG"
+                     else f"احتمال نجاح الشورت {p_short*100:.0f}%" if verdict == "SHORT"
+                     else f"لونغ {p_long*100:.0f}% · شورت {p_short*100:.0f}% — تقديران منفصلان")
+        _mdl_d_en = (f"LONG success probability {p_long*100:.0f}%" if verdict == "LONG"
+                     else f"SHORT success probability {p_short*100:.0f}%" if verdict == "SHORT"
+                     else f"LONG {p_long*100:.0f}% · SHORT {p_short*100:.0f}% — separate estimates")
         facts = [
             {"k": "الحالة العامّة", "k_en": "Overall state", "v": _st_ar, "v_en": _st_en,
              "d": f"{ch24:+.1f}% خلال 24 ساعة", "d_en": f"{ch24:+.1f}% over 24h"},
@@ -317,8 +328,7 @@ async def scan(symbol: str = Query(...)):
             {"k": "التدفّق المنفَّذ", "k_en": "Executed flow", "v": _flow_ar, "v_en": _flow_en,
              "d": "اتّجاه الصفقات المنفَّذة فعلياً", "d_en": "Direction of actually executed trades"},
             {"k": "توقّع النموذج", "k_en": "Model forecast", "v": _mdl_ar, "v_en": _mdl_en,
-             "d": f"لونغ {p_long*100:.0f}% · شورت {p_short*100:.0f}%",
-             "d_en": f"LONG {p_long*100:.0f}% · SHORT {p_short*100:.0f}%"},
+             "d": _mdl_d_ar, "d_en": _mdl_d_en},
         ]
 
         out.update(ok=True, price=price, change24h=round(ch24, 2), rsi=round(rsi_v, 1),
