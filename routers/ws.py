@@ -27,6 +27,11 @@ from typing import Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 log = logging.getLogger("whalex.ws")
+
+# 🔐 الهوية من الرمز لا من الرابط — الرسائل تحوي حالة الحساب
+from fastapi import Depends as _Dep
+from routers.auth import get_current_user as _cur_user
+Depends = _Dep
 router = APIRouter()
 
 # ═══════════════════════════════════════════════════════════════
@@ -193,7 +198,9 @@ registry = ClientRegistry()
 
 
 @router.get("/api/my-messages")
-async def get_my_messages(user_id: str, limit: int = 30):
+async def get_my_messages(limit: int = 30,
+                          _u=Depends(_cur_user)):
+    user_id = _u.get("sub")
     """📬 رسائل هذا المشترك وحده — الاشتراك والمفاتيح والرصيد.
     مقيس 8 سبتمبر: كانت تُكتب في الجدول العامّ فيراها الجميع."""
     import sqlite3
@@ -213,7 +220,8 @@ async def get_my_messages(user_id: str, limit: int = 30):
 
 
 @router.post("/api/my-messages/seen")
-async def mark_my_messages_seen(user_id: str):
+async def mark_my_messages_seen(_u=Depends(_cur_user)):
+    user_id = _u.get("sub")
     """يعلّم رسائل المشترك مقروءة."""
     import sqlite3
     try:
