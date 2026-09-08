@@ -330,7 +330,7 @@ export default function Scanner() {
           </div>
 
           <Sec t={ar ? "المؤشّرات الفنّية" : "Technical indicators"} />
-          <Row l={ar ? "السعر الحيّ" : "Live price"} v={`$${fmtPx(m.price ?? r.price)}`} />
+          <Row l={ar ? "السعر المباشر" : "Live price"} v={`$${fmtPx(m.price ?? r.price)}`} />
           <Row l={ar ? "تغيّر 24 ساعة" : "24h change"}
             v={`${(m.change24h ?? r.change24h) > 0 ? "+" : ""}${Number(m.change24h ?? r.change24h).toFixed(2)}%`}
             c={(m.change24h ?? r.change24h) >= 0 ? "var(--green)" : "var(--red)"} />
