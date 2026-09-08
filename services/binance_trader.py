@@ -960,8 +960,39 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
             return {"success": False, "error": f"notional {_notional:.2f}$ < 5$ (زد المبلغ أو الرافعة)"}
 
         # 3. ضبط الرافعة
-        await _aio_th(client.futures_change_leverage, symbol=symbol,
-                      leverage=leverage)
+        # 🔧 ضبط الرافعة ثمّ التحقّق منها فعلياً — الاستدعاء وحده لا يكفي.
+        #    مقيس 8 سبتمبر: APEUSDT ضُبطت 5x وبقيت 20x على باينانس،
+        #    فعُرضت للمشترك +12.36% وهي عنده +42.84%.
+        try:
+            _lr = await _aio_th(client.futures_change_leverage,
+                                symbol=symbol, leverage=leverage)
+            log.info("🔧 %s رافعة مطلوبة %dx → ردّ باينانس %s",
+                     symbol, leverage, _lr.get("leverage"))
+        except Exception as _lve:
+            log.warning("🔧 %s تعذّر ضبط الرافعة %dx: %s",
+                        symbol, leverage, str(_lve)[:80])
+        # نقرأ الفعلية من الحساب — هي وحدها ما يُسجَّل ويُعرَض
+        _lev_real = leverage
+        try:
+            for _pp in (await _aio_th(client.futures_account)).get("positions", []):
+                if _pp.get("symbol") == symbol:
+                    _lev_real = int(float(_pp.get("leverage") or leverage))
+                    break
+            if _lev_real != leverage:
+                log.warning("🔧 %s الرافعة الفعلية %dx تخالف المطلوبة %dx — نعيد",
+                            symbol, _lev_real, leverage)
+                try:
+                    await _aio_th(client.futures_change_leverage,
+                                  symbol=symbol, leverage=leverage)
+                    for _pp in (await _aio_th(client.futures_account)).get("positions", []):
+                        if _pp.get("symbol") == symbol:
+                            _lev_real = int(float(_pp.get("leverage") or leverage))
+                            break
+                    log.info("🔧 %s بعد الإعادة: %dx", symbol, _lev_real)
+                except Exception as _r2:
+                    log.warning("🔧 %s فشل الإعادة: %s", symbol, str(_r2)[:60])
+        except Exception as _lce:
+            log.debug("قراءة الرافعة %s: %s", symbol, _lce)
 
         # 4. حساب الكمية (بدقة العملة)
         entry = signal["entry"]
@@ -1012,7 +1043,7 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
                     log.warning("📒 انزلاق %s: إشارة %.8g → تنفيذ %.8g (%.2f%%)",
                                 symbol, _sig_px, _real_fill, _slip)
             _lo(user_id, symbol, direction, _real_fill, quantity,
-                float(leverage), str(order_id), "futures")
+                float(_lev_real), str(order_id), "futures")
         except Exception as _le:
             log.debug("ledger open: %s", _le)
         log.info("✅ Trade opened: %s %s qty=%s (user %s, order %s)",
