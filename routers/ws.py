@@ -192,6 +192,41 @@ class ClientRegistry:
 registry = ClientRegistry()
 
 
+@router.get("/api/my-messages")
+async def get_my_messages(user_id: str, limit: int = 30):
+    """📬 رسائل هذا المشترك وحده — الاشتراك والمفاتيح والرصيد.
+    مقيس 8 سبتمبر: كانت تُكتب في الجدول العامّ فيراها الجميع."""
+    import sqlite3
+    try:
+        cn = sqlite3.connect("file:/opt/whalex/db/whalex.db?mode=ro", uri=True)
+        rows = cn.execute(
+            "SELECT id, message, created_at, COALESCE(seen,0) FROM user_messages "
+            "WHERE user_id=? ORDER BY id DESC LIMIT ?",
+            (str(user_id), int(limit))).fetchall()
+        cn.close()
+        return {"messages": [{"id": r[0], "message": r[1],
+                              "created_at": r[2], "seen": r[3]} for r in rows],
+                "unseen": sum(1 for r in rows if not r[3])}
+    except Exception as e:
+        log.debug("my-messages: %s", e)
+        return {"messages": [], "unseen": 0}
+
+
+@router.post("/api/my-messages/seen")
+async def mark_my_messages_seen(user_id: str):
+    """يعلّم رسائل المشترك مقروءة."""
+    import sqlite3
+    try:
+        cn = sqlite3.connect("/opt/whalex/db/whalex.db")
+        n = cn.execute("UPDATE user_messages SET seen=1 WHERE user_id=? AND "
+                       "COALESCE(seen,0)=0", (str(user_id),)).rowcount
+        cn.commit(); cn.close()
+        return {"ok": True, "marked": n}
+    except Exception as e:
+        log.debug("seen: %s", e)
+        return {"ok": False, "marked": 0}
+
+
 @router.get("/api/notifications")
 async def get_notifications(limit: int = 50, market: str = "futures"):
     """يرجع آخر الإشعارات المخزّنة (للجرس عند فتح الصفحة)"""
