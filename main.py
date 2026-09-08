@@ -67,6 +67,13 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(_el(), name="eligibility")
     except Exception as _ele:
         log.warning("بوابة الأهلية: %s", _ele)
+    # 🗺️ جدول الإدراج — أي عملة مدرجة على أي منصّة. بيانات من المصدر
+    #    لا استنتاج. الفشل يفتح: قائمة مفقودة تعني السماح لا الحجب.
+    try:
+        from services.listings import listings_loop as _ll
+        asyncio.create_task(_ll(), name="listings")
+    except Exception as _lle:
+        log.warning("جدول الإدراج: %s", _lle)
     # 🚑 منقذ الهامش — يُحرّر رصيد المشترك حين يضيق تحت الاحتياطيّ.
     #    مقيس: مشترك رصيده 10.14$ بقي متاحاً 2.17$ بعد أربع صفقات.
     try:

@@ -1312,7 +1312,7 @@ def get_client(user_id: str) -> Optional[Client]:
 # Kill switch: touch /opt/whalex/db/limit_entry.off
 LIMIT_ENTRY_OFF = "/opt/whalex/db/limit_entry.off"
 LIMIT_WAIT_SEC = 30.0
-LIMIT_FLEE_PCT = 1.0
+LIMIT_FLEE_PCT = 3.0   # كان 1.0 — مقيس 8 سبتمبر: BNC +28.65% وBTR +11.41% ضاعتا بهروب 1.1-1.75%
 LIMIT_POLL_SEC = 1.0
 
 

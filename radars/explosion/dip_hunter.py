@@ -139,6 +139,15 @@ async def _emit(symbol, d, position_manager_fn):
             await position_manager_fn(sig)
         except Exception as e:
             log.error("dip open %s: %s", symbol, e)
+    # 🚀 التنفيذ للمشتركين — كل رادار يستدعيه بنفسه.
+    #    كان ناقصاً هنا فيُفتح المركز في النظام ولا يصل احداً.
+    #    مقيس 8 سبتمبر: خمس صفقات DIP رابحة مفتوحة وصفر تنفيذ.
+    try:
+        import asyncio as _aio
+        from services.auto_trade_engine import on_signal_approved as _osa
+        _aio.create_task(_osa(sig))
+    except Exception as _te:
+        log.error("🔴 Dip Hunter: تعذّر ارسال %s للتنفيذ: %s", symbol, _te)
 
 
 async def dip_hunter_loop(position_manager_fn=None):
