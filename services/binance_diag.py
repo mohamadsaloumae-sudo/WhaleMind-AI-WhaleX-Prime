@@ -83,13 +83,21 @@ def diagnose(user_id: str) -> dict:
                 out["problems"].append("فشل الاتصال بباينانس")
             return out
 
+        # 🔬 التجربة الفعلية تُصحّح الحقل المُعلَن — مقيس 8 سبتمبر:
+        #    أربعة مشتركين enableFutures=False والفيوتشر يعمل عندهم،
+        #    فحُجبوا ظلماً عن التداول ووصلتهم رسالة خاطئة.
         try:
             for b in cl.futures_account_balance():
                 if b.get("asset") == "USDT":
                     out["futures_balance"] = float(b.get("balance") or 0)
                     break
+            if out["futures_enabled"] is False:
+                log.info("🔬 %s: enableFutures=False لكنّ الفيوتشر يعمل — نصحّح",
+                         user_id[:8])
+            out["futures_enabled"] = True
         except Exception as e:
             if "-2015" in str(e):
+                out["futures_enabled"] = False
                 out["problems"].append("الفيوتشر غير مفعّل على هذا المفتاح")
 
         try:
