@@ -1514,6 +1514,20 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
     except Exception as _e:
         log.warning("🛡️ تعذّر تسعير %s: %s — لا فتح", getattr(sig, "symbol", "?"), _e)
         return None
+    # 🌊 ضد تيّار التدفّق — نفس بوّابة المشتركين، فلا يفتح النظام
+    #    ما يُمنع عنهم. مقيس 8 سبتمبر على 2086 صفقة MX:
+    #      ضد التيار  946 صفقة · متوسّط -0.12% · مجموع -112
+    #      مع التيار 1140 صفقة · متوسّط +0.47% · مجموع +536
+    #    والتسجيل يبقى للتدريب — نمنع الفتح لا التعلّم.
+    try:
+        from services.entry_delay import against_flow as _af
+        if _af(sig):
+            log.info("🌊 %s %s لا تُفتح — ضد تيّار التدفّق (مسجّلة للتدريب)",
+                     sig.symbol, sig.direction)
+            return None
+    except Exception as _afe:
+        log.debug("against_flow: %s", _afe)
+
     # ═══ شرط 1: Grade A أو S فقط ═══
     if sig.grade not in ("A", "S"):
         log.debug("Position skip: %s grade=%s (only A/S open positions)", sig.symbol, sig.grade)
