@@ -139,9 +139,19 @@ async def revoke_access(user_id: str):
 
 
 async def _notify(user_id: str, msg: str):
+    # 📬 رسالة شخصية لصاحبها وحده — لا بثّ جماعيّ.
+    #    مقيس 8 سبتمبر: 924 تنبيه اشتراك في الجدول العامّ، فكل مشترك
+    #    يرى انتهاء اشتراك غيره. والجدول العامّ بلا عمود user_id أصلاً.
     try:
-        from services.notifier import push_note
-        await push_note("futures", "subscription", msg)
+        import re as _re
+        _clean = _re.sub(r"<[^>]+>", "", msg or "").strip()
+        _c = sqlite3.connect(DB)
+        _c.execute("""CREATE TABLE IF NOT EXISTS user_messages(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT,
+            message TEXT, created_at INTEGER, seen INTEGER DEFAULT 0)""")
+        _c.execute("INSERT INTO user_messages(user_id,message,created_at,seen) "
+                   "VALUES(?,?,?,0)", (str(user_id), _clean, int(time.time())))
+        _c.commit(); _c.close()
     except Exception:
         pass
     try:
