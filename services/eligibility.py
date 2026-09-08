@@ -135,6 +135,59 @@ def grace_state(uid, bal):
     return False, "الرصيد %.2f$ دون %.0f$ — انتهت المهلة" % (bal, _min_balance())
 
 
+# 🔑 تنبيه عطل المفتاح — مقيس 8 سبتمبر: 1501 محاولة فاشلة بمفاتيح
+#    معطّلة وأصحابها لا يعرفون. وbinzwinh خمس صفقات عالقة 9 أيام.
+KEY_NOTIFY_SEC = 24 * 3600
+_KEY_HOWTO = {
+    "لا مفتاح مربوط": "اربط مفاتيح باينانس من صفحة التداول الآليّ.",
+    "المفتاح مشوَّه": "المفتاح أو السرّ ناقص أو فيه مسافة زائدة — أعد لصقهما كاملين.",
+    "المفتاح مرفوض أو الخادم غير مسموح": (
+        "إمّا أنّ المفتاح حُذف من باينانس، أو أنّ تقييد العناوين لا يشمل "
+        "خادمنا. الحلّ: أضف العنوان 178.105.49.200 في قائمة العناوين "
+        "الموثوقة، أو أنشئ مفتاحاً جديداً."),
+    "المفتاح لا يعمل": "أعد إنشاء المفتاح من باينانس وحدّثه عندنا.",
+    "صلاحية العقود الآجلة غير مفعّلة": (
+        "مفتاحك سليم لكنّ صلاحية العقود الآجلة مغلقة. فعّل "
+        "Enable Futures من إعدادات المفتاح في باينانس."),
+}
+
+
+def _key_notify(uid, why):
+    """يُنبّه المشترك بعطل مفتاحه — مرّة كل يوم لا أكثر."""
+    try:
+        howto = _KEY_HOWTO.get(why)
+        if not howto:
+            return
+        c = sqlite3.connect(DB)
+        c.execute("""CREATE TABLE IF NOT EXISTS key_alerts(
+            user_id TEXT PRIMARY KEY, why TEXT, notified_at INTEGER)""")
+        r = c.execute("SELECT why, notified_at FROM key_alerts WHERE user_id=?",
+                      (uid,)).fetchone()
+        if r and r[0] == why and time.time() - (r[1] or 0) < KEY_NOTIFY_SEC:
+            c.close()
+            return
+        txt = ("🔑 تنبيه من وِيل إكس\n\n"
+               "التداول الآليّ متوقّف على حسابك.\n\n"
+               "السبب: %s\n\n"
+               "الحلّ: %s\n\n"
+               "وبعد الإصلاح يعود التداول تلقائياً خلال ربع ساعة."
+               ) % (why, howto)
+        c.execute("""CREATE TABLE IF NOT EXISTS user_messages(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT,
+            message TEXT, created_at INTEGER, seen INTEGER DEFAULT 0)""")
+        c.execute("INSERT INTO user_messages(user_id,message,created_at,seen) "
+                  "VALUES(?,?,?,0)", (uid, txt, int(time.time())))
+        c.execute("INSERT INTO key_alerts(user_id,why,notified_at) VALUES(?,?,?) "
+                  "ON CONFLICT(user_id) DO UPDATE SET why=excluded.why, "
+                  "notified_at=excluded.notified_at",
+                  (uid, why, int(time.time())))
+        c.commit()
+        c.close()
+        log.info("🔑 تنبيه مفتاح %s — %s", uid[:8], why)
+    except Exception as e:
+        log.debug("key_notify: %s", e)
+
+
 def _judge(d):
     err = str(d.get("error") or "")
     if "لم يربط" in err:
@@ -198,6 +251,8 @@ def refresh_one(user_id):
     except Exception as e:
         log.debug("diagnose %s: %s", user_id[:8], e)
         return prev or {}
+    if not ok:
+        _key_notify(user_id, why)
     fails = 0 if ok else int(prev.get("fails", 0)) + 1
     ent = {"ok": ok, "why": why, "ts": time.time(), "fails": fails}
     _CACHE[user_id] = ent
