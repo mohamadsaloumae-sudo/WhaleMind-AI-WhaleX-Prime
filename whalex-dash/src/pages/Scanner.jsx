@@ -99,13 +99,31 @@ export default function Scanner() {
     setBusy(false);
   }
 
-  const Row = ({ l, v, c }) => (
+  const Row = ({ l, v, c, hint }) => (
     <div style={{
-      display: "flex", justifyContent: "space-between", padding: "7px 0",
-      borderBottom: "1px solid var(--bg-2)", fontSize: 13,
+      display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center",
+      columnGap: 14, padding: "9px 12px", borderRadius: 9,
+      background: "var(--bg-0)", marginBottom: 5, minHeight: 40,
     }}>
-      <span style={{ color: "var(--txt-3)" }}>{l}</span>
-      <b style={{ color: c || "var(--txt-0)", direction: "ltr" }}>{v}</b>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ color: "var(--txt-2)", fontSize: 12.5, fontWeight: 600 }}>{l}</div>
+        {hint && (
+          <div style={{ color: "var(--txt-3)", fontSize: 10.5, marginTop: 2, lineHeight: 1.4 }}>{hint}</div>
+        )}
+      </div>
+      <b style={{
+        color: c || "var(--txt-0)", direction: "ltr", fontSize: 14,
+        whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums",
+      }}>{v}</b>
+    </div>
+  );
+
+  const Sec = ({ t }) => (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 9, margin: "16px 0 9px",
+    }}>
+      <span style={{ color: "var(--txt-2)", fontSize: 11.5, fontWeight: 800, whiteSpace: "nowrap" }}>{t}</span>
+      <span style={{ flex: 1, height: 1, background: "var(--bg-2)" }} />
     </div>
   );
 
@@ -311,25 +329,21 @@ export default function Scanner() {
             }}>{ar ? r.brief : r.brief_en}</div>
           </div>
 
-          <div style={{ fontSize: 11, color: "var(--txt-3)", fontWeight: 700, marginBottom: 4 }}>
-            {ar ? "المؤشّرات" : "Indicators"}
-          </div>
+          <Sec t={ar ? "المؤشّرات الفنّية" : "Technical indicators"} />
           <Row l={ar ? "السعر الحيّ" : "Live price"} v={`$${fmtPx(m.price ?? r.price)}`} />
           <Row l={ar ? "تغيّر 24 ساعة" : "24h change"}
             v={`${(m.change24h ?? r.change24h) > 0 ? "+" : ""}${Number(m.change24h ?? r.change24h).toFixed(2)}%`}
             c={(m.change24h ?? r.change24h) >= 0 ? "var(--green)" : "var(--red)"} />
-          <Row l="RSI" v={r.rsi} />
-          <Row l={ar ? "موقع النطاق" : "Range position"} v={`${Math.round(r.range_pos * 100)}%`} />
+          <Row l="RSI" v={r.rsi} hint={ar ? (r.rsi > 70 ? "فوق 70 — متشبّعة شرائياً" : r.rsi < 30 ? "تحت 30 — متشبّعة بيعاً" : "بين 30 و70 — منطقة متوازنة") : "Momentum gauge (30-70 balanced)"} />
+          <Row l={ar ? "موقع النطاق" : "Range position"} v={`${Math.round(r.range_pos * 100)}%`} hint={ar ? (r.range_pos > 0.75 ? "قرب قمّة الثمانية أيام — الشراء هنا مكلف" : r.range_pos < 0.25 ? "قرب قاع الثمانية أيام — سعر منخفض" : "وسط نطاق الثمانية أيام") : "Where price sits in the 8-day range"} />
           {useFut && r.lev != null && (
-            <Row l={ar ? "الرافعة المقترحة" : "Suggested leverage"} v={`${r.lev}x`} c="var(--brand)" />
+            <Row l={ar ? "الرافعة المقترحة" : "Suggested leverage"} v={`${r.lev}x`} c="var(--brand)" hint={ar ? "تضاعف الربح والخسارة معاً بنفس المقدار" : "Multiplies both profit and loss equally"} />
           )}
 
           {m.rank && (
             <>
-              <div style={{ fontSize: 11, color: "var(--txt-3)", fontWeight: 700, margin: "12px 0 4px" }}>
-                {ar ? "بيانات السوق" : "Market data"}
-              </div>
-              <Row l={ar ? "الترتيب العالميّ" : "Global rank"} v={ar ? `رقم #${m.rank}` : `#${m.rank}`} />
+              <Sec t={ar ? "بيانات السوق" : "Market data"} />
+              <Row l={ar ? "الترتيب العالميّ" : "Global rank"} v={ar ? `#${m.rank}` : `#${m.rank}`} hint={ar ? (m.rank <= 20 ? "من كبار السوق — سيولة عالية" : m.rank <= 100 ? "عملة متوسّطة الحجم" : "عملة صغيرة — تقلّب أعلى") : "Market cap ranking"} />
               <Row l={ar ? "القيمة السوقية" : "Market cap"} v={fmtUsd(m.market_cap)} />
               <Row l={ar ? "حجم 24 ساعة" : "24h volume"} v={fmtUsd(m.vol24h_global ?? m.vol24h)} />
               {m.change_7d != null && (
@@ -342,7 +356,7 @@ export default function Scanner() {
               )}
               {m.from_ath != null && (
                 <Row l={ar ? "البعد عن القمّة" : "From ATH"}
-                  v={`${Number(m.from_ath).toFixed(1)}%`} c="var(--red)" />
+                  v={`${Number(m.from_ath).toFixed(1)}%`} c="var(--red)" hint={ar ? "كم تبعد عن أعلى سعر بلغته في تاريخها" : "Distance from its all-time high"} />
               )}
             </>
           )}
