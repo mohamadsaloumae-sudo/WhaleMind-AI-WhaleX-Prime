@@ -1333,6 +1333,13 @@ LIMIT_ENTRY_OFF = "/opt/whalex/db/limit_entry.off"
 LIMIT_WAIT_SEC = 30.0
 LIMIT_FLEE_PCT = 3.0   # كان 1.0 — مقيس 8 سبتمبر: BNC +28.65% وBTR +11.41% ضاعتا بهروب 1.1-1.75%
 LIMIT_POLL_SEC = 1.0
+# ⚡ الإنقاذ السوقيّ — الحدّ لم يُملأ فندخل بالسوق إن كان السعر قريباً.
+#    مقيس 8 سبتمبر: 97 صفقة ضاعت في 7 أيام (71 مهلة + 26 هروب) = 14 يومياً.
+#    منها BNC +28.65% وBTR +11.41%. وانزلاقنا الطبيعيّ -0.162% متوسّطاً
+#    و-1.085% أسوأ حالة، فالحدّ 0.5% ثلاثة أضعاف المتوسّط ودون الأسوأ.
+#    الإطفاء: touch /opt/whalex/db/market_rescue.off
+MARKET_RESCUE_OFF = "/opt/whalex/db/market_rescue.off"
+MARKET_RESCUE_PCT = 0.5
 
 
 def _limit_entry(client, symbol, side, direction, quantity, sig_px):
@@ -1397,6 +1404,29 @@ def _limit_entry(client, symbol, side, direction, quantity, sig_px):
                  filled/float(quantity)*100)
         return od, ""
     log.info("LIMIT CANCEL %s - timeout %.0fs no fill", symbol, LIMIT_WAIT_SEC)
+    # ⚡ إنقاذ سوقيّ — بدل تفويت الصفقة ندخل بالسوق إن بقي السعر قريباً.
+    if not _os.path.exists(MARKET_RESCUE_OFF):
+        try:
+            _lv = float(client.futures_symbol_ticker(symbol=symbol).get("price") or 0)
+        except Exception as _le:
+            log.debug("rescue tick %s: %s", symbol, _le)
+            _lv = 0.0
+        if _lv > 0 and sig_px > 0:
+            _dr = ((sig_px - _lv) if direction == "SHORT"
+                   else (_lv - sig_px)) / sig_px * 100
+            if _dr <= MARKET_RESCUE_PCT:
+                try:
+                    _mo = client.futures_create_order(
+                        symbol=symbol, side=side, type="MARKET",
+                        quantity=quantity)
+                    log.info("⚡ %s إنقاذ سوقيّ — فرق %+.3f%% (حدّ %.2f%%)",
+                             symbol, _dr, MARKET_RESCUE_PCT)
+                    return _mo, ""
+                except Exception as _me:
+                    log.warning("⚡ %s تعذّر الإنقاذ: %s", symbol, str(_me)[:80])
+            else:
+                log.info("⚡ %s لا إنقاذ — فرق %+.3f%% فوق %.2f%%",
+                         symbol, _dr, MARKET_RESCUE_PCT)
     # 🎯 كمين السعر الافضل — الاشارة هربت، فبدل ملاحقتها ننصب
     #    امراً عند نقطة اجود من الاشارة وننتظرها 5 دقائق.
     #    مقيس 6 سبتمبر: 5 اشارات ضاعت بـtimeout وكانت ستعطي
