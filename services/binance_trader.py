@@ -799,10 +799,29 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
     #    من لا حساب له على تلك المنصّة يتخطّى الإشارة بهدوء.
     _sig_ex = symbol_exchange(signal["symbol"])
     creds = get_credentials_for(user_id, _sig_ex)
-    if not creds and _sig_ex == "binance":
-        creds = get_credentials(user_id)   # توافق خلفي
     if not creds:
-        return {"success": False, "error": "no_credentials"}
+        # 🗺️ لا حساب على منصّة الإشارة — نبحث في منصّاته الأخرى،
+        #    بشرط أن تكون العملة مدرجة هناك فعلاً (بيانات لا استنتاج).
+        try:
+            from services.listings import is_listed as _lst
+        except Exception:
+            _lst = None
+        _sym = signal["symbol"]
+        for _row in get_user_exchanges(user_id):
+            _ex = (_row.get("exchange") or "binance").lower()
+            if _ex == _sig_ex or not _row.get("auto_trade_enabled"):
+                continue
+            if _lst is not None and not _lst(_sym, _ex):
+                continue
+            _c = get_credentials_for(user_id, _ex)
+            if _c:
+                creds = _c
+                log.info("🗺️ %s %s → %s (غير مدرجة على %s لهذا المشترك)",
+                         user_id[:8], _sym, _ex, _sig_ex)
+                break
+    if not creds:
+        return {"success": False,
+                "error": f"لا حساب مربوط تُدرَج فيه {signal['symbol']}"}
     
     if not creds["auto_trade_enabled"]:
         return {"success": False, "error": "auto_trade_disabled"}
