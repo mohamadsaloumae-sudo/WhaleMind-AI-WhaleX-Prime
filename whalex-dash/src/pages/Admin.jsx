@@ -93,19 +93,41 @@ export default function Admin() {
   const [busy, setBusy] = useState("");
 
   async function load() {
-    try { setStats(await api.get("/api/admin/stats")); } catch (e) { setErr(e.message); }
-    try { const u = await api.get("/api/admin/users"); setUsers(u?.users || []); } catch { /* */ }
-    try { const f = await api.get("/api/admin/freeze"); setFrozen(!!f?.frozen); } catch { /* */ }
-    try { setRefs(await api.get("/api/admin/referrals")); }
-    catch (e) { setRefs({ error: e?.message || "تعذر الجلب" }); }
-    try { const w = await api.get("/api/admin/withdrawals"); setWds(w?.withdrawals || []); } catch { /* */ }
-    try {
-      const s = await api.get("/api/admin/support/pending");
-      setPending(s?.pending || []);
+    // 🚀 الطلبات الستّة بالتوازي لا بالتتابع
+    const [st, u, f, rf, w, sp] = await Promise.allSettled([
+      api.get("/api/admin/stats"),
+      api.get("/api/admin/users"),
+      api.get("/api/admin/freeze"),
+      api.get("/api/admin/referrals"),
+      api.get("/api/admin/withdrawals"),
+      api.get("/api/admin/support/pending"),
+    ]);
+    if (st.status === "fulfilled") setStats(st.value);
+    else setErr(st.reason?.message || "تعذر الجلب");
+    if (u.status === "fulfilled") setUsers(u.value?.users || []);
+    if (f.status === "fulfilled") setFrozen(!!f.value?.frozen);
+    if (rf.status === "fulfilled") setRefs(rf.value);
+    else setRefs({ error: rf.reason?.message || "تعذر الجلب" });
+    if (w.status === "fulfilled") setWds(w.value?.withdrawals || []);
+    if (sp.status === "fulfilled") {
+      setPending(sp.value?.pending || []);
       localStorage.setItem("wx_is_admin", "1");
-    } catch { /* */ }
+    }
   }
   useEffect(() => { load(); }, []);
+
+  // ⚡ الأرقام الحيّة وحدها كل 10 ثوانٍ — طلب واحد خفيف لا الصفحة كلّها
+  useEffect(() => {
+    let dead = false;
+    const tick = async () => {
+      try {
+        const st = await api.get("/api/admin/stats");
+        if (!dead) setStats(st);
+      } catch { /* الصمت أفضل */ }
+    };
+    const iv = setInterval(tick, 10000);
+    return () => { dead = true; clearInterval(iv); };
+  }, []);
 
   async function grantPro(uid) {
     setBusy(uid); setMsg("");
