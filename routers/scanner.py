@@ -297,12 +297,36 @@ async def scan(symbol: str = Query(...)):
                     f"{'buying' if flow=='up' else 'selling' if flow=='down' else 'neutral'}. "
                     f"Model: LONG {p_long*100:.0f}% · SHORT {p_short*100:.0f}%.")
 
+        # 📐 بنود التحليل الفنّيّ — كلّ بند مستقلّ ليُعرَض في صفّ خاصّ
+        _flow_ar = "شراء" if flow == "up" else ("بيع" if flow == "down" else "محايد")
+        _flow_en = "Buying" if flow == "up" else ("Selling" if flow == "down" else "Neutral")
+        _rsi_ar = "متشبّعة شرائياً" if rsi_v > 70 else ("متشبّعة بيعاً" if rsi_v < 30 else "متوازن")
+        _rsi_en = "Overbought" if rsi_v > 70 else ("Oversold" if rsi_v < 30 else "Balanced")
+        _mdl_ar = "لونغ أرجح" if p_long > p_short else ("شورت أرجح" if p_short > p_long else "متعادل")
+        _mdl_en = "LONG favored" if p_long > p_short else ("SHORT favored" if p_short > p_long else "Even")
+        facts = [
+            {"k": "الحالة العامّة", "k_en": "Overall state", "v": _st_ar, "v_en": _st_en,
+             "d": f"{ch24:+.1f}% خلال 24 ساعة", "d_en": f"{ch24:+.1f}% over 24h"},
+            {"k": "موقع السعر", "k_en": "Price position", "v": _pos_ar, "v_en": _pos_en,
+             "d": f"{range_pos*100:.0f}% من نطاق 8 أيام", "d_en": f"{range_pos*100:.0f}% of the 8-day range"},
+            {"k": "الزخم", "k_en": "Momentum", "v": _rsi_ar, "v_en": _rsi_en,
+             "d": f"RSI عند {rsi_v:.0f}", "d_en": f"RSI at {rsi_v:.0f}"},
+            {"k": "دفتر الأوامر", "k_en": "Order book", "v": _dom_ar, "v_en": _dom_en,
+             "d": ("لا بثّ عمق حيّ" if obp is None else f"ضغط {obp:+.2f}"),
+             "d_en": ("no live depth" if obp is None else f"pressure {obp:+.2f}")},
+            {"k": "التدفّق المنفَّذ", "k_en": "Executed flow", "v": _flow_ar, "v_en": _flow_en,
+             "d": "اتّجاه الصفقات المنفَّذة فعلياً", "d_en": "Direction of actually executed trades"},
+            {"k": "توقّع النموذج", "k_en": "Model forecast", "v": _mdl_ar, "v_en": _mdl_en,
+             "d": f"لونغ {p_long*100:.0f}% · شورت {p_short*100:.0f}%",
+             "d_en": f"LONG {p_long*100:.0f}% · SHORT {p_short*100:.0f}%"},
+        ]
+
         out.update(ok=True, price=price, change24h=round(ch24, 2), rsi=round(rsi_v, 1),
                    range_pos=round(range_pos, 2), ob_pressure=None if obp is None else round(obp, 2),
                    cvd_flow=flow, p_long=round(p_long * 100), p_short=round(p_short * 100),
                    verdict=verdict, reason=reason_ar, reason_en=reason_en,
                    spot_verdict=spot_verdict, spot_reason=spot_ar, spot_reason_en=spot_en,
-                   lev=int(lev), brief=brief_ar, brief_en=brief_en)
+                   lev=int(lev), brief=brief_ar, brief_en=brief_en, facts=facts)
     except Exception as e:
         log.error("scan %s: %s", sym, e)
         out["error"] = str(e)

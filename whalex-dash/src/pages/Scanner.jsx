@@ -318,16 +318,35 @@ export default function Scanner() {
           <div style={{ fontSize: 12.5, color: "var(--txt-2)", margin: "9px 0 10px", lineHeight: 1.7 }}>
             {useFut ? (ar ? r.reason : r.reason_en) : (ar ? r.spot_reason : r.spot_reason_en)}
           </div>
-          <div style={{
-            fontSize: 12.5, lineHeight: 1.9, background: "var(--bg-2)",
-            padding: "11px 13px", borderRadius: 10, marginBottom: 12,
-          }}>
-            <div style={{
-              direction: ar ? "rtl" : "ltr",
-              textAlign: ar ? "right" : "left",
-              unicodeBidi: "plaintext", lineHeight: 2,
-            }}>{ar ? r.brief : r.brief_en}</div>
-          </div>
+          {Array.isArray(r.facts) && r.facts.length > 0 && (
+            <>
+              <Sec t={ar ? "القراءة الفنّية" : "Technical read"} />
+              <div style={{ marginBottom: 4 }}>
+                {r.facts.map((f, i) => (
+                  <div key={i} style={{
+                    display: "grid", gridTemplateColumns: "1fr auto",
+                    alignItems: "center", columnGap: 14,
+                    padding: "10px 12px", borderRadius: 9,
+                    background: "var(--bg-0)", marginBottom: 5, minHeight: 44,
+                  }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ color: "var(--txt-2)", fontSize: 12.5, fontWeight: 700 }}>
+                        {ar ? f.k : f.k_en}
+                      </div>
+                      <div style={{
+                        color: "var(--txt-3)", fontSize: 10.5, marginTop: 3,
+                        lineHeight: 1.5, unicodeBidi: "plaintext",
+                      }}>{ar ? f.d : f.d_en}</div>
+                    </div>
+                    <b style={{
+                      color: "var(--txt-0)", fontSize: 12.5, whiteSpace: "nowrap",
+                      padding: "4px 10px", borderRadius: 7, background: "var(--bg-2)",
+                    }}>{ar ? f.v : f.v_en}</b>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           <Sec t={ar ? "المؤشّرات الفنّية" : "Technical indicators"} />
           <Row l={ar ? "السعر المباشر" : "Live price"} v={`$${fmtPx(m.price ?? r.price)}`} />
