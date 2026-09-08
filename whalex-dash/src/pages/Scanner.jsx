@@ -343,7 +343,7 @@ export default function Scanner() {
           {m.rank && (
             <>
               <Sec t={ar ? "بيانات السوق" : "Market data"} />
-              <Row l={ar ? "الترتيب العالميّ" : "Global rank"} v={ar ? `#${m.rank}` : `#${m.rank}`} hint={ar ? (m.rank <= 20 ? "من كبار السوق — سيولة عالية" : m.rank <= 100 ? "عملة متوسّطة الحجم" : "عملة صغيرة — تقلّب أعلى") : "Market cap ranking"} />
+              <Row l={ar ? "الترتيب العالميّ (رقم)" : "Global rank"} v={ar ? `${m.rank}` : `#${m.rank}`} hint={ar ? (m.rank <= 20 ? "من كبار السوق — سيولة عالية" : m.rank <= 100 ? "عملة متوسّطة الحجم" : "عملة صغيرة — تقلّب أعلى") : "Market cap ranking"} />
               <Row l={ar ? "القيمة السوقية" : "Market cap"} v={fmtUsd(m.market_cap)} />
               <Row l={ar ? "حجم 24 ساعة" : "24h volume"} v={fmtUsd(m.vol24h_global ?? m.vol24h)} />
               {m.change_7d != null && (
