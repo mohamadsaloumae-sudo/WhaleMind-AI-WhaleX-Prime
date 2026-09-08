@@ -196,7 +196,19 @@ async def scan(symbol: str = Query(...)):
         pk, lo = max(highs), min(lows)
         rng = pk - lo
         range_pos = (price - lo) / rng if rng > 0 else 0.5
-        ch24 = (price - closes[-7]) / closes[-7] * 100 if len(closes) >= 7 and closes[-7] > 0 else 0.0
+        # 📊 تغيّر 24 ساعة — من باينانس مباشرة. الحساب من الشموع بديل احتياطيّ فقط.
+        ch24 = None
+        try:
+            import httpx as _hx
+            async with _hx.AsyncClient(timeout=6) as _tc:
+                _tr = await _tc.get("https://api.binance.com/api/v3/ticker/24hr",
+                                    params={"symbol": sym})
+                if _tr.status_code == 200:
+                    ch24 = float(_tr.json().get("priceChangePercent") or 0)
+        except Exception as _ce:
+            log.debug("ch24 %s: %s", sym, _ce)
+        if ch24 is None:
+            ch24 = (price - closes[-6]) / closes[-6] * 100 if len(closes) >= 6 and closes[-6] > 0 else 0.0
 
         lc = live_context(sym)
         obp = lc.get("ob_pressure"); flow = lc.get("cvd_flow")
