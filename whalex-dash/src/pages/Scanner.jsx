@@ -276,11 +276,11 @@ export default function Scanner() {
               {m.name && <span style={{ color: "var(--txt-3)", fontSize: 12, marginInlineStart: 9, opacity: .75 }}>· {m.name}</span>}
             </div>
             {verdict ? (
-              <span style={{ color: verdict.c, fontWeight: 800, fontSize: 13.5 }}>
+              <span style={{ color: verdict.c, fontWeight: 800, fontSize: 12.5, padding: "5px 11px", borderRadius: 20, whiteSpace: "nowrap", background: "color-mix(in srgb, " + verdict.c + " 13%, transparent)", border: "1px solid color-mix(in srgb, " + verdict.c + " 35%, transparent)" }}>
                 {verdict.ic} {ar ? verdict.ar : verdict.en}
               </span>
             ) : (
-              <span style={{ color: SPOT_C[spotV], fontWeight: 800, fontSize: 13.5 }}>
+              <span style={{ color: SPOT_C[spotV], fontWeight: 800, fontSize: 12.5, padding: "5px 11px", borderRadius: 20, whiteSpace: "nowrap", background: "color-mix(in srgb, " + SPOT_C[spotV] + " 13%, transparent)", border: "1px solid color-mix(in srgb, " + SPOT_C[spotV] + " 35%, transparent)" }}>
                 {SPOT_IC[spotV]} {ar ? SPOT_V[spotV]?.ar : SPOT_V[spotV]?.en}
               </span>
             )}
