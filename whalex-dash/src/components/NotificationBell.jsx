@@ -122,6 +122,35 @@ export default function NotificationBell() {
       .catch(() => { /* تجاهل فشل التحميل الأولي */ });
   }, [mkt]);
 
+  // 📬 رسائل هذا المشترك وحده — الاشتراك والمفاتيح والرصيد.
+  //    تبقى في الوضعين لأنّها تخصّ الحساب لا السوق.
+  useEffect(() => {
+    let dead = false;
+    const pull = () => {
+      api.get("/api/my-messages?limit=20")
+        .then((d) => {
+          if (dead || !d || !Array.isArray(d.messages)) return;
+          const mine = d.messages.map((m) => ({
+            id: "p" + m.id,
+            event: "personal",
+            personal: true,
+            message: m.message,
+            message_en: m.message,
+            time: new Date((m.created_at || 0) * 1000),
+          }));
+          setItems((prev) => {
+            const rest = prev.filter((x) => !x.personal);
+            return [...mine, ...rest].slice(0, 60);
+          });
+          if (d.unseen > 0) setUnread((u) => u + d.unseen);
+        })
+        .catch(() => { /* غير مسجَّل أو الرمز منتهٍ */ });
+    };
+    pull();
+    const iv = setInterval(pull, 120000);
+    return () => { dead = true; clearInterval(iv); };
+  }, []);
+
   useEffect(() => {
     const proto = location.protocol === "https:" ? "wss" : "ws";
     let ws, alive = true, retry;
@@ -267,7 +296,8 @@ export default function NotificationBell() {
                     className="bell-item"
                     onClick={() => {
                       setOpen(false);
-                      const _pmEvents = ["tp1_hit", "tp2_hit", "position_closed", "pyramiding", "sl_warning", "trailing_active", "ai_alert"];
+                      if (it.personal) return;
+                        const _pmEvents = ["tp1_hit", "tp2_hit", "position_closed", "pyramiding", "sl_warning", "trailing_active", "ai_alert"];
                       navigate(_pmEvents.includes(it.event) ? "/live" : "/signals");
                     }}
                     style={{ cursor: "pointer" }}
@@ -275,7 +305,9 @@ export default function NotificationBell() {
                     {(() => {
                       const raw = lang === "ar" ? it.message : (it.message_en || it.message);
                       const { title, detail } = cleanMsg(raw);
-                      const tone = TONE(raw);
+                      const tone = it.personal
+                        ? { c: "#fbbf24", bg: "rgba(251,191,36,0.14)" }
+                        : TONE(raw);
                       return (
                         <div style={{ display: "flex", gap: 10, alignItems: "flex-start", width: "100%" }}>
                           <span style={{
