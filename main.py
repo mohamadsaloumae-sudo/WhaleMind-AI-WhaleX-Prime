@@ -74,6 +74,13 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(_ll(), name="listings")
     except Exception as _lle:
         log.warning("جدول الإدراج: %s", _lle)
+    # 🕵️ المراقب — يفحص ما يمسّ أموال المشتركين ويُنذر الأدمن.
+    #    مقيس 8 سبتمبر: رافعة APEUSDT بقيت 20x ولم نكتشفها إلا بصورة.
+    try:
+        from services.watchdog import watchdog_loop as _wd
+        asyncio.create_task(_wd(), name="watchdog")
+    except Exception as _wde:
+        log.warning("المراقب: %s", _wde)
     # 🚑 منقذ الهامش — يُحرّر رصيد المشترك حين يضيق تحت الاحتياطيّ.
     #    مقيس: مشترك رصيده 10.14$ بقي متاحاً 2.17$ بعد أربع صفقات.
     try:
