@@ -242,17 +242,19 @@ export default function Admin() {
           <div style={{ display: "grid", gap: 8 }}>
             {fUsers.map((u) => (
               <div key={u.id} onClick={() => setSheetUser(u.id)} style={{
-                display: "flex", justifyContent: "space-between", alignItems: "center",
+                display: "grid", gridTemplateColumns: "minmax(0,1fr) auto",
+                alignItems: "center", columnGap: 10,
                 padding: "12px 14px", background: "var(--bg-2)", borderRadius: "var(--radius-sm)",
                 cursor: "pointer",
               }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{u.username}</div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, overflow: "hidden",
+                                textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.username}</div>
                   {u.display_id && (
                     <div style={{ fontSize: 10.5, color: "var(--txt-3)",
                                   fontFamily: "monospace" }}>ID {u.display_id}</div>
                   )}
-                  <div style={{ fontSize: 11, color: "var(--txt-3)", display: "flex", gap: 7, alignItems: "center" }}>
+                  <div style={{ fontSize: 11, color: "var(--txt-3)", display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap", marginTop: 3 }}>
                     <span>{u.created_at ? new Date(u.created_at).toLocaleDateString(lang === "ar" ? "ar-AE" : "en-US", { timeZone: "Asia/Dubai" }) : ""}</span>
                     {u.has_binance ? (
                       <span style={{
