@@ -1339,7 +1339,7 @@ LIMIT_POLL_SEC = 1.0
 #    و-1.085% أسوأ حالة، فالحدّ 0.5% ثلاثة أضعاف المتوسّط ودون الأسوأ.
 #    الإطفاء: touch /opt/whalex/db/market_rescue.off
 MARKET_RESCUE_OFF = "/opt/whalex/db/market_rescue.off"
-MARKET_RESCUE_PCT = 0.5
+MARKET_RESCUE_PCT = 1.5
 
 
 def _limit_entry(client, symbol, side, direction, quantity, sig_px):
