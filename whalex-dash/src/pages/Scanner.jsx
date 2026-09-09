@@ -264,7 +264,7 @@ export default function Scanner() {
             </button>
           </div>
           <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-            {mkt.venues.map((v) => (
+            {mkt.venues.filter((v) => (mode === "spot" ? v.spot : v.futures)).map((v) => (
               <div key={v.id} style={{
                 display: "flex", alignItems: "center", gap: 5,
                 padding: "5px 9px", borderRadius: 9,
@@ -275,12 +275,29 @@ export default function Scanner() {
                   style={{ borderRadius: 4 }}
                   onError={(e) => { e.currentTarget.style.display = "none"; }} />
                 <span>{v.name}</span>
-                <span style={{ color: v.futures ? "var(--brand)" : "var(--txt-3)", fontSize: 9.5 }}>
-                  {v.futures ? "SPOT+FUT" : "SPOT"}
+                <span style={{ color: "var(--brand)", fontSize: 9.5 }}>
+                  {mode === "spot" ? "SPOT" : "FUT"}
                 </span>
               </div>
             ))}
           </div>
+          {(() => {
+            const shown = mkt.venues.filter((v) => (mode === "spot" ? v.spot : v.futures)).length;
+            const hidden = mkt.venues.length - shown;
+            if (!shown) return (
+              <div style={{ color: "var(--amber)", fontSize: 11.5, marginTop: 7 }}>
+                {ar ? (mode === "spot" ? "لا منصّة تتيح الشراء الفوريّ لهذه العملة"
+                                       : "لا منصّة تتيح العقود الآجلة لهذه العملة")
+                    : "No venue supports this market"}
+              </div>
+            );
+            if (!hidden) return null;
+            return (
+              <div style={{ color: "var(--txt-3)", fontSize: 11, marginTop: 7 }}>
+                {ar ? `${hidden} منصّة أخرى لا تتيح هذا السوق` : `${hidden} more venue(s) without this market`}
+              </div>
+            );
+          })()}
         </div>
       )}
 
