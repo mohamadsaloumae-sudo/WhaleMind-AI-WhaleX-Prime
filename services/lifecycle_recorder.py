@@ -48,7 +48,7 @@ def track(symbol: str, direction: str, entry: float, price: float,
 
 
 def finish(symbol: str, direction: str, close_reason: str = "",
-           atr_pct: float = None) -> dict:
+           atr_pct: float = None, row_id: int = None) -> dict:
     """عند الإغلاق: نكتب المسار في صفّ التدريب ونُفرغ الذاكرة."""
     k = (symbol, str(direction).upper())
     p = _paths.pop(k, None)
@@ -66,9 +66,13 @@ def finish(symbol: str, direction: str, close_reason: str = "",
         out["atr_pct_entry"] = round(float(atr_pct), 3)
     try:
         c = sqlite3.connect(DB)
-        row = c.execute(
+        # 🎯 المعرّف الصريح اولا. مقيس 9 سبتمبر: المطابقة بالعملة
+        #    والاتجاه كانت تكتب المسار على صف اشارة اجدد، فظهرت
+        #    صفقات mae اصغر من pnl وهو مستحيل رياضيا.
+        row = (row_id,) if row_id else c.execute(
             "SELECT id FROM training_signals WHERE symbol=? AND direction=? "
-            "ORDER BY id DESC LIMIT 1", (symbol, k[1])).fetchone()
+            "AND outcome IS NULL ORDER BY id DESC LIMIT 1",
+            (symbol, k[1])).fetchone()
         if row:
             sets = ", ".join(f"{f}=?" for f in out)
             c.execute(f"UPDATE training_signals SET {sets} WHERE id=?",

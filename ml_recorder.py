@@ -154,11 +154,6 @@ def update_result_by_match(symbol: str, direction: str, entry: float,
     #    والحاجز الذي لُمس أوّلاً. فالنموذج كان يعرف الدخول والنتيجة
     #    ولا يعرف الرحلة بينهما.
     try:
-        from services.lifecycle_recorder import finish as _lf
-        _lf(symbol, direction, close_reason or "")
-    except Exception:
-        pass
-    try:
         outcome = 1 if pnl_pct > 0 else 0
         conn = sqlite3.connect(DB_PATH)
         # نبحث عن آخر إشارة مفتوحة (outcome IS NULL) بنفس العملة والاتجاه، أقرب entry
@@ -169,6 +164,12 @@ def update_result_by_match(symbol: str, direction: str, entry: float,
         """, (symbol, direction, entry)).fetchone()
         if row:
             rid = row[0]
+            # 🧠 المسار يُكتب على الصفّ نفسه لا على اجدد صفّ.
+            try:
+                from services.lifecycle_recorder import finish as _lf
+                _lf(symbol, direction, close_reason or "", None, rid)
+            except Exception:
+                pass
             conn.execute("""
                 UPDATE training_signals SET result=?, exit_price=?, pnl_pct=?, closed_at=?, outcome=?,
                        peak_pnl=COALESCE(?, peak_pnl), close_reason=COALESCE(?, close_reason)
