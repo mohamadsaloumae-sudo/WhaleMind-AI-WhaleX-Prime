@@ -1651,9 +1651,16 @@ async def run_position_manager():
     #    كل صفقة لها تردّدها: الوليدة وقرب الوقف كل 3ث، والساكنة كل 15.
     #    مقيس: عشر صفقات بالتوازي 0.8 ثانية — فالحراسة اللحظية ممكنة،
     #    والتردّد المتكيّف يُعطيها بنصف الحمل (188 فحص/دقيقة بدل 400).
+    # 💓 نبضة دورية — لا تغير منطقا ولا قرارا، تثبت الحياة فقط.
+    #    المدير كان يسجل عند الاحداث فقط، فصمته لا يميز التوقف عن
+    #    عدم وجود صفقات. والنبضة تجعل حالته مقروءة كالرادارات.
+    _pulse_at = 0.0
     while True:
         try:
             positions = [p for p in ACTIVE.values() if p.status == "open"]
+            if _time.time() - _pulse_at >= 60:
+                _pulse_at = _time.time()
+                log.info("💓 الحارس يحرس %d صفقة", len(positions))
             if not positions:
                 _NEXT_CHECK.clear()
                 await asyncio.sleep(5)

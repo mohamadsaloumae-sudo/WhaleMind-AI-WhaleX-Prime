@@ -112,6 +112,9 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <style>{`@keyframes wxPulse {
+        0%,100% { opacity: 1; transform: scale(1); }
+        50% { opacity: .35; transform: scale(.78); } }`}</style>
       <div className="grid grid-2">
         <div className="card">
           <div className="card-title"><Radio size={14} style={{ verticalAlign: "middle", marginInlineEnd: 6 }} /> {t("radarsStatus")}</div>
@@ -120,7 +123,9 @@ export default function Dashboard() {
                         slow: ["#fbbf24", "بطيء", "slow"],
                         down: ["#f87171", "متوقّف", "down"],
                         unknown: ["#94a3b8", "غير معروف", "unknown"] };
-            const list = rdr.filter((x) => x.market === mkt);
+            const rank = (x) => (x.key.startsWith("ai_") ? 0 : x.market === "all" ? 1 : 2);
+            const list = rdr.filter((x) => x.market === mkt || x.market === "all")
+                            .sort((a, b) => rank(a) - rank(b));
             if (!list.length) return <div className="empty">…</div>;
             return list.map((x) => {
               const [col, ar, en] = S[x.state] || S.unknown;
@@ -128,7 +133,11 @@ export default function Dashboard() {
                 <div className="toggle-row" key={x.key}>
                   <span>{x.icon} {x.name}</span>
                   <span className="badge" style={{ color: col,
+                        display: "inline-flex", alignItems: "center", gap: 6,
                         background: `color-mix(in srgb, ${col} 15%, transparent)` }}>
+                    <i style={{ width: 7, height: 7, borderRadius: "50%",
+                        background: col, display: "inline-block",
+                        animation: x.state === "live" ? "wxPulse 1.8s ease-in-out infinite" : "none" }} />
                     {lang === "en" ? en : ar}
                   </span>
                 </div>

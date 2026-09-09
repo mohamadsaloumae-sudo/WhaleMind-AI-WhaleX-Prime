@@ -29,17 +29,28 @@ LOGGERS = {
     "spot_scan": "spot",
     "spot_scout": "spot",
     "meme_v2": "meme",
+    "position_manager": "guardian",
 }
 
 # المفتاح -> (الاسم المعروض، الرمز، السوق، عتبة الصمت بالثواني)
 RADARS = {
     "predator": ("WhaleX Predator", "⚡", "futures", 300),
     "mx":       ("WhaleX Predator MX", "⚡", "futures", 2400),
-    "short":    ("WhaleX Short", "🎯", "futures", 900),
-    "long":     ("WhaleX Long", "📈", "futures", 600),
+    "short":    ("WhaleX Short", "🔴", "futures", 900),
+    "long":     ("WhaleX Long", "🟢", "futures", 600),
     "spot":     ("WhaleX Spot", "🪙", "spot", 300),
     "meme":     ("WhaleX Meme", "🐸", "meme", 600),
+    "guardian": ("WhaleX Guardian", "🛡️", "all", 180),
 }
+
+# النماذج: حالتها من وقت اخر تدريب لا من نبضة.
+MODELS = {
+    "ai_futures": ("WhaleX AI Futures", "🤖", "futures",
+                   "/opt/whalex/ml_model.json"),
+    "ai_spot":    ("WhaleX AI Spot", "🤖", "spot",
+                   "/opt/whalex/spot_model.json"),
+}
+MODEL_FRESH_SEC = 48 * 3600
 
 _LINE = re.compile(r"^(\d+)\.\d+ .*?(?:INFO|WARNING|ERROR)\s+([a-z_0-9]+)\s+-")
 
@@ -94,6 +105,17 @@ def status() -> dict:
             "key": key, "name": name, "icon": icon, "market": market,
             "state": state, "seconds_ago": ago,
         })
+    import json
+    for key, (name, icon, market, path) in MODELS.items():
+        try:
+            t = float(json.load(open(path)).get("trained_at") or 0)
+            ago = int(now - t) if t else None
+            state = ("live" if ago is not None and ago <= MODEL_FRESH_SEC
+                     else "slow" if ago is not None else "unknown")
+        except Exception:
+            ago, state = None, "unknown"
+        out.append({"key": key, "name": name, "icon": icon,
+                    "market": market, "state": state, "seconds_ago": ago})
     _CACHE = {"ok": True, "off": False, "radars": out, "ts": int(now)}
     _CACHE_TS = now
     return _CACHE
