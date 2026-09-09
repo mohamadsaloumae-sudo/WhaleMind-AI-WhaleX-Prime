@@ -1,5 +1,21 @@
 from __future__ import annotations
 import asyncio, logging
+import socket as _sock
+
+# نجبر الاتصالات الخارجية على العنوان الرابع.
+# مقيس 9 سبتمبر: بينج اكس واوكي اكس نطاقاهما بالعنوانين، فبايثون
+# يفضل السادس بينما المشترك يقيد الرابع كما نطلب، فترفض المنصة 100419.
+# الحماية: نطاق بالسادس وحده يبقى كما هو فلا نقطعه.
+_gai_orig = _sock.getaddrinfo
+
+
+def _gai_v4_first(*a, **k):
+    res = _gai_orig(*a, **k)
+    v4 = [r for r in res if r[0] == _sock.AF_INET]
+    return v4 or res
+
+
+_sock.getaddrinfo = _gai_v4_first
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
