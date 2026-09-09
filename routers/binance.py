@@ -42,7 +42,7 @@ router = APIRouter(prefix="/api/binance", tags=["Binance"])
 class TestBody(BaseModel):
     api_key: str = Field(..., min_length=10)
     api_secret: str = Field(..., min_length=10)
-    is_testnet: bool = True
+    is_testnet: bool = False
     exchange: str = "binance"        # 🔌 اختياري — باينانس افتراضياً
     passphrase: str = ""             # 🔑 لأوكي إكس وبيتجت فقط
 
@@ -50,7 +50,7 @@ class TestBody(BaseModel):
 class ConnectBody(BaseModel):
     api_key: str = Field(..., min_length=10)
     api_secret: str = Field(..., min_length=10)
-    is_testnet: bool = True
+    is_testnet: bool = False
     account_type: str = Field(default="futures", pattern="^(spot|futures|both)$")
     exchange: str = "binance"        # 🔌 اختياري — باينانس افتراضياً
     passphrase: str = ""             # 🔑 لأوكي إكس وبيتجت فقط

@@ -86,7 +86,7 @@ export default function AutoTrade() {
   const [passphrase, setPassphrase] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
-  const [testnet, setTestnet] = useState(true);
+  const [testnet, setTestnet] = useState(false);
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
   const [balance, setBalance] = useState(null);
