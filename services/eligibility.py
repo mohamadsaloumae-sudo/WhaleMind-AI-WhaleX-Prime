@@ -194,6 +194,11 @@ def _judge(d):
         return False, "لا مفتاح مربوط"
     if "-2014" in err or "format invalid" in err:
         return False, "المفتاح مشوَّه"
+    # حد الطلبات خطؤنا لا خطؤه. مقيس 9 سبتمبر: 1003 انتقل من
+    # 979c576d فجرا الى a724d896 ظهرا، فهو توقيت لا صفة مفاتيح.
+    # نرجع None فلا يصنف ولا ينبه ولا يحجب، ويعاد فحصه لاحقا.
+    if "-1003" in err or "too many requests" in err.lower():
+        return None, "حدّ طلبات مؤقّت"
     if "-2015" in err or "Invalid API-key" in err:
         return False, "المفتاح مرفوض أو الخادم غير مسموح"
     if d.get("key_valid") is False:
@@ -250,6 +255,9 @@ def refresh_one(user_id):
         ok, why = _judge(d)
     except Exception as e:
         log.debug("diagnose %s: %s", user_id[:8], e)
+        return prev or {}
+    if ok is None:
+        log.info("GATE %s تخطي مؤقت — %s", user_id[:8], why)
         return prev or {}
     if not ok:
         _key_notify(user_id, why)
