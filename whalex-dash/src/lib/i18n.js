@@ -79,7 +79,7 @@ export const TRANSLATIONS = {
 
     // الرئيسية
     status: "الحالة",
-    connectedLive: "متّصل حيّ",
+    connectedLive: "متّصل مباشر",
     notConnected: "غير متّصل",
     notifTitle: "الإشعارات",
     notifDesc: "استقبل تنبيهاً على هاتفك عند كل إشارة جديدة وكل تحديث من مدير الصفقات — حتى والتطبيق مغلق.",

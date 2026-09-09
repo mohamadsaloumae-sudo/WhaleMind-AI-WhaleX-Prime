@@ -61,6 +61,15 @@ export default function Dashboard() {
       {lang === "ar" ? ar : en}
     </button>
   );
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(id);
+  }, []);
+  const stamp = now.toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US",
+                  { day: "numeric", month: "long" })
+    + " · " + now.toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-US",
+                  { hour: "numeric", minute: "2-digit" });
   return (
     <>
       <ChatWidget />
@@ -85,6 +94,7 @@ export default function Dashboard() {
         <div className="card stat">
           <span className="label">{t("todayProfit")}</span>
           <span className="value" style={{ color: day.profit >= 0 ? "var(--green)" : "var(--red)" }}>{day.profit >= 0 ? "+" : ""}{day.profit.toFixed(1)}%</span>
+          <span style={{ fontSize: 11, color: "var(--txt-3)", marginTop: 2 }}>{stamp}</span>
         </div>
         <div className="card stat">
           <span className="label">{t("winRate")}</span>
@@ -117,6 +127,10 @@ export default function Dashboard() {
               </div>
               <div className="toggle-row">
                 <span>⚡ WhaleX Predator</span>
+                <span className="badge grade">{t("working")}</span>
+              </div>
+              <div className="toggle-row">
+                <span>⚡ WhaleX Predator MX</span>
                 <span className="badge grade">{t("working")}</span>
               </div>
             </>
