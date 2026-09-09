@@ -192,6 +192,11 @@ def _key_notify(uid, why):
 
 def _judge(d):
     err = str(d.get("error") or "")
+    # تشخيصنا لباينانس وحدها. مقيس 9 سبتمبر: حساب بايبت سليم
+    # حكمنا عليه بالمفتاح لا يعمل لان diagnose خرج قبل الفحص،
+    # فكان على حافة الحجب وينتظره تنبيه كاذب. لا نحكم بما لا نعلم.
+    if "منصّة غير باينانس" in err:
+        return None, "منصّة أخرى — لا تشخيص"
     if "لم يربط" in err:
         return False, "لا مفتاح مربوط"
     if "-2014" in err or "format invalid" in err:
