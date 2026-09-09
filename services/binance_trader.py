@@ -562,16 +562,21 @@ def _get_symbol_filters(client, symbol: str) -> dict:
     """يجلب دقة السعر والكمية للعملة من Binance (مع cache)."""
     if symbol in _SYMBOL_FILTERS:
         return _SYMBOL_FILTERS[symbol]
+    # 📊 مقيس 9 سبتمبر: كان يجلب 700 عملة ويخزن واحدة ويرمي الباقي،
+    #    فكل عملة جديدة = جلب كامل (235ms) قبل وضع الامر مباشرة.
+    #    الان نخزن الكل من الجلبة الواحدة فيصير الجلب مرة في العمر.
     try:
         info = client.futures_exchange_info()
-        for s in info["symbols"]:
-            if s["symbol"] == symbol:
-                f = {
-                    "price_prec": int(s["pricePrecision"]),
-                    "qty_prec": int(s["quantityPrecision"]),
+        for _s in info.get("symbols", []):
+            try:
+                _SYMBOL_FILTERS[_s["symbol"]] = {
+                    "price_prec": int(_s["pricePrecision"]),
+                    "qty_prec": int(_s["quantityPrecision"]),
                 }
-                _SYMBOL_FILTERS[symbol] = f
-                return f
+            except Exception:
+                continue
+        if symbol in _SYMBOL_FILTERS:
+            return _SYMBOL_FILTERS[symbol]
     except Exception as e:
         log.warning("exchange_info %s فشل: %s", symbol, e)
     return {"price_prec": 2, "qty_prec": 3}
@@ -963,21 +968,29 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
         # 🔧 ضبط الرافعة ثمّ التحقّق منها فعلياً — الاستدعاء وحده لا يكفي.
         #    مقيس 8 سبتمبر: APEUSDT ضُبطت 5x وبقيت 20x على باينانس،
         #    فعُرضت للمشترك +12.36% وهي عنده +42.84%.
+        _lr_lev = 0
         try:
             _lr = await _aio_th(client.futures_change_leverage,
                                 symbol=symbol, leverage=leverage)
+            _lr_lev = int(float((_lr or {}).get("leverage") or 0))
             log.info("🔧 %s رافعة مطلوبة %dx → ردّ باينانس %s",
-                     symbol, leverage, _lr.get("leverage"))
+                     symbol, leverage, _lr_lev or "بلا ردّ")
         except Exception as _lve:
             log.warning("🔧 %s تعذّر ضبط الرافعة %dx: %s",
                         symbol, leverage, str(_lve)[:80])
-        # نقرأ الفعلية من الحساب — هي وحدها ما يُسجَّل ويُعرَض
+        # 📊 مقيس 9 سبتمبر: futures_account يكلف 240ms وهو الحساب كله،
+        #    وردّ change_leverage يحمل الرافعة المضبوطة فعلا. فنقرؤها منه
+        #    ونرجع للحساب فقط عند غياب الرد او مخالفته — فلا نفقد حماية
+        #    APEUSDT ونوفر طلبا في كل صفقة سليمة.
         _lev_real = leverage
         try:
-            for _pp in (await _aio_th(client.futures_account)).get("positions", []):
-                if _pp.get("symbol") == symbol:
-                    _lev_real = int(float(_pp.get("leverage") or leverage))
-                    break
+            if _lr_lev == leverage:
+                _lev_real = _lr_lev
+            else:
+                for _pp in (await _aio_th(client.futures_account)).get("positions", []):
+                    if _pp.get("symbol") == symbol:
+                        _lev_real = int(float(_pp.get("leverage") or leverage))
+                        break
             if _lev_real != leverage:
                 log.warning("🔧 %s الرافعة الفعلية %dx تخالف المطلوبة %dx — نعيد",
                             symbol, _lev_real, leverage)
