@@ -927,6 +927,14 @@ async def _meme_broadcast(p, sc):
 
 
 _SL_PENDING: dict = {}
+# 🕶️ عمى السعر: اختفاء الزوج من المصدر ليس لا خطر بل اقوى اشارة خطر.
+#    مقيس 9 سبتمبر: 5 صفقات اغلقت عند -97% لان البركة سحبت.
+#    ثلاث محاولات (60 ثانية) ثم اغلاق باخر سعر معروف.
+#    الاطفاء: touch /opt/whalex/db/meme_blind.off
+_BLIND: dict = {}
+_BLIND_LIQ: dict = {}
+BLIND_MAX = 3
+BLIND_OFF = "/opt/whalex/db/meme_blind.off"
 _SAFETY_LAST: dict = {}          # 🛡️ آخر فحص أمان لكل صفقة
 SAFETY_RECHECK_SEC = 20          # 🚨 السحب يقع في دقيقة — لا مؤشّر يسبقه
 LIQ_DRAIN_EXIT = 0.85            # 🚨 أي انخفاض 15% في البركة = خروج فوري
@@ -1008,7 +1016,21 @@ async def _meme_track_one(cc, r):
     if px <= 0:
         pairs = await _fetch_pairs(cc, r["address"])
         if not pairs:
+            _bn = _BLIND.get(r["id"], 0) + 1
+            _BLIND[r["id"]] = _bn
+            _lastp = float(r.get("last_price") or 0)
+            if (_bn >= BLIND_MAX and _lastp > 0
+                    and not os.path.exists(BLIND_OFF)):
+                _e0 = float(r.get("entry_price") or 0)
+                _pn = ((_lastp - _e0) / _e0 * 100) if _e0 > 0 else 0.0
+                log.warning("🕶️ %s اختفى من المصدر %d مرات — اغلاق باخر سعر %.8g (%.1f%%)",
+                            r.get("symbol"), _bn, _lastp, _pn)
+                _meme_close(r["id"], _lastp, _pn)
+                await _meme_close_broadcast(r, _lastp, _pn, "🕶️ اختفاء الزوج")
+                _BLIND.pop(r["id"], None)
+                _SL_PENDING.pop(r["id"], None)
             return
+        _BLIND.pop(r["id"], None)
         best = max(pairs, key=lambda x: (x.get("liquidity") or {}).get("usd", 0) or 0)
         px = float(best.get("priceUsd") or 0)
     entry = float(r.get("entry_price") or 0)
@@ -1032,6 +1054,7 @@ async def _meme_track_one(cc, r):
                 _bp = max(_lp, key=lambda x: (x.get("liquidity") or {}).get("usd", 0) or 0)
                 _now_liq = float((_bp.get("liquidity") or {}).get("usd", 0) or 0)
                 _base_liq = float(r.get("liq") or 0)
+                _BLIND_LIQ.pop(_sid_g, None)
                 if _base_liq > 0 and _now_liq < _base_liq * LIQ_DRAIN_EXIT:
                     log.warning("🚨 %s سحب سيولة: $%.0f → $%.0f (%.0f%%) — خروج فوري",
                                 r.get("symbol"), _base_liq, _now_liq,
@@ -1046,8 +1069,26 @@ async def _meme_track_one(cc, r):
                     _SL_PENDING.pop(_sid_g, None)
                     _SAFETY_LAST.pop(_sid_g, None)
                     return
+            else:
+                # 🕶️ اختفاء بيانات البركة ليس لا خطر — البركة قد تكون سحبت.
+                _bl = _BLIND_LIQ.get(_sid_g, 0) + 1
+                _BLIND_LIQ[_sid_g] = _bl
+                if _bl >= BLIND_MAX and not os.path.exists(BLIND_OFF):
+                    log.warning("🕶️ %s بركة مفقودة %d مرات — اغلاق وقائي %.1f%%",
+                                r.get("symbol"), _bl, pnl)
+                    try:
+                        from radars.memecoin.live_stream import unwatch_token
+                        await unwatch_token(r["address"])
+                    except Exception:
+                        pass
+                    _meme_close(r["id"], px, pnl)
+                    await _meme_close_broadcast(r, px, pnl, "🕶️ بركة مفقودة")
+                    _BLIND_LIQ.pop(_sid_g, None)
+                    _SL_PENDING.pop(_sid_g, None)
+                    _SAFETY_LAST.pop(_sid_g, None)
+                    return
         except Exception as _le:
-            log.debug("liq drain check: %s", _le)
+            log.warning("🕶️ %s فشل فحص البركة: %s", r.get("symbol"), str(_le)[:60])
         # 🛡️ الحارس يفحص ما يتغيّر فقط (سحب السيولة أعلاه · rugged) —
         #    لا شروط الدخول التي قبلناها. كان يُغلق KM بعد ثانية بـ"قفل 0%"
         #    بينما الرادار قبلها كمحروقة (LP=11.23).
