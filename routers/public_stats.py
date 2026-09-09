@@ -91,7 +91,12 @@ async def showcase():
         from radars.futures.position_manager import get_price
         cn = sqlite3.connect("/opt/whalex/positions.db")
         rows = list(cn.execute(
-            "SELECT data FROM active_positions WHERE status!='closed'"))
+            # 🛡️ نفس شرط صفحة الصفقات حرفياً — كان status!='closed'
+            #    فيعرض اي صفّ بحالة ثالثة (فارغة/pending) كصفقة شبحية
+            #    لا وجود لها في صفحة المفتوحة. وقيد اليوم يمنع العوالق.
+            "SELECT data FROM active_positions WHERE status='open' "
+            "AND json_extract(data,'$.opened_at') > "
+            "strftime('%s','now','-24 hours')"))
         cn.close()
         for (d,) in rows:
             try:
@@ -131,8 +136,11 @@ async def showcase():
         cs = sqlite3.connect("/opt/whalex/db/whalex.db")
         cs.row_factory = sqlite3.Row
         _sp = [dict(x) for x in cs.execute(
+            # 🛡️ قيد اليوم — spot_reconcile لا يُحدّث هذا الجدول
+            #    فتبقى صفوف open الى الابد وتظهر كصفقات شبحية.
             "SELECT symbol, entry FROM spot_positions_multi "
-            "WHERE status='open' AND entry>0 LIMIT 12")]
+            "WHERE status='open' AND entry>0 "
+            "AND ts > strftime('%s','now','-24 hours') LIMIT 12")]
         cs.close()
         _seen = set()
         for _r in _sp:
@@ -185,6 +193,7 @@ async def showcase():
                 "SELECT symbol, direction, entry, exit_price, pnl_pct, "
                 "leverage, exchange, closed_at FROM training_signals "
                 "WHERE pnl_pct > 0 AND closed_at IS NOT NULL "
+                "AND exit_price IS NOT NULL AND exit_price > 0 "
                 "AND result IS NOT NULL AND result NOT LIKE 'shadow%' "
                 "ORDER BY closed_at DESC LIMIT 1").fetchone()
             cf.close()

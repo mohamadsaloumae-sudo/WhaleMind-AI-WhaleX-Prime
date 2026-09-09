@@ -61,6 +61,17 @@ export default function Dashboard() {
       {lang === "ar" ? ar : en}
     </button>
   );
+  const [rdr, setRdr] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    const pull = () => fetch("/api/radars/status")
+      .then((r) => r.json())
+      .then((d) => { if (alive && d && d.radars) setRdr(d.radars); })
+      .catch(() => {});
+    pull();
+    const id = setInterval(pull, 60000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60000);
@@ -104,37 +115,27 @@ export default function Dashboard() {
       <div className="grid grid-2">
         <div className="card">
           <div className="card-title"><Radio size={14} style={{ verticalAlign: "middle", marginInlineEnd: 6 }} /> {t("radarsStatus")}</div>
-          {mkt === "meme" ? (
-            <div className="toggle-row">
-              <span>🐸 WhaleX Meme</span>
-              <span className="badge grade">{t("working")}</span>
-            </div>
-          ) : mkt === "spot" ? (
-            <div className="toggle-row">
-              <span>🪙 WhaleX Spot</span>
-              <span className="badge grade">{t("working")}</span>
-            </div>
-          ) : (
-            <>
-              <div className="toggle-row">
-                <span>📈 WhaleX Long</span>
-                <span className="badge grade">{t("working")}</span>
-              </div>
-              <div className="toggle-row">
-                <span>🎯 WhaleX Short</span>
-                <span className="badge grade">{t("working")}</span>
-              </div>
-              <div className="toggle-row">
-                <span>⚡ WhaleX Predator</span>
-                <span className="badge grade">{t("working")}</span>
-              </div>
-              <div className="toggle-row">
-                <span>⚡ WhaleX Predator MX</span>
-                <span className="badge grade">{t("working")}</span>
-              </div>
-            </>
-          )}
-        </div>
+          {(() => {
+            const S = { live: ["#22c55e", "يعمل", "live"],
+                        slow: ["#fbbf24", "بطيء", "slow"],
+                        down: ["#f87171", "متوقّف", "down"],
+                        unknown: ["#94a3b8", "غير معروف", "unknown"] };
+            const list = rdr.filter((x) => x.market === mkt);
+            if (!list.length) return <div className="empty">…</div>;
+            return list.map((x) => {
+              const [col, ar, en] = S[x.state] || S.unknown;
+              return (
+                <div className="toggle-row" key={x.key}>
+                  <span>{x.icon} {x.name}</span>
+                  <span className="badge" style={{ color: col,
+                        background: `color-mix(in srgb, ${col} 15%, transparent)` }}>
+                    {lang === "en" ? en : ar}
+                  </span>
+                </div>
+              );
+            });
+          })()}
+          </div>
         <div className="card">
           <div className="card-title"><Activity size={14} style={{ verticalAlign: "middle", marginInlineEnd: 6 }} /> {t("recentActivity")}</div>
           {recent.length === 0 ? (

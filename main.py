@@ -34,6 +34,7 @@ from routers.admin import router as admin_router
 from routers.telegram import router as tg_router
 from routers.ai import router as ai_router
 from routers.prices import router as prices_router
+from routers.radar_status import router as radar_status_router
 from routers.ws import router as ws_router
 from routers.live_positions import router as live_router
 from routers.push import router as push_router
@@ -229,6 +230,7 @@ app.include_router(device_router)
 from routers.support import router as support_router
 app.include_router(support_router)
 app.include_router(scanner_router)
+app.include_router(radar_status_router)
 app.include_router(auth_router)
 app.include_router(binance_router)
 app.include_router(binance_manual_router)
