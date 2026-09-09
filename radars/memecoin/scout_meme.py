@@ -40,7 +40,11 @@ def _mark_rejected(addr: str):
 
 MIN_VOL_24 = 8_000      # 🚀 الطازجة بلا تاريخ 24س
 AGE_MIN_MIN = 20        # 🚀 صيد الصاروخ: 20د بدل 60
-MAX_PUMP_H1 = 200.0     # 🚀 لا نرفض الصاروخ نفسه
+MAX_PUMP_H1 = 40.0      # 📊 مقيس 9 سبتمبر على 316 صفقة: فوق 40% في
+#    ساعة نفخة مصطنعة ندخل عند قمتها. الكوارث الثلاث متوسط h1 عندها
+#    95% وحجمها وصفقاتها اربعة اضعاف الباقي. الفلتر يرفع المتوسط من
+#    +1.19% الى +2.43% والفوز من 59.8% الى 64.7% بثمن 24% من الاشارات.
+#    الاطفاء: touch /opt/whalex/db/pump_cap.off
 MAX_DUMP = -30.0        # تحتها = العملة تنهار أصلاً
 MIN_TXNS_H1 = 30        # حياة الآن: معاملات آخر ساعة
 # 📊 قياس 240 صفقة: 0.55-0.62 = -391.8% (أسوأ منطقة) | 0.62+ = -9.7% فوز 61%
@@ -125,7 +129,7 @@ def _gate0(p):
         _h24 = float(pc.get("h24") or 0)
     except Exception:
         _h1 = _h6 = _h24 = 0.0
-    if _h1 > MAX_PUMP_H1:
+    if _h1 > MAX_PUMP_H1 and not os.path.exists("/opt/whalex/db/pump_cap.off"):
         return False
     if _h6 < MAX_DUMP or _h24 < MAX_DUMP:
         return False
