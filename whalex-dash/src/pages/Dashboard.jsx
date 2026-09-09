@@ -66,10 +66,9 @@ export default function Dashboard() {
     const id = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(id);
   }, []);
-  const stamp = now.toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US",
-                  { day: "numeric", month: "long" })
-    + " · " + now.toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-US",
-                  { hour: "numeric", minute: "2-digit" });
+  const _loc = lang === "ar" ? "ar-EG-u-nu-latn" : "en-US";
+  const stamp = now.toLocaleDateString(_loc, { day: "numeric", month: "long" })
+    + " · " + now.toLocaleTimeString(_loc, { hour: "numeric", minute: "2-digit" });
   return (
     <>
       <ChatWidget />
@@ -94,7 +93,7 @@ export default function Dashboard() {
         <div className="card stat">
           <span className="label">{t("todayProfit")}</span>
           <span className="value" style={{ color: day.profit >= 0 ? "var(--green)" : "var(--red)" }}>{day.profit >= 0 ? "+" : ""}{day.profit.toFixed(1)}%</span>
-          <span style={{ fontSize: 11, color: "var(--txt-3)", marginTop: 2 }}>{stamp}</span>
+          <span style={{ fontSize: 13, color: "#e8eef2", fontWeight: 600, marginTop: 4 }}>{stamp}</span>
         </div>
         <div className="card stat">
           <span className="label">{t("winRate")}</span>
