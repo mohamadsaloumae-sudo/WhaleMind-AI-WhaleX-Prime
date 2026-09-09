@@ -175,6 +175,32 @@ async def showcase():
     except Exception as e:
         log.debug("showcase meme: %s", e)
 
+    # 🛟 لا مفتوحة في الانظمة الثلاثة؟ نعرض آخر رابحة اُغلقت اليوم
+    #    فلا تختفي البطاقة من صفحة العرض ابداً.
+    if best is None:
+        try:
+            cf = sqlite3.connect("/opt/whalex/ml_training.db")
+            cf.row_factory = sqlite3.Row
+            _r = cf.execute(
+                "SELECT symbol, direction, entry, exit_price, pnl_pct, "
+                "leverage, exchange, closed_at FROM training_signals "
+                "WHERE pnl_pct > 0 AND closed_at IS NOT NULL "
+                "AND result IS NOT NULL AND result NOT LIKE 'shadow%' "
+                "ORDER BY closed_at DESC LIMIT 1").fetchone()
+            cf.close()
+            if _r:
+                best = {"system": "Futures", "system_icon": "⚡",
+                        "symbol": _r["symbol"],
+                        "direction": _r["direction"],
+                        "entry": _r["entry"], "current": _r["exit_price"],
+                        "pnl_pct": round(float(_r["pnl_pct"] or 0), 2),
+                        "leverage": float(_r["leverage"] or 1),
+                        "exchange": _r["exchange"] or "binance",
+                        "tp1": None, "sl": None,
+                        "opened_at": _r["closed_at"], "closed": True}
+        except Exception as e:
+            log.debug("showcase fallback: %s", e)
+
     out = best or {}
     _CACHE["w"] = (out, time.time())
     return out

@@ -1363,7 +1363,7 @@ def get_client(user_id: str) -> Optional[Client]:
 LIMIT_ENTRY_OFF = "/opt/whalex/db/limit_entry.off"
 LIMIT_WAIT_SEC = 3.0
 LIMIT_FLEE_PCT = 3.0   # كان 1.0 — مقيس 8 سبتمبر: BNC +28.65% وBTR +11.41% ضاعتا بهروب 1.1-1.75%
-LIMIT_POLL_SEC = 1.0
+LIMIT_POLL_SEC = 0.3
 # ⚡ الإنقاذ السوقيّ — الحدّ لم يُملأ فندخل بالسوق إن كان السعر قريباً.
 #    مقيس 8 سبتمبر: 97 صفقة ضاعت في 7 أيام (71 مهلة + 26 هروب) = 14 يومياً.
 #    منها BNC +28.65% وBTR +11.41%. وانزلاقنا الطبيعيّ -0.162% متوسّطاً
@@ -1386,8 +1386,17 @@ def _limit_entry(client, symbol, side, direction, quantity, sig_px):
     oid = order.get("orderId")
     t0 = _t.time()
     filled = 0.0
+    # لا ننام قبل اول فحص. مقيس 9 سبتمبر: النوم اولا يضيف
+    # 1000ms لكل صفقة، و66% من الاوامر تملا في الثانية الاولى.
+    if str(order.get("status") or "") == "FILLED":
+        log.info("LIMIT FILLED %s @%s (فوريّ)", symbol, px)
+        return order, ""
+    _first = True
     while (_t.time() - t0) < LIMIT_WAIT_SEC:
-        _t.sleep(LIMIT_POLL_SEC)
+        if _first:
+            _first = False
+        else:
+            _t.sleep(LIMIT_POLL_SEC)
         try:
             od = client.futures_get_order(symbol=symbol, orderId=oid)
         except Exception as e:
