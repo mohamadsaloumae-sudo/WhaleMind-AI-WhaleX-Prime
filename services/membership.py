@@ -9,7 +9,11 @@ log = logging.getLogger("membership")
 DB = "/opt/whalex/db/whalex.db"
 
 # سلّم التذكير بالساعات
-REMINDERS = (48, 24, 12, 6, 1)
+# 📊 مقيس 9 سبتمبر على 277 مشتركا: عشرات في نافذة 2-6 ايام لا
+#    يصلهم شيء لان اقدم تذكير كان 48 ساعة. والتدرج يبدا من اسبوع.
+REMINDERS = (72, 24, 6)
+# ⏳ مرحلة الاسبوع (168) تضاف بعد ايام كي لا تصل مئة رسالة دفعة
+#    واحدة. حينها يدخلها الجدد بالتدريج الطبيعي.
 
 
 def _channels():
@@ -231,8 +235,17 @@ async def lifecycle_loop():
                 for h in REMINDERS:
                     if left_h <= h and not _reminded(uid, h):
                         _mark(uid, h)
-                        txt = ("⏰ <b>تذكير تجديد</b>\n"
-                               f"يتبقّى على انتهاء اشتراكك: <b>{int(left_h) if left_h >= 1 else 1} ساعة</b>\n"
+                        if left_h >= 48:
+                            _rem = f"{int(round(left_h / 24))} أيام"
+                        elif left_h >= 24:
+                            _rem = "يوم واحد"
+                        elif left_h >= 2:
+                            _rem = f"{int(left_h)} ساعات"
+                        else:
+                            _rem = "أقلّ من ساعتين"
+                        _urg = "⏰" if left_h >= 24 else "🔔"
+                        txt = (f"{_urg} <b>تذكير تجديد</b>\n"
+                               f"يتبقّى على انتهاء اشتراكك: <b>{_rem}</b>\n"
                                "جدّد قبل الانتهاء لتبقى قنواتك والتطبيق مفتوحة بلا انقطاع.")
                         await _notify(uid, txt)
                         break
