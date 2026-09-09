@@ -1,6 +1,6 @@
 // WhaleX Prime — Service Worker
 // ⚡ المخزون أولاً للأصول: يفتح التطبيق فوراً ثم يُحدّث في الخلفية
-const CACHE = 'whalex-v20';
+const CACHE = 'whalex-v21';
 
 self.addEventListener('install', () => self.skipWaiting());
 

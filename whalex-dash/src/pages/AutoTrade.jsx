@@ -323,13 +323,8 @@ export default function AutoTrade() {
                   <span style={{ fontSize: "11px", opacity: .75 }}>
                     {a.auto_trade_enabled
                       ? (lang === "en" ? "✅ active" : "✅ مفعّل")
-                      : (lang === "en" ? "⏸️ paused" : "⏸️ موقوف")}
+                      : (lang === "en" ? "not active" : "غير مفعّل")}
                   </span>
-                  <button type="button" onClick={() => unlinkOne(a.exchange)} disabled={busy}
-                          style={{
-                            background: "transparent", border: "none", cursor: "pointer",
-                            color: "var(--red, #f87171)", fontSize: "17px", padding: "0 4px",
-                          }}>✕</button>
                 </div>
               ))}
             </div>
