@@ -1,0 +1,77 @@
+{
+ "trained_at": 1789008447,
+ "radars": {
+  "A": {
+   "gate": false,
+   "n": 675,
+   "auc": 0.5001,
+   "base_wr": 0.4415,
+   "thr": 0.6,
+   "lift": -0.0762,
+   "wr_at_thr": 0.3653,
+   "why": "AUC 0.500 < 0.55"
+  },
+  "B": {
+   "gate": false,
+   "n": 890,
+   "auc": 0.4872,
+   "base_wr": 0.4303,
+   "thr": 0.8,
+   "lift": 0.0697,
+   "wr_at_thr": 0.5,
+   "why": "AUC 0.487 < 0.55"
+  },
+  "DIP": {
+   "gate": true,
+   "n": 259,
+   "auc": 0.8906,
+   "base_wr": 0.5058,
+   "thr": 0.8,
+   "lift": 0.3737,
+   "wr_at_thr": 0.8795
+  },
+  "LV2": {
+   "gate": false,
+   "why": "عينة 3 < 200"
+  },
+  "MX": {
+   "gate": false,
+   "n": 3895,
+   "auc": 0.4644,
+   "base_wr": 0.5615,
+   "thr": 0.8,
+   "lift": 0.1885,
+   "wr_at_thr": 0.75,
+   "why": "AUC 0.464 < 0.55"
+  },
+  "PH": {
+   "gate": false,
+   "n": 1315,
+   "auc": 0.5421,
+   "base_wr": 0.4951,
+   "thr": 0.7,
+   "lift": 0.0796,
+   "wr_at_thr": 0.5747,
+   "why": "AUC 0.542 < 0.55"
+  },
+  "S": {
+   "gate": false,
+   "n": 548,
+   "auc": 0.4626,
+   "base_wr": 0.4453,
+   "thr": 0.7,
+   "lift": 0.2214,
+   "wr_at_thr": 0.6667,
+   "why": "AUC 0.463 < 0.55"
+  },
+  "SP": {
+   "gate": true,
+   "n": 957,
+   "auc": 0.6326,
+   "base_wr": 0.3501,
+   "thr": 0.8,
+   "lift": 0.2396,
+   "wr_at_thr": 0.5897
+  }
+ }
+}

@@ -202,6 +202,20 @@ async def _emit(symbol, d, position_manager_fn):
         log.info("👁️ %s ظل — سُجّلت ولم تُفتح (هبوط %.1f%% · RSI %.0f)",
                  symbol, d["drop"], d["rsi"])
         return
+    # 🎯 بوابة النموذج — مقيس 10 سبتمبر بتحقق منقى على 259 صفقة:
+    #    AUC 0.891 · الفوز يقفز من 50.6% الى 87.9% عند العتبة 0.80.
+    #    فالرادار ليس سيئا، بل كنا ناخذ كل اشاراته بدل افضلها.
+    #    والتسجيل تم اعلاه — نمنع الفتح لا التعلم.
+    try:
+        from quant_engine.per_radar import allow as _pra
+        _ok, _why, _p = _pra(sig)
+        if not _ok:
+            log.info("🎯🚫 %s لا تُفتح — %s", symbol, _why)
+            return
+        if _why:
+            log.info("🎯✅ %s %s", symbol, _why)
+    except Exception:
+        pass
     if position_manager_fn:
         try:
             await position_manager_fn(sig)
