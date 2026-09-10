@@ -277,6 +277,51 @@ def _pos_load_all():
         return []
 
 
+MAX_RECONCILE_PCT = 5.0
+
+
+def reconcile_entry(symbol: str, direction: str, real_entry: float) -> bool:
+    """🎯 يصحح سعر دخول مركز النظام الى سعر التعبئة الفعلي.
+
+    مقيس 10 سبتمبر: BIRBUSDT سُجلت -10.32% في النظام و +1.62% عند
+    المشترك. السبب ان المركز يُنشأ بسعر الاشارة (0.0678) والتنفيذ وقع
+    عند 0.06918 بانزلاق 2.04%. فالوقف والاهداف والربح كلها تُحسب من
+    سعر لم تُنفذ به الصفقة، والنموذج يتعلم من نتائج كاذبة.
+
+    نزيح كل المستويات بنسبة الانزلاق نفسها فتبقى المسافات محفوظة.
+    انزلاق فوق 5% مشبوه فلا نصحح — قد يكون خطأ في القراءة.
+    """
+    try:
+        real_entry = float(real_entry or 0)
+        if real_entry <= 0:
+            return False
+        for pos in list(ACTIVE.values()):
+            if (pos.symbol != symbol or str(pos.direction).upper() != str(direction).upper()
+                    or pos.status != "open"):
+                continue
+            old_e = float(pos.entry or 0)
+            if old_e <= 0:
+                return False
+            ratio = real_entry / old_e
+            drift = abs(ratio - 1) * 100
+            if drift < 0.05:
+                return False
+            if drift > MAX_RECONCILE_PCT:
+                log.warning("🎯 %s انزلاق %.2f%% فوق الحد — لا نصحح", symbol, drift)
+                return False
+            for f in ("entry", "sl", "tp1", "tp2", "tp3", "peak_price"):
+                v = getattr(pos, f, 0) or 0
+                if v:
+                    setattr(pos, f, float(v) * ratio)
+            _pos_save(pos)
+            log.info("🎯 %s صُحّح الدخول %.8g → %.8g (انزلاق %.2f%%) — الوقف والاهداف معه",
+                     symbol, old_e, real_entry, drift)
+            return True
+    except Exception as e:
+        log.debug("reconcile_entry %s: %s", symbol, e)
+    return False
+
+
 async def add_position(pos: Position):
     pos.peak_price = pos.entry
     # 🔒 نُثبّت منصّة التنفيذ الآن — فتبقى ثابتة مهما تغيّر الكون

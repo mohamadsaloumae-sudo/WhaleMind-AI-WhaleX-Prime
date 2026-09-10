@@ -1055,6 +1055,15 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
                 if _slip > 0.5:
                     log.warning("📒 انزلاق %s: إشارة %.8g → تنفيذ %.8g (%.2f%%)",
                                 symbol, _sig_px, _real_fill, _slip)
+            # 🎯 نصحح مركز النظام بسعر التعبئة الفعلي — مقيس 10 سبتمبر:
+            #    BIRBUSDT سُجلت -10.32% في النظام و +1.62% عند المشترك،
+            #    لان المركز بُني بسعر الاشارة والتنفيذ وقع بانزلاق 2.04%.
+            try:
+                if _real_fill > 0:
+                    from radars.futures.position_manager import reconcile_entry as _rec
+                    _rec(symbol, direction, float(_real_fill))
+            except Exception:
+                pass
             _lo(user_id, symbol, direction, _real_fill, quantity,
                 float(_lev_real), str(order_id), "futures")
         except Exception as _le:
