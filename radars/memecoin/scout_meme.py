@@ -903,6 +903,22 @@ def _meme_save(p, sc):
         conn.commit(); conn.close()
     except Exception as e:
         log.warning("meme save: %s", e)
+    # 📖 المرحلة 1 — ميلاد اشارة الميم بكل ما رآه الرادار.
+    try:
+        from services.trade_journal import write as _jw
+        _jw("MEME|%s" % b.get("address", ""), "birth",
+            "MEME_%s" % b.get("symbol", "?"), "LONG", float(_px or 0), 0.0,
+            "MEME", "meme_v2", 0,
+            {"score": sc, "chain": p.get("chainId"),
+             "liq": (p.get("liquidity") or {}).get("usd", 0),
+             "vol24": (p.get("volume") or {}).get("h24", 0),
+             "vol_h1": (p.get("volume") or {}).get("h1", 0) or 0,
+             "txns_h1": _tx1, "buys_ratio": _ratio,
+             "h1": float(_pc.get("h1") or 0), "h6": float(_pc.get("h6") or 0),
+             "h24": float(_pc.get("h24") or 0),
+             "address": b.get("address", ""), "url": p.get("url", "")})
+    except Exception:
+        pass
 
 
 async def _meme_broadcast(p, sc):
@@ -927,6 +943,7 @@ async def _meme_broadcast(p, sc):
 
 
 _SL_PENDING: dict = {}
+_MEME_PULSE: dict = {}
 # 🕶️ عمى السعر: اختفاء الزوج من المصدر ليس لا خطر بل اقوى اشارة خطر.
 #    مقيس 9 سبتمبر: 5 صفقات اغلقت عند -97% لان البركة سحبت.
 #    ثلاث محاولات (60 ثانية) ثم اغلاق باخر سعر معروف.
@@ -1048,6 +1065,19 @@ async def _meme_track_one(cc, r):
         _lc = sqlite3.connect(MEME_DB)
         _lc.execute("UPDATE meme_signals SET last_price=? WHERE id=?", (px, r["id"]))
         _lc.commit(); _lc.close()
+    except Exception:
+        pass
+    # 📖 المرحلة 2 — نبضة كل دقيقة للميم.
+    try:
+        import time as _tm2
+        _pk2 = _MEME_PULSE.get(r["id"], 0)
+        if _tm2.time() - _pk2 >= 60:
+            _MEME_PULSE[r["id"]] = _tm2.time()
+            from services.trade_journal import pulse as _jp2
+            _jp2("MEME|%s" % r["id"], "MEME_%s" % r.get("symbol", "?"), "LONG",
+                 float(px), round(pnl, 3),
+                 {"peak": float(r.get("peak_price") or 0), "sid": r["id"],
+                  "chain": r.get("chain", ""), "tier": "MEME"})
     except Exception:
         pass
     # 🛡️ حارس أمان بعد الدخول: الخطر قد يظهر بعد الشراء

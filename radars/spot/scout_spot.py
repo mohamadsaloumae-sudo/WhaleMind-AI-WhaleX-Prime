@@ -732,6 +732,9 @@ async def _ws_price_feed():
             await asyncio.sleep(10)
 
 
+_SPOT_PULSE: dict = {}
+
+
 async def tracker_loop():
     """📡 متتبع مصير الإشارات: TP متدرج، SL صادق، تنظيف 72 ساعة."""
     log.info("🪙📡 Spot tracker starting")
@@ -767,6 +770,21 @@ async def tracker_loop():
                     now = time.time()
                     for s in sigs:
                         px = _prices.get(s.symbol)
+                        # 📖 المرحلة 2 — نبضة كل دقيقة لإشارة السبوت.
+                        try:
+                            if px:
+                                _spk = _SPOT_PULSE.get(s.id, 0)
+                                if now - _spk >= 60:
+                                    _SPOT_PULSE[s.id] = now
+                                    from services.trade_journal import pulse as _jps
+                                    _e0 = float(getattr(s, "entry", 0) or 0)
+                                    _pn0 = ((px - _e0) / _e0 * 100) if _e0 > 0 else 0.0
+                                    _jps("SPOT|%s" % s.id, s.symbol, "LONG",
+                                         float(px), round(_pn0, 3),
+                                         {"peak": float(_peak.get(s.symbol, 0) or 0),
+                                          "sid": s.id, "tier": "SP"})
+                        except Exception:
+                            pass
                         if not px:
                             # 🕐 مهلة قصوى للصفقة التي لا يُقرأ سعرها.
                             #    مقيس: MMTUSDT عمرها 150 ساعة و9BIT 64،
@@ -899,6 +917,19 @@ async def tracker_loop():
                                      _dt.datetime.utcfromtimestamp(_op or now).hour
                                      if (_op or now) else None))
                                 cx.commit(); cx.close()
+                                # 📖 المرحلة 3 — موت اشارة السبوت.
+                                try:
+                                    from services.trade_journal import death as _jds
+                                    _jds("SPOT|%s" % s.id, s.symbol, "LONG",
+                                         float(px), round(pnl, 2), str(reason),
+                                         {"entry": float(s.entry or 0), "path": _path,
+                                          "exchange": _ex, "outcome": outcome,
+                                          "rsi": _ctx.get("rsi"),
+                                          "range_pos": _ctx.get("range_pos"),
+                                          "age_min": round((now - (_op or now)) / 60, 1),
+                                          "tier": "SP"})
+                                except Exception:
+                                    pass
                             except Exception as _re:
                                 # ⚠️ كان log.debug فابتُلع الخطأ 31 ساعة:
                                 #    "15 values for 16 columns" — فلم يُسجَّل
