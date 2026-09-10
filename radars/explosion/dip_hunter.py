@@ -25,6 +25,7 @@ import time
 log = logging.getLogger("dip_hunter")
 
 OFF_FLAG = "/opt/whalex/db/dip_hunter.off"
+SHADOW_FLAG = "/opt/whalex/db/dip_hunter.shadow"
 SCAN_INTERVAL = 180
 COOLDOWN_SEC = 3600
 LOW_TOL = 0.005
@@ -142,6 +143,14 @@ async def _emit(symbol, d, position_manager_fn):
         record_signal(sig)
     except Exception as _re:
         log.error("🎯 تسجيل %s: %s", symbol, _re)
+    # 👁️ وضع الظل: يمسح ويسجل ولا يفتح. مقيس 10 سبتمبر: 211 صفقة
+    #    في 3 ايام بمتوسط سالب، وكل حقولها ثابتة فلا قياس ممكن. فنجمع
+    #    البيانات الحقيقية بلا خسارة درهم، ثم نصلح الشرط بالارقام.
+    #    التشغيل: touch /opt/whalex/db/dip_hunter.shadow
+    if os.path.exists(SHADOW_FLAG):
+        log.info("👁️ %s ظل — سُجّلت ولم تُفتح (هبوط %.1f%% · RSI %.0f)",
+                 symbol, d["drop"], d["rsi"])
+        return
     if position_manager_fn:
         try:
             await position_manager_fn(sig)
