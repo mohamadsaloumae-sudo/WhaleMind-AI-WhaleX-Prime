@@ -42,7 +42,7 @@ async def after_loop():
                 lo, hi = now - m * 60 - 45, now - m * 60 + 45
                 rows = c.execute(
                     "SELECT trade_key, symbol, direction, price FROM journal "
-                    "WHERE stage='death' AND ts BETWEEN ? AND ?", (lo, hi)).fetchall()
+                    "WHERE stage IN ('death','blocked') AND ts BETWEEN ? AND ?", (lo, hi)).fetchall()
                 for k, sym, d, px in rows:
                     done = c.execute(
                         "SELECT 1 FROM journal WHERE trade_key=? AND stage='after' "

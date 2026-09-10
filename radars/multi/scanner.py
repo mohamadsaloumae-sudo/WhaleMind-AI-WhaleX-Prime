@@ -335,6 +335,31 @@ async def _emit(row, sc, direction, reasons, price, lv, rsi, rpos, vr, pm_fn):
     #    وأغلب الإشارات من MX، فلم تُنفَّذ صفقة حقيقية منذ 20 أغسطس.
     #    مقيس: 15 إشارة MX في ساعة وصفر محاولة تنفيذ، ومشترك رصيده
     #    101.96$ وإعداداته سليمة لم يفتح له النظام صفقة واحدة.
+    # 🚫 الفحص قبل النشر — الممنوعة لا تُنشر في القناة ولا تصل التطبيق.
+    #    مقيس 10 سبتمبر: 5 اشارات مُنعت في 24 ساعة وظهرت في القناة،
+    #    فيراها المشترك ولا يجدها في التطبيق فيظن خللا. والان تُسجل
+    #    في السجل بمرحلة blocked ويقيس journal_after هل كان المنع صائبا.
+    try:
+        from services.entry_delay import against_flow as _af
+        if _af(sig):
+            log.info("🚫 %s %s لا تُنشر ولا تُنفَّذ — ضد تيّار التدفّق",
+                     row["symbol"], direction)
+            try:
+                from services.trade_journal import write as _jwb
+                _jwb("BLK|%s|%s|%d" % (row["symbol"], direction, int(time.time())),
+                     "blocked", row["symbol"], direction, float(price), 0.0,
+                     "MX", "multi_scan", 0,
+                     {"why": "ضد تيّار التدفّق", "score": sc,
+                      "sl": lv["sl"], "tp1": lv["tp1"], "lev": lev,
+                      "reasons": reasons})
+            except Exception:
+                pass
+            _ck0 = _cd_key(row["symbol"], direction)
+            _last[_ck0] = time.time()
+            _cd_save(_ck0)
+            return
+    except Exception as _fe:
+        log.debug("MX flow gate: %s", _fe)
     try:
         import asyncio as _aio
         from services.auto_trade_engine import on_signal_approved as _osa
