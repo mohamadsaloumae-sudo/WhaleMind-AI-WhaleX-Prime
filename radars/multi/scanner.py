@@ -309,7 +309,7 @@ async def _emit(row, sc, direction, reasons, price, lv, rsi, rpos, vr, pm_fn):
         strategies="\n".join([f"🌐 {ad.name_en} · {ad.name_ar}"] + reasons),
         radar_type="futures", tier="MX",
         rr_tp1=1.5, rr_tp2=3.0, rr_tp3=5.0,
-        strategy_count=len(reasons), btc_trend="NEUTRAL",
+        strategy_count=len(reasons), btc_trend=__import__("services.market_pulse", fromlist=["x"]).trend_label(),
         rsi=round(rsi, 2), range_pos=round(rpos, 4), volume_ratio=round(vr, 2),
     )
     try:
@@ -317,6 +317,11 @@ async def _emit(row, sc, direction, reasons, price, lv, rsi, rpos, vr, pm_fn):
         record_signal(sig)
     except Exception as e:
         log.debug("MX record: %s", e)
+    try:
+        from services.trade_journal import birth as _jb
+        _jb(sig)
+    except Exception:
+        pass
     # 📱 حفظ في جدول signals — بلاه لا تظهر في «الإشارات الحيّة» بالتطبيق
     try:
         from radars.futures.service import save_signal

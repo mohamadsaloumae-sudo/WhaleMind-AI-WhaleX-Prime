@@ -109,6 +109,12 @@ async def lifespan(app: FastAPI):
     #    حقول حالة السوق كانت ميّتة (regime فارغ في 91% من السجلّ)،
     #    فنجمع بيانات حقيقية أوّلاً ثم نقيس أثرها قبل أن نبني عليها.
     try:
+        from services.journal_after import after_loop as _jaf
+        asyncio.create_task(_jaf(), name="journal_after")
+        log.info("📖 سجل ما بعد الاغلاق مربوط")
+    except Exception as _je:
+        log.warning("journal_after: %s", _je)
+    try:
         from services.market_pulse import pulse_loop as _mp
         asyncio.create_task(_mp(), name="market_pulse")
     except Exception as _mpe:

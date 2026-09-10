@@ -304,6 +304,11 @@ async def _build_and_open(r: LongV2Reading, position_manager_fn):
     except Exception as e:
         log.debug("LV2 ml_record: %s", e)
 
+    try:
+        from services.trade_journal import birth as _jb
+        _jb(sig)
+    except Exception:
+        pass
     log.info("🔬📈 LONG V2 SIGNAL: %s @%.6g lev=%.1fx وقف=%.2f%% [%s]",
              r.symbol, r.price, lv["leverage"], lv["sl_pct"], " · ".join(r.reasons))
 

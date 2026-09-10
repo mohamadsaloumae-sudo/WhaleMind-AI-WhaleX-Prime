@@ -381,7 +381,7 @@ def _build_signal(symbol: str, price: float, candles: list, peak: float,
         sl=round(sl, 8), tp1=round(tp1, 8), tp2=round(tp2, 8), tp3=round(tp3, 8),
         leverage=_lev, strategies="\n".join(strats), radar_type="futures", tier="PH",
         rr_tp1=round(rr1, 2), rr_tp2=round(rr2, 2), rr_tp3=round(rr3, 2),
-        strategy_count=len(strats), btc_trend="NEUTRAL",
+        strategy_count=len(strats), btc_trend=__import__("services.market_pulse", fromlist=["x"]).trend_label(),
         rsi=rsi_v, range_pos=round(_rng_pos, 4), volume_ratio=round(_vol_ratio, 2),
     )
 
@@ -446,6 +446,11 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
         record_signal(sig)
     except Exception as _e:
         log.debug("Peak Hunter ml_record error: %s", _e)
+    try:
+        from services.trade_journal import birth as _jb
+        _jb(sig)
+    except Exception:
+        pass
     drop = (peak - price) / peak * 100 if peak > 0 else 0
     deep = col["deep"]
     sigs = col["signals"]

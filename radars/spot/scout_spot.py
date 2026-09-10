@@ -1303,6 +1303,11 @@ async def _emit_signal(r: dict):
     except Exception as e:
         log.debug("spot ml: %s", e)
 
+    try:
+        from services.trade_journal import birth as _jb
+        _jb(t)
+    except Exception:
+        pass
     # ── قناة تيليجرام ──
     try:
         from services.telegram import send_message

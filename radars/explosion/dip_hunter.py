@@ -164,7 +164,7 @@ async def _emit(symbol, d, position_manager_fn):
                     f"RSI {d['rsi']:.0f}\n"
                     "شمعة ارتداد خضراء"),
         radar_type="futures", tier="DIP",
-        source_radar="dip_hunter",
+        source_radar="dip_hunter", btc_trend=__import__("services.market_pulse", fromlist=["x"]).trend_label(),
         volume_ratio=float(d.get("vol_ratio") or 0),
         rsi=float(d.get("rsi") or 0),
         range_pos=float(d.get("range_pos") or 0),
@@ -189,6 +189,11 @@ async def _emit(symbol, d, position_manager_fn):
         record_signal(sig)
     except Exception as _re:
         log.error("🎯 تسجيل %s: %s", symbol, _re)
+    try:
+        from services.trade_journal import birth as _jb
+        _jb(sig)
+    except Exception:
+        pass
     # 👁️ وضع الظل: يمسح ويسجل ولا يفتح. مقيس 10 سبتمبر: 211 صفقة
     #    في 3 ايام بمتوسط سالب، وكل حقولها ثابتة فلا قياس ممكن. فنجمع
     #    البيانات الحقيقية بلا خسارة درهم، ثم نصلح الشرط بالارقام.

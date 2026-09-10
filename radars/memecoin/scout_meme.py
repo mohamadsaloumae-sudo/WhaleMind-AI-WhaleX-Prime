@@ -967,6 +967,13 @@ MEME_PEAK_LOCK_GIVE = 7.0   # تراجع 7% فقط يقفل الرابح الك�
 
 
 def _meme_close(sid, px, pnl):
+    # 📖 المرحلة 3 — كل مسارات اغلاق الميم تمر من هنا.
+    try:
+        from services.trade_journal import death as _jd
+        _jd("MEME|%s" % sid, "MEME_%s" % sid, "LONG",
+            float(px or 0), float(pnl or 0), "meme_close", {"sid": sid})
+    except Exception:
+        pass
     try:
         conn = sqlite3.connect(MEME_DB)
         conn.execute("UPDATE meme_signals SET status='closed', active=0, exit_price=?, pnl_pct=?, closed_ts=? WHERE id=?",

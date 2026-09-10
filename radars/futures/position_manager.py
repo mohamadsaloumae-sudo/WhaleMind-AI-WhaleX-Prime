@@ -826,6 +826,24 @@ async def should_tactical_exit(pos: Position, price: float, ob: dict, ls_change:
             float(getattr(pos, 'leverage', 1) or 1))
     except Exception:
         pass
+    # 📖 المرحلة 2 — لقطة كل دقيقة وهي مفتوحة.
+    try:
+        import time as _tp
+        _pk = int(getattr(pos, "_jpulse", 0) or 0)
+        if _tp.time() - _pk >= 60:
+            setattr(pos, "_jpulse", int(_tp.time()))
+            from services.trade_journal import pulse as _jp, key_of as _jk
+            _pn = (price - pos.entry) / pos.entry * 100 * float(getattr(pos, "leverage", 1) or 1)
+            if str(pos.direction).upper() == "SHORT":
+                _pn = -_pn
+            _jp(_jk(pos.symbol, pos.direction, int(getattr(pos, "opened_at", 0) or 0)),
+                pos.symbol, pos.direction, float(price), round(_pn, 3),
+                {"peak": float(getattr(pos, "peak_price", 0) or 0),
+                 "sl_now": float(getattr(pos, "sl", 0) or 0),
+                 "tier": str(getattr(pos, "tier", "") or ""),
+                 "radar": str(getattr(pos, "source_radar", "") or "")})
+    except Exception:
+        pass
 
     # ضابط الوقت: لا خروج تكتيكي في أول 90 ثانية
     import time as _t
@@ -1331,6 +1349,32 @@ async def monitor_position(pos: Position):
 
 async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_pct: float):
     """إغلاق الصفقة وإرسال الإشعار"""
+    # 📖 المرحلة 3 — لماذا اغلقت وعلى اي حال سوق.
+    try:
+        import time as _tj
+        from services.trade_journal import death as _jd, key_of as _jk
+        _jd(_jk(pos.symbol, pos.direction, int(getattr(pos, "opened_at", 0) or 0)),
+            pos.symbol, pos.direction, float(price), float(pnl_pct),
+            reason.value if hasattr(reason, "value") else str(reason),
+            {"entry": float(pos.entry or 0),
+             "sl": float(getattr(pos, "sl", 0) or 0),
+             "peak": float(getattr(pos, "peak_price", 0) or 0),
+             "lev": float(getattr(pos, "leverage", 0) or 0),
+             "age_min": round((_tj.time() - float(getattr(pos, "opened_at", 0) or 0)) / 60, 1)})
+    except Exception:
+        pass
+    # 📖 المرحلة 3 — لماذا اغلقت وعلى اي حال سوق.
+    try:
+        from services.trade_journal import death as _jd, key_of as _jk
+        _jd(_jk(pos.symbol, pos.direction, int(getattr(pos, "opened_at", 0) or 0)),
+            pos.symbol, pos.direction, float(price), float(pnl_pct),
+            reason.value if hasattr(reason, "value") else str(reason),
+            {"entry": float(pos.entry or 0), "sl": float(getattr(pos, "sl", 0) or 0),
+             "peak": float(getattr(pos, "peak_price", 0) or 0),
+             "lev": float(getattr(pos, "leverage", 0) or 0),
+             "age_min": round((__import__("time").time() - float(getattr(pos, "opened_at", 0) or 0)) / 60, 1)})
+    except Exception:
+        pass
     # 🔴 الإغلاق الحقيقي على باينانس أولاً — كان ورقياً فقط، فكل ذكاء الخروج
     #    (القفل التدريجي · التكتيكي · الأرضية) لم يكن ينفَّذ على البورصة.
     try:

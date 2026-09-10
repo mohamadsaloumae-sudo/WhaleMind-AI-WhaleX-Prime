@@ -184,6 +184,56 @@ def _market_rsi(ex, n: int = 30) -> float:
     return round(sum(vals) / len(vals), 1) if vals else 50.0
 
 
+def trend_label() -> str:
+    """حالة السوق نصا للتسجيل في كل اشارة — كانت كل الرادارات تكتب
+    NEUTRAL ثابتا فتدرب النموذج شهرا على حقل فارغ."""
+    try:
+        a = advice() or {}
+        t = str(a.get("trend") or "unknown")
+        lb = float(a.get("long_bias") or 0)
+        sb = float(a.get("short_bias") or 0)
+        if lb >= 50:
+            return "LONG_BLOCKED"
+        if sb >= 50:
+            return "SHORT_BLOCKED"
+        if t in ("up", "UP"):
+            return "BULL"
+        if t in ("down", "DOWN"):
+            return "BEAR"
+        if lb > 0:
+            return "LONG_PENALIZED"
+        if sb > 0:
+            return "SHORT_PENALIZED"
+        return "NEUTRAL"
+    except Exception:
+        return "NEUTRAL"
+
+
+def trend_label() -> str:
+    """حالة السوق نصا للتسجيل في كل اشارة — كانت الرادارات تكتب
+    NEUTRAL ثابتا فتدرب النموذج شهرا على حقل فارغ."""
+    try:
+        a = advice() or {}
+        t = str(a.get("trend") or "unknown")
+        lb = float(a.get("long_bias") or 0)
+        sb = float(a.get("short_bias") or 0)
+        if lb >= 50:
+            return "LONG_BLOCKED"
+        if sb >= 50:
+            return "SHORT_BLOCKED"
+        if t in ("up", "UP"):
+            return "BULL"
+        if t in ("down", "DOWN"):
+            return "BEAR"
+        if lb > 0:
+            return "LONG_PENALIZED"
+        if sb > 0:
+            return "SHORT_PENALIZED"
+        return "NEUTRAL"
+    except Exception:
+        return "NEUTRAL"
+
+
 def get_state() -> dict:
     """الحالة الحالية — للقراءة من أي رادار. لا تمنع شيئاً."""
     return dict(_state)
