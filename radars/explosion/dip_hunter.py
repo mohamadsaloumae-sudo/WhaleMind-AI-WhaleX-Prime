@@ -98,7 +98,13 @@ def evaluate(candles):
         _hit("rsi_high")
         return False, f"RSI {r:.0f}", {}
     _hit("emitted")
-    return True, "", {"price": px, "rsi": round(r, 1), "drop": round(drop, 1)}
+    # 📊 مقيس 10 سبتمبر: الرادار يحسب rsi و drop ثم يرميهما في نص،
+    #    ويسجل score=7.5 و confidence=85 ثابتين للجميع. فكل صفقاته
+    #    متطابقة في قاعدة التدريب ولا يميز الرابح من الخاسر اي حقل.
+    #    الان نمرر ما نحسبه فعلا كي يصير القياس ممكنا.
+    _rng = (px - floor) / max(1e-12, (peak - floor))
+    return True, "", {"price": px, "rsi": round(r, 1), "drop": round(drop, 1),
+                      "range_pos": round(_rng, 4)}
 
 
 async def _emit(symbol, d, position_manager_fn):
@@ -120,6 +126,8 @@ async def _emit(symbol, d, position_manager_fn):
                     "شمعة ارتداد خضراء"),
         radar_type="futures", tier="DIP",
         source_radar="dip_hunter", volume_ratio=1.0,
+        rsi=float(d.get("rsi") or 0),
+        range_pos=float(d.get("range_pos") or 0),
     )
     _last_signal[symbol] = time.time()
     log.info("🎯📈 %s: قاع · هبوط %.1f%% · RSI %.0f @ %.8g",

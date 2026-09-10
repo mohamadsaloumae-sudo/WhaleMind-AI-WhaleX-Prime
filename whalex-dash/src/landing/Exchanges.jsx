@@ -37,6 +37,17 @@ export default function Exchanges({ lang = "ar" }) {
             <a key={id} href={href || undefined}
                target={href ? "_blank" : undefined}
                rel={href ? "noopener noreferrer" : undefined}
+               onClick={(e) => {
+                 // 📱 WebView في تطبيق اندرويد لا يفتح target="_blank"
+                 //    الا مع setSupportMultipleWindows + onCreateWindow،
+                 //    فالضغط لا يفعل شيئاً. نفتحه يدوياً وإلا انتقلنا.
+                 if (!href) return;
+                 e.preventDefault();
+                 let w = null;
+                 try { w = window.open(href, "_blank", "noopener"); }
+                 catch (_) { w = null; }
+                 if (!w) window.location.href = href;
+               }}
                style={{
                  background: T.card, border: `1px solid ${T.border}`,
                  borderRadius: 13, padding: "13px 6px", textAlign: "center",

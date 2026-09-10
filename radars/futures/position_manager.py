@@ -1519,12 +1519,18 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
     #      ضد التيار  946 صفقة · متوسّط -0.12% · مجموع -112
     #      مع التيار 1140 صفقة · متوسّط +0.47% · مجموع +536
     #    والتسجيل يبقى للتدريب — نمنع الفتح لا التعلّم.
+    #    ⚠️ استثناء DIP: يشتري القيعان، والقاع تدفّقه سالب بطبيعته
+    #    (الناس تبيع فيهبط السعر)، فالفلتر يمنع جوهر استراتيجيته.
+    #    مقيس 10 سبتمبر: DIP قبل الفلتر 128 صفقة · فوز 64% · +1.23%
+    #                    وبعده 34 صفقة · فوز 32% · -3.48%
+    #    وPH لم يتأثّر (+0.89 → +0.87) لانه يبيع القمم — وتدفّقها موجب.
     try:
-        from services.entry_delay import against_flow as _af
-        if _af(sig):
-            log.info("🌊 %s %s لا تُفتح — ضد تيّار التدفّق (مسجّلة للتدريب)",
-                     sig.symbol, sig.direction)
-            return None
+        if (getattr(sig, "tier", "") or "").upper() != "DIP":
+            from services.entry_delay import against_flow as _af
+            if _af(sig):
+                log.info("🌊 %s %s لا تُفتح — ضد تيّار التدفّق (مسجّلة للتدريب)",
+                         sig.symbol, sig.direction)
+                return None
     except Exception as _afe:
         log.debug("against_flow: %s", _afe)
 

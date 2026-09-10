@@ -86,6 +86,7 @@ async def showcase():
     c = _CACHE.get("w")
     if c and time.time() - c[1] < 6:
         return c[0]
+    _ALL = []
     best = None
     try:
         from radars.futures.position_manager import get_price
@@ -95,8 +96,10 @@ async def showcase():
             #    فيعرض اي صفّ بحالة ثالثة (فارغة/pending) كصفقة شبحية
             #    لا وجود لها في صفحة المفتوحة. وقيد اليوم يمنع العوالق.
             "SELECT data FROM active_positions WHERE status='open' "
+            # ⚠️ CAST ضروريّ: opened_at رقم وstrftime نصّ،
+            #    وSQLite يرتّب INTEGER < TEXT دائماً فلا يتحقّق الشرط.
             "AND json_extract(data,'$.opened_at') > "
-            "strftime('%s','now','-24 hours')"))
+            "CAST(strftime('%s','now','-24 hours') AS INTEGER)"))
         cn.close()
         for (d,) in rows:
             try:
@@ -113,18 +116,18 @@ async def showcase():
             mv = ((px - ent) / ent) if j.get("direction") == "LONG" \
                 else ((ent - px) / ent)
             pnl = round(mv * 100 * lev, 2)
-            if best is None or pnl > best["pnl_pct"]:
+            if True:
                 try:
                     from services.binance_trader import symbol_exchange
                     ex = symbol_exchange(sym)
                 except Exception:
                     ex = "binance"
-                best = {"system": "Futures", "system_icon": "⚡",
+                _ALL.append({"system": "Futures", "system_icon": "⚡",
                         "symbol": sym, "direction": j.get("direction"),
                         "entry": ent, "current": px, "pnl_pct": pnl,
                         "leverage": lev, "exchange": ex,
                         "tp1": j.get("tp1"), "sl": j.get("sl"),
-                        "opened_at": j.get("opened_at")}
+                        "opened_at": j.get("opened_at")})
     except Exception as e:
         log.debug("showcase: %s", e)
 
@@ -136,11 +139,12 @@ async def showcase():
         cs = sqlite3.connect("/opt/whalex/db/whalex.db")
         cs.row_factory = sqlite3.Row
         _sp = [dict(x) for x in cs.execute(
-            # 🛡️ قيد اليوم — spot_reconcile لا يُحدّث هذا الجدول
-            #    فتبقى صفوف open الى الابد وتظهر كصفقات شبحية.
-            "SELECT symbol, entry FROM spot_positions_multi "
-            "WHERE status='open' AND entry>0 "
-            "AND ts > strftime('%s','now','-24 hours') LIMIT 12")]
+            # 🪙 المصدر الحيّ هو signals — وspot_positions_multi
+            #    متوقّف منذ 1 سبتمبر فلا يعرض السبوت ابداً.
+            "SELECT symbol, entry FROM signals "
+            "WHERE radar_type='spot' AND is_active=1 AND entry>0 "
+            "AND created_at > CAST(strftime('%s','now','-24 hours') AS INTEGER) "
+            "LIMIT 12")]
         cs.close()
         _seen = set()
         for _r in _sp:
@@ -153,12 +157,12 @@ async def showcase():
             if not _px or _px <= 0 or _e <= 0:
                 continue
             _p = round((_px - _e) / _e * 100, 2)
-            if best is None or _p > best.get("pnl_pct", -999):
-                best = {"system": "Spot", "system_icon": "🪙",
+            if True:
+                _ALL.append({"system": "Spot", "system_icon": "🪙",
                         "symbol": _sy, "direction": "LONG",
                         "entry": _e, "current": _px, "pnl_pct": _p,
                         "leverage": 1.0, "exchange": "binance",
-                        "tp1": None, "sl": None, "opened_at": None}
+                        "tp1": None, "sl": None, "opened_at": None})
     except Exception as e:
         log.debug("showcase spot: %s", e)
 
@@ -168,48 +172,33 @@ async def showcase():
         cm.row_factory = sqlite3.Row
         _mm = [dict(x) for x in cm.execute(
             "SELECT symbol, entry_price, last_price, pnl_pct, ts "
-            "FROM meme_signals WHERE status='open' AND pnl_pct IS NOT NULL "
+            "FROM meme_signals WHERE status='open' "
             "ORDER BY pnl_pct DESC LIMIT 5")]
         cm.close()
         for _r in _mm:
-            _p = round(float(_r["pnl_pct"] or 0), 2)
-            if best is None or _p > best.get("pnl_pct", -999):
-                best = {"system": "Meme", "system_icon": "🐸",
+            _p = _r["pnl_pct"]
+            if _p is None:
+                _e0 = float(_r["entry_price"] or 0)
+                _l0 = float(_r["last_price"] or 0)
+                if _e0 <= 0 or _l0 <= 0:
+                    continue
+                _p = (_l0 - _e0) / _e0 * 100
+            _p = round(float(_p), 2)
+            if True:
+                _ALL.append({"system": "Meme", "system_icon": "🐸",
                         "symbol": _r["symbol"], "direction": "LONG",
                         "entry": _r["entry_price"],
                         "current": _r["last_price"], "pnl_pct": _p,
                         "leverage": 1.0, "exchange": "dex",
-                        "tp1": None, "sl": None, "opened_at": _r["ts"]}
+                        "tp1": None, "sl": None, "opened_at": _r["ts"]})
     except Exception as e:
         log.debug("showcase meme: %s", e)
 
-    # 🛟 لا مفتوحة في الانظمة الثلاثة؟ نعرض آخر رابحة اُغلقت اليوم
-    #    فلا تختفي البطاقة من صفحة العرض ابداً.
-    if best is None:
-        try:
-            cf = sqlite3.connect("/opt/whalex/ml_training.db")
-            cf.row_factory = sqlite3.Row
-            _r = cf.execute(
-                "SELECT symbol, direction, entry, exit_price, pnl_pct, "
-                "leverage, exchange, closed_at FROM training_signals "
-                "WHERE pnl_pct > 0 AND closed_at IS NOT NULL "
-                "AND exit_price IS NOT NULL AND exit_price > 0 "
-                "AND result IS NOT NULL AND result NOT LIKE 'shadow%' "
-                "ORDER BY closed_at DESC LIMIT 1").fetchone()
-            cf.close()
-            if _r:
-                best = {"system": "Futures", "system_icon": "⚡",
-                        "symbol": _r["symbol"],
-                        "direction": _r["direction"],
-                        "entry": _r["entry"], "current": _r["exit_price"],
-                        "pnl_pct": round(float(_r["pnl_pct"] or 0), 2),
-                        "leverage": float(_r["leverage"] or 1),
-                        "exchange": _r["exchange"] or "binance",
-                        "tp1": None, "sl": None,
-                        "opened_at": _r["closed_at"], "closed": True}
-        except Exception as e:
-            log.debug("showcase fallback: %s", e)
-
-    out = best or {}
+    # 🎬 كل المفتوحة الحيّة من الانظمة الثلاثة مرتّبة بالاعلى ربحاً.
+    #    بلا احتياط وبلا مغلقة — الواجهة تتنقّل بينها كل 8 ثوانٍ،
+    #    وتختفي البطاقة اذا لم توجد صفقة مفتوحة اطلاقاً.
+    _ALL.sort(key=lambda z: float(z.get("pnl_pct") or 0), reverse=True)
+    out = dict(_ALL[0]) if _ALL else {}
+    out["positions"] = _ALL
     _CACHE["w"] = (out, time.time())
     return out

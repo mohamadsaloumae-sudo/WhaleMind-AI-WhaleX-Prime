@@ -18,7 +18,11 @@ const EX = {
  */
 export default function LiveShowcase({ lang = "ar" }) {
   const ar = lang !== "en";
-  const [p, setP] = useState(null);
+  // 🎬 نتنقّل بين كل الصفقات المفتوحة في الانظمة الثلاثة —
+  //    فيوتشر · سبوت · ميم — واحدة كل ثماني ثوانٍ. ولا نعرض
+  //    مغلقة ولا احتياطاً: لا مفتوحة يعني لا بطاقة.
+  const [list, setList] = useState([]);
+  const [idx, setIdx] = useState(0);
   const [pulse, setPulse] = useState(false);
 
   useEffect(() => {
@@ -27,11 +31,11 @@ export default function LiveShowcase({ lang = "ar" }) {
       try {
         const r = await fetch("/api/public/showcase");
         const d = await r.json();
-        if (!dead && d && d.symbol) {
-          setP(d);
-          setPulse(true);
-          setTimeout(() => setPulse(false), 700);
-        }
+        if (dead) return;
+        const arr = Array.isArray(d?.positions) ? d.positions
+                  : (d && d.symbol ? [d] : []);
+        setList(arr);
+        setIdx((i) => (arr.length ? i % arr.length : 0));
       } catch { /* الصمت أفضل من خطأ في صفحة تعريفية */ }
     };
     load();
@@ -39,7 +43,18 @@ export default function LiveShowcase({ lang = "ar" }) {
     return () => { dead = true; clearInterval(id); };
   }, []);
 
-  if (!p) return null;
+  useEffect(() => {
+    if (list.length < 2) return;
+    const id = setInterval(() => {
+      setIdx((i) => (i + 1) % list.length);
+      setPulse(true);
+      setTimeout(() => setPulse(false), 700);
+    }, 8000);
+    return () => clearInterval(id);
+  }, [list.length]);
+
+  const p = list.length ? list[Math.min(idx, list.length - 1)] : null;
+  if (!p || !p.symbol) return null;
 
   const up = p.pnl_pct >= 0;
   const col = up ? T.brand2 : T.red;
