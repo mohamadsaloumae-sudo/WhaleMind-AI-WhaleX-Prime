@@ -104,8 +104,44 @@ def evaluate(candles):
     #    متطابقة في قاعدة التدريب ولا يميز الرابح من الخاسر اي حقل.
     #    الان نمرر ما نحسبه فعلا كي يصير القياس ممكنا.
     _rng = (px - floor) / max(1e-12, (peak - floor))
+    _c = candles[-1]
+    _hi, _loo, _op = float(_c.high), float(_c.low), float(_c.open)
+    _rangec = max(1e-12, _hi - _loo)
+    _body = abs(px - _op) / max(1e-12, _op) * 100
+    _lwick = (min(px, _op) - _loo) / _rangec
+    _uwick = (_hi - max(px, _op)) / _rangec
+    _atr = 0.0
+    try:
+        _trs = [max(h[i] - lo[i], abs(h[i] - cl[i - 1]), abs(lo[i] - cl[i - 1]))
+                for i in range(-14, 0)]
+        _atr = (sum(_trs) / len(_trs)) / max(1e-12, px) * 100
+    except Exception:
+        _atr = 0.0
+    _vr = 0.0
+    try:
+        _vs = [float(getattr(x, "volume", 0) or 0) for x in candles[-21:-1]]
+        _av = sum(_vs) / max(1, len(_vs))
+        _vr = float(getattr(_c, "volume", 0) or 0) / max(1e-12, _av)
+    except Exception:
+        _vr = 0.0
+    _touch = sum(1 for x in prev_lows if x <= floor * (1 + LOW_TOL))
+    _dist = (px - floor) / max(1e-12, floor) * 100
+    _reds = 0
+    for i in range(-2, -8, -1):
+        try:
+            if cl[i] < o[i]:
+                _reds += 1
+            else:
+                break
+        except Exception:
+            break
+    _slope = (cl[-1] - cl[-6]) / max(1e-12, cl[-6]) * 100 if len(cl) > 6 else 0.0
     return True, "", {"price": px, "rsi": round(r, 1), "drop": round(drop, 1),
-                      "range_pos": round(_rng, 4)}
+                      "range_pos": round(_rng, 4), "atr_pct": round(_atr, 3),
+                      "body_pct": round(_body, 3), "lower_wick": round(_lwick, 3),
+                      "upper_wick": round(_uwick, 3), "vol_ratio": round(_vr, 3),
+                      "floor_touches": _touch, "dist_floor": round(_dist, 3),
+                      "red_streak": _reds, "slope5": round(_slope, 3)}
 
 
 async def _emit(symbol, d, position_manager_fn):
@@ -114,7 +150,9 @@ async def _emit(symbol, d, position_manager_fn):
     px = float(d["price"])
     sig = Signal(
         symbol=symbol, direction="LONG", grade="A",
-        score=7.5, confidence=85.0, entry=px,
+        score=round(abs(float(d.get("drop") or 0)), 2),
+        confidence=round(min(99.0, 50.0 + float(d.get("body_pct") or 0) * 10), 1),
+        entry=px,
         sl=px * (1 - SL_PCT / 100),
         tp1=px * (1 + TP_PCT / 100),
         tp2=px * (1 + TP_PCT * 2 / 100),
@@ -126,9 +164,17 @@ async def _emit(symbol, d, position_manager_fn):
                     f"RSI {d['rsi']:.0f}\n"
                     "شمعة ارتداد خضراء"),
         radar_type="futures", tier="DIP",
-        source_radar="dip_hunter", volume_ratio=1.0,
+        source_radar="dip_hunter",
+        volume_ratio=float(d.get("vol_ratio") or 0),
         rsi=float(d.get("rsi") or 0),
         range_pos=float(d.get("range_pos") or 0),
+        strategy_count=int(d.get("floor_touches") or 0),
+        regime="dip_r%d_w%d" % (int(d.get("red_streak") or 0),
+                                int(float(d.get("lower_wick") or 0) * 100)),
+        accuracy=float(d.get("atr_pct") or 0),
+        rr_tp1=float(d.get("dist_floor") or 0),
+        rr_tp2=float(d.get("slope5") or 0),
+        rr_tp3=float(d.get("upper_wick") or 0),
     )
     _last_signal[symbol] = time.time()
     log.info("🎯📈 %s: قاع · هبوط %.1f%% · RSI %.0f @ %.8g",
