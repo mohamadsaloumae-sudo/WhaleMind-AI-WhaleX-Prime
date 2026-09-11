@@ -23,6 +23,8 @@ const hm = (ts) =>
     hour: "2-digit", minute: "2-digit", hour12: false,
   });
 
+const MKT = { futures: "⚡ الفيوتشر", spot: "🪙 السبوت", meme: "🐸 الميم" };
+
 export default function UserLedger({ userId, days = 30, market = "futures" }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
@@ -51,6 +53,9 @@ export default function UserLedger({ userId, days = 30, market = "futures" }) {
 
   return (
     <div className="ledger">
+      <div style={{ fontSize: 12, fontWeight: 700, opacity: .7, marginBottom: 8 }}>
+        {MKT[market] || market}
+      </div>
       <div className="grid grid-4" style={{ marginBottom: 16 }}>
         <div className="card stat">
           <span className="label">الصافي بعد الرسوم</span>

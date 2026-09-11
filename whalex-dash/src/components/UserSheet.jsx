@@ -304,12 +304,10 @@ export default function UserSheet({ userId, onClose, onChanged }) {
 
         {/* 📒 دفتر الحساب — user_trades وحده (التنفيذ الحقيقي)، مجمّع بالايام */}
         <div style={{ fontSize: 12.5, fontWeight: 700, margin: "18px 0 8px" }}>📒 دفتر الحساب</div>
-        <UserLedger userId={userId} days={30} market="futures" />
+        {(d?.markets_enabled?.length ? d.markets_enabled : ["futures"]).map((mk) => (
+          <UserLedger key={mk} userId={userId} days={30} market={mk} />
+        ))}
 
-        <div style={{ fontSize: 12.5, fontWeight: 700, margin: "14px 0 8px" }}>📈 أداء إشارات المنصة</div>
-        <M name="الفيوتشر" icon="⚡" m={d?.markets?.futures} />
-        <M name="السبوت" icon="🪙" m={d?.markets?.spot} />
-        <M name="الميم" icon="🐸" m={d?.markets?.meme} />
       </div>
     </div>
   );
