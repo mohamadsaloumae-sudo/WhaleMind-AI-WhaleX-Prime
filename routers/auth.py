@@ -50,16 +50,31 @@ def register(body: RegisterBody):
     db = get_session()
     try:
         if db.query(User).filter(User.username == body.username).first():
-            raise HTTPException(400, "Username already exists")
+            raise HTTPException(400, "اسم المستخدم مسجَّل — اختر اسماً آخر")
+        # 📧 البريد فريد في القاعدة، وكان لا يُفحص هنا فيصطدم بالقيد
+        #    ويرمي 500. مقيس 10 سبتمبر: 8 محاولات فاشلة في 12 ساعة من
+        #    ثلاثة اشخاص، كلهم رأوا "خطأ 500" وانصرفوا.
+        _em = (body.email or "").strip().lower()
+        if _em and db.query(User).filter(User.email == _em).first():
+            raise HTTPException(400, "هذا البريد مسجَّل — سجّل الدخول أو استعمل بريداً آخر")
         user = User(
             username=body.username,
-            email=body.email or None,
+            email=_em or None,
             password_hash=hash_password(body.password),
             tier="free",
         )
         code = "WX-" + secrets.token_hex(3).upper()
         user.tg_link_code = code
-        db.add(user); db.commit(); db.refresh(user)
+        try:
+            db.add(user); db.commit(); db.refresh(user)
+        except Exception as _ie:
+            db.rollback()
+            _t = str(_ie).lower()
+            if "email" in _t:
+                raise HTTPException(400, "هذا البريد مسجَّل — سجّل الدخول أو استعمل بريداً آخر")
+            if "username" in _t:
+                raise HTTPException(400, "اسم المستخدم مسجَّل — اختر اسماً آخر")
+            raise HTTPException(400, "تعذّر إنشاء الحساب — راجع البيانات وأعد المحاولة")
         try:
             if body.ref_code:
                 from routers.referral import register_referral
