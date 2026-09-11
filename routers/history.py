@@ -20,9 +20,9 @@ router = APIRouter(prefix="/api/history", tags=["History"])
 #   الظلّية في السجلّ الزمنيّ وتختفي من المراكز: -87% مقابل +483%
 #   لنفس الشهر. والمشترك لا يعرف أيّهما يُصدّق.
 _F_FUT = ("result IS NOT NULL AND result NOT LIKE 'shadow%' "
-          "AND result NOT IN ('void','shadow_hidden') AND pnl_pct > -9")
-_F_SPOT = "pnl_pct > -9"
-_F_MEME = "status = 'closed' AND pnl_pct > -9"
+          "AND result NOT IN ('void','shadow_hidden')")
+_F_SPOT = "pnl_pct IS NOT NULL"
+_F_MEME = "status = 'closed' AND pnl_pct IS NOT NULL"
 
 SYSTEMS = {
     "futures": ("/opt/whalex/ml_training.db", "training_signals", "closed_at",

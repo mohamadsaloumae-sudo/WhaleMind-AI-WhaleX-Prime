@@ -19,7 +19,7 @@ TRADE_FILTER = (
     "pnl_pct IS NOT NULL "
     "AND result IS NOT NULL "
     "AND result NOT IN ('void','shadow_hidden') "
-    "AND pnl_pct > -9"
+
 )
 
 # بداية الشهر واليوم بتوقيت الإمارات (+4)
