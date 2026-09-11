@@ -51,6 +51,27 @@ _STABLES = {
 }
 
 
+def _stable_guard(sym: str, price: float = 0.0, chg24: float = None) -> bool:
+    """🛡️ حارس اخير عند الاصدار — لا عند بناء الكون وحده.
+
+    مقيس 10 سبتمبر: USDY في _STABLES منذ 20 اغسطس ومع ذلك اصدرت ثلاث
+    اشارات بنفس الدخول 1.1462 بالضبط. السبب ان _is_stable يُطبق على كون
+    باينانس فقط (السطر 110)، و USDY من منصة gate فمرّت بلا فحص.
+    والصفقات علقت للابد: سعرها لا يتحرك فلا تضرب هدفا ولا وقفا.
+
+    وقاعدة عامة بدل القائمة اليدوية التي تفشل مع كل مستقرة جديدة
+    (RLUSD في اغسطس · USDY اليوم): تقلب يومي دون 0.5% = مستقرة.
+    """
+    if _is_stable(sym):
+        return True
+    try:
+        if chg24 is not None and abs(float(chg24)) < 0.5:
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def _is_stable(sym: str) -> bool:
     """يكشف الأزواج المستقرّة: الأصل نفسه عملة مستقرّة أو مربوطة."""
     s = (sym or "").upper()
@@ -330,6 +351,10 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
         from db.database import get_session, Signal
         db = get_session()
         try:
+            # 🛡️ حارس المستقرّة — آخر نقطة قبل الحفظ
+            if _stable_guard(sym):
+                log.warning("🛡️ %s زوج مستقرّ — لا إشارة", sym)
+                return
             db.add(Signal(id=str(uuid.uuid4()), radar_type="spot", symbol=sym,
                           direction="LONG", grade=grade, score=round(v_infl, 2),
                           confidence=round(conf, 1), entry=entry, sl=sl,
@@ -1304,6 +1329,10 @@ async def _emit_signal(r: dict):
         from db.database import get_session, Signal
         db = get_session()
         try:
+            # 🛡️ حارس المستقرّة — آخر نقطة قبل الحفظ
+            if _stable_guard(sym):
+                log.warning("🛡️ %s زوج مستقرّ — لا إشارة", sym)
+                return
             db.add(Signal(id=str(uuid.uuid4()), radar_type="spot", symbol=sym,
                           direction="LONG", grade=grade, score=r["score"],
                           confidence=conf, entry=entry, sl=sl,
