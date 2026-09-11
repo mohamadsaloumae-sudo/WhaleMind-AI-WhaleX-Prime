@@ -141,11 +141,16 @@ async def showcase():
         _sp = [dict(x) for x in cs.execute(
             # 🪙 المصدر الحيّ هو signals — وspot_positions_multi
             #    متوقّف منذ 1 سبتمبر فلا يعرض السبوت ابداً.
+            # ⚠️ created_at نصّ لا رقم فلا نقارنه بـstrftime.
             "SELECT symbol, entry FROM signals "
             "WHERE radar_type='spot' AND is_active=1 AND entry>0 "
-            "AND created_at > CAST(strftime('%s','now','-24 hours') AS INTEGER) "
-            "LIMIT 12")]
+            "ORDER BY created_at DESC LIMIT 12")]
         cs.close()
+        try:
+            from radars.spot.scout_spot import _multi_prices_sync as _mps
+            _MPX = _mps()
+        except Exception:
+            _MPX = {}
         _seen = set()
         for _r in _sp:
             _sy = _r["symbol"]
@@ -153,7 +158,19 @@ async def showcase():
                 continue
             _seen.add(_sy)
             _e = float(_r["entry"] or 0)
-            _px = await _gp(_sy)
+            # 🪙 السعر من منصّة العملة نفسها — رادار السبوت يعمل على
+            #    سبع منصّات، وUSDYUSDT مثلاً غير موجودة على باينانس
+            #    فطلبها منها يُرجع 400 وتُحذف الصفقة بصمت.
+            _px = float(_MPX.get(_sy) or 0)
+            if _px <= 0:
+                try:
+                    import urllib.request as _u, json as _j
+                    with _u.urlopen(
+                            "https://api.binance.com/api/v3/ticker/price?"
+                            "symbol=" + _sy, timeout=6) as _rs:
+                        _px = float(_j.load(_rs).get("price") or 0)
+                except Exception:
+                    _px = 0.0
             if not _px or _px <= 0 or _e <= 0:
                 continue
             _p = round((_px - _e) / _e * 100, 2)

@@ -240,6 +240,39 @@ async def on_signal_approved(sig) -> None:
     if sig.grade not in ("A", "S"):
         return
 
+    # 🌐 بوابة النظام — كل رادار يعمل في الانظمة التي يربح فيها.
+    #    مقيس 10 سبتمبر على 6050 صفقة و1000 ساعة من 12 عملة:
+    #      MX في BEAR|CALM = 22.5% فوز و -232 نقطة
+    #      SP خاسر في 5 من 7 انظمة (-607 نقطة)
+    #      PH في BULL +2.5% وفي BEAR|WILD -0.74%
+    #    المجموع لو مُنعت: +1240 نقطة.
+    #    وضع الظل الان: نسجل ما كنا سنمنعه ولا نمنع — حتى نتحقق بارقام
+    #    حية ان الخريطة تنطبق على الحاضر لا الماضي وحده.
+    #    التفعيل: rm /opt/whalex/db/regime_gate.shadow
+    try:
+        import os as _os
+        from quant_engine.regime_gate import allow as _rga
+        _rok, _rwhy = _rga(str(getattr(sig, "tier", "") or ""))
+        if not _rok:
+            if _os.path.exists("/opt/whalex/db/regime_gate.shadow"):
+                log.info("🌐👁️ ظل — كنّا سنمنع %s %s: %s",
+                         sig.symbol, sig.direction, _rwhy)
+                try:
+                    from services.trade_journal import write as _jwr
+                    _jwr("RGB|%s|%s|%d" % (sig.symbol, sig.direction, int(__import__("time").time())),
+                         "regime_shadow", sig.symbol, sig.direction,
+                         float(getattr(sig, "entry", 0) or 0), 0.0,
+                         str(getattr(sig, "tier", "")), "regime_gate", 0,
+                         {"why": _rwhy})
+                except Exception:
+                    pass
+            else:
+                log.info("🌐🚫 %s %s لا تُنفَّذ — %s",
+                         sig.symbol, sig.direction, _rwhy)
+                return
+    except Exception as _rge:
+        log.debug("regime gate: %s", _rge)
+
     # ⏱️ سقف ساعيّ: ثلاث صفقات في الساعة، أوّل ما يجيء بلا انتظار.
     #    مقيس على 638 صفقة: بلا سقف +0.142%/صفقة وتزامن 22 مركزاً،
     #    وبسقف 3 يصير +0.235% وتزامن 12 — أي ربح أعلى 43% ورأس مال
