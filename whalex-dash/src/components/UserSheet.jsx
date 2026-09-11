@@ -1,5 +1,6 @@
 // 👤 ملف المشترك — تفعيل، إلغاء، ونتائج التداول
 import { useEffect, useState } from "react";
+import UserLedger from "./UserLedger.jsx";
 import { X, Check, Ban, Send } from "lucide-react";
 import { api } from "../lib/api.js";
 import TradeLedger from "./TradeLedger.jsx";
@@ -345,6 +346,10 @@ export default function UserSheet({ userId, onClose, onChanged }) {
             لا توجد صفقات منفَّذة لهذا المشترك — لم يربط باينانس أو لم يفعّل التداول الآلي بعد.
           </div>
         )}
+
+        {/* 📒 دفتر الحساب — user_trades وحده (التنفيذ الحقيقي)، مجمّع بالايام */}
+        <div style={{ fontSize: 12.5, fontWeight: 700, margin: "18px 0 8px" }}>📒 دفتر الحساب</div>
+        <UserLedger userId={userId} days={30} market="futures" />
 
         <div style={{ fontSize: 12.5, fontWeight: 700, margin: "14px 0 8px" }}>📈 أداء إشارات المنصة</div>
         <M name="الفيوتشر" icon="⚡" m={d?.markets?.futures} />
