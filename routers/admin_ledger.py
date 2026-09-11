@@ -70,6 +70,46 @@ def _slim(r, is_open=False):
     return d
 
 
+def _enabled(user_id):
+    """اي سوق فعّله المشترك — فنفتح دفتره وحده."""
+    try:
+        c = sqlite3.connect("file:%s?mode=ro" % DB, uri=True)
+        c.row_factory = sqlite3.Row
+        r = c.execute("SELECT auto_trade_enabled, spot_auto_enabled "
+                      "FROM user_binance_credentials WHERE user_id=?",
+                      (user_id,)).fetchone()
+        c.close()
+        if not r:
+            return []
+        out = []
+        if r["auto_trade_enabled"]:
+            out.append("futures")
+        if r["spot_auto_enabled"]:
+            out.append("spot")
+        return out
+    except Exception:
+        return []
+
+
+def _live_prices(syms):
+    """اسعار لحظية للمراكز المفتوحة."""
+    if not syms:
+        return {}
+    import json as _j
+    import urllib.request as _u
+    out = {}
+    try:
+        d = _j.load(_u.urlopen(
+            "https://fapi.binance.com/fapi/v1/ticker/price", timeout=8))
+        want = set(syms)
+        for x in d:
+            if x.get("symbol") in want:
+                out[x["symbol"]] = float(x.get("price") or 0)
+    except Exception as e:
+        log.debug("live prices: %s", e)
+    return out
+
+
 def ledger(user_id, days=30, market=""):
     since = int(time.time()) - days * 86400
     c = sqlite3.connect("file:%s?mode=ro" % DB, uri=True)
@@ -91,9 +131,25 @@ def ledger(user_id, days=30, market=""):
     out_days = [{"date": k, "metrics": _metrics(dm[k]),
                  "trades": [_slim(x) for x in dm[k]]}
                 for k in sorted(dm, reverse=True)]
+    # 📡 السعر الحيّ للمفتوحة + الربح اللحظي
+    live = _live_prices([r["symbol"] for r in open_])
+    op = []
+    for r in open_:
+        d = _slim(r, True)
+        px = live.get(r["symbol"])
+        if px and float(r.get("entry") or 0) > 0:
+            e = float(r["entry"])
+            lev = float(r.get("leverage") or 1)
+            sg = 1.0 if str(r.get("direction", "")).upper() == "LONG" else -1.0
+            d["live_price"] = px
+            d["live_pnl_pct"] = round((px - e) / e * 100 * lev * sg, 2)
+            d["live_pnl_usdt"] = round((px - e) * float(r.get("qty") or 0) * sg, 2)
+        op.append(d)
+
     return {"user_id": user_id, "overall": _metrics(closed),
-            "open": [_slim(x, True) for x in open_],
-            "days": out_days, "generated_at": int(time.time())}
+            "open": op, "days": out_days,
+            "markets_enabled": _enabled(user_id),
+            "generated_at": int(time.time())}
 
 
 @router.get("/user/{user_id}/ledger")

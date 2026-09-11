@@ -30,11 +30,17 @@ export default function UserLedger({ userId, days = 30, market = "futures" }) {
 
   useEffect(() => {
     if (!userId) return;
-    setData(null); setErr("");
-    fetch(`/api/admin/user/${userId}/ledger?days=${days}&market=${market}`)
-      .then((r) => r.json())
-      .then((d) => (d.error ? setErr(d.error) : setData(d)))
-      .catch((e) => setErr(String(e)));
+    let alive = true;
+    const load = (first) => {
+      if (first) { setData(null); setErr(""); }
+      fetch(`/api/admin/user/${userId}/ledger?days=${days}&market=${market}`)
+        .then((r) => r.json())
+        .then((d) => { if (alive) d.error ? setErr(d.error) : setData(d); })
+        .catch((e) => alive && first && setErr(String(e)));
+    };
+    load(true);
+    const t = setInterval(() => load(false), 5000);   // 📡 المفتوحة حيّة
+    return () => { alive = false; clearInterval(t); };
   }, [userId, days, market]);
 
   if (err) return <div className="alert info">تعذّر جلب الدفتر: {err}</div>;
@@ -82,18 +88,28 @@ export default function UserLedger({ userId, days = 30, market = "futures" }) {
         <div className="card" style={{ marginBottom: 16, padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--line,#1e2a3a)",
                fontWeight: 600, fontSize: 14 }}>
-            مفتوحة الآن ({data.open.length})
+            <span className="pulse" /> مفتوحة الآن ({data.open.length})
           </div>
           <table className="ltable">
+            <thead>
+              <tr><th>العملة</th><th>الاتّجاه</th><th>دخول</th><th>السعر الآن</th>
+                  <th>الربح</th><th>بالدولار</th><th>رافعة</th><th>فُتحت</th></tr>
+            </thead>
             <tbody>
               {data.open.map((t) => (
                 <tr key={t.id}>
                   <td className="sym">{t.symbol}</td>
                   <td><span className={"dir " + t.direction.toLowerCase()}>{t.direction}</span></td>
-                  <td className="num">{t.entry}</td>
+                  <td className="num dim">{t.entry}</td>
+                  <td className="num live">{t.live_price ?? "—"}</td>
+                  <td className={"num b " + cls(t.live_pnl_pct)}>
+                    {t.live_pnl_pct != null ? pct(t.live_pnl_pct) : "—"}
+                  </td>
+                  <td className={"num " + cls(t.live_pnl_usdt)}>
+                    {t.live_pnl_usdt != null ? usd(t.live_pnl_usdt) : "—"}
+                  </td>
                   <td className="num dim">{t.leverage}x</td>
                   <td className="num dim">{hm(t.opened_at)}</td>
-                  <td className="num dim">—</td>
                 </tr>
               ))}
             </tbody>
@@ -187,6 +203,14 @@ export default function UserLedger({ userId, days = 30, market = "futures" }) {
           font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:4px;
           letter-spacing:.3px;
         }
+        .ledger .live { color:#38bdf8; font-weight:600; }
+        .ledger .pulse {
+          display:inline-block; width:7px; height:7px; border-radius:50%;
+          background:#22c55e; margin-inline-end:7px; vertical-align:middle;
+          animation:lpulse 1.8s ease-in-out infinite;
+        }
+        @keyframes lpulse { 0%,100%{opacity:1;transform:scale(1)}
+                            50%{opacity:.35;transform:scale(.8)} }
         .ledger .dir.long  { background:rgba(34,197,94,.13); color:#22c55e; }
         .ledger .dir.short { background:rgba(239,68,68,.13); color:#ef4444; }
         @media (max-width:640px){

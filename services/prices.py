@@ -39,4 +39,34 @@ def get_price(symbol):
     return PRICES.get(symbol.upper().replace("/","").replace("-",""), {})
 
 def get_all_prices():
-    return PRICES
+    """📡 البثّ اللحظي يطغى على REST.
+
+    مقيس 11 سبتمبر: هذا الملف يجلب كل الاسعار عبر REST كل 10 ثوان،
+    بينما radars/futures/price_stream يبث لحظيا عبر websocket ولا
+    يصل الواجهة. فالمستخدم يرى سعرا عمره حتى 10 ثوان والنظام يبدو
+    بطيئا، والسعر اللحظي موجود عندنا ومهمل.
+
+    الان: اللحظي اولا (عمره <= 15ث)، و REST يكمل الناقص.
+    """
+    try:
+        from radars.futures.price_stream import _TICK
+        import time as _t
+        if not _TICK:
+            return PRICES
+        out = dict(PRICES)
+        now = _t.time()
+        for sym, v in list(_TICK.items()):
+            if not v or (now - v[3]) > 15.0:
+                continue
+            b = dict(out.get(sym) or {})
+            b["price"] = v[0]
+            if v[1]:
+                b["change"] = v[1]
+            if v[2]:
+                b["volume"] = v[2]
+            b["live"] = True
+            out[sym] = b
+        return out
+    except Exception as e:
+        log.debug("live merge: %s", e)
+        return PRICES

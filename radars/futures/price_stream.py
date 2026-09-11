@@ -6,8 +6,9 @@ import logging
 
 log = logging.getLogger("price_stream")
 
-WS_URL = "wss://fstream.binance.com/ws/!ticker@arr"
-_TICK: dict = {}   # symbol -> (price, change_pct_24h, quote_vol_24h, ts)
+WS_URL = "wss://fstream.binance.com/market/ws/!ticker@arr"
+_TICK: dict = {}
+_ERRN = 0   # symbol -> (price, change_pct_24h, quote_vol_24h, ts)
 
 
 async def price_stream_loop():
@@ -25,8 +26,11 @@ async def price_stream_loop():
                             c = t.get("c")
                             if s and c:
                                 _TICK[s] = (float(c), float(t.get("P") or 0), float(t.get("q") or 0), now)
-                    except Exception:
-                        pass
+                    except Exception as _pe:
+                        global _ERRN
+                        _ERRN += 1
+                        if _ERRN <= 3:
+                            log.warning('⚡ tick parse: %s | %s', _pe, str(msg)[:120])
         except Exception as e:
             log.warning("⚡🔌 Futures WS drop: %s", e)
         await asyncio.sleep(5)
