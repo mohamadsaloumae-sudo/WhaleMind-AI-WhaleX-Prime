@@ -255,6 +255,14 @@ app.include_router(live_router)
 app.include_router(push_router)
 app.include_router(sub_router)
 app.include_router(admin_router)
+# 📒 دفتر الحسابات الموحّد — user_trades وحده، مجمّعا بالايام
+try:
+    from routers.admin_ledger import router as _ledger_router
+    app.include_router(_ledger_router)
+    from routers.admin_missed import router as _missed_router
+    app.include_router(_missed_router)
+except Exception as _le:
+    logging.getLogger("main").warning("admin_ledger: %s", _le)
 app.include_router(tg_router)
 app.include_router(ai_router)
 app.include_router(prices_router)
