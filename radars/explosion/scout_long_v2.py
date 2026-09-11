@@ -309,6 +309,15 @@ async def _build_and_open(r: LongV2Reading, position_manager_fn):
         _jb(sig)
     except Exception:
         pass
+    # 🚀 التنفيذ للمشتركين — كان مفقودا تماما.
+    #    مقيس 11 سبتمبر: LV2 يُصدر اشارات ولا تصل احدا، بينما
+    #    dip_hunter و scanner و scout كلها تستدعيه.
+    try:
+        import asyncio as _aio
+        from services.auto_trade_engine import on_signal_approved as _osa
+        _aio.create_task(_osa(sig))
+    except Exception as _te:
+        log.error("🔴 LV2: تعذّر ارسال %s للتنفيذ: %s", sig.symbol, _te)
     log.info("🔬📈 LONG V2 SIGNAL: %s @%.6g lev=%.1fx وقف=%.2f%% [%s]",
              r.symbol, r.price, lv["leverage"], lv["sl_pct"], " · ".join(r.reasons))
 
