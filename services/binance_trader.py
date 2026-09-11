@@ -716,7 +716,13 @@ async def close_position_for_user(user_id: str, symbol: str, direction: str, rea
             if _ep > 0 and _fill > 0:
                 _raw = (_fill - _ep) / _ep * 100.0
                 _pct = _raw * _lev * (1 if _amt > 0 else -1)
-            _lc(user_id, symbol, _fill, round(_pct, 3), "manual_close", "futures")
+            # 📊 مقيس 11 سبتمبر: كان "manual_close" ثابتا فتُسجل كل
+            #    اغلاقات النظام (وقف · تكتيكي · ارضية) على انها يدوية.
+            #    RAYSOLUSDT ظهرت tactical_exit في سجل النظام و
+            #    manual_close في user_trades — نفس الصفقة بوسمين.
+            #    فلا يمكن قياس اداء المدير ولا سلوك المشترك.
+            _lc(user_id, symbol, _fill, round(_pct, 3),
+                (reason or "manual_close"), "futures")
         except Exception as _le:
             log.debug("ledger close: %s", _le)
 
