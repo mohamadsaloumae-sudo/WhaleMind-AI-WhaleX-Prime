@@ -31,15 +31,14 @@ FUTURES_FILTER = (
     "AND result IS NOT NULL "
     "AND result NOT IN ('void','shadow_hidden') "
     "AND result NOT LIKE 'shadow%' "
-    "AND pnl_pct > -9"
+
 )
-SPOT_FILTER = "pnl_pct IS NOT NULL AND pnl_pct > -9"
-MEME_FILTER = "status='closed' AND pnl_pct IS NOT NULL AND pnl_pct > -9"
+SPOT_FILTER = "pnl_pct IS NOT NULL"
+MEME_FILTER = "status='closed' AND pnl_pct IS NOT NULL"
 
 # الحدود بتوقيت الإمارات
 DAY = "strftime('%s','now','+4 hours','start of day','-4 hours')"
 MONTH = "strftime('%s','now','+4 hours','start of month','-4 hours')"
-
 
 def _agg(rows) -> dict:
     """يحسب الملخّص من قائمة أرباح."""
@@ -55,7 +54,6 @@ def _agg(rows) -> dict:
         "net_pct": round(tp - tl, 2),
         "win_rate": round(len(w) / len(rows) * 100, 1) if rows else 0.0,
     }
-
 
 def summary(market: str = "futures", period: str = "month") -> dict:
     """الملخّص الموحَّد. period: day · month · all"""
@@ -81,7 +79,6 @@ def summary(market: str = "futures", period: str = "month") -> dict:
     except Exception as e:
         log.error("ملخّص %s/%s: %s", market, period, e)
         return _agg([])
-
 
 def daily(market: str = "futures", days: int = 30) -> list:
     """أرباح كل يوم — للسجلّ الزمنيّ. نفس المرشّح تماماً."""
