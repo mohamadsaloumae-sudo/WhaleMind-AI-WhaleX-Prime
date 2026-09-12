@@ -407,6 +407,46 @@ async def test_connection(api_key: str, api_secret: str, is_testnet: bool = True
 _spot_total_cache = {}
 
 
+def usdt_futures_balance(user_id: str) -> tuple:
+    """💵 رصيد USDT في محفظة العقود الآجلة — من منصّة المشترك نفسها.
+
+    مقيس 11 سبتمبر: مشترك مكسي رصيده 1305.8$ والنظام يقرأ 0.00$،
+    لان كل قراءات الرصيد كانت بدوال باينانس (futures_account_balance)
+    وهي لا تعمل على المنصات الست الاخرى. فالحارس يمنعه بلا سبب،
+    و margin_guard سجّل 641 منعا برصيد صفر — بعضها كاذب.
+
+    يُعيد (الرصيد، سبب الفشل إن وُجد).
+    """
+    creds = get_credentials(user_id)
+    if not creds:
+        return 0.0, "no_credentials"
+    ex = str(creds.get("exchange") or "binance").lower()
+    try:
+        if ex == "binance":
+            cl = get_client(user_id)
+            if not cl:
+                return 0.0, "no_client"
+            for b in cl.futures_account_balance():
+                if b.get("asset") == "USDT":
+                    return float(b.get("balance") or 0), ""
+            return 0.0, ""
+        from services.exchanges import get as _get_ad
+        ad = _get_ad(ex)
+        c = ad.client(creds.get("api_key"), creds.get("api_secret"),
+                      creds.get("passphrase") or creds.get("api_passphrase") or "",
+                      futures=True, testnet=bool(creds.get("is_testnet")))
+        b = c.fetch_balance() or {}
+        u = b.get("USDT") or {}
+        v = float(u.get("free") or u.get("total") or 0)
+        if v <= 0:
+            t = b.get("total") or {}
+            v = float(t.get("USDT") or 0)
+        return v, ""
+    except Exception as e:
+        log.warning("💵 رصيد %s على %s: %s", user_id[:8], ex, str(e)[:80])
+        return 0.0, str(e)[:80]
+
+
 def get_balance(user_id: str) -> dict:
     """يجلب رصيد المستخدم (Spot + Futures)"""
     client = get_client(user_id)
@@ -895,11 +935,10 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
     #    يُشتقّ من الرصيد ومبلغ الصفقة لا من رقم ثابت.
     try:
         from services.margin_guard import check as _mg_check
-        _bal = 0.0
-        for _b in await _aio_th(client.futures_account_balance):
-            if _b.get("asset") == "USDT":
-                _bal = float(_b.get("balance") or 0)
-                break
+        # 💵 من منصّة المشترك — كان يقرأ بدوال باينانس لكل المنصّات
+        _bal, _bwhy = await _aio_th(usdt_futures_balance, user_id)
+        if _bal <= 0 and _bwhy:
+            log.warning("💵 تعذّر رصيد %s: %s", user_id[:8], _bwhy)
         _used = 0.0
         try:
             for _p in await _aio_th(client.futures_position_information):
