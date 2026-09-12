@@ -46,7 +46,8 @@ async def after_loop():
                 for k, sym, d, px in rows:
                     done = c.execute(
                         "SELECT 1 FROM journal WHERE trade_key=? AND stage='after' "
-                        "AND data LIKE ?", (k, '%"minutes": %d%%' % m)).fetchone()
+                        "AND data LIKE ?",
+                        (k, '%"minutes": ' + str(m) + '%')).fetchone()
                     if done:
                         continue
                     lp = await _price(sym)

@@ -61,11 +61,83 @@ def _bars(sym):
     return out
 
 
+SNAP = "/opt/whalex/db/sense_series.json"
+
+
+def _save_series():
+    """نحفظ السلسلة على القرص — فإعادة التشغيل لا تمسح شيئاً."""
+    import json as _j
+    try:
+        out = {s: list(d)[-KEEP:] for s, d in _SERIES.items() if len(d) >= 10}
+        with open(SNAP + ".tmp", "w") as f:
+            _j.dump(out, f)
+        os.replace(SNAP + ".tmp", SNAP)
+        return len(out)
+    except Exception as e:
+        log.debug("save series: %s", e)
+        return 0
+
+
+def _load_series():
+    """نستعيدها عند الإقلاع — ونتجاهل ما تقادم فوق ساعتين."""
+    import json as _j
+    try:
+        if not os.path.exists(SNAP):
+            return 0
+        now = time.time()
+        d = _j.load(open(SNAP))
+        n = 0
+        for sym, pts in d.items():
+            fresh = [tuple(p) for p in pts if len(p) == 3 and now - p[2] < 7200]
+            if len(fresh) >= 10:
+                _SERIES[sym].extend(fresh)
+                n += 1
+        return n
+    except Exception as e:
+        log.debug("load series: %s", e)
+        return 0
+
+
+async def _warmup():
+    """يملأ السلسلة من شموع الدقيقة التاريخية لأنشط العملات."""
+    import json as _j
+    import urllib.request as _u
+    try:
+        from radars.futures.price_stream import _TICK
+    except Exception:
+        return
+    syms = sorted(_TICK.items(), key=lambda x: -(x[1][2] or 0))[:200]
+    n = 0
+    for sym, _t in syms:
+        try:
+            url = ("https://fapi.binance.com/fapi/v1/klines?symbol=%s"
+                   "&interval=1m&limit=%d" % (sym, KEEP))
+            d = await asyncio.to_thread(
+                lambda: _j.load(_u.urlopen(url, timeout=12)))
+            for k in d:
+                _SERIES[sym].append((float(k[4]), float(k[7] or 0), int(k[6]) / 1000))
+            n += 1
+        except Exception:
+            continue
+        await asyncio.sleep(0.06)
+    log.info("🔥 المستشعر سُخّن من التاريخ — %d عملة جاهزة فوراً", n)
+
+
 async def sense_loop():
     from sense.sensors import measure_all
     from sense.store import write_batch
     log.info("🔭 مستشعر السوق بدأ — يقيس ويخزّن، لا يقرّر")
     await asyncio.sleep(45)
+    # 🔥 تسخين من الشموع التاريخية — بلا هذا كل إعادة تشغيل تمسح
+    #    الذاكرة ويبدأ العدّ من الصفر (45 دقيقة ضائعة في كل مرّة).
+    _rest = _load_series()
+    if _rest >= 50:
+        log.info("💾 المستشعر استعاد %d عملة من القرص — لا تسخين", _rest)
+    else:
+        try:
+            await _warmup()
+        except Exception as _we:
+            log.warning("تسخين المستشعر: %s", str(_we)[:80])
     warm = 0
     while True:
         try:
@@ -85,6 +157,8 @@ async def sense_loop():
                     rows.append((sym, "binance", m, v24))
             if rows:
                 write_batch(rows)
+                if warm % 5 == 0:
+                    _save_series()
                 if warm % 15 == 1:
                     log.info("🔭 المستشعر: %d عملة في البث · %d قيست وخُزّنت",
                              got, len(rows))
