@@ -50,6 +50,11 @@ export default function CapitalField({ market = "futures", exchange = "binance",
     finally { setBusy(false); }
   }
 
+  const EXN = { binance: "باينانس", bybit: "بايبت", mexc: "مكسي",
+                okx: "أوكي إكس", bitget: "بيتجت", gate: "جيت", bingx: "بينج إكس" };
+  const MKT = ar ? { futures: "الفيوتشر", spot: "السبوت" }
+                 : { futures: "Futures", spot: "Spot" };
+
   const L = ar
     ? { title: "رأس مال التداول", ph: "المبلغ الذي يتداول به البوت",
         amt: "مبلغ الصفقة", slots: "حتى", trades: "صفقة",
@@ -67,7 +72,12 @@ export default function CapitalField({ market = "futures", exchange = "binance",
       direction: ar ? "rtl" : "ltr", textAlign: ar ? "right" : "left",
     }}>
       <div style={{ fontWeight: 700, fontSize: 14.5, color: "#eaf6f4", marginBottom: 10 }}>
-        💰 {L.title}
+        💰 {L.title} — {MKT[market] || market}
+        {exchange !== "binance" && (
+          <span style={{ fontSize: 11.5, opacity: .6, marginInlineStart: 6 }}>
+            ({EXN[exchange] || exchange})
+          </span>
+        )}
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>

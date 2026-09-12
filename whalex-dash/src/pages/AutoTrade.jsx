@@ -500,6 +500,9 @@ export default function AutoTrade() {
                             transition: "left .2s" }} />
             </div>
           </div>
+          {/* 💰 حقل واحد يضبط مبلغ السبوت وسقفه تلقائياً */}
+          <CapitalField market="spot" exchange="binance" ar={lang === "ar"} />
+
           <div style={{ fontSize: 13, color: "var(--txt-2)", margin: "14px 0 6px" }}>{lang === "ar" ? "مبلغ كل صفقة (USDT)" : "Amount per trade (USDT)"}</div>
           <div style={{
             fontSize: 11.5, color: "#f0b429", background: "rgba(240,180,41,.08)",
