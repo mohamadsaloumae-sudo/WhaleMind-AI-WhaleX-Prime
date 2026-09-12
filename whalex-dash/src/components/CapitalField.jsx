@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 
+const TK = () => localStorage.getItem("whalex_token") || "";
+const AUTH = () => (TK() ? { Authorization: `Bearer ${TK()}` } : {});
+
 /* 💰 رأس مال التداول — حقل واحد يضبط المبلغ والسقف تلقائياً.
    المشترك يحدّد كم يريد أن يتداول به، ولا نمسّ ما زاد عنه. */
 
@@ -12,7 +15,7 @@ export default function CapitalField({ market = "futures", exchange = "binance",
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    fetch("/api/capital/current", { credentials: "include" })
+    fetch("/api/capital/current", { headers: AUTH() })
       .then((r) => r.json())
       .then((d) => {
         const a = (d.accounts || []).find((x) => x.exchange === exchange);
@@ -37,8 +40,8 @@ export default function CapitalField({ market = "futures", exchange = "binance",
     setBusy(true); setMsg(""); setErr("");
     try {
       const r = await fetch("/api/capital", {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...AUTH() },
         body: JSON.stringify({ capital: v, market, exchange }),
       });
       const d = await r.json();

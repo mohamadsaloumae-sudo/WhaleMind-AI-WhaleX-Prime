@@ -205,6 +205,8 @@ def get_credentials_for(user_id: str, exchange: str) -> Optional[dict]:
             "auto_trade_enabled": bool(row["auto_trade_enabled"]),
             "trade_amount_usdt": row["trade_amount_usdt"],
             "max_open_positions": row["max_open_positions"],
+            "trading_capital": (row["trading_capital"]
+                                if "trading_capital" in row.keys() else 0),
             "allowed_grades": (row["allowed_grades"] or "A,S"),
             "leverage": row["leverage"] if "leverage" in row.keys() else None,
             "account_type": row["account_type"],
@@ -244,6 +246,8 @@ def get_credentials(user_id: str) -> Optional[dict]:
             "spot_max_positions": row["spot_max_positions"] if "spot_max_positions" in row.keys() else 0,
             "trade_amount_usdt": row["trade_amount_usdt"],
             "max_open_positions": row["max_open_positions"],
+            "trading_capital": (row["trading_capital"]
+                                if "trading_capital" in row.keys() else 0),
             "allowed_grades": (row["allowed_grades"] or "A,S"),
             "leverage": row["leverage"] if "leverage" in row.keys() else None,
             "account_type": row["account_type"],
@@ -953,6 +957,19 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
         from services.margin_guard import check as _mg_check
         # 💵 من منصّة المشترك — كان يقرأ بدوال باينانس لكل المنصّات
         _bal, _bwhy = await _aio_th(usdt_futures_balance, user_id)
+        # 💰 راس مال التداول — المشترك حدد كم يسمح للبوت به، فلا نمس
+        #    ما زاد عنه في محفظته. والاقل من الاثنين هو الحاكم:
+        #    راس مال 500$ ورصيد 5000$ ⇒ نتداول بـ500$
+        #    راس مال 500$ ورصيد 300$  ⇒ نتداول بـ300$ (لا نفتح بما لا نملك)
+        #    بلا راس مال محدد ⇒ الرصيد كله (توافق خلفي)
+        try:
+            _cap = float(creds.get("trading_capital") or 0)
+            if _cap > 0 and _bal > _cap:
+                log.info("💰 %s راس المال %.0f$ من رصيد %.2f$",
+                         user_id[:8], _cap, _bal)
+                _bal = _cap
+        except Exception:
+            pass
         if _bal <= 0 and _bwhy:
             log.warning("💵 تعذّر رصيد %s: %s", user_id[:8], _bwhy)
         _used = 0.0
