@@ -15,7 +15,7 @@ import collections
 
 log = logging.getLogger("sense_loop")
 OFF = "/opt/whalex/db/sense.off"
-EVERY = 60
+EVERY = 300   # 5 دقائق — 220 طلب لكل دورة
 KEEP = 90          # كم نقطة نحتفظ بها لكل عملة في الذاكرة
 MIN_PTS = 45       # اقل عدد للقياس
 
@@ -123,6 +123,44 @@ async def _warmup():
     log.info("🔥 المستشعر سُخّن من التاريخ — %d عملة جاهزة فوراً", n)
 
 
+SCAN_N = 220        # كم عملة نمسح في الدورة (الاعلى حجما)
+BARS = 90           # شموع الدقيقة لكل عملة
+
+
+async def _scan_klines():
+    """📊 نجلب شموع حقيقية — الحجم المركّب من البث اعطى VPIN=0.99 للجميع.
+    مقيس 12 سبتمبر: الحجم الحقيقي يعطي 0.42-0.68 وهو المعيار."""
+    import json as _j
+    import urllib.request as _u
+    from sense.sensors import measure_all
+    try:
+        from radars.futures.price_stream import _TICK
+    except Exception:
+        return 0, []
+    syms = [s for s, t in sorted(_TICK.items(), key=lambda x: -(x[1][2] or 0))
+            if s.endswith("USDT")][:SCAN_N]
+    out = []
+
+    def _fetch(sym):
+        u = ("https://fapi.binance.com/fapi/v1/klines?symbol=%s"
+             "&interval=1m&limit=%d" % (sym, BARS))
+        return _j.load(_u.urlopen(u, timeout=10))
+
+    for sym in syms:
+        try:
+            d = await asyncio.to_thread(_fetch, sym)
+            bars = [_Bar(float(k[1]), float(k[2]), float(k[3]),
+                         float(k[4]), float(k[5])) for k in d]
+            m = measure_all(bars)
+            if m:
+                v24 = float(_TICK.get(sym, (0, 0, 0, 0))[2] or 0)
+                out.append((sym, "binance", m, v24))
+        except Exception:
+            continue
+        await asyncio.sleep(0.05)
+    return len(syms), out
+
+
 async def sense_loop():
     from sense.sensors import measure_all
     from sense.store import write_batch
@@ -144,17 +182,8 @@ async def sense_loop():
             if os.path.exists(OFF):
                 await asyncio.sleep(EVERY)
                 continue
-            got = _collect()
             warm += 1
-            rows = []
-            for sym in list(_SERIES):
-                bars = _bars(sym)
-                if not bars:
-                    continue
-                m = measure_all(bars)
-                if m:
-                    v24 = _SERIES[sym][-1][1] if _SERIES[sym] else 0
-                    rows.append((sym, "binance", m, v24))
+            got, rows = await _scan_klines()
             if rows:
                 write_batch(rows)
                 if warm % 5 == 0:

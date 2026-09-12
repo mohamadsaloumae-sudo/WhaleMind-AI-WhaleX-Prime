@@ -81,10 +81,20 @@ def kyle_lambda(closes, volumes, n=30):
 
 
 def vpin(closes, volumes, buckets=20):
-    """احتمال التداول المطلع المتزامن مع الحجم."""
+    """احتمال التداول المطلع المتزامن مع الحجم.
+
+    ملاحظة 12 سبتمبر: حين يكون الحجم مشتقا من فرق vol24 تكون اغلب
+    النقاط صفرا فيبتلع دلو واحد كل شيء ويخرج VPIN = 0.997 للجميع.
+    فنستعمل |حركة السعر| بديلا عن الحجم حين يكون الحجم شبه معدوم —
+    وهو ما يفعله المعيار اصلا (volume-time بدل clock-time)."""
     n = min(len(closes) - 1, len(volumes))
     if n < buckets * 2:
         return None
+    nz = sum(1 for x in volumes[-n:] if x and x > 0)
+    if nz < n * 0.5:
+        volumes = [abs(closes[i] - closes[i - 1]) / max(closes[i - 1], 1e-12)
+                   for i in range(-n, 0)]
+        volumes = [0.0] * (len(closes) - len(volumes)) + volumes
     buy, sell = [], []
     for i in range(-n, 0):
         v = volumes[i] or 0
