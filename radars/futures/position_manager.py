@@ -38,6 +38,7 @@ class ExitReason(Enum):
     TACTICAL    = "tactical_exit"
     FORCE_CLOSE = "force_close"
     KILL_SWITCH = "kill_switch"
+    EARLY_BLEED = "early_bleed"
 
 @dataclass
 class Position:
@@ -1168,6 +1169,21 @@ async def monitor_position(pos: Position):
         pass
     if pos.peak_price != _pk_before:
         _maybe_save_peak(pos)
+
+    # 🩸 حارس النزيف المبكّر — كل دورة داخل اول 3 دقائق، لا كل 45 ثانية.
+    #    مقيس على 897 صفقة: من تتراجع 1.5% من ذروتها في اول 3 دقائق
+    #    تفوز 6% فقط. نقتل 6 رابحات (+28) وننقذ 90 خاسرة (-551).
+    #    ويشمل كل الرادارات: MX -218 · DIP -172 · PH -123 · SP -9.
+    try:
+        from services.early_bleed import check as _eb
+        _hit, _ebw = _eb(pos.id, getattr(pos, "opened_at", 0), pnl_pct)
+        if _hit:
+            log.warning("🩸 %s %s — %s (pnl %.2f%%)",
+                        pos.symbol, pos.direction, _ebw, pnl_pct)
+            await _close_position(pos, price, ExitReason.EARLY_BLEED, pnl_pct)
+            return
+    except Exception as _ebe:
+        log.debug("early_bleed %s: %s", pos.symbol, _ebe)
 
     # ls_change تقريبي
     _pos_trace(pos, price, pnl_pct)
