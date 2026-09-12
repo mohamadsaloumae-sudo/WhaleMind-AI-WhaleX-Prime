@@ -109,6 +109,12 @@ async def lifespan(app: FastAPI):
     #    حقول حالة السوق كانت ميّتة (regime فارغ في 91% من السجلّ)،
     #    فنجمع بيانات حقيقية أوّلاً ثم نقيس أثرها قبل أن نبني عليها.
     try:
+        from sense.loop import sense_loop as _snl
+        asyncio.create_task(_snl(), name="sense_loop")
+        log.info("🔭 مستشعر السوق مربوط")
+    except Exception as _sne:
+        log.warning("sense_loop: %s", _sne)
+    try:
         from services.regime_loop import regime_loop as _rgl
         asyncio.create_task(_rgl(), name="regime_loop")
         log.info("🌐 حلقة خريطة الأنظمة مربوطة")
