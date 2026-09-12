@@ -1,4 +1,5 @@
 // التداول — ربط Binance + اختيار آلي/يدوي + إعدادات التداول
+import CapitalField from "../components/CapitalField.jsx";
 import { useEffect, useState } from "react";
 // 🔑 اسم المنصّة في حقول المفاتيح — كان ثابتاً على "Binance"
 //    مهما اختار المشترك، فيربك من يربط MEXC أو Bybit.
@@ -450,6 +451,11 @@ export default function AutoTrade() {
 
           <div className="card">
             <div className="card-title">{t("tradeSettings")}</div>
+
+            {/* 💰 حقل واحد يضبط المبلغ والسقف تلقائياً */}
+            <CapitalField market="futures" exchange="binance" ar={lang === "ar"}
+              onSaved={(d) => { setAmount(d.amount); setMaxPos(d.slots); }} />
+
             <div className="field">
               <label>{t("amountPerTrade")} (USDT)</label>
               <input type="number" min="10" max="10000" value={amount} onChange={(e) => setAmount(e.target.value)} />
@@ -457,14 +463,6 @@ export default function AutoTrade() {
             <div className="field">
               <label>{t("maxPositions")}</label>
               <input type="number" min="1" max="10" value={maxPos} onChange={(e) => setMaxPos(e.target.value)} />
-            </div>
-            <div className="field">
-              <label>{t("allowedGrades")}</label>
-              <select value={grades} onChange={(e) => setGrades(e.target.value)}>
-                <option value="S">S {t("only")}</option>
-                <option value="AS">A + S</option>
-                <option value="ASB">A + S + B</option>
-              </select>
             </div>
             <div className="field">
               <label>{t("leverage") || "الرافعة المالية"}</label>

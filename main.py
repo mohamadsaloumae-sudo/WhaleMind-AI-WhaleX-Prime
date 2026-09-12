@@ -267,6 +267,8 @@ try:
     app.include_router(_ledger_router)
     from routers.admin_missed import router as _missed_router
     app.include_router(_missed_router)
+    from routers.capital import router as _cap_router
+    app.include_router(_cap_router)
 except Exception as _le:
     logging.getLogger("main").warning("admin_ledger: %s", _le)
 app.include_router(tg_router)
