@@ -642,6 +642,22 @@ async def close_position_for_user(user_id: str, symbol: str, direction: str, rea
     creds = get_credentials_for(user_id, _sig_ex)
     if not creds and _sig_ex == "binance":
         creds = get_credentials(user_id)   # توافق خلفي
+    # 🔌 المشترك على منصّة اخرى — نغلق بمفاتيحه هو.
+    #    مقيس 12 سبتمبر: مشترك مكسي فُتحت له CASHCAT و PUFFER ولم
+    #    تُغلقا لان get_credentials_for(binance) لا يجد له مفاتيح،
+    #    فيخرج قبل منطق التوجيه ويبقى المركز بلا حارس.
+    if not creds:
+        try:
+            for _row in get_user_exchanges(user_id):
+                if _row.get("auto_trade_enabled"):
+                    _c2 = get_credentials_for(user_id, (_row.get("exchange") or "").lower())
+                    if _c2:
+                        creds = _c2
+                        log.info("🗺️ %s إغلاق %s عبر %s (لا مفاتيح على %s)",
+                                 user_id[:8], symbol, _row.get("exchange"), _sig_ex)
+                        break
+        except Exception as _fe:
+            log.debug("close fallback %s: %s", user_id[:8], _fe)
     if not creds or not creds.get("auto_trade_enabled"):
         return {"success": False, "error": "التداول الآلي غير مفعّل"}
     # ═══ 🔌 توجيه الإغلاق — نفس منطق الفتح ═══

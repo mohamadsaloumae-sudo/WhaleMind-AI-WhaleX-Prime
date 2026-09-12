@@ -273,17 +273,13 @@ async def auto_trade(body: AutoTradeBody, user=Depends(get_current_user)):
     if body.enabled:
         try:
             import asyncio as _a2
-            from services.binance_trader import decrypt as _dec
-            from binance.client import Client as _C
-
-            def _read():
-                cl = _C(_dec(creds["api_key_encrypted"]),
-                        _dec(creds["api_secret_encrypted"]))
-                return sum(float(x["balance"])
-                           for x in cl.futures_account_balance()
-                           if x["asset"] == "USDT")
-
-            _bal = await _a2.to_thread(_read)
+            # 💵 الدالّة الموحّدة — تقرأ من منصّة المشترك لا بدوال باينانس.
+            #    مقيس 12 سبتمبر: مشترك مكسي رصيده 1188$ والفحص يفشل بـ
+            #    'api_key_encrypted' لان get_credentials يُرجع مفاتيح مفكوكة.
+            from services.binance_trader import usdt_futures_balance as _ub
+            _bal, _bw = await _a2.to_thread(_ub, uid)
+            if _bal <= 0 and _bw:
+                log.warning("💵 %s تعذّر الرصيد: %s", uid[:8], _bw)
             if _bal < MIN_BALANCE_USD:
                 log.info("💵 %s حاول التفعيل برصيد %.2f$ — مُنع", uid, _bal)
                 raise HTTPException(
