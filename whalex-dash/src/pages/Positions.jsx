@@ -1,5 +1,6 @@
 // الصفقات — عامّة (المفتوحة تُراقب + المغلقة رابح/خاسر)
 import { useEffect, useState } from "react";
+import { useStats, fmtUsd, fmtPct } from "../lib/stats.js";
 import { signals } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
 import { getMarket } from "../hooks/useMarket.js";
@@ -50,9 +51,10 @@ const EX_LOGO = {
 };
 
 export default function Positions() {
+  const S = useStats("futures");
+  const st = S.today;
   const { t, lang } = useLang();
   const [history, setHistory] = useState([]);
-  const [st, setSt] = useState({});
   const [detail, setDetail] = useState(null);   // 📊 تفاصيل الصفقة
   const [monthly, setMonthly] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -68,15 +70,8 @@ export default function Positions() {
   }
   useEffect(() => {
     load();
-    const _tk = localStorage.getItem("whalex_token") || "";
-    const loadSt = () => fetch("/api/stats/summary?market=futures",
-      { headers: _tk ? { Authorization: "Bearer " + _tk } : {} })
-      .then((r) => r.json()).then((d) => setSt((d && d.today) || {}))
-      .catch(() => {});
-    loadSt();
-    const id2 = setInterval(loadSt, 20000);
     const id = setInterval(load, 20000);
-    return () => { clearInterval(id); clearInterval(id2); };
+    return () => clearInterval(id);
   }, []);
 
   // إحصائيات سريعة

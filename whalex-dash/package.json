@@ -9,11 +9,12 @@
     "preview": "vite preview --host 0.0.0.0 --port 4173"
   },
   "dependencies": {
+    "lucide-react": "^0.400.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.0",
-    "lucide-react": "^0.400.0",
-    "recharts": "^2.12.7"
+    "recharts": "^2.12.7",
+    "swr": "^2.5.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",

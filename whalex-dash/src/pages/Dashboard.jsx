@@ -1,5 +1,6 @@
 // الرئيسية — نظرة عامة
 import WelcomeHeader from "../components/WelcomeHeader.jsx";
+import { useStats, fmtUsd, fmtPct } from "../lib/stats.js";
 import { useEffect, useState } from "react";
 import { Activity, Radio } from "lucide-react";
 import { useLang } from "../context/LangContext.jsx";
@@ -8,6 +9,8 @@ import { signals } from "../lib/api.js";
 import ChatWidget from "../components/ChatWidget.jsx";
 
 export default function Dashboard() {
+  const S = useStats(getMarket());
+  const T = S.today;
   const { t, lang } = useLang();
   const [live, setLive] = useState(false);
   const [day, setDay] = useState({ trades: 0, profit: 0, winRate: 0 });
@@ -16,23 +19,11 @@ export default function Dashboard() {
   useEffect(() => {
     async function load() {
       try {
-        // مصدر واحد: user_trades بالدولار (الشاشات كانت تجمع نسبا)
-        const tk = localStorage.getItem("whalex_token") || "";
-        const st = await fetch("/api/stats/summary?market=" + getMarket(),
-          { headers: tk ? { Authorization: "Bearer " + tk } : {} })
-          .then((r) => r.json()).catch(() => ({}));
-        const td = (st && st.today) || {};
-        const list = [];
-        const wins = td.wins || 0;
-        const profit = td.net_usd || 0;
+        // الاحصاء يأتي من useStats (SWR) — لا استدعاء هنا
+        const td = {};
         const all = await signals.all(getMarket());
         setRecent((all?.signals || []).slice(0, 4));
         setDay({
-          trades: td.trades || 0,
-          profit: profit,
-          returnPct: td.return_pct,
-          fees: td.fees_usd || 0,
-          winRate: td.win_rate || 0,
         });
       } catch { /* */ }
     }
@@ -106,16 +97,16 @@ export default function Dashboard() {
         </div>
         <div className="card stat">
           <span className="label">{t("todayTrades")}</span>
-          <span className="value">{day.trades}</span>
+          <span className="value">{T.trades ?? 0}</span>
         </div>
         <div className="card stat">
           <span className="label">{t("todayProfit")}</span>
-          <span className="value" style={{ color: day.profit >= 0 ? "var(--green)" : "var(--red)" }}>{day.profit >= 0 ? "+" : ""}{day.profit.toFixed(1)}%</span>
+          <span className="value" style={{ color: (T.net_usd ?? 0) >= 0 ? "var(--green)" : "var(--red)" }}>{fmtUsd(T.net_usd)}<span style={{ display: "block", fontSize: 11, opacity: .6, fontWeight: 400 }}>{T.return_pct != null ? fmtPct(T.return_pct) + " من رأس المال" : ""}{T.fees_usd ? " · رسوم " + T.fees_usd.toFixed(2) + "$" : ""}</span></span>
           <span style={{ fontSize: 13, color: "#e8eef2", fontWeight: 600, marginTop: 4 }}>{stamp}</span>
         </div>
         <div className="card stat">
           <span className="label">{t("winRate")}</span>
-          <span className="value" style={{ color: "var(--brand)" }}>{day.winRate}%</span>
+          <span className="value" style={{ color: "var(--brand)" }}>{T.win_rate ?? 0}%<span style={{ display: "block", fontSize: 11, opacity: .6, fontWeight: 400 }}>{(T.wins ?? 0) + " من " + (T.trades ?? 0)}</span></span>
         </div>
       </div>
 
