@@ -14,6 +14,7 @@ import time
 import sqlite3
 import logging
 from fastapi import APIRouter, Depends
+from routers.auth import get_current_user
 
 log = logging.getLogger("stats_today")
 router = APIRouter(prefix="/api/stats", tags=["stats"])
@@ -50,6 +51,39 @@ def _calc(rows):
     }
 
 
+def _with_return(d, capital):
+    """العائد الحقيقي على راس المال — لا نسبة عدد الصفقات.
+
+    مقيس 13 سبتمبر: الشاشة تقول "فوز 55.9%" والمشترك خسر 6.56$.
+    فنسبة الفوز تعد الصفقات ولا تقيس المال. والمشترك يقرأها ربحا.
+    """
+    cap = float(capital or 0)
+    d["capital"] = round(cap, 2)
+    d["return_pct"] = round(d["net_usd"] / cap * 100, 2) if cap > 0 else None
+    d["fees_pct"] = round(d["fees_usd"] / cap * 100, 2) if cap > 0 else None
+    return d
+
+
+def _capital_of(user_id):
+    try:
+        c = sqlite3.connect("file:%s?mode=ro" % DB, uri=True)
+        r = c.execute("SELECT trading_capital FROM user_binance_credentials "
+                      "WHERE user_id=? LIMIT 1", (user_id,)).fetchone()
+        c.close()
+        if r and r[0]:
+            return float(r[0])
+    except Exception:
+        pass
+    try:
+        import sys
+        sys.path.insert(0, "/opt/whalex")
+        from services.binance_trader import usdt_futures_balance
+        v, _ = usdt_futures_balance(user_id)
+        return v
+    except Exception:
+        return 0.0
+
+
 def _fetch(user_id, since, market="futures"):
     c = sqlite3.connect("file:%s?mode=ro" % DB, uri=True)
     c.row_factory = sqlite3.Row
@@ -65,14 +99,17 @@ def _fetch(user_id, since, market="futures"):
 
 
 @router.get("/today")
-async def today(user_id: str, market: str = "futures"):
+async def today(market: str = "futures", user=Depends(get_current_user)):
+    user_id = user["sub"]
     """اليوم — بالدولار من التنفيذ الحقيقي."""
-    return {**_calc(_fetch(user_id, _day_start(), market)),
+    d = _calc(_fetch(user_id, _day_start(), market))
+    return {**_with_return(d, _capital_of(user_id)),
             "market": market, "period": "today"}
 
 
 @router.get("/summary")
-async def summary(user_id: str, market: str = "futures"):
+async def summary(market: str = "futures", user=Depends(get_current_user)):
+    user_id = user["sub"]
     """اليوم · أمس · 7 ايام · 30 يوما — كلها من مصدر واحد."""
     out = {}
     for key, since in (("today", _day_start()),
@@ -90,5 +127,10 @@ async def summary(user_id: str, market: str = "futures"):
         a.append(market)
     out["yesterday"] = _calc([dict(r) for r in c.execute(q, a)])
     c.close()
+    cap = _capital_of(user_id)
+    for k in ("today", "yesterday", "week", "month"):
+        if k in out:
+            out[k] = _with_return(out[k], cap)
     out["market"] = market
+    out["capital"] = round(cap, 2)
     return out

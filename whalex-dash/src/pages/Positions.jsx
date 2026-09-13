@@ -52,6 +52,7 @@ const EX_LOGO = {
 export default function Positions() {
   const { t, lang } = useLang();
   const [history, setHistory] = useState([]);
+  const [st, setSt] = useState({});
   const [detail, setDetail] = useState(null);   // 📊 تفاصيل الصفقة
   const [monthly, setMonthly] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -67,17 +68,25 @@ export default function Positions() {
   }
   useEffect(() => {
     load();
+    const _tk = localStorage.getItem("whalex_token") || "";
+    const loadSt = () => fetch("/api/stats/summary?market=futures",
+      { headers: _tk ? { Authorization: "Bearer " + _tk } : {} })
+      .then((r) => r.json()).then((d) => setSt((d && d.today) || {}))
+      .catch(() => {});
+    loadSt();
+    const id2 = setInterval(loadSt, 20000);
     const id = setInterval(load, 20000);
-    return () => clearInterval(id);
+    return () => { clearInterval(id); clearInterval(id2); };
   }, []);
 
   // إحصائيات سريعة
-  const wins = history.filter((x) => x.is_win).length;
-  const losses = history.length - wins;
-  const winRate = history.length ? ((wins / history.length) * 100).toFixed(0) : 0;
-  const totalProfit = history.filter((x) => x.is_win).reduce((a, x) => a + Number(x.pnl_pct || 0), 0);
-  const totalLoss = history.filter((x) => !x.is_win).reduce((a, x) => a + Math.abs(Number(x.pnl_pct || 0)), 0);
-  const net = totalProfit - totalLoss;
+  // مصدر واحد: /api/stats — لا نحسب هنا (كانت تجمع نسبا)
+  const wins = st.wins || 0;
+  const losses = st.losses || 0;
+  const winRate = st.win_rate || 0;
+  const totalProfit = st.gross_usd || 0;
+  const totalLoss = st.fees_usd || 0;
+  const net = st.net_usd || 0;
 
   if (loading) return <div className="loading">{t("loading")}</div>;
 

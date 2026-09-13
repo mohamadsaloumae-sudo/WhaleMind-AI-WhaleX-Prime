@@ -16,16 +16,23 @@ export default function Dashboard() {
   useEffect(() => {
     async function load() {
       try {
-        const h = await signals.history(getMarket());
-        const list = h?.history || [];
-        const wins = list.filter((x) => x.is_win).length;
-        const profit = list.reduce((a, x) => a + Number(x.pnl_pct || 0), 0);
+        // مصدر واحد: user_trades بالدولار (الشاشات كانت تجمع نسبا)
+        const tk = localStorage.getItem("whalex_token") || "";
+        const st = await fetch("/api/stats/summary?market=" + getMarket(),
+          { headers: tk ? { Authorization: "Bearer " + tk } : {} })
+          .then((r) => r.json()).catch(() => ({}));
+        const td = (st && st.today) || {};
+        const list = [];
+        const wins = td.wins || 0;
+        const profit = td.net_usd || 0;
         const all = await signals.all(getMarket());
         setRecent((all?.signals || []).slice(0, 4));
         setDay({
-          trades: list.length,
+          trades: td.trades || 0,
           profit: profit,
-          winRate: list.length ? Math.round((wins / list.length) * 100) : 0,
+          returnPct: td.return_pct,
+          fees: td.fees_usd || 0,
+          winRate: td.win_rate || 0,
         });
       } catch { /* */ }
     }
