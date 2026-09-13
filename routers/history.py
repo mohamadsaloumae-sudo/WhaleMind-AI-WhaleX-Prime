@@ -19,8 +19,13 @@ router = APIRouter(prefix="/api/history", tags=["History"])
 #   كان هذا الملفّ يستعمل result IN ('win','loss') وحده، فتظهر
 #   الظلّية في السجلّ الزمنيّ وتختفي من المراكز: -87% مقابل +483%
 #   لنفس الشهر. والمشترك لا يعرف أيّهما يُصدّق.
+# 🔴 صفحة الفيوتشر لا تعرض صفقات السبوت (tier=SP).
+#    مقيس 13 سبتمبر: الرئيسية 37 صفقة +16.4% (تستبعد SP) والصفقات
+#    47 صفقة +13.2% (تشملها) — نفس اليوم ورقمان مختلفان.
+#    وهذه نفس تصفية routers/signals.py سطر 204.
 _F_FUT = ("result IS NOT NULL AND result NOT LIKE 'shadow%' "
-          "AND result NOT IN ('void','shadow_hidden')")
+          "AND result NOT IN ('void','shadow_hidden') "
+          "AND tier IN ('MX','PH','A','B','S','DIP','LV2')")
 _F_SPOT = "pnl_pct IS NOT NULL"
 _F_MEME = "status = 'closed' AND pnl_pct IS NOT NULL"
 

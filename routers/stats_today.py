@@ -84,7 +84,32 @@ def _capital_of(user_id):
         return 0.0
 
 
+def _fetch_spot(user_id, since):
+    """السبوت في جدول منفصل — spot_positions_multi."""
+    try:
+        c = sqlite3.connect("file:%s?mode=ro" % DB, uri=True)
+        c.row_factory = sqlite3.Row
+        rows = [dict(r) for r in c.execute(
+            "SELECT * FROM spot_positions_multi WHERE user_id=? "
+            "AND closed_ts >= ? AND status='closed'", (user_id, since))]
+        c.close()
+        out = []
+        for r in rows:
+            spend = float(r.get("spend") or 0)
+            pct = float(r.get("pnl_pct") or 0)
+            out.append({"pnl_pct": pct,
+                        "pnl_usdt": spend * pct / 100,
+                        "commission": spend * 0.002,
+                        "net_usdt": spend * pct / 100 - spend * 0.002})
+        return out
+    except Exception as e:
+        log.debug("spot fetch: %s", e)
+        return []
+
+
 def _fetch(user_id, since, market="futures"):
+    if market == "spot":
+        return _fetch_spot(user_id, since)
     c = sqlite3.connect("file:%s?mode=ro" % DB, uri=True)
     c.row_factory = sqlite3.Row
     q = ("SELECT * FROM user_trades WHERE user_id=? AND closed_at >= ? "
