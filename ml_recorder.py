@@ -58,6 +58,19 @@ def record_signal(trade) -> Optional[int]:
             _lc = live_context(trade.symbol)
         except Exception:
             _lc = {"ob_pressure": None, "cvd_flow": None}
+        # 🔭 قراءات المستشعر لحظة الاشارة — سبعة مقاييس بنيوية.
+        #    مقيس 13 سبتمبر على 5300 صفقة: كل الحقول الحالية (score
+        #    · confidence · rsi · volume_ratio · ob_pressure) لا تميّز
+        #    الرابح من الخاسر — اعلى فصل 0.16. فالنموذج يتعلم من ضجيج
+        #    و MX يخرج بـAUC 0.469 رغم 3982 صفقة.
+        #    والمقاييس البنيوية (VPIN · كايل · رول · كوروين-شولتز)
+        #    تُقاس لحظة الدخول وتصلح للبوابة.
+        _sens = {}
+        try:
+            from sense.store import latest_for
+            _sens = latest_for(trade.symbol) or {}
+        except Exception:
+            pass
 
         # 📊 الحقول التمييزية: كانت تُسجَّل أصفاراً في 3084 صفقة لأن Signal لا يحملها.
         #    نحسبها هنا من الشموع الحيّة — بلا لمس منطق أي رادار.
@@ -93,8 +106,9 @@ def record_signal(trade) -> Optional[int]:
                 regime, range_pos, rsi, stoch_k, stoch_d, macd_hist,
                 funding, oi_change, btc_trend, hawk_phase, hawk_modifier,
                 volume_ratio, key_strat_count, ob_pressure, cvd_flow,
-                leverage, exchange, tp2, tp3
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                leverage, exchange, tp2, tp3,
+                sens_vpin, sens_kyle, sens_roll, sens_cs, sens_rv, sens_div
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             getattr(trade, "timestamp", int(time.time())),
             trade.symbol, trade.direction, trade.entry, trade.sl, trade.tp1,
@@ -116,6 +130,9 @@ def record_signal(trade) -> Optional[int]:
             _sym_exchange(trade.symbol),
             float(getattr(trade, "tp2", 0) or 0),
             float(getattr(trade, "tp3", 0) or 0),
+            # 🔭 المقاييس البنيوية من المستشعر — تُقاس لحظة الدخول
+            _sens.get("vpin"), _sens.get("kyle"), _sens.get("roll"),
+            _sens.get("cs"), _sens.get("rv"), _sens.get("div"),
         ))
         conn.commit()
         row_id = cur.lastrowid

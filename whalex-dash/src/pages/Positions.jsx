@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { signals } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
-import { getMarket } from "../hooks/useMarket.js";
+import { getMarket, useMarket } from "../hooks/useMarket.js";
 import Paywall from "../components/Paywall.jsx";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
@@ -50,6 +50,7 @@ const EX_LOGO = {
 };
 
 export default function Positions() {
+  const _mkt = useMarket();
   const { t, lang } = useLang();
   const [history, setHistory] = useState([]);
   const [detail, setDetail] = useState(null);   // 📊 تفاصيل الصفقة

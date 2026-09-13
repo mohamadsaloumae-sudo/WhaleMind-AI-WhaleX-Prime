@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { MessageSquare, X, Volume2, VolumeX } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLang } from "../context/LangContext.jsx";
-import { getMarket } from "../hooks/useMarket.js";
+import { getMarket, useMarket } from "../hooks/useMarket.js";
 import { api } from "../lib/api.js";
 import { subscription } from "../lib/api.js";
 
@@ -60,6 +60,7 @@ const TONE = (msg) => {
 };
 
 export default function NotificationBell() {
+  const _mkt = useMarket();
   const { t, lang } = useLang();
   const [muted, setMuted] = useState(() => localStorage.getItem("wx_sound") === "off");
   const navigate = useNavigate();
@@ -95,7 +96,7 @@ export default function NotificationBell() {
   }, []);
   useEffect(() => {
     const iv = setInterval(() => {
-      const m = getMarket();
+      const m = _mkt;
       setMkt((prev) => (prev === m ? prev : m));
     }, 1000);
     return () => clearInterval(iv);
@@ -225,7 +226,7 @@ export default function NotificationBell() {
             }));
           } catch { /* */ }
           playChime();
-          if ((d.market || "futures") !== getMarket()) return;
+          if ((d.market || "futures") !== _mkt) return;
           setItems((prev) => [{
             id: Date.now() + Math.random(),
             event: d.event || "alert",

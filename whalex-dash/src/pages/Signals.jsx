@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
 import { trStrat } from "../lib/strats.js";
-import { getMarket } from "../hooks/useMarket.js";
+import { getMarket, useMarket } from "../hooks/useMarket.js";
 import Paywall from "../components/Paywall.jsx";
 import Masked from "../components/Masked.jsx";
 import TrialNote from "../components/TrialNote.jsx";
@@ -32,6 +32,7 @@ const fmtPx = (n) => {
 };
 
 export default function Signals() {
+  const _mkt = useMarket();
   const { t, lang } = useLang();
   const [signals, setSignals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -57,13 +58,13 @@ export default function Signals() {
       <TrialNote />
     <>
       {err && <div className="alert info">{t("signalsFetchFail")}: {err}</div>}
-      {getMarket() === "spot" && signals.length === 0 ? (
+      {_mkt === "spot" && signals.length === 0 ? (
         <div style={{ textAlign: "center", padding: 40, color: "var(--txt-2)" }}>
           🪙 {"" }{useLangSpotMsg()}
         </div>
       ) : signals.length === 0 ? (
         <div className="card"><div className="empty">{t("noSignals")}</div></div>
-      ) : getMarket() === "meme" ? (
+      ) : _mkt === "meme" ? (
         <div className="grid grid-3">
           {signals.map((s, i) => (
             <div className="card" key={i}>

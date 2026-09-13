@@ -1,77 +1,77 @@
 {
- "trained_at": 1789008447,
+ "trained_at": 1789306513,
  "radars": {
   "A": {
    "gate": false,
-   "n": 675,
-   "auc": 0.5001,
-   "base_wr": 0.4415,
-   "thr": 0.6,
-   "lift": -0.0762,
-   "wr_at_thr": 0.3653,
-   "why": "AUC 0.500 < 0.55"
+   "n": 676,
+   "auc": 0.4968,
+   "base_wr": 0.4408,
+   "thr": 0.65,
+   "lift": -0.0658,
+   "wr_at_thr": 0.375,
+   "why": "AUC 0.497 < 0.55"
   },
   "B": {
    "gate": false,
-   "n": 890,
-   "auc": 0.4872,
-   "base_wr": 0.4303,
+   "n": 891,
+   "auc": 0.4855,
+   "base_wr": 0.4299,
    "thr": 0.8,
-   "lift": 0.0697,
+   "lift": 0.0701,
    "wr_at_thr": 0.5,
-   "why": "AUC 0.487 < 0.55"
+   "why": "AUC 0.485 < 0.55"
   },
   "DIP": {
    "gate": true,
-   "n": 259,
-   "auc": 0.8906,
-   "base_wr": 0.5058,
+   "n": 418,
+   "auc": 0.819,
+   "base_wr": 0.4474,
    "thr": 0.8,
-   "lift": 0.3737,
-   "wr_at_thr": 0.8795
+   "lift": 0.4421,
+   "wr_at_thr": 0.8895
   },
   "LV2": {
    "gate": false,
-   "why": "عينة 3 < 200"
+   "why": "عينة 6 < 200"
   },
   "MX": {
    "gate": false,
-   "n": 3895,
-   "auc": 0.4644,
-   "base_wr": 0.5615,
+   "n": 3982,
+   "auc": 0.4687,
+   "base_wr": 0.5613,
    "thr": 0.8,
-   "lift": 0.1885,
-   "wr_at_thr": 0.75,
-   "why": "AUC 0.464 < 0.55"
+   "lift": 0.2096,
+   "wr_at_thr": 0.7708,
+   "why": "AUC 0.469 < 0.55"
   },
   "PH": {
    "gate": false,
-   "n": 1315,
-   "auc": 0.5421,
-   "base_wr": 0.4951,
+   "n": 1371,
+   "auc": 0.5319,
+   "base_wr": 0.4945,
    "thr": 0.7,
-   "lift": 0.0796,
-   "wr_at_thr": 0.5747,
-   "why": "AUC 0.542 < 0.55"
+   "lift": 0.0591,
+   "wr_at_thr": 0.5537,
+   "why": "AUC 0.532 < 0.55"
   },
   "S": {
    "gate": false,
-   "n": 548,
-   "auc": 0.4626,
-   "base_wr": 0.4453,
+   "n": 550,
+   "auc": 0.463,
+   "base_wr": 0.4455,
    "thr": 0.7,
-   "lift": 0.2214,
-   "wr_at_thr": 0.6667,
+   "lift": 0.2338,
+   "wr_at_thr": 0.6792,
    "why": "AUC 0.463 < 0.55"
   },
   "SP": {
    "gate": true,
-   "n": 957,
-   "auc": 0.6326,
-   "base_wr": 0.3501,
+   "n": 1084,
+   "auc": 0.702,
+   "base_wr": 0.3911,
    "thr": 0.8,
-   "lift": 0.2396,
-   "wr_at_thr": 0.5897
+   "lift": 0.125,
+   "wr_at_thr": 0.5162
   }
  }
 }

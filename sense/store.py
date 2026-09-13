@@ -69,6 +69,25 @@ def latest(limit=1000):
     return rows
 
 
+def latest_for(symbol):
+    """احدث قراءة لعملة — للتسجيل مع الاشارة."""
+    try:
+        c = sqlite3.connect("file:%s?mode=ro" % DB, uri=True)
+        c.row_factory = sqlite3.Row
+        r = c.execute("SELECT * FROM pulse WHERE symbol=? "
+                      "ORDER BY ts DESC LIMIT 1", (symbol,)).fetchone()
+        c.close()
+        if not r:
+            return {}
+        d = dict(r)
+        if time.time() - int(d.get("ts") or 0) > 900:
+            return {}
+        return d
+    except Exception as e:
+        log.debug("latest_for %s: %s", symbol, e)
+        return {}
+
+
 def stats():
     c = sqlite3.connect("file:%s?mode=ro" % DB, uri=True)
     n = c.execute("SELECT COUNT(*) FROM pulse").fetchone()[0]

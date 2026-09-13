@@ -15,7 +15,7 @@ const EX_LOGO = {
   gate: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/302.png",
   okx: "https://s2.coinmarketcap.com/static/img/exchanges/64x64/294.png",
 };
-import { getMarket } from "../hooks/useMarket.js";
+import { getMarket, useMarket } from "../hooks/useMarket.js";
 import Paywall from "../components/Paywall.jsx";
 
 const fmtPx = (v) =>
@@ -33,6 +33,7 @@ function fmtAge(openedAt, lang) {
 }
 
 export default function LivePositions() {
+  const _mkt = useMarket();
   const { t, lang } = useLang();
   const [radar, setRadar] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -56,7 +57,7 @@ export default function LivePositions() {
     //    وهي صفقات النظام لا صفقات المشترك الشخصية؛ سجلّه الخاصّ
     //    وأرباحه الحقيقية في صفحة "صفقاتي" وسجلّ التداول.
     try {
-      const r = await fetch(`/api/live/radar-positions?market=${getMarket()}`,
+      const r = await fetch(`/api/live/radar-positions?market=${_mkt}`,
         { headers: { Authorization: `Bearer ${localStorage.getItem("wx_token") || ""}` } })
         .then((x) => x.json());
       // 🕐 ترتيب زمنيّ موحَّد في كل الصفحات: الأقدم أعلى والأحدث

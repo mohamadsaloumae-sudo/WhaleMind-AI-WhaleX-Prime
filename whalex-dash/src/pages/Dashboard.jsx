@@ -3,24 +3,28 @@ import WelcomeHeader from "../components/WelcomeHeader.jsx";
 import { useEffect, useState } from "react";
 import { Activity, Radio } from "lucide-react";
 import { useLang } from "../context/LangContext.jsx";
-import { getMarket, setMarket } from "../hooks/useMarket.js";
+import { getMarket, setMarket, useMarket } from "../hooks/useMarket.js";
 import { signals } from "../lib/api.js";
 import ChatWidget from "../components/ChatWidget.jsx";
 
 export default function Dashboard() {
+  const _mkt = useMarket();
   const { t, lang } = useLang();
   const [live, setLive] = useState(false);
   const [day, setDay] = useState({ trades: 0, profit: 0, winRate: 0 });
   const [recent, setRecent] = useState([]);
 
   useEffect(() => {
+    // مسح فوري عند تبديل السوق — لا نعرض ارقام سوق آخر
+    setDay({ trades: 0, profit: 0, winRate: 0 });
+    setRecent([]);
     async function load() {
       try {
-        const h = await signals.history(getMarket());
+        const h = await signals.history(_mkt);
         const list = h?.history || [];
         const wins = list.filter((x) => x.is_win).length;
         const profit = list.reduce((a, x) => a + Number(x.pnl_pct || 0), 0);
-        const all = await signals.all(getMarket());
+        const all = await signals.all(_mkt);
         setRecent((all?.signals || []).slice(0, 4));
         setDay({
           trades: list.length,
@@ -32,7 +36,7 @@ export default function Dashboard() {
     load();
     const id = setInterval(load, 20000);
     return () => clearInterval(id);
-  }, []);
+  }, [_mkt]);
 
   useEffect(() => {
     const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -50,7 +54,7 @@ export default function Dashboard() {
     return () => { alive = false; clearTimeout(retry); try { ws && ws.close(); } catch { /* */ } };
   }, []);
 
-  const mkt = getMarket();
+  const mkt = _mkt;
   const MB = ({ id, ar, en }) => (
     <button onClick={() =>
       mkt !== id && setMarket(id)}
