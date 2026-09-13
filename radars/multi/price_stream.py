@@ -15,7 +15,12 @@ import time
 log = logging.getLogger("price_stream")
 
 # 🔌 السبع كلها — باينانس ضمنها (صفقاتها كانت تُقرأ عبر HTTP)
-EXCHANGES = ("binance", "bybit", "mexc", "bingx", "bitget", "gate", "okx")
+# 🔇 bingx خارج البث: ccxt/pro/bingx.py سطر 1370 يستدعي client.reset()
+#    وهي غير موجودة في aiohttp الحالي، فيرمي 41 خطأ في 6 ساعات ويغرق
+#    السجل ويخفي الاعطال الحقيقية. ولا مشترك نشط عليها (قيس 13 سبتمبر).
+#    والتداول عليها يعمل عبر المهايئ لا البث، فلا يتأثر.
+#    للاعادة: أضف "bingx" الى القائمة بعد ترقية ccxt.
+EXCHANGES = ("binance", "bybit", "mexc", "bitget", "gate", "okx")
 STALE_SEC = 15.0
 RECONNECT_BASE = 5.0
 RECONNECT_MAX = 120.0
