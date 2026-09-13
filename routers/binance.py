@@ -182,6 +182,9 @@ async def accounts(user=Depends(get_current_user)):
             "name_ar": ad.name_ar if ad else ex,
             "name_en": ad.name_en if ad else ex,
             "auto_trade_enabled": bool(r.get("auto_trade_enabled")),
+            # 🪙 حالة السبوت — كانت ناقصة فتُظهر البطاقة <<غير مفعّل>>
+            #    لمن يتداول السبوت وحده رغم عمل صفقاته.
+            "spot_auto_enabled": bool(r.get("spot_auto_enabled")),
             "trade_amount_usdt": r.get("trade_amount_usdt"),
             "max_open_positions": r.get("max_open_positions"),
             "account_type": r.get("account_type"),

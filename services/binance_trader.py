@@ -174,8 +174,11 @@ def get_user_exchanges(user_id: str) -> list:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
-            "SELECT exchange, auto_trade_enabled, trade_amount_usdt, "
-            "max_open_positions, account_type FROM user_binance_credentials "
+            # 🪙 spot_auto_enabled كان ناقصاً فتعرض بطاقة الحساب
+            #    <<غير مفعّل>> لمن يتداول السبوت وحده رغم عمل صفقاته.
+            "SELECT exchange, auto_trade_enabled, spot_auto_enabled, "
+            "trade_amount_usdt, max_open_positions, account_type "
+            "FROM user_binance_credentials "
             "WHERE user_id=?", (str(user_id),)).fetchall()
         conn.close()
         return [dict(r) for r in rows]

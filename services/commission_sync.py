@@ -28,14 +28,41 @@ def sync_user(uid, creds, hours=48):
             events.append((int(x.get("time") or 0) // 1000,
                            str(x.get("symbol") or ""),
                            abs(float(x.get("income") or 0))))
-    if not events:
-        return 0
+    # لا نخرج عند غياب رسوم الفيوتشر — قد توجد صفقات سبوت تحتاج معالجة.
+
     c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
     rows = [dict(r) for r in c.execute(
-        "SELECT id, symbol, pnl_usdt, opened_at, closed_at FROM user_trades "
+        "SELECT id, symbol, market, pnl_usdt, opened_at, closed_at "
+        "FROM user_trades "
         "WHERE user_id=? AND status='closed' AND closed_at>? "
         "AND COALESCE(commission,0)=0",
         (uid, int(time.time() - hours * 3600)))]
+
+    # 🪙 رسوم السبوت من سجلّ صفقاته هو — futures_income_history لا
+    #    يحويها، فكانت تُسجَّل صفراً والصافي بعد الرسوم مفقوداً.
+    _spot_cache = {}
+
+    def _spot_fee(sym, o, cl_):
+        if sym not in _spot_cache:
+            try:
+                _spot_cache[sym] = cl.get_my_trades(symbol=sym, limit=200)
+            except Exception:
+                _spot_cache[sym] = []
+        tot = 0.0
+        for t in _spot_cache[sym]:
+            try:
+                ts = int(t.get("time") or 0) // 1000
+            except Exception:
+                continue
+            if not (o - 90 <= ts <= cl_ + 90):
+                continue
+            q = float(t.get("commission") or 0)
+            a2 = str(t.get("commissionAsset") or "").upper()
+            if a2 not in ("USDT", "USDC", "BUSD"):
+                q *= float(t.get("price") or 0)
+            tot += q
+        return round(tot, 6)
+
     n = 0
     for r in rows:
         o = int(r.get("opened_at") or 0)
@@ -43,8 +70,11 @@ def sync_user(uid, creds, hours=48):
         if o <= 0 or cl_ <= 0:
             continue
         # كل رسم وقع بين الفتح والاغلاق (بهامش 90 ثانية للطرفين)
-        share = round(sum(v for t, sym, v in events
-                          if sym == r["symbol"] and o - 90 <= t <= cl_ + 90), 6)
+        if str(r.get("market") or "futures") == "spot":
+            share = _spot_fee(r["symbol"], o, cl_)
+        else:
+            share = round(sum(v for t, sym, v in events
+                              if sym == r["symbol"] and o - 90 <= t <= cl_ + 90), 6)
         net = round((r.get("pnl_usdt") or 0) - share, 6)
         c.execute("UPDATE user_trades SET commission=?, net_usdt=? WHERE id=?",
                   (share, net, r["id"]))

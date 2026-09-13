@@ -291,54 +291,33 @@ async def radar_positions(market: str = "futures"):
     return {"positions": out}
 
 
+@router.get("/my-spot-closed")
+async def my_spot_closed(user=Depends(get_current_user)):
+    """سجلّ صفقات السبوت المغلقة — كانت تختفي بلا اثر."""
+    try:
+        from services.positions_view import spot_closed
+        return {"trades": spot_closed(user["sub"])}
+    except Exception as e:
+        log.debug("spot closed: %s", e)
+        return {"trades": []}
+
+
 @router.get("/my-spot-positions")
 async def my_spot_positions(user=Depends(get_current_user)):
-    """صفقات السبوت الحقيقية لهذا المشترك — من منصّته هو.
+    """صفقات السبوت — من المصدر الموحّد (services/positions_view).
 
-    كانت صفحة الصفقات تعرض صفقات النظام الداخلية للجميع، فيرى
-    المشترك عملة لا يملكها. ونظامنا حقيقيّ: ما يُعرض هنا هو ما
-    اشتراه فعلاً وما زال في محفظته.
+    كان الادمن والمشترك يقرآن بطريقتين مختلفتين فيختلف ما يريانه.
     """
-    import sqlite3 as _sq
-    uid = user["sub"]
-    out = []
     try:
-        cx = _sq.connect("/opt/whalex/db/whalex.db"); cx.row_factory = _sq.Row
-        rows = [dict(r) for r in cx.execute(
-            "SELECT * FROM spot_positions_multi WHERE user_id=? AND status='open'",
-            (uid,))]
-        cx.close()
+        from services.positions_view import spot_open
+        try:
+            from radars.spot.scout_spot import _prices as _spx
+        except Exception:
+            _spx = {}
+        return {"positions": spot_open(user["sub"], _spx)}
     except Exception as e:
         log.debug("my spot: %s", e)
         return {"positions": []}
-    if not rows:
-        return {"positions": []}
-    try:
-        from radars.spot.scout_spot import _prices as _spx
-    except Exception:
-        _spx = {}
-    for r in rows:
-        e = float(r.get("entry") or 0)
-        px = float(_spx.get(r.get("symbol")) or 0) or e
-        out.append({
-            "symbol": r.get("symbol"),
-            "direction": "LONG",
-            "entry": e,
-            "current": px,
-            "leverage": 1,
-            "size": r.get("qty"),
-            "exchange": r.get("exchange"),
-            "opened_at": r.get("ts"),
-            "radar": "WhaleX Spot",
-            "pnl_pct": round((px - e) / e * 100, 2) if e else 0,
-        })
-    # 🕐 الأقدم أعلى — ترتيب زمنيّ موحَّد في كل الصفحات
-    try:
-        out.sort(key=lambda x: float(
-            x.get("opened_at") or x.get("ts") or 0), reverse=True)
-    except Exception:
-        pass
-    return {"positions": out}
 
 
 @router.get("/binance-positions")

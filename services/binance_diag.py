@@ -40,7 +40,14 @@ def diagnose(user_id: str) -> dict:
             return out
 
         d = dict(r)
-        out["auto_trade_on"] = bool(d.get("auto_trade_enabled"))
+        # 🎯 المشترك قد يريد السبوت وحده — فلا نحكم بالفيوتشر فقط.
+        #    مقيس 12 سبتمبر: مشترك spot_auto_enabled=1 و auto_trade=0
+        #    ولوحتنا تقول "التداول الآليّ مطفأ" وهو مفعّل للسبوت،
+        #    وتطلب صلاحية فيوتشر لا يريدها اصلا.
+        out["futures_auto_on"] = bool(d.get("auto_trade_enabled"))
+        out["spot_auto_on"] = bool(d.get("spot_auto_enabled"))
+        out["auto_trade_on"] = out["futures_auto_on"] or out["spot_auto_on"]
+        out["wants_futures"] = out["futures_auto_on"]
         out["exchange"] = d.get("exchange") or "binance"
         out["account_type"] = d.get("account_type") or "futures"
         out["trade_amount"] = d.get("trade_amount_usdt")
@@ -91,10 +98,33 @@ def diagnose(user_id: str) -> dict:
                 if b.get("asset") == "USDT":
                     out["futures_balance"] = float(b.get("balance") or 0)
                     break
-            if out["futures_enabled"] is False:
-                log.info("🔬 %s: enableFutures=False لكنّ الفيوتشر يعمل — نصحّح",
-                         user_id[:8])
-            out["futures_enabled"] = True
+            # 🧪 قراءة الرصيد تنجح بصلاحية القراءة وحدها — فلا تُثبت
+            #    صلاحية التداول. مقيس 12 سبتمبر: مشترك enableFutures=False
+            #    ورصيده 147.71$ يُقرأ، ولوحتنا تقول "تداول فيوتشر ✓"
+            #    بينما تغيير الرافعة يفشل بـ-2015. فكنّا نطمئنه كذبا.
+            #    الاختبار الصحيح: ضبط الرافعة على قيمتها الحالية —
+            #    اثر صفر ويحتاج صلاحية تداول.
+            try:
+                _lv_now = 0
+                for _p in cl.futures_position_information(symbol="BTCUSDT"):
+                    _lv_now = int(float(_p.get("leverage") or 0))
+                    break
+                cl.futures_change_leverage(symbol="BTCUSDT",
+                                           leverage=_lv_now or 5)
+                out["futures_enabled"] = True
+            except Exception as _te:
+                if "-2015" in str(_te) or "-4046" in str(_te):
+                    if "-4046" in str(_te):
+                        out["futures_enabled"] = True   # لا تغيير مطلوب
+                    else:
+                        out["futures_enabled"] = False
+                        if out.get("wants_futures"):
+                            out["problems"].append(
+                                "صلاحية العقود الآجلة غير مفعّلة في المفتاح")
+                            out["advice"].append(
+                                "اطلب منه تفعيل «تمكين العقود الآجلة» في مفتاح API")
+                else:
+                    log.debug("fut perm test %s: %s", user_id[:8], str(_te)[:70])
         except Exception as e:
             if "-2015" in str(e):
                 out["futures_enabled"] = False
@@ -119,11 +149,18 @@ def diagnose(user_id: str) -> dict:
         if out["withdraw_enabled"]:
             out["problems"].append("صلاحية السحب مفعّلة — خطر أمنيّ")
             out["advice"].append("اطلب منه إلغاء Enable Withdrawals فوراً")
-        if out["futures_balance"] is not None and out["futures_balance"] < 10:
+        # لا نشتكي من رصيد فيوتشر لمن يتداول السبوت وحده
+        if (out.get("wants_futures")
+                and out["futures_balance"] is not None
+                and out["futures_balance"] < 10):
             out["problems"].append(
                 "رصيد الفيوتشر ضئيل (%.2f$)" % out["futures_balance"])
             out["advice"].append(
                 "يحوّل USDT من المحفظة الفورية إلى محفظة الفيوتشر")
+        if out.get("spot_auto_on") and (out["spot_balance"] or 0) < 50:
+            out["problems"].append(
+                "رصيد السبوت دون 50$ (%.2f$)" % (out["spot_balance"] or 0))
+            out["advice"].append("الحدّ الأدنى للصفقة في السبوت 50$")
         if not out["auto_trade_on"]:
             out["problems"].append("التداول الآليّ مُطفأ في إعداداته")
             out["advice"].append("اطلب منه تفعيل التداول الآليّ من الإعدادات")

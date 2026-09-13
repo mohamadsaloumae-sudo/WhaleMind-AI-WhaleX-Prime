@@ -74,6 +74,9 @@ export default function UserSheet({ userId, onClose, onChanged }) {
 
   const sub = d?.subscription;
 
+  const [_pt, _setPt] = useState("futures");
+  const [_det, _setDet] = useState(null);
+
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1400, background: "rgba(4,6,12,0.66)", backdropFilter: "blur(3px)", display: "flex", alignItems: "flex-end" }}>
       <div onClick={(e) => e.stopPropagation()} style={{
@@ -277,6 +280,99 @@ export default function UserSheet({ userId, onClose, onChanged }) {
                 </div>
               </div>
             </div>
+            {/* 📊 مراكزه المفتوحة — فيوتشر وسبوت بتبويبين منفصلين.
+                كان الادمن لا يرى شيئاً فلا يعرف ما يجري في حسابه. */}
+            {(() => {
+              const _f = d.positions?.futures || [];
+              const _s = d.positions?.spot || [];
+              if (!_f.length && !_s.length) return null;
+              const _cur = _pt === "spot" ? _s : _f;
+              return (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, color: "var(--txt-3)",
+                                marginBottom: 6 }}>المراكز المفتوحة</div>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 7 }}>
+                    {[["futures", "⚡ فيوتشر", _f.length],
+                      ["spot", "🪙 سبوت", _s.length]].map(([k, lbl, n]) => (
+                      <button key={k} onClick={() => _setPt(k)} style={{
+                        flex: 1, padding: "6px 4px", borderRadius: 7,
+                        border: _pt === k ? "1px solid var(--brand)"
+                                          : "1px solid rgba(255,255,255,.1)",
+                        background: _pt === k ? "rgba(45,212,191,.12)"
+                                              : "transparent",
+                        color: _pt === k ? "var(--brand)" : "var(--txt-3)",
+                        fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+                        fontFamily: "inherit",
+                      }}>{lbl} ({n})</button>
+                    ))}
+                  </div>
+                  {_cur.length === 0 ? (
+                    <div style={{ fontSize: 11, color: "var(--txt-3)",
+                                  padding: "6px 2px" }}>لا مراكز</div>
+                  ) : _cur.map((x, i) => {
+                    const _k = _pt + i;
+                    const _op = _det === _k;
+                    const _fn = (v, dd) => (v == null || isNaN(v)) ? "—"
+                      : Number(v) < 0.01 ? Number(v).toFixed(dd || 8)
+                      : Number(v).toFixed(4);
+                    const _age = (ts) => {
+                      if (!ts) return "—";
+                      const m = Math.round((Date.now() / 1000 - Number(ts)) / 60);
+                      if (m < 1) return "الآن";
+                      if (m < 60) return m + " دقيقة";
+                      return Math.floor(m / 60) + " ساعة " + (m % 60) + " د";
+                    };
+                    const _rows = [];
+                    if (x.entry != null) _rows.push(["الدخول", _fn(x.entry)]);
+                    if (x.current != null) _rows.push(["الحالي", _fn(x.current)]);
+                    if (x.size != null) _rows.push(["الحجم", _fn(x.size, 2)]);
+                    if (x.qty != null) _rows.push(["الكمية", _fn(x.qty, 2)]);
+                    if (x.spend != null) _rows.push(["المبلغ", x.spend.toFixed(2) + "$"]);
+                    if (x.leverage) _rows.push(["الرافعة", x.leverage + "x"]);
+                    if (x.exchange) _rows.push(["المنصّة", x.exchange]);
+                    if (x.opened_at) _rows.push(["العمر", _age(x.opened_at)]);
+                    return (
+                    <div key={i} onClick={() => _setDet(_op ? null : _k)}
+                      style={{
+                      padding: "7px 9px", marginBottom: 4, borderRadius: 7,
+                      background: "rgba(255,255,255,.04)", fontSize: 12,
+                      cursor: "pointer",
+                    }}>
+                      <div style={{ display: "flex",
+                                    justifyContent: "space-between" }}>
+                        <span dir="ltr"><b>{x.symbol}</b>
+                          {x.direction ? " · " + x.direction : ""}
+                          {x.exchange ? " · " + x.exchange : ""}</span>
+                        <span dir="ltr" style={{ fontWeight: 800,
+                          color: x.pnl_pct == null ? "var(--txt-2)"
+                               : x.pnl_pct >= 0 ? "#22c55e" : "#ef4444" }}>
+                          {x.pnl_pct == null
+                            ? (x.spend ? x.spend.toFixed(0) + "$" : "—")
+                            : (x.pnl_pct >= 0 ? "+" : "") + x.pnl_pct + "%"}
+                        </span>
+                      </div>
+                      {_op && (
+                        <div style={{ marginTop: 7, paddingTop: 7,
+                          borderTop: "1px solid rgba(255,255,255,.08)",
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit,minmax(88px,1fr))",
+                          gap: 6 }}>
+                          {_rows.map(([k, v], j) => (
+                            <div key={j}>
+                              <div style={{ fontSize: 9.5,
+                                            color: "var(--txt-3)" }}>{k}</div>
+                              <div dir="ltr" style={{ fontSize: 11.5,
+                                    fontWeight: 700 }}>{v}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
             {(d.link_check.problems || []).length > 0 && (
               <div style={{ marginBottom: 8 }}>
                 {d.link_check.problems.map((p, i) => (

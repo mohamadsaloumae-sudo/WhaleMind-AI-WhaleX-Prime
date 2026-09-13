@@ -82,6 +82,11 @@ def message_for(d: dict) -> tuple:
                 "وإن لم ينجح أو واجهتك مشكلة، تواصل مع خدمة العملاء.")
 
     if d.get("futures_enabled") is False:
+        # 🪙 مفعّل للسبوت وحده؟ لا نُنبّه عن العقود الآجلة —
+        #    أطفأ صلاحيتها عمداً لانه يتداول السبوت، والرسالة
+        #    تُقلقه وتدفعه لمراسلة الدعم بلا سبب.
+        if d.get("spot_auto") and not d.get("futures_auto"):
+            return None, None
         return ("futures_off",
                 "🔑 تنبيه من وِيل إكس\n\n"
                 "حسابك مربوط بنجاح، لكنّ التداول لا يعمل.\n\n"
@@ -231,13 +236,15 @@ def check_all() -> dict:
             # نُمرّر إعداد السبوت الخاصّ بالمشترك للتشخيص
             try:
                 c3 = sqlite3.connect(DB)
-                r3 = c3.execute("SELECT spot_auto_enabled FROM "
-                                "user_binance_credentials WHERE user_id=?",
+                r3 = c3.execute("SELECT spot_auto_enabled, auto_trade_enabled "
+                                "FROM user_binance_credentials WHERE user_id=?",
                                 (uid,)).fetchone()
                 c3.close()
                 d["spot_auto"] = bool(r3 and r3[0])
+                d["futures_auto"] = bool(r3 and r3[1])
             except Exception:
                 d["spot_auto"] = False
+                d["futures_auto"] = False
             key, text = message_for(d)
             if not key:
                 out["ok"] += 1

@@ -22,6 +22,14 @@ log = logging.getLogger("early_bleed")
 
 WINDOW_SEC = 180.0      # نافذة المراقبة من الفتح
 MAE_PCT = -1.5          # التراجع من الذروة الذي يُغلق
+
+# 🆕 الحد المطلق — مقيس 12 سبتمبر على 942 صفقة:
+#    الصفقة التي تخسر 2% ولم ترتفع 1% ابدا تفوز 5% فقط.
+#    عددها 180 (19%) · تخسر -929 · لو أُغلقت -360 ⇒ توفير +569.
+#    والسبب: خسائر امس الست كلها MFE=0 — تنهار من الثانية الاولى
+#    فلا ذروة تتراجع عنها، وحارس النزيف لا يمسكها.
+HARD_PCT = -2.0         # الخسارة المطلقة
+PEAK_MIN = 1.0          # من ارتفع هذا القدر يُعفى من الحد المطلق
 OFF = "/opt/whalex/db/early_bleed.off"
 
 _STATE = {}
@@ -44,6 +52,10 @@ def check(pos_id, opened_at, pnl_pct, now=None) -> tuple:
         if draw <= MAE_PCT:
             _STATE.pop(pos_id, None)
             return True, "نزيف مبكّر %.1f%% من الذروة خلال %.0fث" % (draw, age)
+        if pnl_pct <= HARD_PCT and st["peak"] < PEAK_MIN:
+            _STATE.pop(pos_id, None)
+            return True, ("خسارة %.1f%% بلا ارتفاع خلال %.0fث (ذروة %.1f%%)"
+                          % (pnl_pct, age, st["peak"]))
     except Exception as e:
         log.debug("early_bleed: %s", e)
     return False, ""

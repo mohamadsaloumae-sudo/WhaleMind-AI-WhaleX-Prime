@@ -47,15 +47,24 @@ def list_users(user=Depends(require_admin)):
         try:
             import sqlite3 as _sq
             _c = _sq.connect("/opt/whalex/db/whalex.db")
-            _linked = {r[0]: (bool(r[1]), r[2] or "binance")
+            # 🪙 نقرأ السبوت ايضاً — كان يقرأ الفيوتشر وحده فيظهر
+            #    من يتداول السبوت <<مطفأ>> في القائمة رغم عمله.
+            _linked = {r[0]: (bool(r[1]), r[2] or "binance", bool(r[3]))
                        for r in _c.execute(
-                           "SELECT user_id, auto_trade_enabled, exchange "
-                           "FROM user_binance_credentials")}
+                           "SELECT user_id, auto_trade_enabled, exchange, "
+                           "spot_auto_enabled FROM user_binance_credentials")}
             _c.close()
             for _u in out:
                 _hit = _linked.get(_u.get("id"))
                 _u["has_binance"] = bool(_hit)
-                _u["auto_trade_on"] = bool(_hit[0]) if _hit else False
+                _fut = bool(_hit[0]) if _hit else False
+                _spt = bool(_hit[2]) if _hit else False
+                _u["auto_trade_on"] = _fut or _spt
+                _u["futures_on"] = _fut
+                _u["spot_on"] = _spt
+                _u["link_kind"] = ("both" if (_fut and _spt)
+                                   else "futures" if _fut
+                                   else "spot" if _spt else "off")
                 _u["link_exchange"] = _hit[1] if _hit else None
         except Exception:
             for _u in out:
@@ -171,6 +180,25 @@ def user_detail(user_id: str, user=Depends(require_admin)):
     import sqlite3
     from datetime import datetime as _dt
     out = {"user_id": user_id}
+
+    # 📊 مراكزه المفتوحة — من المصدر الموحّد (services/positions_view)
+    #    فيرى الادمن ما يراه المشترك بالضبط، لا اختلاف.
+    #    والفيوتشر مُصفّى: ما لم يفتحه نظامنا لا يُعرض.
+    _pos = {"futures": [], "spot": []}
+    try:
+        from services.positions_view import spot_open, futures_open
+        try:
+            from radars.spot.scout_spot import _prices as _spx
+        except Exception:
+            _spx = {}
+        _pos["spot"] = spot_open(user_id, _spx)
+        from services.positions_view import spot_closed as _sc
+        _pos["spot_closed"] = _sc(user_id, 20)
+        from services.binance_trader import get_client as _gc
+        _pos["futures"] = futures_open(_gc(user_id), user_id, only_ours=True)
+    except Exception as _pe:
+        log.debug("admin positions: %s", _pe)
+    out["positions"] = _pos
     # 👤 الاسم والبريد — كان يظهر "مشترك" لمن لا بريد له
     try:
         import sqlite3 as _sq0

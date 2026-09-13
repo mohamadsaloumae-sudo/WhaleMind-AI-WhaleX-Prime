@@ -15,10 +15,38 @@ export default function Trades() {
   //    فلا يختلف رقم بين الصفحتين.
   const [ledger, setLedger] = useState(null);
 
+  const [_tab, _setTab] = useState("futures");
+  const [spotClosed, setSpotClosed] = useState([]);
+
   async function load() {
     try {
       const data = await livePositions.binance();
-      setPositions(data?.positions || []);
+      // 🪙 صفقات السبوت لم تكن تظهر اطلاقاً — جدول منفصل ومسار
+      //    منفصل. نجلبها وندمجها بالترتيب الزمنيّ نفسه.
+      let _spot = [];
+      try {
+        const _sr = await fetch("/api/live/my-spot-positions", {
+          headers: { Authorization:
+            `Bearer ${localStorage.getItem("wx_token") || ""}` },
+        }).then((x) => x.json());
+        _spot = Array.isArray(_sr?.positions) ? _sr.positions : [];
+      } catch { /* السبوت اختياريّ */ }
+      // 🗄️ سجلّ السبوت المغلق — كان يختفي بلا اثر عند الاغلاق.
+      try {
+        const _cr = await fetch("/api/live/my-spot-closed", {
+          headers: { Authorization:
+            `Bearer ${localStorage.getItem("wx_token") || ""}` },
+        }).then((x) => x.json());
+        setSpotClosed(Array.isArray(_cr?.trades) ? _cr.trades : []);
+      } catch { /* اختياريّ */ }
+      const _fut = Array.isArray(data?.positions) ? data.positions : [];
+      const _all = [
+        ..._fut.map((x) => ({ ...x, _kind: "futures" })),
+        ..._spot.map((x) => ({ ...x, _kind: "spot",
+                               leverage: x.leverage || 1 })),
+      ].sort((a, b) =>
+        (Number(b?.opened_at ?? 0) || 0) - (Number(a?.opened_at ?? 0) || 0));
+      setPositions(_all);
       setConnected(data?.connected !== false);
     } catch { /* */ }
     finally { setLoading(false); }
@@ -54,6 +82,16 @@ export default function Trades() {
 
   if (loading) return <div className="loading">{t("loadingTrades")}</div>;
 
+  // 🔀 تبويبان داخل الصفحة — فصل تامّ بين الفيوتشر والسبوت
+  //    حتى لا تختلط صفقات نظامين مختلفين على المشترك.
+  const _isSpot = (x) => x?._kind === "spot";
+  const _shown = (positions || []).filter((x) =>
+    _tab === "spot" ? _isSpot(x) : !_isSpot(x));
+  const _cnt = {
+    futures: (positions || []).filter((x) => !_isSpot(x)).length,
+    spot: (positions || []).filter(_isSpot).length,
+  };
+
   return (
     <>
       {!connected && <div className="alert info">{t("requiresBinance")}</div>}
@@ -63,7 +101,24 @@ export default function Trades() {
 
       <div className="card">
         <div className="card-title">{t("openTrades")}</div>
-        {positions.length === 0 ? (
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          {[["futures", "⚡", "فيوتشر", "Futures"],
+            ["spot", "🪙", "سبوت", "Spot"]].map(([k, ic, ar, en]) => (
+            <button key={k} onClick={() => _setTab(k)} style={{
+              flex: 1, padding: "9px 6px", borderRadius: 10,
+              border: _tab === k ? "1px solid var(--brand)"
+                                 : "1px solid var(--border)",
+              background: _tab === k ? "rgba(45,212,191,.12)" : "transparent",
+              color: _tab === k ? "var(--brand)" : "var(--txt2)",
+              fontWeight: 700, fontSize: 13, cursor: "pointer",
+              fontFamily: "inherit",
+            }}>
+              {ic} {(localStorage.getItem("whalex_lang") || "ar") !== "en"
+                    ? ar : en} ({_cnt[k]})
+            </button>
+          ))}
+        </div>
+        {_shown.length === 0 ? (
           <div className="empty">{t("noOpenTrades")}</div>
         ) : (
           <table className="tbl">
@@ -74,7 +129,7 @@ export default function Trades() {
               </tr>
             </thead>
             <tbody>
-              {positions.map((p, i) => (
+              {_shown.map((p, i) => (
                 <tr key={i}>
                   <td><b>{p.symbol}</b></td>
                   <td><span className={`badge ${p.direction === "LONG" ? "long" : "short"}`}>

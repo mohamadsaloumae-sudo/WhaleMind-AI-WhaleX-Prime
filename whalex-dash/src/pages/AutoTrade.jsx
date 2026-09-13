@@ -192,7 +192,10 @@ export default function AutoTrade() {
   }
 
   const connected = status?.connected;
-  const autoOn = settings?.auto_trade_enabled;
+  // ✅ الشارة تشمل السبوت — كان يقرأ الفيوتشر وحده فيرى
+  //    من فعّل السبوت فقط <<غير مفعّل>> رغم فتح صفقاته.
+  const autoOn = !!(settings?.auto_trade_enabled
+                    || settings?.spot_auto_enabled);
 
   return (
     <Paywall>
@@ -322,8 +325,14 @@ export default function AutoTrade() {
                     {lang === "en" ? a.name_en : a.name_ar}
                   </span>
                   <span style={{ fontSize: "11px", opacity: .75 }}>
-                    {a.auto_trade_enabled
-                      ? (lang === "en" ? "✅ active" : "✅ مفعّل")
+                    {(a.auto_trade_enabled || a.spot_auto_enabled)
+                      ? (lang === "en"
+                         ? (a.auto_trade_enabled && a.spot_auto_enabled
+                            ? "✅ futures + spot"
+                            : a.auto_trade_enabled ? "✅ futures" : "✅ spot")
+                         : (a.auto_trade_enabled && a.spot_auto_enabled
+                            ? "✅ فيوتشر + سبوت"
+                            : a.auto_trade_enabled ? "✅ فيوتشر" : "✅ سبوت"))
                       : (lang === "en" ? "not active" : "غير مفعّل")}
                   </span>
                 </div>

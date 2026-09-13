@@ -104,6 +104,16 @@ def buy(exchange: str, symbol: str, entry: float) -> list:
             r = ad.open(c, symbol, "BUY", spend, lev=1.0, futures=False)
             if not r.get("ok"):
                 results.append({"ok": False, "user": uid, "error": r.get("error")}); continue
+            # 📒 المصدر الواحد — user_trades يجمع الفيوتشر والسبوت،
+            #    فيقرأ منه سجلّ المشترك ولوحة الادارة معاً بلا اختلاف.
+            try:
+                from services.user_trades import log_open as _lo
+                _lo(uid, symbol, "LONG",
+                    float(entry or r.get("price", 0) or 0),
+                    float(r.get("qty", 0) or 0), 1.0,
+                    str(r.get("id", "")), "spot")
+            except Exception as _le:
+                log.debug("ledger open: %s", _le)
             cn = sqlite3.connect(DB_PATH)
             cn.execute("INSERT INTO spot_positions_multi"
                        "(user_id,exchange,symbol,qty,entry,spend,order_id,status,ts) VALUES(?,?,?,?,?,?,?,?,?)",
@@ -146,6 +156,13 @@ def sell_all(exchange: str, symbol: str, exit_price: float = 0.0) -> list:
                        ("closed" if r.get("ok") else "error", int(time.time()),
                         float(exit_price or 0), round(pnl,3), row["id"]))
             cn.commit(); cn.close()
+            if r.get("ok"):
+                try:
+                    from services.user_trades import log_close as _lcl
+                    _lcl(row["user_id"], symbol, float(exit_price or 0),
+                         round(pnl, 3), "spot_exit", "spot")
+                except Exception as _le:
+                    log.debug("ledger close: %s", _le)
             log.info("🪙🔴 %s بيع %s | %s | %+.2f%%", exchange, symbol,
                      "نجح" if r.get("ok") else r.get("error"), pnl)
             results.append({"ok": r.get("ok"), "user": uid, "pnl": pnl, "error": r.get("error")})

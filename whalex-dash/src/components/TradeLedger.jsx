@@ -134,22 +134,32 @@ function TradeCard({ t, L, ar, isOpen }) {
         )}
       </div>
       {show && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 5, marginTop: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 5, marginTop: 8 }}>
           <Cell k={L.entry} v={t.entry} dir="ltr" />
           <Cell k={isOpen ? L.nowPrice : L.exit} v={t.exit_price || t.live_price || "—"} dir="ltr" />
           <Cell k={L.qty} v={t.qty} dir="ltr" />
-          <Cell k={L.lev} v={(t.leverage || 1) + "x"} dir="ltr" />
+          {/* 🪙 السبوت بلا رافعة — عرض 1x يشغل خانة بلا معنى. */}
+          {String(t.market || "futures") !== "spot"
+            && Number(t.leverage || 1) > 1 && (
+            <Cell k={L.lev} v={(t.leverage || 1) + "x"} dir="ltr" />
+          )}
           <Cell k={L.value} v={num(value) + "$"} dir="ltr" />
           {/* 💵 رسوم باينانس الحقيقية والصافي بعدها — المشترك يرى
               ما دفعه فعلاً. مقيس: 91% من خسارة حساب كانت رسوماً. */}
           {t.commission > 0 && (
             <Cell k={L.commission} v={"-" + num(t.commission) + "$"} dir="ltr" />
           )}
-          {t.net_usdt != null && (
-            <Cell k={L.netAfter}
-                  v={(t.net_usdt >= 0 ? "+" : "") + num(t.net_usdt) + "$"}
-                  dir="ltr" />
-          )}
+          {/* 💵 الصافي — كان يُخفى حتى تُحسب العمولة فتظهر الخانة
+              فارغة. والآن نعرض الربح الخام ريثما تصل العمولة. */}
+          {(() => {
+            const _n = t.net_usdt != null ? t.net_usdt : t.pnl_usdt;
+            if (_n == null) return null;
+            return (
+              <Cell k={t.net_usdt != null ? L.netAfter : L.net}
+                    v={(_n >= 0 ? "+" : "") + num(_n) + "$"}
+                    dir="ltr" />
+            );
+          })()}
           <Cell k={L.duration} v={fmtDur(t.opened_at, t.closed_at, L)} />
           <Cell k={L.openedAt} v={fmtTime(t.opened_at, ar)} dir="ltr" />
           <Cell k={L.closedAt} v={t.closed_at ? fmtTime(t.closed_at, ar) : "—"} dir="ltr" />
@@ -179,7 +189,7 @@ export default function TradeLedger({ data, ar = true }) {
     <div className="card" style={{ marginBottom: 12 }}>
       <div className="card-title">{L.title}</div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 6, marginBottom: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 6, marginBottom: 8 }}>
         <Cell k={L.closed} v={`${data.closed} (${data.open} ${L.open})`} />
         <Cell k={L.winRate} v={`${data.win_rate}%`} />
         {data.total_commission > 0 && (
@@ -193,7 +203,7 @@ export default function TradeLedger({ data, ar = true }) {
         )}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 6, marginBottom: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 6, marginBottom: 8 }}>
         <div style={{ padding: "8px 10px", background: "rgba(34,197,94,0.10)", borderRadius: 8 }}>
           <div style={{ fontSize: 10, color: "var(--txt-3, #8fa3ba)" }}>{L.wins} · {L.grossWin}</div>
           <div style={{ fontSize: 14, fontWeight: 800, color: "#22c55e" }}>
@@ -212,7 +222,7 @@ export default function TradeLedger({ data, ar = true }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 6, marginBottom: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 6, marginBottom: 8 }}>
         <Cell k={L.avgWin} v={"+" + num(data.avg_win_pct) + "%"} dir="ltr" />
         <Cell k={L.avgLoss} v={num(data.avg_loss_pct) + "%"} dir="ltr" />
         {data.best != null ? <Cell k={L.best} v={"+" + num(data.best) + "%"} dir="ltr" /> : null}
