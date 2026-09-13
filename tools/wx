@@ -1,0 +1,38 @@
+#!/bin/bash
+# 📋 تقرير موحّد — أمر واحد بدل عشرة
+cd /opt/whalex
+echo "═══ الحالة ═══"
+systemctl is-active whalex
+journalctl -u whalex --since "-10min" --no-pager | grep -c Traceback | xargs echo "أعطال:"
+echo
+echo "═══ آخر 6 ساعات ═══"
+python3 -c "
+import sqlite3, time, collections
+c = sqlite3.connect('file:/opt/whalex/ml_training.db?mode=ro', uri=True)
+c.row_factory = sqlite3.Row
+v=[dict(r) for r in c.execute('SELECT close_reason, pnl_pct FROM training_signals WHERE pnl_pct IS NOT NULL AND closed_at >= ? AND result NOT LIKE \"shadow%\"',(int(time.time())-21600,))]
+if v:
+    w=sum(1 for r in v if r['pnl_pct']>0)
+    print(f'{len(v)} صفقة · فوز {w*100//len(v)}% · صافي {sum(r[\"pnl_pct\"] for r in v):+.0f}')
+    for k,n in collections.Counter(str(r['close_reason']) for r in v).most_common(6):
+        s=[r['pnl_pct'] for r in v if str(r['close_reason'])==k]
+        print(f'  {k:16} {n:3} · {sum(s):+6.0f} · {sum(s)/len(s):+6.2f}%')
+else: print('لا صفقات')
+"
+echo
+echo "═══ الحرّاس ═══"
+journalctl -u whalex --since "-6h" --no-pager | grep -c "🩸" | xargs echo "نزيف مبكّر:"
+journalctl -u whalex --since "-6h" --no-pager | grep -c "🔒 قفل القمة" | xargs echo "قفل القمّة:"
+echo
+echo "═══ الأعطال ═══"
+journalctl -u whalex --since "-30min" --no-pager | grep -A 6 "Traceback" \
+  | grep -E "^\s*File \"/opt/whalex|Error:" | sed 's/.*python3\[[0-9]*\]: //' \
+  | sort | uniq -c | sort -rn | head -6
+echo
+echo "═══ المستشعر ═══"
+python3 -c "
+import sys; sys.path.insert(0,'/opt/whalex')
+from sense.store import stats
+s=stats(); h=(s['to']-s['from'])/3600 if s['to'] and s['from'] else 0
+print(f\"{s['rows']} صف · {s['symbols']} عملة · {h:.1f} ساعة\")
+"
