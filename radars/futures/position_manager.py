@@ -1245,6 +1245,16 @@ async def monitor_position(pos: Position):
                     await _close_position(pos, price, ExitReason.TACTICAL, pnl_pct)
                     return
 
+    # ⏳ فترة استقرار الدخول — لا وقف ولا حد صلب في اول 15 ثانية.
+    #    مقيس 13 سبتمبر: LSKUSDT اشارة 0.33829 وتنفيذ 0.347409 (انزلاق
+    #    2.8%). دورة المراقبة قرأت السعر قبل ان يصل التصحيح فحسبت من
+    #    سعر الاشارة: -16.27% وضربت الوقف بعد 5 ثوان. والمشتركان ربحا
+    #    فعلا +1.94% و +2.65% — فشاشتنا تقول خسارة وحسابهم يقول ربح.
+    #    والانزلاق نفسه (2.8%) يتجاوز حد الوقف (1.6%) فيُغلق كاذبا.
+    _age = time.time() - float(getattr(pos, "opened_at", 0) or 0)
+    if 0 < _age < 15.0:
+        return
+
     price_move_pct = abs(price - pos.entry) / pos.entry * 100 if pos.entry > 0 else 0
     against = (is_long and price < pos.entry) or (not is_long and price > pos.entry)
     # الحدّ متكيّف مع الرافعة — الخسارة -8% مهما كانت.
