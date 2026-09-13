@@ -44,3 +44,6 @@ multi_universe.db
 
 snapshots/
 ml_model.json
+
+whalex-dash/node_modules/
+node_modules/
