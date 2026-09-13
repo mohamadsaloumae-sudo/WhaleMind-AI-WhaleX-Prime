@@ -1,6 +1,5 @@
 // الرئيسية — نظرة عامة
 import WelcomeHeader from "../components/WelcomeHeader.jsx";
-import { useStats, fmtPct } from "../lib/stats.js";
 import { useEffect, useState } from "react";
 import { Activity, Radio } from "lucide-react";
 import { useLang } from "../context/LangContext.jsx";
@@ -9,17 +8,25 @@ import { signals } from "../lib/api.js";
 import ChatWidget from "../components/ChatWidget.jsx";
 
 export default function Dashboard() {
-  const S = useStats(getMarket());
-  const T = S.today;
   const { t, lang } = useLang();
   const [live, setLive] = useState(false);
+  const [day, setDay] = useState({ trades: 0, profit: 0, winRate: 0 });
   const [recent, setRecent] = useState([]);
 
   useEffect(() => {
     async function load() {
       try {
+        const h = await signals.history(getMarket());
+        const list = h?.history || [];
+        const wins = list.filter((x) => x.is_win).length;
+        const profit = list.reduce((a, x) => a + Number(x.pnl_pct || 0), 0);
         const all = await signals.all(getMarket());
         setRecent((all?.signals || []).slice(0, 4));
+        setDay({
+          trades: list.length,
+          profit: profit,
+          winRate: list.length ? Math.round((wins / list.length) * 100) : 0,
+        });
       } catch { /* */ }
     }
     load();
@@ -92,16 +99,16 @@ export default function Dashboard() {
         </div>
         <div className="card stat">
           <span className="label">{t("todayTrades")}</span>
-          <span className="value">{T.trades ?? 0}</span>
+          <span className="value">{day.trades}</span>
         </div>
         <div className="card stat">
           <span className="label">{t("todayProfit")}</span>
-          <span className="value" style={{ color: (T.return_pct ?? 0) >= 0 ? "var(--green)" : "var(--red)" }}>{T.return_pct != null ? fmtPct(T.return_pct) : "—"}</span>
+          <span className="value" style={{ color: day.profit >= 0 ? "var(--green)" : "var(--red)" }}>{day.profit >= 0 ? "+" : ""}{day.profit.toFixed(1)}%</span>
           <span style={{ fontSize: 13, color: "#e8eef2", fontWeight: 600, marginTop: 4 }}>{stamp}</span>
         </div>
         <div className="card stat">
           <span className="label">{t("winRate")}</span>
-          <span className="value" style={{ color: "var(--brand)" }}>{T.win_rate ?? 0}%</span>
+          <span className="value" style={{ color: "var(--brand)" }}>{day.winRate}%</span>
         </div>
       </div>
 

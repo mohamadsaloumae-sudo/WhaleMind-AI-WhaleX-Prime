@@ -10,6 +10,7 @@ NEW="whalex-v$((NUM + 1))"
 sed -i "s/$CUR/$NEW/" "$SW"
 echo "🔄 عامل الخدمة: $CUR → $NEW"
 npm run build
-cp -f dist/sw.js /opt/whalex/static/sw.js 2>/dev/null || true
+rm -f /opt/whalex/static/assets/*.js /opt/whalex/static/assets/*.css
+cp -r dist/* /opt/whalex/static/
 systemctl reload nginx
 echo "✅ نُشر · $(curl -sk https://whalemindhybridai.online/sw.js | grep -o 'whalex-v[0-9]*')"

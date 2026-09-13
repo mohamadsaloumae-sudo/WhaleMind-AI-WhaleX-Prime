@@ -1,6 +1,5 @@
 // الصفقات — عامّة (المفتوحة تُراقب + المغلقة رابح/خاسر)
 import { useEffect, useState } from "react";
-import { useStats, fmtUsd, fmtPct } from "../lib/stats.js";
 import { signals } from "../lib/api.js";
 import { useLang } from "../context/LangContext.jsx";
 import { getMarket } from "../hooks/useMarket.js";
@@ -51,8 +50,6 @@ const EX_LOGO = {
 };
 
 export default function Positions() {
-  const S = useStats("futures");
-  const st = S.today;
   const { t, lang } = useLang();
   const [history, setHistory] = useState([]);
   const [detail, setDetail] = useState(null);   // 📊 تفاصيل الصفقة
@@ -75,13 +72,12 @@ export default function Positions() {
   }, []);
 
   // إحصائيات سريعة
-  // مصدر واحد: /api/stats — لا نحسب هنا (كانت تجمع نسبا)
-  const wins = st.wins || 0;
-  const losses = st.losses || 0;
-  const winRate = st.win_rate || 0;
-  const totalProfit = st.gross_usd || 0;
-  const totalLoss = st.fees_usd || 0;
-  const net = st.net_usd || 0;
+  const wins = history.filter((x) => x.is_win).length;
+  const losses = history.length - wins;
+  const winRate = history.length ? ((wins / history.length) * 100).toFixed(0) : 0;
+  const totalProfit = history.filter((x) => x.is_win).reduce((a, x) => a + Number(x.pnl_pct || 0), 0);
+  const totalLoss = history.filter((x) => !x.is_win).reduce((a, x) => a + Math.abs(Number(x.pnl_pct || 0)), 0);
+  const net = totalProfit - totalLoss;
 
   if (loading) return <div className="loading">{t("loading")}</div>;
 
