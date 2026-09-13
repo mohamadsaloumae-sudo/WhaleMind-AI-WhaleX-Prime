@@ -217,7 +217,8 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
                 "entry": r["entry"], "exit_price": r["exit_price"],
                 "grade": r["grade"], "tier": r["tier"], "radar": _rlabel(r["tier"]),
                 "result": r["result"], "pnl_pct": r["pnl_pct"],
-                "is_win": bool(r["outcome"]), "closed_at": r["closed_at"],
+                # 📊 الفوز من pnl_pct لا outcome — الاثنان اختلفا (40.5% مقابل 37.8%)
+                "is_win": bool((r["pnl_pct"] or 0) > 0), "closed_at": r["closed_at"],
                 "strategies": r["strategies"],
                 "leverage": r["leverage"] if "leverage" in r.keys() else None,
                 # 📊 تفاصيل كاملة للشفافية
