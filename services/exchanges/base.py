@@ -153,6 +153,69 @@ class ExchangeAdapter(ABC):
             log.error("🔌 %s إغلاق %s: %s", self.name_ar, s, e)
             return {"ok": False, "error": str(e)}
 
+    def settle(self, c, sym: str, t0: int, t1: int,
+               futures: bool = False) -> dict:
+        """💰 التنفيذ الحقيقي من المنصّة — لا تقدير.
+
+        مقيس 14 سبتمبر على السبوت: التقدير (spend × pnl_pct) يخطئ في
+        كل صفقة — POWR قدّرنا -0.38$ والحقيقة -2.08$، و ARK قدّرنا
+        +1.07$ والحقيقة -0.22$ (عكس الاشارة). فلا يرى الانزلاق ولا
+        رسوم الشراء ولا التعبئة الجزئية.
+
+        ccxt يوفّر fetch_my_trades بواجهة موحّدة لكل المنصّات، فالدالّة
+        هنا تعمل للسبع جميعا — باينانس وبايبت ومكسي وأوكي إكس وبيتجت
+        وجيت وبينج إكس — بلا كود خاص لكل واحدة.
+
+        الفيوتشر: الصافي = مجموع realizedPnl − الرسوم
+        السبوت  : الصافي = البيع − الشراء − الرسوم
+        """
+        try:
+            s_ = self.symbol(sym, futures)
+            tr = c.fetch_my_trades(s_, since=max(0, (t0 - 120)) * 1000,
+                                   limit=100)
+            tr = [t for t in tr
+                  if t.get("timestamp") and t["timestamp"] / 1000 <= t1 + 300]
+            if not tr:
+                return {"ok": False, "error": "لا تنفيذ"}
+
+            fee = 0.0
+            for t in tr:
+                f = t.get("fee") or {}
+                cst = float(f.get("cost") or 0)
+                cur = (f.get("currency") or "").upper()
+                if cur in ("USDT", "USDC", "BUSD"):
+                    fee += cst
+                elif cst > 0:
+                    # رسوم بعملة اخرى — نقدّرها من قيمة الصفقة
+                    fee += float(t.get("cost") or 0) * 0.001
+
+            if futures:
+                pnl = 0.0
+                for t in tr:
+                    inf = t.get("info") or {}
+                    for k in ("realizedPnl", "realisedPnl", "closedPnl",
+                              "realized_pnl", "pnl"):
+                        if inf.get(k) not in (None, ""):
+                            try:
+                                pnl += float(inf[k])
+                            except Exception:
+                                pass
+                            break
+                return {"ok": True, "buy": 0.0, "sell": 0.0,
+                        "fee": round(fee, 6), "net": round(pnl - fee, 6),
+                        "n": len(tr)}
+
+            buy = sum(float(t.get("cost") or 0) for t in tr
+                      if str(t.get("side", "")).lower() == "buy")
+            sell = sum(float(t.get("cost") or 0) for t in tr
+                       if str(t.get("side", "")).lower() == "sell")
+            return {"ok": True, "buy": round(buy, 6), "sell": round(sell, 6),
+                    "fee": round(fee, 6), "net": round(sell - buy - fee, 6),
+                    "n": len(tr)}
+        except Exception as e:
+            log.debug("settle %s %s: %s", self.name_ar, sym, str(e)[:70])
+            return {"ok": False, "error": str(e)[:70]}
+
     def _position_amount(self, c, s: str) -> float:
         for p in (c.fetch_positions([s]) or []):
             n = float(p.get("contracts") or 0)

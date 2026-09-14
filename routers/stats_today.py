@@ -33,7 +33,9 @@ def _calc(rows):
         return {"trades": 0, "net_usd": 0.0, "gross_usd": 0.0, "fees_usd": 0.0,
                 "win_rate": 0.0, "profit_factor": 0.0, "avg_pct": 0.0,
                 "wins": 0, "losses": 0}
-    nets = [float(r.get("net_usdt") or 0) for r in rows]
+    # 💰 الرقم من المنصّة ان توفّر — لا حسابنا
+    nets = [float(r.get("real_net") if r.get("real_net") is not None
+                  else (r.get("net_usdt") or 0)) for r in rows]
     pcts = [float(r.get("pnl_pct") or 0) for r in rows]
     w = [x for x in nets if x > 0]
     l = [x for x in nets if x <= 0]
@@ -42,7 +44,8 @@ def _calc(rows):
         "trades": len(rows),
         "net_usd": round(sum(nets), 2),
         "gross_usd": round(sum(float(r.get("pnl_usdt") or 0) for r in rows), 2),
-        "fees_usd": round(sum(float(r.get("commission") or 0) for r in rows), 2),
+        "fees_usd": round(sum(float(r.get("real_fee") if r.get("real_fee") is not None
+                                     else (r.get("commission") or 0)) for r in rows), 2),
         "win_rate": round(len(w) * 100 / len(rows), 1),
         "profit_factor": round(gp / gl, 2) if gl > 0 else (999.0 if gp > 0 else 0.0),
         "avg_pct": round(sum(pcts) / len(pcts), 2),

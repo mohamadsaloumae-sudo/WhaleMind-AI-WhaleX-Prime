@@ -32,32 +32,25 @@ def settle(pos_id: int) -> dict:
         if not r:
             return {"ok": False, "error": "لا صفقة"}
         d = dict(r)
-        if d.get("exchange") != "binance":
-            return {"ok": False, "error": "باينانس فقط حالياً"}
-
-        from services.binance_trader import get_credentials
-        from binance.client import Client
-        cr = get_credentials(d["user_id"])
-        if not cr:
+        from services.exchanges import get as _get_ad
+        from services.spot_exec import spot_traders_for
+        ex = d.get("exchange") or "binance"
+        ad = _get_ad(ex)
+        if not ad:
+            return {"ok": False, "error": "لا محوّل"}
+        creds = {u: (k, sc, pw, tn) for u, k, sc, pw, _a, _m, tn
+                 in spot_traders_for(ex)}
+        if d["user_id"] not in creds:
             return {"ok": False, "error": "لا مفاتيح"}
-        cl = Client(cr["api_key"], cr["api_secret"])
+        k, sc, pw, tn = creds[d["user_id"]]
+        c2 = ad.client(k, sc, pw, futures=False, testnet=tn)
 
         t0 = int(d.get("ts") or 0)
         t1 = int(d.get("closed_ts") or time.time())
-        tr = cl.get_my_trades(symbol=d["symbol"],
-                              startTime=(t0 - 120) * 1000, limit=100)
-        tr = [t for t in tr if int(t["time"]) / 1000 <= t1 + 300]
-        if not tr:
-            return {"ok": False, "error": "لا تنفيذ"}
-
-        buy = sum(float(t["quoteQty"]) for t in tr if t["isBuyer"])
-        sell = sum(float(t["quoteQty"]) for t in tr if not t["isBuyer"])
-        fee = sum(float(t["commission"]) for t in tr
-                  if t.get("commissionAsset") == "USDT")
-        # رسوم بعملة اخرى — نقدّرها 0.1% من قيمتها
-        other = [t for t in tr if t.get("commissionAsset") != "USDT"]
-        if other:
-            fee += sum(float(t["quoteQty"]) * 0.001 for t in other)
+        r2 = ad.settle(c2, d["symbol"], t0, t1, futures=False)
+        if not r2.get("ok"):
+            return {"ok": False, "error": r2.get("error", "فشل")}
+        buy = float(r2["buy"]); sell = float(r2["sell"]); fee = float(r2["fee"])
         net = sell - buy - fee
 
         w = sqlite3.connect(DB, timeout=10)

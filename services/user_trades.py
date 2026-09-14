@@ -84,6 +84,17 @@ def log_close(user_id: str, symbol: str, exit_price: float, pnl_pct: float,
                   (float(exit_price or 0), round(float(pnl_pct), 3), round(_usdt, 4),
                    str(reason)[:60], int(time.time()), d["id"]))
         c.commit(); c.close()
+        # 💰 تسوية من المنصّة بعد 8 ثوان — realizedPnl الحقيقي.
+        #    حسابنا مطابق 8/8 بفرق 0.0013$ على باينانس، لكن التسوية
+        #    تؤكّده من المنصّة نفسها وتعمل للسبع جميعا عبر ccxt —
+        #    فلا نعود للمشكلة عند دخول مشتركين من غير باينانس.
+        try:
+            if market == "futures":
+                from services.futures_settle import settle as _fst
+                import threading as _th
+                _th.Timer(8.0, _fst, args=(d["id"],)).start()
+        except Exception as _se:
+            log.debug("settle: %s", _se)
         log.info("📒 إغلاق حقيقي: %s %s %+.2f%%", user_id[:8], symbol, pnl_pct)
     except Exception as e:
         log.warning("log_close: %s", e)

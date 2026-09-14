@@ -28,7 +28,7 @@ def _metrics(rows):
         return {"n": 0, "net": 0.0, "gross": 0.0, "fees": 0.0, "win_rate": 0.0,
                 "profit_factor": 0.0, "expectancy": 0.0, "max_dd": 0.0,
                 "avg_win": 0.0, "avg_loss": 0.0, "best": 0.0, "worst": 0.0}
-    nets = [float(r.get("net_usdt") or 0) for r in rows]
+    nets = [float(r.get("real_net") if r.get("real_net") is not None else (r.get("net_usdt") or 0)) for r in rows]
     w = [x for x in nets if x > 0]
     l = [x for x in nets if x <= 0]
     gp, gl = sum(w), abs(sum(l))
@@ -41,7 +41,7 @@ def _metrics(rows):
         "n": len(rows),
         "net": round(sum(nets), 2),
         "gross": round(sum(float(r.get("pnl_usdt") or 0) for r in rows), 2),
-        "fees": round(sum(float(r.get("commission") or 0) for r in rows), 2),
+        "fees": round(sum(float(r.get("real_fee") if r.get("real_fee") is not None else (r.get("commission") or 0)) for r in rows), 2),
         "win_rate": round(len(w) * 100 / len(rows), 1),
         "profit_factor": round(gp / gl, 2) if gl > 0 else (999.0 if gp > 0 else 0.0),
         "expectancy": round(sum(nets) / len(rows), 3),
