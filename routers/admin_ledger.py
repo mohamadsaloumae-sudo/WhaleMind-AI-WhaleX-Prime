@@ -110,6 +110,43 @@ def _live_prices(syms):
     return out
 
 
+def _spot_rows(user_id, since):
+    """السبوت في spot_positions_multi لا user_trades.
+
+    مقيس 13 سبتمبر: الدفتر كان يقرأ user_trades (55 صفا ناقصا)
+    والحقيقة في spot_positions_multi (167)، فيخرج فوز 2.9% ومعامل 999.
+    والرسوم تُحسب 0.2% ذهابا وايابا (معيار السبوت).
+    """
+    c = sqlite3.connect("file:%s?mode=ro" % DB, uri=True)
+    c.row_factory = sqlite3.Row
+    rows = [dict(r) for r in c.execute(
+        "SELECT * FROM spot_positions_multi WHERE user_id=? AND ts >= ?",
+        (user_id, since))]
+    c.close()
+    out = []
+    for r in rows:
+        spend = float(r.get("spend") or 0)
+        pct = r.get("pnl_pct")
+        closed = r.get("status") == "closed" and pct is not None
+        fee = spend * 0.002
+        gross = spend * float(pct or 0) / 100
+        out.append({
+            "id": r.get("id"), "symbol": r.get("symbol"),
+            "direction": "LONG", "market": "spot",
+            "entry": r.get("entry"), "qty": r.get("qty"),
+            "leverage": 1, "opened_at": r.get("ts"),
+            "order_id": r.get("order_id"),
+            "exit_price": r.get("exit_price"),
+            "closed_at": r.get("closed_ts") if closed else None,
+            "pnl_pct": pct, "pnl_usdt": round(gross, 4),
+            "commission": round(fee, 4),
+            "net_usdt": round(gross - fee, 4),
+            "close_reason": "spot_exit" if closed else None,
+            "spend": spend,
+        })
+    return out
+
+
 def ledger(user_id, days=30, market=""):
     since = int(time.time()) - days * 86400
     c = sqlite3.connect("file:%s?mode=ro" % DB, uri=True)
@@ -121,6 +158,8 @@ def ledger(user_id, days=30, market=""):
         a.append(market)
     rows = [dict(r) for r in c.execute(q, a)]
     c.close()
+    if market == "spot":
+        rows = _spot_rows(user_id, since)
     open_ = sorted([r for r in rows if not r.get("closed_at")],
                    key=lambda x: -(x.get("opened_at") or 0))
     closed = sorted([r for r in rows if r.get("closed_at")],

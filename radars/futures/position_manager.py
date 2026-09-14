@@ -1644,6 +1644,18 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
     #    مقيس 10 سبتمبر: DIP قبل الفلتر 128 صفقة · فوز 64% · +1.23%
     #                    وبعده 34 صفقة · فوز 32% · -3.48%
     #    وPH لم يتأثّر (+0.89 → +0.87) لانه يبيع القمم — وتدفّقها موجب.
+    # 🧭 تحيّز العملة — عملة خسرت في اتجاه 3 مرات فاكثر يُمنع
+    #    عليها ذلك الاتجاه وحده. مقيس: -108 صارت -56 على 4 ايام
+    #    لم يرها التدريب. الاطفاء: touch db/coin_bias.off
+    try:
+        from services.coin_bias import allowed as _cba
+        _cok, _cwhy = _cba(sig.symbol, sig.direction)
+        if not _cok:
+            log.info("🧭 %s %s لا تُفتح — %s", sig.symbol, sig.direction, _cwhy)
+            return None
+    except Exception as _cbe:
+        log.debug("coin_bias: %s", _cbe)
+
     try:
         if (getattr(sig, "tier", "") or "").upper() != "DIP":
             from services.entry_delay import against_flow as _af
