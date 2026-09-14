@@ -81,6 +81,26 @@ def _open_count(user_id: str, exchange: str) -> int:
     except Exception:
         return 0
 
+def _has_open(user_id: str, exchange: str, symbol: str) -> bool:
+    """هل لهذا المشترك صفقة مفتوحة على هذه العملة؟
+
+    مقيس 14 سبتمبر: PUNDIXUSDT فُتحت ثلاث مرات لنفس المشترك
+    (237.50$ · 79.20$ · 63.00$) و BANKUSDT مرتين، لان الفحص كان
+    على عدد الصفقات وحده لا على العملة. فيتضاعف التعرض لعملة واحدة
+    وتتضاعف الرسوم، وعند البيع تختلط الكميات.
+    """
+    try:
+        c = sqlite3.connect(DB_PATH)
+        n = c.execute(
+            "SELECT COUNT(*) FROM spot_positions_multi WHERE user_id=? "
+            "AND exchange=? AND symbol=? AND status='open'",
+            (user_id, exchange, symbol)).fetchone()[0]
+        c.close()
+        return int(n) > 0
+    except Exception:
+        return False
+
+
 def buy(exchange: str, symbol: str, entry: float) -> list:
     import os
     if os.path.exists("/opt/whalex/db/trading_freeze.flag"):
@@ -91,6 +111,11 @@ def buy(exchange: str, symbol: str, entry: float) -> list:
     results = []
     for uid, key, sec, pw, amount, maxp, testnet in spot_traders_for(exchange):
         try:
+            # 🛡️ لا صفقة ثانية على عملة مفتوحة لنفس المشترك
+            if _has_open(uid, exchange, symbol):
+                log.info("🪙⏭️ %s %s: صفقة مفتوحة سلفاً — نتخطّى", uid[:8], symbol)
+                results.append({"ok": False, "user": uid,
+                                "error": "صفقة مفتوحة على هذه العملة"}); continue
             if maxp > 0 and _open_count(uid, exchange) >= maxp:
                 results.append({"ok": False, "user": uid, "error": f"حدّ الصفقات ({maxp})"}); continue
             c = ad.client(key, sec, pw, futures=False, testnet=testnet)
