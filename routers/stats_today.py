@@ -97,10 +97,19 @@ def _fetch_spot(user_id, since):
         for r in rows:
             spend = float(r.get("spend") or 0)
             pct = float(r.get("pnl_pct") or 0)
-            out.append({"pnl_pct": pct,
-                        "pnl_usdt": spend * pct / 100,
-                        "commission": spend * 0.002,
-                        "net_usdt": spend * pct / 100 - spend * 0.002})
+            rn = r.get("real_net")
+            if rn is not None:
+                buy = float(r.get("real_buy") or 0)
+                out.append({
+                    "pnl_pct": round(float(rn)/buy*100, 3) if buy > 0 else pct,
+                    "pnl_usdt": float(r.get("real_sell") or 0) - buy,
+                    "commission": float(r.get("real_fee") or 0),
+                    "net_usdt": float(rn)})
+            else:
+                out.append({"pnl_pct": pct,
+                            "pnl_usdt": spend * pct / 100,
+                            "commission": spend * 0.002,
+                            "net_usdt": spend * pct / 100 - spend * 0.002})
         return out
     except Exception as e:
         log.debug("spot fetch: %s", e)

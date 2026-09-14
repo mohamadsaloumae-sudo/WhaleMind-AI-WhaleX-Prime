@@ -159,6 +159,13 @@ def sell_all(exchange: str, symbol: str, exit_price: float = 0.0) -> list:
                         float(exit_price or 0), round(pnl,3), row["id"]))
             cn.commit(); cn.close()
             if r.get("ok"):
+                # 💰 تسوية من باينانس — الرقم الحقيقي لا المقدّر
+                try:
+                    from services.spot_settle import settle as _st
+                    import threading as _th
+                    _th.Timer(8.0, _st, args=(row["id"],)).start()
+                except Exception as _se:
+                    log.debug("settle: %s", _se)
                 try:
                     from services.user_trades import log_close as _lcl
                     _lcl(row["user_id"], symbol, float(exit_price or 0),

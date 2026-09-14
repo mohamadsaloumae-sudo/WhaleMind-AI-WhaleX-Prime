@@ -128,8 +128,18 @@ def _spot_rows(user_id, since):
         spend = float(r.get("spend") or 0)
         pct = r.get("pnl_pct")
         closed = r.get("status") == "closed" and pct is not None
-        fee = spend * 0.002
-        gross = spend * float(pct or 0) / 100
+        # 💰 الرقم الحقيقي من باينانس ان توفّر — لا التقدير.
+        #    مقيس 14 سبتمبر: التقدير يخطئ في كل صفقة (POWR قدّرنا
+        #    -0.38$ والحقيقة -2.08$ · ARK قدّرنا +1.07$ والحقيقة -0.22$)
+        rn = r.get("real_net")
+        if rn is not None:
+            gross = float(r.get("real_sell") or 0) - float(r.get("real_buy") or 0)
+            fee = float(r.get("real_fee") or 0)
+            if float(r.get("real_buy") or 0) > 0:
+                pct = round(float(rn) / float(r["real_buy"]) * 100, 3)
+        else:
+            fee = spend * 0.002
+            gross = spend * float(pct or 0) / 100
         out.append({
             "id": r.get("id"), "symbol": r.get("symbol"),
             "direction": "LONG", "market": "spot",
@@ -140,7 +150,8 @@ def _spot_rows(user_id, since):
             "closed_at": r.get("closed_ts") if closed else None,
             "pnl_pct": pct, "pnl_usdt": round(gross, 4),
             "commission": round(fee, 4),
-            "net_usdt": round(gross - fee, 4),
+            "net_usdt": round(float(rn) if rn is not None else gross - fee, 4),
+            "real": rn is not None,
             "close_reason": "spot_exit" if closed else None,
             "spend": spend,
         })
