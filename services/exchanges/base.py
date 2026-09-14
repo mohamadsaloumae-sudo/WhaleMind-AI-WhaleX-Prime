@@ -109,7 +109,7 @@ class ExchangeAdapter(ABC):
     def _open_params(self, futures: bool) -> dict:
         return {}
 
-    def close(self, c, sym: str, futures: bool = True) -> dict:
+    def close(self, c, sym: str, futures: bool = True, qty: float = 0.0) -> dict:
         s = self.symbol(sym, futures)
         try:
             if futures:
@@ -126,12 +126,23 @@ class ExchangeAdapter(ABC):
                     o = c.create_order(s, "market", side, abs(amt),
                                        None, self._close_params())
             else:
+                # 🛡️ السبوت: نبيع ما اشتراه البوت فقط — لا رصيد المشترك.
+                #    مقيس 14 سبتمبر: البوت اشترى 1628.6 BANK بـ50$ وباع
+                #    3876.2 BANK بـ120.94$ — أي باع 2247 عملة يملكها
+                #    المشترك قبلنا (~70$). والسبب ان free كان الرصيد كله.
                 base = s.split("/")[0]
                 free = float((c.fetch_balance().get(base) or {}).get("free") or 0)
                 if free <= 0:
                     return {"ok": False, "error": "لا رصيد"}
+                want = float(qty or 0)
+                amt = min(want, free) if want > 0 else free
+                if want > 0 and free < want * 0.97:
+                    log.warning("🛡️ %s %s: الرصيد %.6f دون المشترى %.6f",
+                                self.name_ar, s, free, want)
+                if amt <= 0:
+                    return {"ok": False, "error": "كمّية صفر"}
                 o = c.create_order(s, "market", "sell",
-                                   float(c.amount_to_precision(s, free)))
+                                   float(c.amount_to_precision(s, amt)))
             try:
                 c.cancel_all_orders(s)
             except Exception:

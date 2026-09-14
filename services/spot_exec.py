@@ -147,7 +147,9 @@ def sell_all(exchange: str, symbol: str, exit_price: float = 0.0) -> list:
         k, s, p, testnet = creds[uid]
         try:
             c = ad.client(k, s, p, futures=False, testnet=testnet)
-            r = ad.close(c, symbol, futures=False)
+            # 🛡️ نمرّر الكمّية المشتراة — لا نبيع رصيد المشترك
+            _q = float(row["qty"] or 0)
+            r = ad.close(c, symbol, futures=False, qty=_q)
             pnl = 0.0
             if row["entry"] and exit_price:
                 pnl = (float(exit_price)-float(row["entry"]))/float(row["entry"])*100
