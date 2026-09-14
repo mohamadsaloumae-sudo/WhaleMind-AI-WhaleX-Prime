@@ -29,6 +29,7 @@ export default function UserLedger({ userId, days = 30, market = "futures" }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
   const [openDays, setOpenDays] = useState({});
+  const [openT, setOpenT] = useState({});
 
   useEffect(() => {
     if (!userId) return;
@@ -150,23 +151,14 @@ export default function UserLedger({ userId, days = 30, market = "futures" }) {
               <table className="ltable">
                 <thead>
                   <tr>
-                    <th>العملة</th><th>الاتّجاه</th><th>دخول</th><th>خروج</th>
-                    <th>المدّة</th><th>%</th><th>رسوم</th><th>الصافي</th><th>السبب</th>
+                    <th>العملة</th><th>الاتّجاه</th><th>الصافي</th>
+                    <th>%</th><th>رسوم</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {d.trades.map((t) => (
-                    <tr key={t.id}>
-                      <td className="sym">{t.symbol}</td>
-                      <td><span className={"dir " + t.direction.toLowerCase()}>{t.direction}</span></td>
-                      <td className="num dim">{t.entry}</td>
-                      <td className="num dim">{t.exit_price}</td>
-                      <td className="num dim">{t.duration_min ? f(t.duration_min, 0) + "د" : "—"}</td>
-                      <td className={"num " + cls(t.pnl_pct)}>{pct(t.pnl_pct)}</td>
-                      <td className="num dim">{f(t.commission)}$</td>
-                      <td className={"num b " + cls(t.net_usdt)}>{usd(t.net_usdt)}</td>
-                      <td className="reason">{t.close_reason || "—"}</td>
-                    </tr>
+                    <TradeRow key={t.id} t={t} open={!!openT[t.id]}
+                      onToggle={() => setOpenT((x) => ({ ...x, [t.id]: !x[t.id] }))} />
                   ))}
                 </tbody>
               </table>
@@ -216,15 +208,69 @@ export default function UserLedger({ userId, days = 30, market = "futures" }) {
         }
         @keyframes lpulse { 0%,100%{opacity:1;transform:scale(1)}
                             50%{opacity:.35;transform:scale(.8)} }
+        .ledger .trow { cursor:pointer; }
+        .ledger .trow:active { background:rgba(255,255,255,.06); }
+        .ledger .tdetail {
+          display:grid; grid-template-columns:repeat(auto-fit,minmax(128px,1fr));
+          gap:2px 14px; padding:11px 12px 13px;
+          background:rgba(0,0,0,.22);
+          border-top:1px solid rgba(255,255,255,.05);
+        }
+        .ledger .dcell {
+          display:flex; justify-content:space-between; align-items:baseline;
+          padding:4px 0; font-size:12px; gap:10px;
+        }
+        .ledger .dk { color:#8fa9b4; white-space:nowrap; }
+        .ledger .dv { font-family:ui-monospace,monospace; font-size:12.5px; }
+        .ledger .dv.dhi { font-size:14.5px; font-weight:800; }
         .ledger .dir.long  { background:rgba(34,197,94,.13); color:#22c55e; }
         .ledger .dir.short { background:rgba(239,68,68,.13); color:#ef4444; }
         @media (max-width:640px){
-          .ledger .ltable th:nth-child(3), .ledger .ltable td:nth-child(3),
-          .ledger .ltable th:nth-child(4), .ledger .ltable td:nth-child(4),
-          .ledger .ltable th:nth-child(9), .ledger .ltable td:nth-child(9) { display:none; }
           .ledger .dcount, .ledger .dwin { display:none; }
         }
       `}</style>
+    </div>
+  );
+}
+
+
+function TradeRow({ t, open, onToggle }) {
+  return (
+    <>
+      <tr onClick={onToggle} className="trow">
+        <td className="sym">{t.symbol}</td>
+        <td><span className={"dir " + String(t.direction || "").toLowerCase()}>{t.direction}</span></td>
+        <td className={"num b " + cls(t.net_usdt)}>{usd(t.net_usdt)}</td>
+        <td className={"num " + cls(t.pnl_pct)}>{pct(t.pnl_pct)}</td>
+        <td className="num dim">{t.commission != null ? f(t.commission) + "$" : "\u2014"}</td>
+        <td className="num dim" style={{ width: 16 }}>{open ? "\u25b4" : "\u25be"}</td>
+      </tr>
+      {open && (
+        <tr>
+          <td colSpan={6} style={{ padding: 0 }}>
+            <div className="tdetail">
+              <DC k="الدخول" v={t.entry} />
+              <DC k="الخروج" v={t.exit_price} />
+              <DC k="الكمّية" v={t.qty} />
+              <DC k="الرافعة" v={(t.leverage || 1) + "x"} />
+              <DC k="قبل الرسوم" v={usd(t.pnl_usdt)} c={cls(t.pnl_usdt)} />
+              <DC k="الرسوم" v={t.commission != null ? "\u2212" + f(t.commission) + "$" : "\u2014"} c="neg" />
+              <DC k="الصافي" v={usd(t.net_usdt)} c={cls(t.net_usdt)} hi />
+              <DC k="المدّة" v={t.duration_min ? f(t.duration_min, 0) + " دقيقة" : "\u2014"} />
+              <DC k="السبب" v={t.close_reason || "\u2014"} />
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function DC({ k, v, c, hi }) {
+  return (
+    <div className="dcell">
+      <span className="dk">{k}</span>
+      <b className={"dv " + (c || "") + (hi ? " dhi" : "")}>{v ?? "\u2014"}</b>
     </div>
   );
 }

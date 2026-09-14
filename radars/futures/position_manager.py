@@ -1406,6 +1406,24 @@ async def monitor_position(pos: Position):
     _tac_interval = 20 if pos.tp1_hit else 45
     if now - pos.last_warned > _tac_interval:
         tactical, reason = await should_tactical_exit(pos, price, ob, ls_change)
+        # 📈 الوقف المتحرّك — مقيس على 1224 صفقة رابحة: الخروج التكتيكي
+        #    يلتقط 45% من الذروة فقط، و65% من الصفقات تُغلق وقد بقي
+        #    فيها 2%+. فبعد ان تبلغ الصفقة 1.5% لا نخرج تكتيكيا الا
+        #    اذا تراجعت 2% من ذروتها. والوقف والنزيف والحد الصلب
+        #    تعمل كما هي — هذا يحكم الخروج التكتيكي وحده.
+        if tactical:
+            try:
+                from services.trail_guard import allow_tactical
+                _pk = getattr(pos, "peak_price", 0) or 0
+                _pkp = calc_pnl(pos, _pk) if _pk else pnl_pct
+                _ok, _tw = allow_tactical(pos.id, pnl_pct, _pkp)
+                if not _ok:
+                    log.info("📈 %s نترك الربح يجري — %s", pos.symbol, _tw)
+                    tactical = False
+                elif _tw:
+                    reason = "وقف متحرّك: " + _tw
+            except Exception as _te:
+                log.debug("trail %s: %s", pos.symbol, _te)
         if tactical:
             pos.last_warned = now
             tp_status = "TP2" if pos.tp2_hit else "TP1" if pos.tp1_hit else "قبل TP1"
