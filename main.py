@@ -170,6 +170,16 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(_stg(), name="stuck_guard")
     except Exception as _sge:
         log.warning("حارس المحجوزة: %s", _sge)
+    # 🔒 حارس الاشتراك — كل 10 دقائق.
+    #    مقيس 16 سبتمبر: 6 من 20 مفعّلاً اشتراكهم منتهٍ ومفاتيحهم تعمل
+    #    (moaad منذ يومين · حسين حمزي منذ 11). فالنظام يُغلق الصفحات
+    #    ولا يُطفئ التداول. وثلاث مراحل بلا ظلم: لا فتح جديد ⇒
+    #    المفتوحة تُدار بحرّاسها ⇒ القطع حين تنتهي كلها.
+    try:
+        from services.sub_guard import loop as _sbg
+        asyncio.create_task(_sbg(), name="sub_guard")
+    except Exception as _sbe:
+        log.warning("حارس الاشتراك: %s", _sbe)
     # 🧹 تحرير الذاكرة المفكوكة كل عشر دقائق — بايثون يحتفظ بالساحات
     #    المحرّرة ولا يُعيدها للنظام، فتنمو RSS بلا سبب حقيقيّ.
     async def _trim_loop():
