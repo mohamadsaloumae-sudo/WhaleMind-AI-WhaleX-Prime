@@ -88,7 +88,8 @@ async def rescue_user(user_id: str, creds_row: dict) -> dict:
         if need <= 0:
             break
         try:
-            r = await close_position_for_user(user_id, p["symbol"], p["direction"])
+            r = await close_position_for_user(user_id, p["symbol"],
+                                              p["direction"], "margin_rescue")
             if r.get("success"):
                 out["freed"] += p["margin"]
                 out["closed"].append(p["symbol"])

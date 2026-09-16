@@ -117,7 +117,11 @@ async def sweep() -> dict:
             amt = float(p["positionAmt"])
             direction = "LONG" if amt > 0 else "SHORT"
             try:
-                res = await close_position_for_user(uid, sym, direction)
+                # 📊 نمرّر السبب — كان يُسجَّل manual_close فلا نعرف
+                #    أيّ حارس أغلق. مقيس 16 سبتمبر: 34 من 45 صفقة
+                #    مجهولة الفاعل، فلا يمكن قياس أداء الحرّاس.
+                res = await close_position_for_user(uid, sym, direction,
+                                                    "orphan_guard")
                 if res.get("success"):
                     out["closed"] += 1
                     log.warning("🛡️ أُغلقت يتيمة: %s %s (%s)",
