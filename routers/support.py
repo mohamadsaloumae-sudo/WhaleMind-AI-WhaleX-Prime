@@ -14,35 +14,235 @@ KB = [
      "🏅 <b>درجات الإشارة</b>\nS = أقوى إشارة (توافق كامل بين المؤشرات)\nA = قوية جداً\nB = متوسطة\n\nالمدير الآلي يفتح صفقات للدرجتين S و A فقط.",
      "🏅 <b>Signal grades</b>\nS = strongest (full indicator alignment)\nA = very strong\nB = moderate\n\nThe auto-manager only opens trades on S and A."),
     (("رادار", "radar", "كيف يعمل", "how", "النظام", "يشتغل", "system"), 2,
-     "⚡ <b>ثلاثة رادارات مستقلة</b>\n• Predator — يراقب عملات مستقرة لونغ وشورت\n• WhaleX Short — يصطاد القمة عند بداية الهبوط\n• WhaleX Long — يصطاد بداية الموجة الصاعدة\nكل إشارة تمرّ ببوابات فحص صارمة قبل إرسالها.",
-     "⚡ <b>Three independent radars</b>\n• Predator — scans stable pairs, long and short\n• WhaleX Short — catches tops as the drop begins\n• WhaleX Long — catches the start of an upward wave\nEvery signal passes strict screening gates first."),
+     "🐋 <b>ويل إكس — ثلاثة أنظمة</b>\n\n"
+     "⚡ <b>العقود الآجلة</b>\n"
+     "رادارات: WhaleX Predator · Predator MX · WhaleX Short · WhaleX Long\n"
+     "مع الحارس (Guardian) لفحص كل إشارة، ونموذج ذكاء اصطناعيّ يتعلّم من النتائج.\n"
+     "التداول الآليّ يعمل على سبع منصّات.\n\n"
+     "🪙 <b>الفوريّ (Spot)</b>\n"
+     "رادار WhaleX Spot — شراء فعليّ بلا رافعة، وتداول آليّ على سبع منصّات.\n\n"
+     "🐸 <b>الميم كوينز</b>\n"
+     "رادار WhaleX Meme — إشارات فتح وإغلاق فقط حالياً، والتداول الآليّ قادم قريباً.\n\n"
+     "والنظام مخصّص للعملات الرقمية.",
+     "🐋 <b>WhaleX — three systems</b>\n\n"
+     "⚡ <b>Futures</b>\n"
+     "Radars: WhaleX Predator · Predator MX · WhaleX Short · WhaleX Long\n"
+     "With Guardian screening every signal, and an AI model that learns from outcomes.\n"
+     "Auto-trading runs on seven exchanges.\n\n"
+     "🪙 <b>Spot</b>\n"
+     "WhaleX Spot radar — real purchases, no leverage, auto-trading on seven exchanges.\n\n"
+     "🐸 <b>Memecoins</b>\n"
+     "WhaleX Meme radar — entry and exit signals only for now; auto-trading coming soon.\n\n"
+     "The system covers crypto markets."),
     (("سبوت", "spot", "فرق", "difference", "فيوتشر", "futures"), 2,
-     "🪙 <b>السبوت</b>: شراء فعلي بلا رافعة — مخاطرة أقل، أرباح 2-5%\n⚡ <b>الفيوتشر</b>: عقود برافعة — أرباح أكبر ومخاطرة أكبر\nلكل سوق رادار ومدير صفقات مستقل.",
-     "🪙 <b>Spot</b>: real purchase, no leverage — lower risk, 2-5% gains\n⚡ <b>Futures</b>: leveraged contracts — bigger gains, bigger risk\nEach market has its own radar and position manager."),
-    (("ميم", "meme"), 2,
-     "🐸 <b>رادار الميم</b> يفحص بخمس طبقات:\n1) سيولة وحجم وزخم حقيقي\n2) فحص العقد (honeypot / mint / سيولة مقفلة)\n3) توزيع الحاملين وشبكات الداخليين\n4) إثبات الشراء على البلوكشين\n5) تنقيط 85+ للنخبة فقط.",
-     "🐸 <b>Meme radar</b> screens in five layers:\n1) Real liquidity, volume and momentum\n2) Contract checks (honeypot / mint / locked liquidity)\n3) Holder distribution and insider networks\n4) On-chain proof of genuine buying\n5) Score 85+ for elite setups only."),
+     "🐋 <b>أنظمة ويل إكس الثلاثة</b>\n\n"
+     "🪙 <b>الفوريّ (Spot)</b>\n"
+     "شراء فعليّ للعملة بلا رافعة. آليّ بالكامل: يفتح الصفقة ويديرها حتى "
+     "الإغلاق، بوقف خسارة وقفل ربح متحرّك يحمي مكسبك فور تحقّقه. "
+     "مخاطرة أقلّ، وأرباح 2-5% عادةً.\n\n"
+     "⚡ <b>العقود الآجلة (Futures)</b>\n"
+     "عقود برافعة، صعوداً وهبوطاً. آليّ بالكامل أيضاً: فتح وإدارة وإغلاق، "
+     "مع وقف لكل صفقة وقفل ربح متدرّج وخروج فوريّ عند انقلاب السوق. "
+     "أرباح أكبر ومخاطرة أكبر.\n\n"
+     "والنظامان يعملان على سبع منصّات.\n\n"
+     "🐸 <b>الميم كوينز</b>\n"
+     "إشارات دخول وخروج فقط حالياً — والتداول الآليّ قادم قريباً.",
+     "🐋 <b>WhaleX — three systems</b>\n\n"
+     "🪙 <b>Spot</b>\nReal purchases, no leverage. Fully automated: opens, "
+     "manages and closes each trade, with a stop-loss and a trailing profit "
+     "lock that protects gains as they appear. Lower risk, typically 2-5%.\n\n"
+     "⚡ <b>Futures</b>\nLeveraged contracts, long and short. Also fully "
+     "automated, with a stop on every trade, tiered profit locking and an "
+     "immediate exit when the market flips. Bigger gains, bigger risk.\n\n"
+     "Both run on seven exchanges.\n\n"
+     "🐸 <b>Memecoins</b>\nEntry and exit signals only for now — auto-trading "
+     "coming soon.",),
     (("لا تصل", "لا توجد", "no signal", "متوقف", "قليل", "ما في", "بطيء", "why no"), 2,
-     "🔍 <b>قلّة الإشارات طبيعية</b>: الفحص صارم ولا يمرّ إلا ما اجتاز كل البوابات.\nتأكد أنك في السوق الصحيح (فيوتشر/سبوت/ميم) — لكل سوق إشاراته وجرسه.",
-     "🔍 <b>Few signals is normal</b>: screening is strict and only fully-qualified setups pass.\nCheck you're on the right market tab (Futures/Spot/Meme) — each has its own signals and bell."),
+     "🔍 <b>عدد الإشارات يتبع السوق</b>\n"
+     "في الأسواق الهادئة تقلّ الفرص الجيّدة، وفي المتحرّكة تكثر. "
+     "ونحن لا نفتح صفقة إلا حين تتوفّر شروطها كاملة — فالانتظار "
+     "أفضل من دخول ضعيف.\n\n"
+     "وتأكّد أنك في السوق الصحيح (فيوتشر/سبوت/ميم) — لكلٍّ إشاراته.",
+     "🔍 <b>Signal count follows the market</b>\n"
+     "Quiet markets offer fewer good setups; active ones offer more. "
+     "We only open when every condition is met — waiting beats a weak entry."
+     "\n\nAlso check you're on the right tab (Futures/Spot/Meme).",),
     (("باينانس", "binance", "ربط", "مفتاح", "api", "حساب", "connect"), 2,
-     "🔗 <b>ربط باينانس</b>: من صفحة التداول أدخل مفتاح API والسر بصلاحيات القراءة والتداول (بلا سحب)، ثم فعّل التداول الآلي واضبط مبلغ كل صفقة.",
-     "🔗 <b>Connecting Binance</b>: in the Trading page add your API key and secret with read + trade permissions (no withdrawals), then enable auto-trading and set your amount per trade."),
+     "🔗 <b>ربط حسابك</b>\n\n"
+     "① استخرج مفاتيح API من حسابك على المنصّة (باينانس أو غيرها) "
+     "بصلاحيات القراءة والتداول فقط — بلا سحب.\n\n"
+     "② افتح <b>المزيد ← دليل المستخدم</b> داخل التطبيق واقرأ الخطوات "
+     "بالتفصيل.\n\n"
+     "③ وللشرح المصوَّر كاملاً، شاهد الفيديو المثبَّت في قناتنا:\n"
+     "https://t.me/whalexprime\n\n"
+     "④ ثم أدخل المفتاح والسرّ في صفحة التداول، وفعّل التداول الآليّ "
+     "واضبط مبلغ كل صفقة.",
+     "🔗 <b>Connecting your account</b>\n\n"
+     "① Create API keys on your exchange (Binance or others) with read + "
+     "trade permissions only — no withdrawals.\n\n"
+     "② Open <b>More ← User Guide</b> in the app for the full steps.\n\n"
+     "③ For a full video walkthrough, see the pinned post in our channel:\n"
+     "https://t.me/whalexprime\n\n"
+     "④ Then enter your key and secret in the Trading page, enable "
+     "auto-trading and set your amount per trade.",),
     (("وقف", "خسار", "stop", "مخاطر", "risk", "loss"), 2,
      "🛡️ <b>إدارة المخاطر</b>: وقف خسارة لكل صفقة، قفل ربح متدرّج يحمي المكسب فور تحقّقه، وإغلاق فوري عند انقلاب السوق ضد الصفقة.",
      "🛡️ <b>Risk management</b>: a stop-loss on every trade, tiered profit-locking that protects gains as they appear, and an immediate exit when the market flips against the position."),
     (("ربح", "profit", "هدف", "target", "جني", "take"), 2,
      "🎯 <b>جني الأرباح</b>: أهداف متدرّجة مع قفل تلقائي — كلما ارتفع الربح ارتفع مستوى الحماية، فلا يتبخّر المكسب عند الارتداد.",
      "🎯 <b>Taking profit</b>: tiered targets with automatic locking — as profit climbs, so does the protected floor, so gains don't evaporate on a pullback."),
+    (("اقل مبلغ", "أقل مبلغ", "ادنى مبلغ", "أدنى مبلغ", "كم لازم",
+      "كم احط", "كم أحط", "كم اضيف", "كم أضيف", "كم يكفي", "بكم ابدا",
+      "بكم أبدأ", "راس مال", "رأس مال", "الحد الادنى", "الحد الأدنى",
+      "minimum", "how much", "capital", "start with"), 3,
+     "💰 <b>الحدّ الأدنى: 300$</b>\n"
+     "وأقلّ صفقة في الفوريّ: 50$\n\n"
+     "<b>لماذا هذا الحدّ؟</b>\n"
+     "عائد النظام يتراوح بين <b>30% و50% شهرياً</b> حسب حركة السوق، "
+     "واشتراك البوت <b>100$ شهرياً</b> ثابت لا يتغيّر مهما كان رصيدك.\n\n"
+     "<b>وهذا يعني:</b>\n\n"
+     "• برصيد <b>100$</b> — لو حصلت على الـ50% كاملة تربح <b>50$</b>، "
+     "ورسوم البوت 100$ ⇒ تخرج خاسراً 50$\n\n"
+     "• برصيد <b>200$</b> — الـ50% تعطيك <b>100$</b>، "
+     "ورسوم البوت 100$ ⇒ تتعادل بلا ربح\n\n"
+     "• برصيد <b>300$</b> — الـ50% تعطيك <b>150$</b>، "
+     "ورسوم البوت 100$ ⇒ يبقى لك 50$\n\n"
+     "• برصيد <b>500$</b> — الـ50% تعطيك <b>250$</b>، "
+     "ورسوم البوت 100$ ⇒ يبقى لك 150$\n\n"
+     "• برصيد <b>1000$</b> — الـ50% تعطيك <b>500$</b>، "
+     "ورسوم البوت 100$ ⇒ يبقى لك 400$\n\n"
+     "⚠️ وفي الشهر الهادئ (30%) يرتفع الحدّ المجدي: "
+     "الـ300$ تعطي 90$ والاشتراك 100$.\n"
+     "لذلك <b>باقة الثلاثة أشهر (270$ = 90$ شهرياً)</b> أنسب لمن "
+     "رصيده 300-400$.\n\n"
+     "📌 وكلّما كبر رصيدك، صغرت حصّة الاشتراك من أرباحك.",
+     "💰 <b>Minimum: $300</b>\nSmallest spot trade: $50\n\n"
+     "<b>Why this minimum?</b>\n"
+     "Returns range between <b>30% and 50% monthly</b> depending on market "
+     "conditions, while the bot subscription is a fixed <b>$100/month</b> "
+     "regardless of your balance.\n\n"
+     "<b>Which means:</b>\n\n"
+     "• With <b>$100</b> — a full 50% earns you <b>$50</b>, "
+     "and the bot costs $100 ⇒ you end up $50 down\n\n"
+     "• With <b>$200</b> — 50% earns <b>$100</b>, bot costs $100 ⇒ break-even\n\n"
+     "• With <b>$300</b> — 50% earns <b>$150</b>, bot costs $100 ⇒ you keep $50\n\n"
+     "• With <b>$500</b> — 50% earns <b>$250</b>, bot costs $100 ⇒ you keep $150\n\n"
+     "• With <b>$1000</b> — 50% earns <b>$500</b>, bot costs $100 ⇒ you keep $400\n\n"
+     "⚠️ In a quiet month (30%) the viable floor rises: $300 yields $90 "
+     "against a $100 fee.\nSo the <b>3-month plan ($270 = $90/month)</b> "
+     "suits balances of $300-400 better.\n\n"
+     "📌 The bigger your balance, the smaller the subscription's share "
+     "of your profit."),
     (("اشتراك", "subscription", "سعر", "price", "دفع", "باقة", "plan"), 2,
-     "💳 <b>الاشتراك</b>: تفاصيل الباقات وطرق الدفع في صفحة الاشتراك داخل التطبيق.",
-     "💳 <b>Subscription</b>: plans and payment methods are in the Subscription page inside the app."),
+     "💳 <b>الاشتراك</b>\n\n"
+     "• شهر واحد: <b>100$</b>\n"
+     "• ثلاثة أشهر: <b>270$</b>\n\n"
+     "<b>طريقة الاشتراك:</b>\n"
+     "① في التطبيق اضغط <b>الثلاث نقاط</b> أعلى الشاشة ← <b>الاشتراكات</b>\n"
+     "② انسخ عنوان المحفظة من هناك\n"
+     "⚠️ انتبه: العنوان على شبكة <b>TRC20 (ترون)</b> — أي تحويل على شبكة "
+     "أخرى يضيع.\n"
+     "③ حوّل المبلغ من محفظتك على باينانس بنفس الشبكة\n"
+     "④ بعد التحويل، احضر رقم المعاملة (TxID):\n"
+     "   في باينانس افتح <b>المحفظة ← السجلّ ← السحب</b>، اضغط على عملية "
+     "السحب، وانسخ <b>TxID</b>\n"
+     "⑤ الصقه في صفحة الاشتراكات واضغط ترقية — وتُفعَّل باقتك.",
+     "💳 <b>Subscription</b>\n\n"
+     "• 1 month: <b>$100</b>\n• 3 months: <b>$270</b>\n\n"
+     "<b>How to subscribe:</b>\n"
+     "① In the app tap the <b>three dots</b> at the top ← <b>Subscriptions</b>\n"
+     "② Copy the wallet address shown\n"
+     "⚠️ Note: the address is on the <b>TRC20 (Tron)</b> network — transfers "
+     "on any other network will be lost.\n"
+     "③ Send the amount from your Binance wallet on the same network\n"
+     "④ Then get your transaction ID (TxID):\n"
+     "   In Binance open <b>Wallet ← History ← Withdrawals</b>, tap the "
+     "withdrawal and copy the <b>TxID</b>\n"
+     "⑤ Paste it in the Subscriptions page and tap upgrade.",),
     (("اشعار", "إشعار", "notification", "جرس", "صوت", "bell", "sound"), 2,
      "🔔 <b>الإشعارات</b>: لكل سوق جرسه ورسائله. الصوت يرنّ عند كل إشارة أو حدث من المدير، ويمكن كتمه من أيقونة الصوت أعلى الشاشة.",
      "🔔 <b>Notifications</b>: each market has its own bell and feed. A chime plays on every signal or manager event, and you can mute it from the sound icon in the header."),
     (("رافعة", "leverage"), 2,
-     "⚙️ <b>الرافعة</b>: تبدأ منخفضة وترتفع تلقائياً عند تأكّد الاتجاه (هرمية)، لتقليل المخاطرة في البداية.",
-     "⚙️ <b>Leverage</b>: starts low and scales up automatically once the move is confirmed (pyramiding), keeping early risk small."),
+     "⚙️ <b>الرافعة</b>: يضبطها النظام لكل إشارة حسب مسافة الوقف — كلّما ضاق الوقف ارتفعت الرافعة والعكس. وتختارها أنت من إعدادات التداول الآليّ.",
+     "⚙️ <b>Leverage</b>: set per signal from the stop distance — a tighter stop allows higher leverage and vice versa. You choose your own cap in auto-trading settings."),
+    (("كشف", "تقرير", "حساب", "statement", "report", "ارباحي", "أرباحي"), 3,
+     "🏦 <b>كشف حسابك</b>: اطلبه من خدمة العملاء ويصلك في البوت وهنا — كل صفقة بتاريخها وسعر دخولها وخروجها ورسومها وصافيها، مع الإجمالي.\nوالأرقام من حسابك على المنصّة مباشرة، لا محاكاة.",
+     "🏦 <b>Your statement</b>: request it from support and it arrives in the bot and here — every trade with its dates, entry, exit, fees and net, plus totals.\nFigures come straight from your exchange account, not a simulation."),
+    (("لم تفتح", "لم تُفتح", "ما فتحت", "didn\'t open", "not opened", "فاتني"), 2,
+     "🚦 <b>الإشارة وصلت ولم تُفتح</b> — أسباب محتملة:\n• رصيدك لا يكفي لحجم الصفقة\n• السعر تحرّك بعيداً عن نقطة الدخول، فتجنّبنا دخولاً سيّئاً\n• صلاحيات مفتاح المنصّة ناقصة\n• أو العملة غير متاحة على منصّتك\nوكل محاولة مسجّلة، وخدمة العملاء تطّلع على السبب الدقيق.",
+     "🚦 <b>Signal arrived but no trade opened</b> — possible reasons:\n• Insufficient balance for the position size\n• Price moved too far from entry, so we skipped a poor fill\n• Missing API key permissions\n• Or the pair isn\'t listed on your exchange\nEvery attempt is logged and support can see the exact reason."),
+    (("رسوم", "عمولة", "fees", "commission"), 2,
+     "💵 <b>الرسوم</b>: رسوم المنصّة نفسها (باينانس وغيرها) تُخصم من صفقتك، وويل إكس لا يأخذ نسبة من أرباحك.\nوكشف حسابك يُظهر رسوم كل صفقة والصافي بعدها.",
+     "💵 <b>Fees</b>: your exchange's own trading fees are deducted per trade; WhaleX takes no cut of your profits.\nYour statement shows the fee on each trade and the net after it."),
+    (("كم صفقة", "عدد الصفقات", "كم اشارة", "كم إشارة", "يوميا", "يومياً",
+      "how many trades", "per day"), 2,
+     "📈 <b>عدد الصفقات يتبع السوق</b>\n"
+     "في الأيام المتحرّكة تكثر الفرص، وفي الهادئة تقلّ. "
+     "ولا نفتح صفقة إلا حين تكتمل شروطها — فلا نعد برقم ثابت.\n"
+     "والأهمّ جودة الصفقة لا عددها.",
+     "📈 <b>Trade count follows the market</b>\n"
+     "Active days bring more setups, quiet days fewer. We only open when "
+     "every condition is met, so we don't promise a fixed number.\n"
+     "Quality matters more than quantity."),
+    (("يدوي", "يدويّ", "بنفسي", "اتداول", "أتداول", "manual", "myself",
+      "same account"), 2,
+     "✋ <b>التداول اليدويّ مع البوت</b>\n"
+     "تستطيع ذلك، لكن انتبه:\n"
+     "• احتفظ برصيد كافٍ ليعمل البوت — فصفقاتك اليدوية تستهلك الهامش\n"
+     "• لا تُغلق صفقات البوت يدوياً، فهو يديرها بوقف وأهداف\n"
+     "• والأنظف: حساب منفصل لكلٍّ.",
+     "✋ <b>Manual trading alongside the bot</b>\nYou can, but note:\n"
+     "• Keep enough free balance for the bot — your manual trades consume "
+     "margin\n• Don't close the bot's positions manually; it manages them "
+     "with stops and targets\n• Cleanest setup: a separate account for each."),
+    (("ايقاف", "إيقاف", "اوقف", "أوقف", "توقيف", "stop bot", "pause",
+      "disable", "اطفاء", "إطفاء"), 2,
+     "⏸️ <b>إيقاف التداول الآليّ</b>\n"
+     "من صفحة <b>التداول الآليّ</b> أطفئ المفتاح — يتوقّف فتح صفقات جديدة "
+     "فوراً.\n\n"
+     "⚠️ وصفقاتك المفتوحة تبقى تحت إدارة النظام حتى تُغلق بشروطها، "
+     "فلا تُترك بلا حماية.\n"
+     "ولإغلاق فوريّ لصفقة بعينها، استخدم زرّ الإغلاق في صفحة صفقاتي.",
+     "⏸️ <b>Pausing auto-trading</b>\nIn the <b>Auto-Trading</b> page turn "
+     "the switch off — new trades stop immediately.\n\n"
+     "⚠️ Open positions stay under management until they close on their own "
+     "terms, so nothing is left unprotected.\n"
+     "To close one now, use the close button in My Trades."),
+    (("انتهى اشتراكي", "انتهاء الاشتراك", "خلص الاشتراك", "expired",
+      "subscription ends", "بعد الانتهاء"), 2,
+     "⏳ <b>عند انتهاء اشتراكك</b>\n"
+     "• يتوقّف فتح الصفقات الجديدة\n"
+     "• ويتوقّف النظام عن إدارة صفقاتك — فأدِرها بنفسك على منصّتك\n"
+     "• وسجلّك وكشف حسابك يبقيان محفوظين بالكامل\n"
+     "• وبمجرّد التجديد يعود كل شيء تلقائياً بلا إعداد.",
+     "⏳ <b>When your subscription ends</b>\n"
+     "• New trades stop opening\n• The system stops managing your positions "
+     "— handle them yourself on the exchange\n• Your history and statement "
+     "stay fully saved\n• On renewal everything resumes automatically."),
+    (("امان", "أمان", "امن", "آمن", "safe", "security", "تسرق", "مفاتيحي",
+      "بياناتي", "خطر"), 2,
+     "🔒 <b>أمان حسابك</b>\n"
+     "• مفاتيحك مشفّرة في قاعدتنا ولا تظهر لأحد\n"
+     "• نطلب صلاحية <b>القراءة والتداول فقط</b> — بلا صلاحية سحب، "
+     "فلا يستطيع أحد تحويل أموالك حتى لو أراد\n"
+     "• أموالك تبقى في حسابك على المنصّة ولا تمرّ بنا إطلاقاً\n"
+     "• وتستطيع إلغاء المفاتيح من منصّتك في أي لحظة.",
+     "🔒 <b>Account security</b>\n• Your keys are encrypted in our database "
+     "and shown to no one\n• We request <b>read + trade only</b> — no "
+     "withdrawal permission, so no one can move your funds\n• Your money "
+     "stays in your exchange account and never passes through us\n"
+     "• You can revoke the keys from your exchange at any moment."),
+    (("منصات", "منصّات", "اي منصه", "أي منصة", "exchanges", "which exchange",
+      "بايبت", "bybit", "okx", "bitget", "gate", "mexc", "bingx"), 2,
+     "🌐 <b>سبع منصّات مدعومة</b>\n"
+     "Binance · Bybit · OKX · Bitget · Gate.io · MEXC · BingX\n\n"
+     "تربط ما شئت منها، وكل إشارة تُنفَّذ على منصّتها الصحيحة. "
+     "وبعض العملات حصريّة على منصّة بعينها — فمن يربط أكثر، تصله إشارات أكثر.",
+     "🌐 <b>Seven supported exchanges</b>\n"
+     "Binance · Bybit · OKX · Bitget · Gate.io · MEXC · BingX\n\n"
+     "Connect as many as you like; each signal executes on its own exchange. "
+     "Some pairs are exclusive to one venue — connecting more means "
+     "receiving more signals."),
     (("لغة", "language", "english", "عربي", "arabic"), 2,
      "🌐 <b>اللغة</b>: بدّلها من الأيقونة أعلى الشاشة — كل شيء يتبعها، حتى نص المشاركة.",
      "🌐 <b>Language</b>: switch it from the header icon — everything follows, including the share text."),

@@ -278,6 +278,24 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
         _pts += 0.8
     if closes[-1] > sum(closes[-6:-1]) / 5:
         _pts += 1.0; _why.append("شرارة")
+    # 💧 حدّ السيولة — 200M حجم تداول 24 ساعة.
+    #    مقيس 16 سبتمبر على 1175 صفقة سبوت (30 يوماً)، ومُقسّمة نصفين:
+    #      اول 15 يوم: بلا فلتر -1.16% · ≥200M -0.27% · ≥300M +0.19%
+    #      آخر 15 يوم: بلا فلتر +0.16% · ≥200M +1.31% · ≥300M +1.92%
+    #    فالتحسّن رتيب في الفترتين — لا قفزة عشوائية.
+    #    و200M تعطي ~6 صفقات يومياً، و300M تعطي 3 فقط.
+    #    الاطفاء: touch /opt/whalex/db/spot_liq.off
+    try:
+        import os as _osq
+        if not _osq.path.exists("/opt/whalex/db/spot_liq.off"):
+            from services.liquidity_gate import volume_of as _volq
+            _qv = _volq(sym)
+            if _qv is not None and _qv < 200.0:
+                log.debug("🪙💧 %s سيولة %.0fM دون 200M", sym, _qv)
+                return
+    except Exception as _lqe:
+        log.debug("spot liq: %s", _lqe)
+
     SPOT_SCORE_MIN = 6.0
     if _pts < SPOT_SCORE_MIN:
         return

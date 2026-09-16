@@ -90,9 +90,32 @@ def sync_all(dry=False) -> dict:
             if _open_count(uid, market) > 0:
                 out["skipped"].append((uid[:8], market, "مراكز مفتوحة"))
                 continue
+            # 💰 راس المال المحدد او الرصيد — ايهما اقل.
+            #    مقيس 16 سبتمبر: Ahmedsd111 حدد 1500$ ورصيده 862$،
+            #    فالحاسبة اعطته 237.5$ × 7 = 1662$ وهو لا يملكها.
+            #    فبعد 3 صفقات ينفد المال وتُرفض الباقية — ومنها
+            #    STRAX +9% و XCN +6.66%. فيرى الخاسرة وحدها.
             cap = float(r.get("trading_capital") or 0)
-            if cap <= 0:
-                cap, _ = usdt_futures_balance(uid)
+            _bal = 0.0
+            try:
+                if market == "spot":
+                    from services.exchanges import get as _ga
+                    from services.spot_exec import spot_traders_for as _stf
+                    for _u, _k, _sc, _pw, _a, _m, _tn in _stf(ex):
+                        if _u == uid:
+                            _c = _ga(ex).client(_k, _sc, _pw, futures=False,
+                                                testnet=_tn)
+                            _bal = float((_c.fetch_balance().get("USDT")
+                                          or {}).get("free") or 0)
+                            break
+                else:
+                    _bal, _ = usdt_futures_balance(uid)
+            except Exception:
+                _bal = 0.0
+            if cap > 0 and _bal > 0:
+                cap = min(cap, _bal)
+            elif cap <= 0:
+                cap = _bal
             if cap <= 0:
                 out["skipped"].append((uid[:8], market, "بلا رصيد"))
                 continue

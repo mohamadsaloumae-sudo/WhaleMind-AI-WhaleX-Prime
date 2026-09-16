@@ -75,6 +75,31 @@ def _cd_save(sym: str):
 #     6.5 → +0.142% ( 21 صفقة/يوم)  ✅ وموجب في النصفين
 #   فالقلّة الرابحة خير من الكثرة التي تأكلها العمولة.
 SCORE_MIN = 6.5
+# 🐋 العملات الكبيرة — عتبة اخفض. مقيس 15 سبتمبر على 21 يوماً:
+#   كبيرة  15 صفقة · نقاط 5.97 · +2.50% · فوز 73%
+#   صغيرة 2715 صفقة · نقاط 6.40 · +0.16% · فوز 61%
+#   فنقاطها دون العتبة 6.5 فتُحجب رغم انها الاربح.
+#   (السبوت مستثنى: كبيرة -0.33% على 53 صفقة.)
+#   الاطفاء: touch /opt/whalex/db/majors_relax.off
+MAJORS = {
+    "BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "BNBUSDT", "SUIUSDT",
+    "DOGEUSDT", "ADAUSDT", "AVAXUSDT", "LINKUSDT", "DOTUSDT", "LTCUSDT",
+    "TRXUSDT", "TONUSDT", "BCHUSDT", "NEARUSDT", "APTUSDT", "ICPUSDT",
+    "ATOMUSDT", "UNIUSDT", "FILUSDT", "ETCUSDT", "HBARUSDT", "ARBUSDT",
+}
+MAJORS_MIN = 5.5
+MAJORS_OFF = "/opt/whalex/db/majors_relax.off"
+
+
+def _score_min(sym) -> float:
+    """عتبة النقاط لهذه العملة."""
+    try:
+        import os as _om
+        if _om.path.exists(MAJORS_OFF):
+            return SCORE_MIN
+        return MAJORS_MIN if str(sym or "").upper() in MAJORS else SCORE_MIN
+    except Exception:
+        return SCORE_MIN
 MIN_ATR_PCT = 1.5   # كان 0.5 — مقيس على 2572 صفقة: وقف <3% اعطى -804% ووقف 3%+ اعطى +307%
 
 from services.blocklist import is_blocked as _blocked
@@ -479,7 +504,7 @@ async def multi_scan_loop(position_manager_fn=None):
                             _adj = _sa(direction)
                         except Exception:
                             _adj = 0.0
-                        if sc < SCORE_MIN + _adj:
+                        if sc < _score_min(sym) + _adj:
                             _hit("weak_score")
                             continue
                         # 🧠 هل نكرّر الإعداد الذي خسر هنا سابقاً؟

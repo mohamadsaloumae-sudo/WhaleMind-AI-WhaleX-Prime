@@ -76,6 +76,18 @@ export default function UserSheet({ userId, onClose, onChanged }) {
 
   const [_pt, _setPt] = useState("futures");
   const [_det, _setDet] = useState(null);
+  const [_rep, _setRep] = useState("");
+  const [_msg, _setMsg] = useState("");
+  const [_frm, _setFrm] = useState("");
+  const [_to, _setTo] = useState("");
+  const [_prev, _setPrev] = useState(null);
+  const _n = (v, d) => (v == null || isNaN(v)) ? "—"
+    : (Number(v) < 0.01 && Number(v) > 0
+       ? Number(v).toFixed(8).replace(/0+$/, "")
+       : Number(v).toFixed(d || 4));
+  const _ts = (t) => { if (!t) return "—";
+    const x = new Date(Number(t) * 1000), p = (n) => String(n).padStart(2, "0");
+    return `${p(x.getDate())}/${p(x.getMonth() + 1)} ${p(x.getHours())}:${p(x.getMinutes())}`; };
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1400, background: "rgba(4,6,12,0.66)", backdropFilter: "blur(3px)", display: "flex", alignItems: "flex-end" }}>
@@ -280,6 +292,162 @@ export default function UserSheet({ userId, onClose, onChanged }) {
                 </div>
               </div>
             </div>
+            {/* 📤 كشف الحساب — معاينة ثم ارسال */}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: "var(--txt-3)",
+                            marginBottom: 6 }}>كشف الحساب</div>
+              <div style={{ display: "flex", gap: 5, alignItems: "center",
+                            marginBottom: 6 }}>
+                <input type="date" value={_frm}
+                  onChange={(e) => { _setFrm(e.target.value); _setPrev(null); }}
+                  style={{ flex: 1, padding: "6px 7px", borderRadius: 6,
+                    border: "1px solid rgba(255,255,255,.1)", fontSize: 11,
+                    background: "rgba(255,255,255,.04)", color: "var(--txt-2)",
+                    fontFamily: "inherit" }} />
+                <span style={{ fontSize: 10, color: "var(--txt-3)" }}>إلى</span>
+                <input type="date" value={_to}
+                  onChange={(e) => { _setTo(e.target.value); _setPrev(null); }}
+                  style={{ flex: 1, padding: "6px 7px", borderRadius: 6,
+                    border: "1px solid rgba(255,255,255,.1)", fontSize: 11,
+                    background: "rgba(255,255,255,.04)", color: "var(--txt-2)",
+                    fontFamily: "inherit" }} />
+              </div>
+              <button disabled={_rep === "p"}
+                onClick={async () => {
+                  _setRep("p"); _setMsg(""); _setPrev(null);
+                  try {
+                    const q = new URLSearchParams({ period: "full" });
+                    if (_frm) q.set("frm", _frm);
+                    if (_to) q.set("to", _to);
+                    q.delete("period");
+                    const r = await api.get(
+                      `/api/admin/users/${userId}/report/rows?${q}`);
+                    if (r?.ok) _setPrev(r);
+                    else _setMsg("⚠️ " + (r?.error || "فشل"));
+                  } catch (e) { _setMsg("⚠️ " + (e?.message || "فشل")); }
+                  _setRep("");
+                }}
+                style={{ width: "100%", padding: "9px", borderRadius: 8,
+                  border: "1px solid var(--brand)", background:
+                  "rgba(45,212,191,.12)", color: "var(--brand)",
+                  fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                  fontFamily: "inherit" }}>
+                {_rep === "p" ? "جارٍ…" : "👁️ عرض الكشف"}
+              </button>
+              {_prev && _prev.rows && (
+                <>
+                  <div style={{ marginTop: 8, maxHeight: 360,
+                    overflow: "auto", borderRadius: 8,
+                    border: "1px solid rgba(255,255,255,.08)" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse",
+                      fontSize: 10.5, direction: "rtl" }}>
+                      <thead><tr style={{ background: "rgba(0,0,0,.35)",
+                        position: "sticky", top: 0 }}>
+                        {["العملة", "الاتجاه", "الدخول", "الخروج",
+                          "الكمّية", "الرافعة", "النتيجة", "الرسوم",
+                          "الصافي", "التراكميّ", "السبب", "فُتحت",
+                          "أُغلقت"].map((h) => (
+                          <th key={h} style={{ padding: "6px 5px",
+                            color: "var(--txt-3)", fontWeight: 700,
+                            whiteSpace: "nowrap", textAlign: "center",
+                            borderBottom: "1px solid rgba(255,255,255,.1)"
+                          }}>{h}</th>))}
+                      </tr></thead>
+                      <tbody>
+                        {(_prev.rows || []).map((r, i) => {
+                          const g = (r.pnl_pct || 0) >= 0;
+                          const td = { padding: "5px 5px", textAlign: "center",
+                            whiteSpace: "nowrap",
+                            borderBottom: "1px solid rgba(255,255,255,.05)" };
+                          return (
+                          <tr key={i} style={{ background: r.open
+                            ? "rgba(234,179,8,.07)" : "transparent" }}>
+                            <td style={{ ...td, fontWeight: 700 }} dir="ltr">
+                              {r.market === "spot" ? "🪙" : "⚡"} {r.symbol}</td>
+                            <td style={td}>{r.direction || "—"}</td>
+                            <td style={td} dir="ltr">{_n(r.entry)}</td>
+                            <td style={td} dir="ltr">{r.open ? "—" : _n(r.exit)}</td>
+                            <td style={td} dir="ltr">{_n(r.qty, 2)}</td>
+                            <td style={td} dir="ltr">
+                              {r.leverage > 1 ? r.leverage + "x" : "—"}</td>
+                            <td style={{ ...td, fontWeight: 800,
+                              color: r.open ? "var(--txt-3)"
+                                : (g ? "#22c55e" : "#ef4444") }} dir="ltr">
+                              {r.open ? "مفتوحة"
+                                : (g ? "+" : "") + (r.pnl_pct || 0).toFixed(2) + "%"}</td>
+                            <td style={{ ...td, color: "#eab308" }} dir="ltr">
+                              {r.fee ? "-" + Number(r.fee).toFixed(3) : "—"}</td>
+                            <td style={{ ...td, fontWeight: 700,
+                              color: (r.net || 0) >= 0 ? "#22c55e" : "#ef4444"
+                            }} dir="ltr">
+                              {r.net == null ? "—"
+                                : ((r.net >= 0 ? "+" : "") + r.net.toFixed(2) + "$")}</td>
+                            <td style={{ ...td, color: "var(--txt-3)" }} dir="ltr">
+                              {r.running == null ? "—"
+                                : ((r.running >= 0 ? "+" : "") + r.running.toFixed(2))}</td>
+                            <td style={{ ...td, fontSize: 10 }}>{r.reason || "—"}</td>
+                            <td style={{ ...td, color: "var(--txt-3)",
+                              fontSize: 10 }} dir="ltr">{_ts(r.opened_at)}</td>
+                            <td style={{ ...td, color: "var(--txt-3)",
+                              fontSize: 10 }} dir="ltr">{_ts(r.closed_at)}</td>
+                          </tr>);
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {_prev.summary && (
+                    <div style={{ marginTop: 6, padding: "8px 10px",
+                      borderRadius: 8, background: "rgba(0,0,0,.25)",
+                      fontSize: 11.5, display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit,minmax(105px,1fr))",
+                      gap: 6 }}>
+                      {[["المغلقة", _prev.summary.n],
+                        ["رابحة", _prev.summary.wins],
+                        ["خاسرة", _prev.summary.losses],
+                        ["النجاح", _prev.summary.win_rate + "%"],
+                        ["الخام", _prev.summary.gross + "$"],
+                        ["الرسوم", "-" + _prev.summary.fees + "$"],
+                        ["الصافي", (_prev.summary.net >= 0 ? "+" : "")
+                          + _prev.summary.net + "$"],
+                        ["مفتوحة", _prev.summary.open]].map(([k, v], j) => (
+                        <div key={j}>
+                          <div style={{ fontSize: 9.5, color: "var(--txt-3)"
+                          }}>{k}</div>
+                          <div dir="ltr" style={{ fontWeight: 800,
+                            color: k === "الصافي"
+                              ? (_prev.summary.net >= 0 ? "#22c55e" : "#ef4444")
+                              : "var(--txt-1)" }}>{v}</div>
+                        </div>))}
+                    </div>
+                  )}
+                  <button disabled={_rep === "s"}
+                    onClick={async () => {
+                      _setRep("s"); _setMsg("");
+                      try {
+                        const q = new URLSearchParams({ period: "full" });
+                        if (_frm) q.set("frm", _frm);
+                        if (_to) q.set("to", _to);
+                        const r = await api.post(
+                          `/api/admin/users/${userId}/report?${q}`, {});
+                        _setMsg(r?.ok ? "✅ أُرسل للمشترك"
+                                      : "⚠️ " + (r?.error || "فشل"));
+                      } catch (e) { _setMsg("⚠️ " + (e?.message || "فشل")); }
+                      _setRep("");
+                    }}
+                    style={{ width: "100%", marginTop: 6, padding: "9px",
+                      borderRadius: 8, border: "none",
+                      background: "var(--brand)", color: "#03151a",
+                      fontSize: 12.5, fontWeight: 800, cursor: "pointer",
+                      fontFamily: "inherit" }}>
+                    {_rep === "s" ? "جارٍ الإرسال…" : "📤 إرسال للمشترك"}
+                  </button>
+                </>
+              )}
+              {_msg && <div style={{ fontSize: 11.5, marginTop: 6,
+                textAlign: "center",
+                color: _msg[0] === "✅" ? "#22c55e" : "#eab308" }}>{_msg}</div>}
+            </div>
+
             {/* 📊 مراكزه المفتوحة — فيوتشر وسبوت بتبويبين منفصلين.
                 كان الادمن لا يرى شيئاً فلا يعرف ما يجري في حسابه. */}
             {(() => {

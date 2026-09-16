@@ -62,6 +62,23 @@ def finish(symbol: str, direction: str, close_reason: str = "",
         "duration_min": round((now - p["t0"]) / 60.0, 2),
         "barrier": _barrier(close_reason),
     }
+    # 📏 ATR — لا يُمرَّر من اي رادار فبقي العمود فارغاً في 4452
+    #    صفقة. نحسبه هنا من الشموع المتاحة، وبلا كسر للتمرير.
+    if not atr_pct:
+        try:
+            from quant_engine.ob_stream import get_klines as _gk
+            _k = _gk(symbol, "15m", 20)
+            if _k and len(_k) >= 15:
+                _h = [float(x.get("h", 0)) for x in _k[-15:]]
+                _l = [float(x.get("l", 0)) for x in _k[-15:]]
+                _c = [float(x.get("c", 0)) for x in _k[-15:]]
+                _trs = [max(_h[i] - _l[i], abs(_h[i] - _c[i - 1]),
+                            abs(_l[i] - _c[i - 1]))
+                        for i in range(1, len(_h))]
+                if _trs and _c[-1] > 0:
+                    atr_pct = (sum(_trs) / len(_trs)) / _c[-1] * 100.0
+        except Exception as _ae:
+            log.debug("atr calc %s: %s", symbol, _ae)
     if atr_pct:
         out["atr_pct_entry"] = round(float(atr_pct), 3)
     try:

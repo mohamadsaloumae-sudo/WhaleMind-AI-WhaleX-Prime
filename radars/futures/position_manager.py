@@ -175,6 +175,10 @@ import time as _time
 from dataclasses import asdict as _asdict, fields as _fields
 
 POS_DB = "/opt/whalex/positions.db"
+# 🎯 الوقف المتحرّك المبكّر — مقيس 15 سبتمبر على 1414 صفقة.
+TRAIL_ARM_PCT = 0.8      # مقيس 15 سبتمبر على 3396 صفقة: 0.8/0.3 → +3.07% مقابل +0.17%
+TRAIL_GIVE_PCT = 0.3     # والتفعيل عند 0.3 اعلى (+3.41) لكنه يقفل على التذبذب
+TRAIL_EARLY_OFF = "/opt/whalex/db/trail_early.off"
 
 
 def _pos_db_init():
@@ -189,6 +193,43 @@ def _pos_db_init():
     """)
     conn.commit()
     conn.close()
+
+
+def restore_active() -> int:
+    """🛡️ يُعيد المراكز المفتوحة من القاعدة الى الذاكرة عند البدء.
+
+    ACTIVE قاموس في الذاكرة يُفرَغ مع كل اعادة تشغيل، فيصير
+    المركز المفتوح يتيماً: بلا وقف ولا حصاد ولا خروج تكتيكيّ،
+    ويُفتح عليه مركز ثانٍ لان حارس التكرار لا يراه.
+    ونحن نُعيد التشغيل كثيراً اثناء التطوير.
+    """
+    from dataclasses import fields as _flds
+    n = 0
+    try:
+        conn = _sqlite.connect(POS_DB)
+        rows = conn.execute(
+            "SELECT id, data FROM active_positions WHERE status='open'"
+        ).fetchall()
+        conn.close()
+    except Exception as e:
+        log.error("restore_active: %s", e)
+        return 0
+    known = {f.name for f in _flds(Position)}
+    for pid, data in rows:
+        try:
+            d = _json.loads(data)
+            if not isinstance(d, dict):
+                continue
+            clean = {k: v for k, v in d.items() if k in known}
+            if not clean.get("id"):
+                clean["id"] = pid
+            ACTIVE[clean["id"]] = Position(**clean)
+            n += 1
+        except Exception as _re:
+            log.debug("restore %s: %s", pid, _re)
+    if n:
+        log.info("🛡️ استُعيد %d مركزاً مفتوحاً من السجلّ", n)
+    return n
 
 
 def _pos_save(pos):
@@ -1358,6 +1399,29 @@ async def monitor_position(pos: Position):
         await _close_position(pos, price, ExitReason.TP3_HIT, pnl_pct)
         return
 
+    # 🎯 تفعيل مبكّر للوقف المتحرّك — كان لا يُفعَّل الا عند TP1،
+    #    وTP1 يبعد 22.5% بالرافعة فلم تبلغه الا 57 صفقة من 1414 (4%).
+    #    فـ96% من الصفقات بلا حماية ربح: 202 صفقة بلغت ذروة +3.65%
+    #    ثم اُغلقت بـ-0.54%.
+    #    محاكاة 1414 صفقة: بلا وقف +0.01% · بتفعيل 1.0% وتنازل 0.5%
+    #    → +1.66%. وكل التركيبات الستّ عشرة كانت موجبة.
+    #    الاطفاء: touch /opt/whalex/db/trail_early.off
+    try:
+        import os as _ost
+        if (not pos.trailing_active
+                and pnl_pct >= TRAIL_ARM_PCT
+                and not _ost.path.exists(TRAIL_EARLY_OFF)):
+            pos.trailing_active = True
+            _lock = (pnl_pct - TRAIL_GIVE_PCT) / max(1.0, float(pos.leverage or 1))
+            _px = pos.entry * (1 + _lock / 100.0) if is_long \
+                else pos.entry * (1 - _lock / 100.0)
+            pos.trailing_sl = _px
+            pos.sl = _px
+            log.info("🎯 %s وقف متحرّك مبكّر · ربح %.2f%% → قفل %.2f%%",
+                     pos.symbol, pnl_pct, pnl_pct - TRAIL_GIVE_PCT)
+    except Exception as _te:
+        log.debug("trail early: %s", _te)
+
     # ─ Trailing Stop ─
     if pos.trailing_active and pos.trailing_sl > 0:
         # المسافة موسّعة (0.5→1.2): trailing يتحمّل تذبذب العملات المنفجرة،
@@ -1662,6 +1726,82 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
     #    مقيس 10 سبتمبر: DIP قبل الفلتر 128 صفقة · فوز 64% · +1.23%
     #                    وبعده 34 صفقة · فوز 32% · -3.48%
     #    وPH لم يتأثّر (+0.89 → +0.87) لانه يبيع القمم — وتدفّقها موجب.
+    # 🚫 اللونج موقوف تجريبياً — مقيس 14 سبتمبر على 153 صفقة:
+    #    لونج 110 صفقة · -1.35%/صفقة · خاسر في كل ظروف السوق
+    #    شورت  43 صفقة · +0.75%/صفقة · رابح في كل ظروفه
+    #    والاتجاه الهيكليّ (قمم/قيعان) لا يميّز: الشورت رابح في
+    #    السوق الصاعد (+1.10%) واللونج خاسر في الهابط (-0.86%).
+    #    يُراجَع بعد اسبوع. الاطفاء: touch db/allow_long.on
+    try:
+        import os as _osl
+        if (str(getattr(sig, "direction", "")).upper() == "LONG"
+                and not _osl.path.exists("/opt/whalex/db/allow_long.on")):
+            log.info("🚫 %s LONG لا تُفتح — اللونج موقوف تجريبياً",
+                     sig.symbol)
+            return None
+    except Exception as _nle:
+        log.debug("no_long: %s", _nle)
+
+    # 💧 حدّ السيولة — العملات ضعيفة السيولة تُحرَّك بسهولة وتخسر.
+    #    مقيس 15 سبتمبر على 2268 صفقة (30 يوماً):
+    #      بلا فلتر -399 نقطة · ≥50M +49 · ≥75M +133 · ≥100M +104
+    #    وثبت موجباً في خمس عتبات متتالية — اقوى دليل ثبات لدينا.
+    #    ومع الوقف المتحرّك على ≥75M: +2.92% لكل صفقة.
+    #    الاطفاء: touch db/liquidity_gate.off
+    try:
+        from services.liquidity_gate import allow as _lqa
+        _lok, _lwhy = _lqa(sig.symbol)
+        if not _lok:
+            log.info("💧 %s لا تُفتح — %s", sig.symbol, _lwhy)
+            return None
+    except Exception as _lqe:
+        log.debug("liquidity_gate: %s", _lqe)
+
+    # 💧 ضغط الشراء — الشورت ينجح حين يضعف الشراء لا حين يقوى.
+    #    مقيس 15 سبتمبر على اربع عيّنات بعتبات مختلفة:
+    #      شراء ضعيف <48% : +0.94 · +0.65 · +0.65 · +0.83  ✅
+    #      شراء قويّ  >52% : -0.38 · -1.11 · -1.11 · -0.53  ❌
+    #    والعيّنة الاخيرة 147 و167 صفقة — فرق 1.36 نقطة ثابت.
+    #    الاطفاء: touch db/buy_pressure.off
+    try:
+        from services.buy_pressure import allow as _bpa
+        _bok, _bwhy = _bpa(sig.symbol, sig.direction)
+        if not _bok:
+            log.info("💧 %s %s لا تُفتح — %s", sig.symbol, sig.direction, _bwhy)
+            return None
+    except Exception as _bpe:
+        log.debug("buy_pressure: %s", _bpe)
+
+    # 👁️ عين الانعكاس — الذروة في نطاق صاعد او القاع في نطاق هابط.
+    #    مقيس 15 سبتمبر على 1150 صفقة: انعكاس +1.72% (100 صفقة)
+    #    وغيره -0.50% (1050). وثبت في ثلاث عيّنات متتالية.
+    #    ⚠️ يرفض ~90% من الاشارات — الحجم ينخفض كثيراً.
+    #    الاطفاء: touch db/reversal_eye.off
+    try:
+        from services.reversal_eye import is_reversal as _rev
+        _rok, _rwhy = _rev(sig.symbol, sig.direction)
+        if not _rok:
+            log.info("👁️ %s %s لا تُفتح — %s", sig.symbol, sig.direction, _rwhy)
+            return None
+    except Exception as _ree:
+        log.debug("reversal_eye: %s", _ree)
+
+    # 🎯 بوّابة الجودة — الشورت يحتاج ضغط دفتر موجب وتدفّقاً غير صاعد.
+    #    مقيس 15 سبتمبر على 1024 صفقة: التركيبة +1.48% والباقي -0.47%.
+    #    واختبار خارج التدريب (7 ايام): التركيبة +2.30% والكل +1.73%.
+    #    الاطفاء: touch db/quality_gate.off
+    try:
+        from services.quality_gate import gate as _qg
+        from quant_engine.ml_brain import live_context as _lcx
+        _c = _lcx(sig.symbol) or {}
+        _qok, _qwhy = _qg(sig.direction, _c.get("ob_pressure"),
+                          _c.get("cvd_flow"))
+        if not _qok:
+            log.info("🎯 %s %s لا تُفتح — %s", sig.symbol, sig.direction, _qwhy)
+            return None
+    except Exception as _qe:
+        log.debug("quality_gate: %s", _qe)
+
     # 🧭 تحيّز العملة — عملة خسرت في اتجاه 3 مرات فاكثر يُمنع
     #    عليها ذلك الاتجاه وحده. مقيس: -108 صارت -56 على 4 ايام
     #    لم يرها التدريب. الاطفاء: touch db/coin_bias.off
@@ -1701,6 +1841,22 @@ async def open_from_signal(sig: Signal, user_id: str = "system", amount: float =
             log.info("Position skip: %s مفتوحة بالفعل (%s) — لا تكرار",
                      sig.symbol, existing.direction)
             return None
+    # 🔒 والقاعدة ايضاً — ACTIVE ذاكرة تُفرَغ عند اعادة التشغيل،
+    #    فيُفتح مركز ثانٍ على عملة مفتوحة اصلاً. القاعدة تبقى.
+    try:
+        import sqlite3 as _dsq
+        _dc = _dsq.connect(POS_DB if "POS_DB" in dir() else
+                           "/opt/whalex/positions.db")
+        _dr = _dc.execute(
+            "SELECT COUNT(*) FROM active_positions WHERE status='open' "
+            "AND json_extract(data,'$.symbol')=?", (sig.symbol,)).fetchone()
+        _dc.close()
+        if _dr and int(_dr[0] or 0) > 0:
+            log.info("Position skip: %s مفتوحة في السجلّ — لا تكرار",
+                     sig.symbol)
+            return None
+    except Exception as _de:
+        log.debug("dup check: %s", _de)
 
     # ═══ شرط 4: حد أقصى للصفقات المتزامنة بنفس الاتجاه + نفس الرادار ═══
     #   يمنع رهاناً واحداً مكرّراً (مثل 6 شورت متزامنة على عملات مرتبطة بـ BTC)

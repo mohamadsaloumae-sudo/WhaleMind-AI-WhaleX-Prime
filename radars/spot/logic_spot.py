@@ -109,6 +109,14 @@ def path_pullback(closes, highs, lows, vols, tbuys, book):
     return pts, why, {"rsi":r,"taker":taker,"v_infl":v_infl,"drawdown":dd,"ma20":m20,"peak":recent_peak}
 
 def path_breakout(closes, highs, lows, vols, tbuys, book):
+    # 🚫 مُوقَف — مقيس 15 سبتمبر على 21 يوماً:
+    #   breakout 237 صفقة · -0.68% · فوز 32%
+    #   pullback 715 صفقة · -0.33% · فوز 41%
+    #   dip      143 صفقة · -0.04% · فوز 48%
+    # الاطفاء: touch /opt/whalex/db/spot_breakout.on
+    import os as _ob
+    if not _ob.path.exists("/opt/whalex/db/spot_breakout.on"):
+        return 0.0, [], {}
     if len(closes) < 30: return 0.0, [], {}
     px = closes[-1]
     prior_high = max(closes[-21:-1])

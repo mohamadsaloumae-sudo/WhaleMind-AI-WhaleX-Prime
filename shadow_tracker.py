@@ -118,6 +118,32 @@ async def _process_pending():
     if resolved or skipped:
         log.info("🌓 Shadow: حُسمت %d | تخطّى %d (صفقات حقيقية مفتوحة)", resolved, skipped)
 
+def _peak_pct(rid):
+    """الذروة الحقيقية من spot_state — كانت تُكتب = pnl فتُفقد."""
+    try:
+        c = sqlite3.connect(ML_DB)
+        r = c.execute("SELECT symbol, direction, entry FROM training_signals "
+                      "WHERE id=?", (rid,)).fetchone()
+        c.close()
+        if not r or not r[2]:
+            return None
+        w = sqlite3.connect("/opt/whalex/db/whalex.db")
+        q = w.execute(
+            "SELECT s.peak FROM spot_state s JOIN signals g ON g.id=s.sig_id "
+            "WHERE g.symbol=? AND g.radar_type='spot' AND s.peak>0 "
+            "ORDER BY s.updated DESC LIMIT 1", (r[0],)).fetchone()
+        w.close()
+        if not q or not q[0]:
+            return None
+        e = float(r[2])
+        pk = float(q[0])
+        if e <= 0 or pk <= 0:
+            return None
+        return round((pk - e) / e * 100.0, 3)
+    except Exception:
+        return None
+
+
 def _write(rid, result, exit_price, pnl, outcome):
     try:
         conn = sqlite3.connect(ML_DB)
@@ -127,7 +153,8 @@ def _write(rid, result, exit_price, pnl, outcome):
             "outcome=?, close_reason=COALESCE(close_reason,?), peak_pnl=COALESCE(peak_pnl,?) "
             "WHERE id=? AND outcome IS NULL",
             (result, exit_price, round(pnl, 3), int(time.time()), outcome,
-             result, round(pnl, 3) if pnl > 0 else 0.0, rid)
+             result, (_peak_pct(rid) if _peak_pct(rid) is not None
+                      else (round(pnl, 3) if pnl > 0 else 0.0)), rid)
         )
         conn.commit()
         conn.close()

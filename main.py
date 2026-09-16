@@ -161,6 +161,15 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(_srl(), name="spot_reconcile")
     except Exception as _sre:
         log.warning("مصالحة السبوت: %s", _sre)
+    # 🚨 حارس العملات المحجوزة — كل 15 دقيقة.
+    #    مقيس 16 سبتمبر: HIVE و ALT سُجّلتا مغلقتين بلا بيع فعلي،
+    #    فبقي 424$ محجوزة في حساب المشترك ونحن نظنها بيعت، فلا
+    #    USDT حر وتُرفض الاشارات الرابحة. ولم ينذرنا شيء.
+    try:
+        from services.stuck_guard import loop as _stg
+        asyncio.create_task(_stg(), name="stuck_guard")
+    except Exception as _sge:
+        log.warning("حارس المحجوزة: %s", _sge)
     # 🧹 تحرير الذاكرة المفكوكة كل عشر دقائق — بايثون يحتفظ بالساحات
     #    المحرّرة ولا يُعيدها للنظام، فتنمو RSS بلا سبب حقيقيّ.
     async def _trim_loop():

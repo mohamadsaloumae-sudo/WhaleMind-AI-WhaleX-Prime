@@ -174,6 +174,135 @@ def delete_signal(signal_id: str, user=Depends(require_admin)):
         db.close()
 
 # ═══════════════ ملف المستخدم التفصيلي ═══════════════
+@router.get("/users/{user_id}/report/rows")
+async def report_rows(user_id: str, frm: str = None, to: str = None,
+                      user=Depends(require_admin)):
+    """📋 صفوف الكشف كجدول — للعرض في لوحة الادارة."""
+    import sqlite3 as _rs
+    import time as _t
+    try:
+        from services.user_report import _range, _name, _reason
+        since, until = _range(3650, frm, to)
+        c = _rs.connect("/opt/whalex/db/whalex.db")
+        c.row_factory = _rs.Row
+        rows = [dict(r) for r in c.execute(
+            "SELECT market, symbol, direction, entry, exit_price, qty, "
+            "leverage, pnl_pct, pnl_usdt, commission, net_usdt, "
+            "close_reason, opened_at, closed_at, status FROM user_trades "
+            "WHERE user_id=? AND COALESCE(opened_at,0) > ? "
+            "AND COALESCE(opened_at,0) <= ? "
+            "ORDER BY COALESCE(opened_at,0) ASC",
+            (str(user_id), since, until))]
+        c.close()
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:90]}
+    run = 0.0
+    out = []
+    for r in rows:
+        net = (float(r["net_usdt"]) if r["net_usdt"] is not None
+               else float(r["pnl_usdt"] or 0))
+        if r["status"] == "closed":
+            run += net
+        out.append({
+            "market": r["market"] or "futures",
+            "symbol": r["symbol"], "direction": r["direction"],
+            "entry": r["entry"], "exit": r["exit_price"],
+            "qty": r["qty"], "leverage": r["leverage"],
+            "pnl_pct": r["pnl_pct"], "pnl_usdt": r["pnl_usdt"],
+            "fee": r["commission"], "net": net if r["status"] == "closed" else None,
+            "running": round(run, 2) if r["status"] == "closed" else None,
+            "reason": _reason(r["close_reason"]) if r["close_reason"] else "",
+            "opened_at": r["opened_at"], "closed_at": r["closed_at"],
+            "open": r["status"] != "closed",
+        })
+    cl = [x for x in out if not x["open"]]
+    w = len([x for x in cl if (x["pnl_pct"] or 0) > 0])
+    return {"ok": True, "name": _name(user_id), "rows": out,
+            "summary": {
+                "n": len(cl), "wins": w, "losses": len(cl) - w,
+                "win_rate": round(w / len(cl) * 100, 1) if cl else 0,
+                "gross": round(sum(float(x["pnl_usdt"] or 0) for x in cl), 2),
+                "fees": round(sum(float(x["fee"] or 0) for x in cl), 2),
+                "net": round(run, 2),
+                "open": len([x for x in out if x["open"]])}}
+
+
+@router.get("/users/{user_id}/report/preview")
+async def preview_report(user_id: str, period: str = "full",
+                         frm: str = None, to: str = None,
+                         user=Depends(require_admin)):
+    """👁️ معاينة التقرير قبل الارسال — الادمن يراه اولاً."""
+    try:
+        from services.user_report import text as _rt, statement as _st
+        body = (_st(user_id, frm=frm, to=to) if period == "full"
+                else _rt(user_id, period=period, frm=frm, to=to))
+        for t in ("<b>", "</b>", "<i>", "</i>"):
+            body = body.replace(t, "")
+        return {"ok": True, "text": body}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:100]}
+
+
+@router.post("/users/{user_id}/report")
+async def send_report(user_id: str, period: str = "week",
+                      frm: str = None, to: str = None,
+                      user=Depends(require_admin)):
+    """📤 يُرسل تقرير المشترك الى بوت تلغرام الخاصّ به.
+
+    period: today · week · month · full
+    """
+    import sqlite3 as _rs
+    try:
+        c = _rs.connect("/opt/whalex/db/whalex.db")
+        r = c.execute("SELECT tg_chat_id, username FROM users WHERE id=?",
+                      (user_id,)).fetchone()
+        c.close()
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:80]}
+    if not r or not r[0]:
+        return {"ok": False, "error": "المشترك لم يربط بوت تلغرام"}
+    try:
+        from services.user_report import text as _rt, statement as _st
+        if period == "full":
+            body = _st(user_id, frm=frm, to=to)
+        else:
+            body = _rt(user_id, period=period, frm=frm, to=to)
+    except Exception as e:
+        return {"ok": False, "error": "تعذّر بناء التقرير: %s" % str(e)[:60]}
+    try:
+        from services.telegram import send_message
+        # تلغرام يقصّ فوق 4096 حرفاً — نُرسل على دفعات
+        parts, buf = [], ""
+        for line in body.split("\n"):
+            if len(buf) + len(line) > 3800:
+                parts.append(buf)
+                buf = ""
+            buf += line + "\n"
+        if buf.strip():
+            parts.append(buf)
+        for p_ in parts:
+            await send_message(str(r[0]), p_)
+        # 💬 ونسخة في دردشة التطبيق — لا يعتمد المشترك على تلغرام وحده
+        try:
+            import time as _tm
+            plain = body
+            for _t in ("<b>", "</b>", "<i>", "</i>"):
+                plain = plain.replace(_t, "")
+            c2 = _rs.connect("/opt/whalex/db/whalex.db")
+            c2.execute(
+                "INSERT INTO support_messages"
+                "(user_id, message, reply, auto, created_at, replied_at) "
+                "VALUES(?,?,?,?,?,?)",
+                (user_id, "", plain, 0, int(_tm.time()), int(_tm.time())))
+            c2.commit()
+            c2.close()
+        except Exception as _ce:
+            log.debug("chat copy: %s", _ce)
+        return {"ok": True, "parts": len(parts), "to": r[1]}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:80]}
+
+
 @router.get("/users/{user_id}/detail")
 def user_detail(user_id: str, user=Depends(require_admin)):
     """كل شيء عن مشترك: بياناته، اشتراكه، ونتائج تداوله في كل سوق."""

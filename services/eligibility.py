@@ -253,9 +253,29 @@ def allowed(user_id):
         return True, ""
 
 
+def _subscribed(user_id) -> bool:
+    """مشترك فعّال؟ يُقرأ لحظياً فيعود تلقائياً عند التجديد."""
+    try:
+        c = sqlite3.connect(DB)
+        r = c.execute("SELECT tier FROM users WHERE id=?",
+                      (str(user_id),)).fetchone()
+        c.close()
+        return bool(r) and str(r[0] or "").lower() in ("pro", "admin", "vip")
+    except Exception:
+        return True
+
+
 def refresh_one(user_id):
     from services.binance_diag import diagnose
     prev = _CACHE.get(user_id, {})
+    # 💳 الاشتراك اولاً — منتهي الاشتراك ليس عطلاً: لا نفتح له ولا
+    #    نغلق ولا نُنبّهه بخلل مفاتيح. ويعود فوراً عند التجديد لان
+    #    القراءة لحظية من users.tier بلا تخزين.
+    if not _subscribed(user_id):
+        e = {"ok": False, "why": "الاشتراك منتهٍ", "expired": True,
+             "at": time.time()}
+        _CACHE[user_id] = e
+        return e
     try:
         d = diagnose(user_id)
         d["_uid"] = user_id

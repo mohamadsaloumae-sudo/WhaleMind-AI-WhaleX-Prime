@@ -75,7 +75,8 @@ class ExchangeAdapter(ABC):
             return False
 
     def open(self, c, sym: str, side: str, usdt: float,
-             lev: float = 1.0, futures: bool = True) -> dict:
+             lev: float = 1.0, futures: bool = True,
+             sig_px: float = 0.0, max_slip: float = 0.6) -> dict:
         s = self.symbol(sym, futures)
         try:
             if futures:
@@ -83,6 +84,24 @@ class ExchangeAdapter(ABC):
             px = float((c.fetch_ticker(s) or {}).get("last") or 0)
             if px <= 0:
                 return {"ok": False, "error": "سعر غير متاح"}
+            # 🎯 حارس الانزلاق — كان يضع الحدّ عند السعر الحيّ وقت
+            #    التنفيذ لا سعر الاشارة، فيدخل المشترك اعلى.
+            #    مقيس 15 سبتمبر: ASTRUSDT +2.63% و POLYXUSDT +1.87%.
+            try:
+                _sp = float(sig_px or 0)
+            except Exception:
+                _sp = 0.0
+            if _sp > 0:
+                _slip = (px - _sp) / _sp * 100.0
+                _bad = _slip > max_slip if side.upper() in ("LONG", "BUY") \
+                    else -_slip > max_slip
+                if _bad:
+                    return {"ok": False,
+                            "error": "السعر هرب %.2f%%" % abs(_slip)}
+                if side.upper() in ("LONG", "BUY"):
+                    px = min(px, _sp)
+                else:
+                    px = max(px, _sp)
             qty = float(c.amount_to_precision(
                 s, (usdt * (lev if futures else 1.0)) / px))
             # 🎯 حدّ اولاً — لا انزلاق. والسعر من هذه المنصّة لا من باينانس.

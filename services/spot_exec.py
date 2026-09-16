@@ -126,7 +126,8 @@ def buy(exchange: str, symbol: str, entry: float) -> list:
             spend = min(amount, bal)
             if spend < MIN_SPEND:
                 results.append({"ok": False, "user": uid, "error": f"رصيد {exchange} غير كافٍ ({bal:.2f}$)"}); continue
-            r = ad.open(c, symbol, "BUY", spend, lev=1.0, futures=False)
+            r = ad.open(c, symbol, "BUY", spend, lev=1.0, futures=False,
+                        sig_px=float(entry or 0))
             if not r.get("ok"):
                 results.append({"ok": False, "user": uid, "error": r.get("error")}); continue
             # 📒 المصدر الواحد — user_trades يجمع الفيوتشر والسبوت،

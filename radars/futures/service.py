@@ -929,6 +929,15 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
     from quant_engine.ob_stream import run as ob_stream_run
     from quant_engine.ml_brain import retrain_loop as ml_retrain_loop
     from quant_engine.watchdog import watchdog_loop
+    # 🛡️ استعادة المراكز المفتوحة قبل تشغيل اي حلقة — ACTIVE ذاكرة
+    #    تُفرَغ مع كل اعادة تشغيل، فيصير المركز يتيماً بلا وقف ولا
+    #    حصاد، ويُفتح عليه مركز ثانٍ لان حارس التكرار لا يراه.
+    try:
+        from radars.futures.position_manager import restore_active as _ra
+        _ra()
+    except Exception as _rae:
+        log.error("🛡️ استعادة المراكز: %s", _rae)
+
     # تشغيل كل الوكلاء بالتوازي
     await asyncio.gather(
         oracle.run_loop(),
@@ -949,6 +958,7 @@ async def start_all_services(broadcast_fn=None, position_manager_fn=None):
         shadow_loop(),
         scout_long_v2_loop(position_manager_fn=position_manager_fn),
         dip_hunter_loop(position_manager_fn=position_manager_fn),
+        __import__("services.spot_guard", fromlist=["x"]).guard_loop(),
         # 🌐 ماسح المنصّات: 68 عقداً حصرياً على 6 منصّات (غير موجودة على باينانس)
         multi_scan_loop(position_manager_fn=position_manager_fn),
         price_stream_loop(),   # ⚡ WebSocket لكل منصّة

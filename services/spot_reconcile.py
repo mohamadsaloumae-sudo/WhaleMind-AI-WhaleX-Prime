@@ -37,12 +37,26 @@ def reconcile() -> int:
                 "WHERE symbol=? AND ts > ? ORDER BY ts LIMIT 1",
                 (r["symbol"], r["ts"] or 0)).fetchone()
             if hit:
-                c.execute(
-                    "UPDATE spot_positions_multi SET status='closed' "
-                    "WHERE id=?", (r["id"],))
-                log.info("🪙 صُوّيت %s — أُغلقت بالرادار (%s %.2f%%)",
-                         r["symbol"], hit["reason"], hit["pnl_pct"] or 0)
-                fixed += 1
+                # 🛡️ لا نزوّر الاغلاق — نبيع فعلا.
+                #    مقيس 16 سبتمبر: HIVE و ALT سُجّلتا closed هنا بلا
+                #    بيع، فبقي 3923 HIVE و 35840 ALT في حساب المشترك
+                #    (424$) ونحن نظنها بيعت. فلا USDT حر، وتُرفض
+                #    الاشارات الرابحة (STRAX +9% · XCN +6.66%).
+                try:
+                    from services.spot_exec import sell_all as _sell
+                    _res = _sell(r.get("exchange") or "binance", r["symbol"],
+                                 float(hit["pnl_pct"] or 0) and 0.0 or 0.0)
+                    _ok = any(x.get("ok") for x in (_res or []))
+                except Exception as _se:
+                    log.warning("🪙 بيع المصالحة %s: %s", r["symbol"], _se)
+                    _ok = False
+                if _ok:
+                    log.info("🪙 صُوّيت %s — بيع فعليّ (%s %.2f%%)",
+                             r["symbol"], hit["reason"], hit["pnl_pct"] or 0)
+                    fixed += 1
+                else:
+                    log.warning("🪙⚠️ %s: الرادار أغلق ولم ينجح البيع — "
+                                "نترك المركز مفتوحاً", r["symbol"])
         c.commit()
         c.close()
     except Exception as e:
