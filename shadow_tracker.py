@@ -49,6 +49,30 @@ def _resolve(direction: str, entry: float, sl: float, tp1: float, klines: list):
             return ("shadow_tp1", tp1)
     return None
 
+def _real_result(symbol, direction, ts):
+    """نتيجة المشتركين الحقيقية لهذه الاشارة — أو لا شيء."""
+    try:
+        import sqlite3 as _s
+        c = _s.connect("file:/opt/whalex/db/whalex.db?mode=ro", uri=True)
+        c.row_factory = _s.Row
+        rows = [dict(r) for r in c.execute(
+            "SELECT pnl_pct, exit_price, net_usdt, real_net FROM user_trades "
+            "WHERE symbol=? AND direction=? AND market='futures' "
+            "AND closed_at IS NOT NULL AND opened_at BETWEEN ? AND ?",
+            (symbol, direction, ts - 300, ts + 1800))]
+        c.close()
+        if not rows:
+            return None
+        pcts = [float(r["pnl_pct"] or 0) for r in rows]
+        xs = [float(r["exit_price"] or 0) for r in rows if r["exit_price"]]
+        return {"pnl": round(sum(pcts) / len(pcts), 3),
+                "exit": round(sum(xs) / len(xs), 8) if xs else 0.0,
+                "n": len(rows)}
+    except Exception as e:
+        log.debug("real_result %s: %s", symbol, e)
+        return None
+
+
 def _pnl(direction: str, entry: float, exit_price: float) -> float:
     if entry <= 0:
         return 0.0
@@ -101,6 +125,22 @@ async def _process_pending():
         if (sym, direction) in held:
             skipped += 1
             continue  # صفقة حقيقية مفتوحة — نتركها لـ update_result_by_match
+        # 🛡️ نُفّذت لمشترك؟ فنتيجتها الحقيقية لا النظرية.
+        #    مقيس 16 سبتمبر: POWER سُجّلت shadow_sl -5.00% وربح بها
+        #    ثلاثة مشتركين (+1.64$ · +1.88$ · +0.91$)، و龙虾 سُجّلت
+        #    shadow_tp1 +7.50% وخسر بها ثلاثة (-1.67$ · -1.70$ · -1.18$).
+        #    فالمتتبّع يمشي على الشموع حتى يلمس الوقف النظري ويكتبه،
+        #    بينما الحارس أغلق المركز الحقيقي عند -1.7%. والنتيجة:
+        #    39 من 40 صفقة اليوم موسومة shadow وهي منفّذة بأموال حقيقية،
+        #    فتُستبعد من الشاشة ويتعلّم النموذج من نتائج معكوسة.
+        _real = _real_result(sym, direction, int(ts))
+        if _real:
+            _write(rid, "win" if _real["pnl"] > 0 else "loss",
+                   _real["exit"], _real["pnl"], 1 if _real["pnl"] > 0 else 0)
+            resolved += 1
+            log.info("🎯 %s %s: نتيجة حقيقية %+.2f%% (%d مشترك) — لا ظلّ",
+                     sym, direction, _real["pnl"], _real["n"])
+            continue
         klines = await _fetch_klines_since(sym, int(ts) * 1000)
         if not klines:
             continue

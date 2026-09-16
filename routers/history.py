@@ -7,9 +7,6 @@ from fastapi import APIRouter, Depends, Query
 
 from routers.auth import get_current_user
 
-import logging
-log = logging.getLogger("history")
-
 router = APIRouter(prefix="/api/history", tags=["History"])
 
 # نظام → (قاعدة، جدول، عمود الوقت، عمود الربح، تصفية إضافية)
@@ -53,44 +50,7 @@ EXTRA_SOURCES = {
 }
 
 
-def _real_rows(user_id=None):
-    """💰 التنفيذ الحقيقي من user_trades — لا اشارات النظام.
-
-    مقيس 16 سبتمبر: 30 صفقة نُفّذت على باينانس وسُجّلت shadow في
-    training_signals، فاستبعدتها الشاشة وظهر للمشترك "صفقة واحدة".
-    و龙虾 سُجّلت +7.50% والحقيقة -1.669$ · POWER سُجّلت -5.00%
-    والحقيقة +1.643$ — معكوستان تماما.
-
-    والقاعدة: ما نُفّذ على المنصّة هو ما يُعرض. والاشارات النظرية
-    تبقى في صفحة الاشارات بتسميتها.
-    """
-    out = []
-    try:
-        c = sqlite3.connect("file:/opt/whalex/db/whalex.db?mode=ro", uri=True)
-        c.row_factory = sqlite3.Row
-        q = ("SELECT closed_at, pnl_pct, net_usdt, real_net FROM user_trades "
-             "WHERE market='futures' AND closed_at IS NOT NULL")
-        a = []
-        if user_id:
-            q += " AND user_id=?"
-            a.append(user_id)
-        for r in c.execute(q, a):
-            d = dict(r)
-            # النسبة من الصافي الحقيقي ان توفّر
-            p = d.get("pnl_pct")
-            out.append((int(d["closed_at"]), float(p or 0)))
-        c.close()
-    except Exception as e:
-        log.debug("real_rows: %s", e)
-    return out
-
-
 def _rows(system):
-    # 🔴 الفيوتشر يُعرض من التنفيذ الحقيقي لا من الاشارات
-    if system == "futures":
-        r = _real_rows()
-        if r:
-            return r
     cfg = SYSTEMS.get(system)
     if not cfg:
         return []
