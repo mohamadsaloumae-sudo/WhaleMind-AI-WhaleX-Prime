@@ -180,6 +180,16 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(_sbg(), name="sub_guard")
     except Exception as _sbe:
         log.warning("حارس الاشتراك: %s", _sbe)
+    # 🎯 حارس وضع المراكز — كل ساعة.
+    #    مقيس 16 سبتمبر: 3 حسابات على وضع الاتجاهين (Hedge)، فكل
+    #    اوامرنا تُرفض بـ-4061. ابوبكر رصيده 100.98$ وصفر صفقات،
+    #    و55 محاولة فاشلة في 48 ساعة. ونظامنا يعمل بمركز واحد
+    #    للعملة — فنضبط الحساب عليه بدل تعقيد الكود.
+    try:
+        from services.mode_guard import loop as _mdg
+        asyncio.create_task(_mdg(), name="mode_guard")
+    except Exception as _mge:
+        log.warning("حارس الوضع: %s", _mge)
     # 🧹 تحرير الذاكرة المفكوكة كل عشر دقائق — بايثون يحتفظ بالساحات
     #    المحرّرة ولا يُعيدها للنظام، فتنمو RSS بلا سبب حقيقيّ.
     async def _trim_loop():

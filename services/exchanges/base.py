@@ -172,6 +172,45 @@ class ExchangeAdapter(ABC):
             log.error("🔌 %s إغلاق %s: %s", self.name_ar, s, e)
             return {"ok": False, "error": str(e)}
 
+    def ensure_oneway(self, c) -> dict:
+        """🎯 يضبط الحساب على وضع الاتّجاه الواحد.
+
+        مقيس 16 سبتمبر: ثلاثة حسابات على وضع الاتّجاهين (Hedge)،
+        فكل أوامرنا تُرفض بـ-4061 "جانب المركز لا يطابق الاعداد".
+        ابوبكر رصيده 100.98$ وصفر صفقات، و55 محاولة فاشلة في 48 ساعة.
+
+        نظامنا يفتح مركزا واحدا للعملة ويغلقه بأمر معاكس — وهذا هو
+        وضع الاتّجاه الواحد بالضبط. فنضبط الحساب عليه بدل تعقيد الكود.
+
+        والتبديل يفشل ان كان هناك مركز مفتوح (-4068)، فنفحص اولا.
+        """
+        try:
+            if hasattr(c, "fapiPrivateGetPositionSideDual"):
+                m = c.fapiPrivateGetPositionSideDual()
+                dual = str(m.get("dualSidePosition", "")).lower() == "true"
+            else:
+                m = c.fetch_position_mode() if hasattr(c, "fetch_position_mode") else {}
+                dual = bool(m.get("hedged") or m.get("dualSidePosition"))
+            if not dual:
+                return {"ok": True, "changed": False, "why": "اتّجاه واحد سلفاً"}
+            pos = [p for p in (c.fetch_positions() or [])
+                   if abs(float(p.get("contracts") or 0)) > 0]
+            if pos:
+                return {"ok": False, "changed": False,
+                        "why": "%d مركز مفتوح — نؤجّل" % len(pos)}
+            if hasattr(c, "fapiPrivatePostPositionSideDual"):
+                c.fapiPrivatePostPositionSideDual({"dualSidePosition": "false"})
+            else:
+                c.set_position_mode(False)
+            log.warning("🎯 %s: ضُبط على وضع الاتّجاه الواحد", self.name_ar)
+            return {"ok": True, "changed": True, "why": "بُدّل"}
+        except Exception as e:
+            msg = str(e)[:70]
+            if "-4059" in msg or "No need to change" in msg:
+                return {"ok": True, "changed": False, "why": "اتّجاه واحد سلفاً"}
+            log.debug("ensure_oneway %s: %s", self.name_ar, msg)
+            return {"ok": False, "changed": False, "why": msg}
+
     def settle(self, c, sym: str, t0: int, t1: int,
                futures: bool = False) -> dict:
         """💰 التنفيذ الحقيقي من المنصّة — لا تقدير.
@@ -278,6 +317,38 @@ def _limit_entry(c, s, side_ccxt, qty, px, params, name_ar):
     try:
         o = c.create_order(s, "limit", side_ccxt, qty, px, params)
     except Exception as e:
+        # 🎯 وضع الاتّجاهين يرفض أوامرنا بـ-4061 — نضبط ونُعيد فورا
+        #    بدل انتظار الحارس الدوري. مقيس 16 سبتمبر: ابوبكر رصيده
+        #    100.98$ وصفر صفقات بسبب هذا، و55 محاولة فاشلة في 48 ساعة.
+        if "-4061" in str(e) or "position side does not match" in str(e).lower():
+            try:
+                pos = [p for p in (c.fetch_positions() or [])
+                       if abs(float(p.get("contracts") or 0)) > 0]
+                if not pos:
+                    if hasattr(c, "fapiPrivatePostPositionSideDual"):
+                        c.fapiPrivatePostPositionSideDual({"dualSidePosition": "false"})
+                    else:
+                        c.set_position_mode(False)
+                    log.warning("🎯 %s: ضُبط على الاتّجاه الواحد — نُعيد المحاولة",
+                                name_ar)
+                    o = c.create_order(s, "limit", side_ccxt, qty, px, params)
+                    oid = o.get("id")
+                    t0 = _tm.time()
+                    while (_tm.time() - t0) < ENTRY_WAIT:
+                        _tm.sleep(ENTRY_POLL)
+                        try:
+                            st = c.fetch_order(oid, s)
+                        except Exception:
+                            continue
+                        if str(st.get("status")) == "closed":
+                            return st, "", float(st.get("average") or px)
+                    try:
+                        c.cancel_order(oid, s)
+                    except Exception:
+                        pass
+                    return None, "timeout no fill", 0.0
+            except Exception as _me:
+                log.debug("🎯 %s ضبط الوضع: %s", name_ar, str(_me)[:60])
         log.warning("🔌 %s حدّ %s: %s", name_ar, s, e)
         return None, f"limit failed: {e}", 0.0
     oid = o.get("id")

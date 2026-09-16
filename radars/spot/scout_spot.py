@@ -1242,6 +1242,24 @@ async def _sell_on_exchange(symbol: str, reason: str, price: float = 0.0):
 async def _emit_signal(r: dict):
     """🪙 إصدار إشارة السبوت: قاعدة + قناة + تنفيذ — من منصّة العملة نفسها."""
     sym = r["symbol"]; ex = r.get("exchange", "binance")
+    # 💧 حدّ السيولة — 200M حجم تداول 24 ساعة. كان في _scan_one وحده
+    #    فتسرّبت DYMUSDT (3.9M) و PUNDIXUSDT (11.6M) من هذا المسار.
+    #    مقيس 16 سبتمبر على 1175 صفقة، نصفين:
+    #      اول 15 يوم: بلا فلتر -1.16% · ≥200M -0.27%
+    #      آخر 15 يوم: بلا فلتر +0.16% · ≥200M +1.31%
+    #    الاطفاء: touch /opt/whalex/db/spot_liq.off
+    try:
+        import os as _osq2
+        if not _osq2.path.exists("/opt/whalex/db/spot_liq.off"):
+            from services.liquidity_gate import volume_of as _volq2
+            _qv2 = _volq2(sym)
+            if _qv2 is not None and _qv2 < 200.0:
+                log.info("🪙💧 %s لا تُفتح — سيولة %.1fM دون 200M",
+                         sym, _qv2)
+                return
+    except Exception as _lqe2:
+        log.debug("spot liq emit: %s", _lqe2)
+
     # 🪙🧠 الدماغ يُقيّم أوّلاً — قبل حرّاس السقف. فهو يقيس تسعة
     #    حقول (ضغط الشراء · الحجم · بولنجر · RSI-2 · RSI-14 · ATR ·
     #    موضع النطاق · المسار · الساعة) بينما الحرّاس يقيسون الدرجة

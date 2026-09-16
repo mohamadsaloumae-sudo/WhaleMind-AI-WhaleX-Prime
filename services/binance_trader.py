@@ -26,6 +26,9 @@ import hashlib
 from binance.client import Client
 from binance.exceptions import BinanceAPIException, BinanceOrderException
 
+import time as _tm
+_LEV_CACHE = {}   # {symbol: (وقت الجلب، اقصى رافعة)}
+
 log = logging.getLogger("binance_trader")
 
 DB_PATH = "/opt/whalex/db/whalex.db"
@@ -1032,8 +1035,19 @@ async def execute_signal_for_user(user_id: str, signal: dict) -> dict:
     try:
         # 1. فحص أقصى رافعة مسموحة للعملة، وتقييد اختيار المستخدم ضمنها
         try:
-            _br = await _aio_th(client.futures_leverage_bracket, symbol=symbol)
-            _max_lev = int(_br[0]["brackets"][0]["initialLeverage"])
+            # 💾 حدود الرافعة تُخزَّن ساعة — حدّ لا يتغيّر الا نادراً،
+            #    وكان يُجلب لكل صفقة لكل مشترك. مع 2000 مشترك:
+            #    2000 طلب → 1. وحماية APEUSDT باقية لان
+            #    change_leverage يُستدعى ويُتحقّق من ردّه لكل صفقة.
+            _max_lev = _LEV_CACHE.get(symbol, (0, 0))
+            if _tm.time() - _max_lev[0] < 3600 and _max_lev[1] > 0:
+                _max_lev = _max_lev[1]
+            else:
+                _br = await _aio_th(client.futures_leverage_bracket,
+                                    symbol=symbol)
+                _max_lev = int(_br[0]["brackets"][0]["initialLeverage"])
+                if _max_lev > 0:
+                    _LEV_CACHE[symbol] = (_tm.time(), _max_lev)
             if leverage > _max_lev:
                 log.info("رافعة %s: طُلب %dx، أقصى %dx → نستخدم %dx", symbol, leverage, _max_lev, _max_lev)
                 leverage = _max_lev
