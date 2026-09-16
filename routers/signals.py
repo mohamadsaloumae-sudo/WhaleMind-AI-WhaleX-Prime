@@ -187,6 +187,47 @@ def signals_history(market: str = "futures", user=Depends(get_current_user)):
     """آخر الصفقات المغلقة بنتائجها (رابح/خاسر + النسبة) من ml_training.db"""
     import sqlite3
     try:
+        # 💰 التنفيذ الحقيقي أولا — ما نُفّذ على المنصّة هو ما يُعرض.
+        #    مقيس 16 سبتمبر: 30 صفقة نُفّذت وسُجّلت shadow في
+        #    training_signals فاستبعدها المرشّح، وظهر للمشترك
+        #    "صفقة واحدة" بينما حسابه فيه 30.
+        try:
+            _uc = sqlite3.connect("file:/opt/whalex/db/whalex.db?mode=ro", uri=True)
+            _uc.row_factory = sqlite3.Row
+            _ur = [dict(r) for r in _uc.execute("""
+                SELECT symbol, direction, entry, exit_price, pnl_pct, net_usdt,
+                       real_net, commission, real_fee, leverage, opened_at,
+                       closed_at, close_reason, exchange
+                FROM user_trades
+                WHERE user_id=? AND market='futures' AND closed_at IS NOT NULL
+                  AND (closed_at > (strftime('%s','now','+4 hours','start of day','-4 hours'))
+                       OR opened_at > (strftime('%s','now','+4 hours','start of day','-4 hours')))
+                ORDER BY closed_at DESC LIMIT 300
+            """, (user["sub"],))]
+            _uc.close()
+            if _ur:
+                _out = []
+                for r in _ur:
+                    _net = r["real_net"] if r["real_net"] is not None else r["net_usdt"]
+                    _fee = r["real_fee"] if r["real_fee"] is not None else r["commission"]
+                    _out.append({
+                        "symbol": r["symbol"], "direction": r["direction"],
+                        "entry": r["entry"], "exit_price": r["exit_price"],
+                        "grade": "A", "tier": "LIVE", "radar": "تنفيذ حقيقيّ",
+                        "result": "win" if (_net or 0) > 0 else "loss",
+                        "pnl_pct": r["pnl_pct"],
+                        "is_win": bool((_net or 0) > 0),
+                        "closed_at": r["closed_at"], "opened_at": r["opened_at"],
+                        "leverage": r["leverage"], "exchange": r["exchange"],
+                        "net_usdt": _net, "commission": _fee,
+                        "close_reason": r["close_reason"],
+                        "duration_min": round(((r["closed_at"] or 0) -
+                                               (r["opened_at"] or 0)) / 60, 1),
+                    })
+                return {"history": _out, "source": "live"}
+        except Exception as _ue:
+            log.debug("live history: %s", _ue)
+
         con = sqlite3.connect("/opt/whalex/ml_training.db")
         con.row_factory = sqlite3.Row
         rows = con.execute("""
