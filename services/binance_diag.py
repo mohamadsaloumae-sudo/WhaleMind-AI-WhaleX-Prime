@@ -49,6 +49,10 @@ def diagnose(user_id: str) -> dict:
         out["auto_trade_on"] = out["futures_auto_on"] or out["spot_auto_on"]
         out["wants_futures"] = out["futures_auto_on"]
         out["exchange"] = d.get("exchange") or "binance"
+        # 🔌 المنصّة والحساب التجريبي — الادمن يجب ان يميّز:
+        #    مشترك على مكسي واخر على اوكي اكس، والشاشة تقول
+        #    "باينانس" للجميع. و3 حسابات تجريبية لا تتداول بمال حقيقي.
+        out["is_testnet"] = bool(d.get("is_testnet"))
         out["account_type"] = d.get("account_type") or "futures"
         out["trade_amount"] = d.get("trade_amount_usdt")
         out["leverage"] = d.get("leverage")

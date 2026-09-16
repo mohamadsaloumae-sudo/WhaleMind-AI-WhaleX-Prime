@@ -248,7 +248,18 @@ export default function UserSheet({ userId, onClose, onChanged }) {
             border: "1px solid " + (d.link_check.ok ? "rgba(34,197,94,0.25)" : "rgba(234,179,8,0.3)"),
           }}>
             <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 9 }}>
-              🔑 حالة الربط بباينانس
+              🔑 حالة الربط بـ{({
+                binance: "باينانس", bybit: "بايبت", mexc: "مكسي",
+                okx: "أوكي إكس", bitget: "بيتجت", gate: "جيت",
+                bingx: "بينج إكس",
+              })[d.link_check.exchange] || d.link_check.exchange || "المنصّة"}
+              {d.link_check.is_testnet && (
+                <span style={{
+                  marginInlineStart: 7, fontSize: 10.5, fontWeight: 800,
+                  padding: "2px 7px", borderRadius: 6,
+                  background: "rgba(234,179,8,.16)", color: "#eab308",
+                }}>🧪 تجريبيّ</span>
+              )}
               {d.link_check.ok ? (
                 <span style={{ color: "#22c55e", marginInlineStart: 8 }}>✓ سليم</span>
               ) : (
