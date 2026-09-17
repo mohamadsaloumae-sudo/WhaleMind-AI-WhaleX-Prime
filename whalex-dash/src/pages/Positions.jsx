@@ -59,7 +59,12 @@ export default function Positions() {
 
   async function load() {
     try {
-      const h = await signals.history(getMarket());
+      // 📒 صفقات المشترك — مساره الخاص لا اشارات النظام.
+      //    SYNUSDT نُفّذت بـ0.20469 وكانت البطاقة تعرض 0.19936.
+      const _tk = localStorage.getItem("whalex_token") || "";
+      const h = await fetch("/api/mytrades/history?market=" + getMarket(),
+        { headers: _tk ? { Authorization: "Bearer " + _tk } : {} })
+        .then((r) => (r.ok ? r.json() : null)).catch(() => null);
       setHistory(h?.history || []);
       const m = await signals.monthly(getMarket());
       setMonthly(m);

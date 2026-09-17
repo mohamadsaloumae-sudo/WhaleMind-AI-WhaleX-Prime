@@ -300,6 +300,8 @@ try:
     app.include_router(_cap_router)
     from routers.stats_today import router as _st_router
     app.include_router(_st_router)
+    from routers.my_trades import router as _mt_router
+    app.include_router(_mt_router)
 except Exception as _le:
     logging.getLogger("main").warning("admin_ledger: %s", _le)
 app.include_router(tg_router)
