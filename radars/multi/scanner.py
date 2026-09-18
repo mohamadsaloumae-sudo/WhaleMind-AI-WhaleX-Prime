@@ -89,6 +89,34 @@ MAJORS = {
 }
 MAJORS_MIN = 5.5
 MAJORS_OFF = "/opt/whalex/db/majors_relax.off"
+MAJORS_ATR = 0.35       # عتبة التقلّب للكبيرة (الصغيرة 1.5)
+MAJORS_SL_MIN = 1.5     # أدنى وقف للكبيرة — دونه خاسر (-1.70%)
+
+
+def _atr_min(sym) -> float:
+    """عتبة التقلّب لهذه العملة.
+
+    مقيس 18 سبتمبر: MIN_ATR_PCT=1.5 يرفض كل العملات الكبيرة —
+    BTC 0.22% · ETH 0.36% · SOL 0.40% · DOT 0.95% · ADA 0.55%.
+    فهي أهدأ بطبعها، ولم نفتح عليها إلا 43 صفقة من 4671 (0%).
+
+    والقياس على 137 صفقة كبيرة (60 يوماً): فوز 61% وصافي +96.0
+    ومتوسّط +0.70% — أي أنها رابحة ونمنعها.
+
+    وحسب مسافة الوقف:
+      دون 1.5%  : 12 صفقة · -1.70% 🔴
+      1.5-2.5%  : 116 صفقة · +0.68% ✅
+    فالحدّ الأدنى للوقف يحميها، لا حدّ التقلّب.
+
+    الاطفاء: touch /opt/whalex/db/majors_atr.off
+    """
+    try:
+        import os as _oa
+        if _oa.path.exists("/opt/whalex/db/majors_atr.off"):
+            return MIN_ATR_PCT
+        return MAJORS_ATR if str(sym or "").upper() in MAJORS else MIN_ATR_PCT
+    except Exception:
+        return MIN_ATR_PCT
 
 
 def _score_min(sym) -> float:
@@ -491,7 +519,7 @@ async def multi_scan_loop(position_manager_fn=None):
                                 < COOLDOWN):
                             _hit("cooldown_dir")
                             continue
-                        if atrp < MIN_ATR_PCT:
+                        if atrp < _atr_min(sym):
                             _hit("flat")
                             continue
                         # 🌡️ نبض السوق يُعدّل العتبة: الإشارة المخالفة لاتّجاه
