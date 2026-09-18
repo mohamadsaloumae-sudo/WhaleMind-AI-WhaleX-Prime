@@ -1507,6 +1507,19 @@ async def monitor_position(pos: Position):
 
 async def _close_position(pos: Position, price: float, reason: ExitReason, pnl_pct: float):
     """إغلاق الصفقة وإرسال الإشعار"""
+    # 🧠 كتابة المسار (MAE · MFE · المدّة · زمن القمّة) في صفّ التدريب.
+    #    مقيس 18 سبتمبر: track تُستدعى كل دورة مراقبة (سطر 911) لكن
+    #    finish لم تُستدعَ في الفيوتشر ابدا — فالمسار يُجمَّع في الذاكرة
+    #    ولا يُكتب، وكل الحقول تبقى صفرا. و13 صفقة اليوم بـMFE=0.00
+    #    و MAE=0.00 و duration=0.0، فالحرّاس (النزيف · الحد المطلق ·
+    #    الوقف المتحرّك) عمياء لانها تقرأ هذه الحقول — صفر تدخّل في
+    #    12 ساعة، وفوز 7% وصافي -48.9. والسبوت يستدعيها منذ البداية.
+    try:
+        from services.lifecycle_recorder import finish as _lf
+        _lf(pos.symbol, pos.direction,
+            reason.value if hasattr(reason, "value") else str(reason))
+    except Exception as _lfe:
+        log.debug("lifecycle finish %s: %s", pos.symbol, _lfe)
     # 📖 المرحلة 3 — لماذا اغلقت وعلى اي حال سوق.
     try:
         import time as _tj
