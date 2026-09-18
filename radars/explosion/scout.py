@@ -512,6 +512,31 @@ async def _send_signal_and_open(symbol: str, price: float, candles: list, peak: 
     #    Peak Hunter يحفظ الإشارة ويُرسلها للقناة، لكنّه لم يكن
     #    يستدعي محرّك التنفيذ إطلاقاً، فلا تُفتح لأي مشترك.
     #    نفس عطل رادار MX الذي كان معطّلاً 9 أيام.
+    # 🎯 لا نشورت عملة لم تصعد بعد — الصعود لم ينتهِ.
+    #    مقيس 18 سبتمبر على 453 صفقة PH (30 يوماً):
+    #      RSI دون 50      : 96 صفقة · -0.65% 🔴
+    #      RSI 60-70       : 98 صفقة · +1.75% ✅
+    #      موقع النطاق 0.5-0.7: 155 صفقة · -0.13% 🔴
+    #      موقع النطاق 0.7-0.85: 80 صفقة · +2.46% ✅
+    #    فالرادار ينجح حين تبلغ العملة قمّتها ويُشبع شراؤها،
+    #    ويخسر حين يشورت في منتصف النطاق بزخم ضعيف.
+    #    والشرط المرن (RSI≥50 أو النطاق≥0.70): الصافي +357.6 ← +427.0
+    #    ونحتفظ بـ79% من الصفقات. والصارم (الاثنان معا) يخسر -71.4
+    #    لانه يمنع رابحات.
+    #    التسجيل تم اعلاه — نمنع الفتح لا التعلّم.
+    #    الاطفاء: touch /opt/whalex/db/ph_peak.off
+    try:
+        import os as _osp
+        if not _osp.path.exists("/opt/whalex/db/ph_peak.off"):
+            _rsi = float(getattr(sig, "rsi", 0) or 0)
+            _rp = float(getattr(sig, "range_pos", 0) or 0)
+            if _rsi < 50.0 and _rp < 0.70:
+                log.info("🎯🚫 %s لا تُفتح — RSI %.0f ودون قمّة النطاق "
+                         "(%.2f): الصعود لم ينتهِ", sig.symbol, _rsi, _rp)
+                return
+    except Exception as _pe:
+        log.debug("ph peak gate %s: %s", sig.symbol, _pe)
+
     try:
         import asyncio as _aio
         from services.auto_trade_engine import on_signal_approved as _osa

@@ -240,6 +240,22 @@ async def on_signal_approved(sig) -> None:
     if sig.grade not in ("A", "S"):
         return
 
+    # 🧭 بوّابة الاتّجاه — بالرادار والاتّجاه والنظام معاً.
+    #    مقيس 18 سبتمبر على 4278 صفقة: الصافي +652.9 ← +1119.2
+    #    والمتوسّط +0.153% ← +0.432%، ونحتفظ بـ60% من الصفقات.
+    #    والسبب المباشر: السوق انقلب صعودا 17-18 سبتمبر و MX ظلّ
+    #    يفتح شورت — 13 صفقة بفوز 8% وصافي -48.9 في يوم واحد.
+    #    و PH شورت خالص يربح +1.19% في السوق الصاعد، فلا نمنعه:
+    #    البوّابة تعرف كل رادار على حدة لا تعمّم.
+    try:
+        from quant_engine.dir_gate import allow as _dga
+        _ok, _why = _dga(getattr(sig, "tier", ""), getattr(sig, "direction", ""))
+        if not _ok:
+            log.info("🧭🚫 %s — %s", getattr(sig, "symbol", "?"), _why)
+            return
+    except Exception as _dge:
+        log.debug("dir_gate: %s", _dge)
+
     # 🌐 بوابة النظام — كل رادار يعمل في الانظمة التي يربح فيها.
     #    مقيس 10 سبتمبر على 6050 صفقة و1000 ساعة من 12 عملة:
     #      MX في BEAR|CALM = 22.5% فوز و -232 نقطة
