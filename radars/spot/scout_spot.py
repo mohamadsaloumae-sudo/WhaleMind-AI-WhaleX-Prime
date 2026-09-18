@@ -278,20 +278,25 @@ async def _scan_one(c: httpx.AsyncClient, sym: str):
         _pts += 0.8
     if closes[-1] > sum(closes[-6:-1]) / 5:
         _pts += 1.0; _why.append("شرارة")
-    # 💧 حدّ السيولة — 200M حجم تداول 24 ساعة.
-    #    مقيس 16 سبتمبر على 1175 صفقة سبوت (30 يوماً)، ومُقسّمة نصفين:
-    #      اول 15 يوم: بلا فلتر -1.16% · ≥200M -0.27% · ≥300M +0.19%
-    #      آخر 15 يوم: بلا فلتر +0.16% · ≥200M +1.31% · ≥300M +1.92%
-    #    فالتحسّن رتيب في الفترتين — لا قفزة عشوائية.
-    #    و200M تعطي ~6 صفقات يومياً، و300M تعطي 3 فقط.
+    # 💧 حدّ حجم التداول — 30M في 24 ساعة.
+    #    كان 200M ومقيسا على اشارات النظام (1175 صفقة)، لكنّ القياس
+    #    على التنفيذ الحقيقي يقول غير ذلك. مقيس 18 سبتمبر على 192
+    #    صفقة سبوت منفّذة:
+    #      بلا حدّ : 192 صفقة · فوز 42% · -173.18$
+    #      ≥ 20M  :  16 صفقة · فوز 37% ·   -6.36$
+    #      ≥ 30M  :   7 صفقات · فوز 71% ·   +6.08$  ← المختار
+    #      ≥ 50M  :   6 صفقات · فوز 66% ·   +6.02$
+    #      ≥200M  :  صفر صفقات — لا عملة تبلغه في سوق هادئ
+    #    و30M يفتح 22 عملة بدل 6، و200M أوقف السبوت تماما:
+    #    CAKE 27.1M · SAGA 21.9M · MUBARAK 12.4M كلّها رُفضت.
     #    الاطفاء: touch /opt/whalex/db/spot_liq.off
     try:
         import os as _osq
         if not _osq.path.exists("/opt/whalex/db/spot_liq.off"):
             from services.liquidity_gate import volume_of as _volq
             _qv = _volq(sym)
-            if _qv is not None and _qv < 200.0:
-                log.debug("🪙💧 %s سيولة %.0fM دون 200M", sym, _qv)
+            if _qv is not None and _qv < 30.0:
+                log.debug("🪙💧 %s حجم %.0fM دون 30M", sym, _qv)
                 return
     except Exception as _lqe:
         log.debug("spot liq: %s", _lqe)
